@@ -28,7 +28,6 @@ function startServer(config, rooms, callback) {
 
         request.on("end", function() {
             var params = qs.parse(body);
-            var util = require('util');
             if (params.user_id !== "USLACKBOT") {
                 var intent = bridge.getIntent("@" + config["username_prefix"] + params.user_name + ":" + config["homeserver"]["server_name"]);
                 if (rooms.KnowsSlackChannel(params["channel_id"])) {
