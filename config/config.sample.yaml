@@ -1,0 +1,16 @@
+slack_hook_port: 9898
+bot_username: "slackbot"
+username_prefix: "slack_"
+
+homeserver:
+  url: http://localhost:8008
+  server_name: my.server
+
+tls:
+  key_file: /path/to/tls.key
+  crt_file: /path/to/tls.crt
+
+rooms:
+  - slack_channel_id: "QWERTYUIOP"
+    matrix_room_id: "!ZXC987:matrix.org"
+    webhook_url: "https://hooks.slack.com/services/ABC/DEF/123"

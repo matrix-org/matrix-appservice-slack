@@ -1,0 +1,37 @@
+type: object
+required: ["homeserver", "slack_hook_port", "bot_username", "username_prefix"]
+properties:
+  homeserver:
+    type: object
+    required: ["server_name", "url"]
+    properties:
+      server_name:
+        type: string
+      url:
+        type: string
+  tls:
+    type: object
+    required: ["key_file", "crt_file"]
+    properties:
+      key_file:
+        type: string
+      crt_file:
+        type: string
+  slack_hook_port:
+    type: integer
+  rooms:
+    type: array
+    items:
+      type: object
+      required: ["slack_channel_id", "matrix_room_id", "webhook_url"]
+      properties:
+        slack_channel_id:
+          type: string
+        matrix_room_id:
+          type: string
+        webhook_url:
+          type: string
+  bot_username:
+    type: string
+  username_prefix:
+    type: string
