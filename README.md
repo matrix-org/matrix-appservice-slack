@@ -9,7 +9,6 @@ To install, you will need to get dependencies by running:
 $ npm init
 $ npm install matrix-appservice-bridge
 $ npm install request
-$ npm install yamljs
 ```
 
 Then fill out a config.yaml file according to the example in
@@ -22,5 +21,5 @@ $ node app.js -r -c config.yaml -u "http://localhost:9000"
 
 Start your application service:
 ```
-$ node app.js -p 9001 -c config.yaml
+$ node app.js -p 9000 -c config.yaml
 ```
