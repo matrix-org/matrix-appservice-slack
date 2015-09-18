@@ -3,6 +3,7 @@
 // node app.js -p 9000 -c config.yaml
 var qs = require("querystring");
 var requestLib = require("request");
+var Rooms = require("./lib/rooms");
 var bridgeLib = require("matrix-appservice-bridge");
 var bridge;
 
@@ -58,40 +59,6 @@ function startServer(config, rooms, callback) {
 var Cli = bridgeLib.Cli;
 var Bridge = bridgeLib.Bridge;
 var AppServiceRegistration = bridgeLib.AppServiceRegistration;
-
-function Rooms(config) {
-    this.slack_channels = {};
-    this.matrix_rooms = {};
-    for (var i = 0; i < config.rooms.length; ++i) {
-        var room = config.rooms[i];
-        this.slack_channels[room["slack_channel_id"]] = room;
-        this.matrix_rooms[room["matrix_room_id"]] = room
-    }
-}
-
-Rooms.prototype.knowsSlackChannel = function(slack_channel_id) {
-    return Boolean(this.slack_channels[slack_channel_id]);
-};
-
-Rooms.prototype.knowsMatrixRoom = function(matrix_room_id) {
-    return Boolean(this.matrix_rooms[matrix_room_id]);
-};
-
-Rooms.prototype.matrixRoomID = function(slack_channel_id) {
-    var channel = this.slack_channels[slack_channel_id];
-    if (!channel) {
-        return null;
-    }
-    return channel.matrix_room_id;
-};
-
-Rooms.prototype.webhookForMatrixRoomID = function(matrix_room_id) {
-    var room = this.matrix_rooms[matrix_room_id];
-    if (!room) {
-        return null;
-    }
-    return room.webhook_url;
-};
 
 new Cli({
     registrationPath: "slack-registration.yaml",
