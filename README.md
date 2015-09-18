@@ -4,11 +4,9 @@ A Matrix &lt;--> Slack bridge
 This is currently a very barebones bridge, it just does basic text in
 pre-enumerated channels. It will become more exciting.
 
-To install, you will need to get dependencies by running:
+To install:
 ```
-$ npm init
-$ npm install matrix-appservice-bridge
-$ npm install request
+$ npm install
 ```
 
 Then fill out a config.yaml file according to the example in
