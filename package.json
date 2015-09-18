@@ -4,7 +4,7 @@
   "description": "A Matrix <--> Slack bridge",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jasmine-node tests --verbose --forceexit --captureExceptions",
     "lint": "eslint app.js /lib"
   },
   "repository": {
