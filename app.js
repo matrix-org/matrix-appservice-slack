@@ -31,7 +31,16 @@ function startServer(config, rooms, callback) {
             if (params.user_id !== "USLACKBOT") {
                 var intent = bridge.getIntent("@" + config.username_prefix + params.user_name + ":" + config.homeserver.server_name);
                 if (rooms.knowsSlackChannel(params["channel_id"])) {
-                    intent.sendText(rooms.matrixRoomID(params["channel_id"]), params.text);
+                    var roomID = rooms.matrixRoomID(params["channel_id"]);
+                    if (roomID) {
+                        intent.sendText(roomID, params.text);
+                    } else {
+                        console.log(
+                            "Ignoring message for slack channel " +
+                            "with unknown matrix ID: " + params["channel_id"] +
+                            " (" + params["channel_name"] + ")"
+                        );
+                    }
                 }
             }
             response.writeHead(200, {"Content-Type": "application/json"});
@@ -116,13 +125,18 @@ new Cli({
 
                     onEvent: function(request, context) {
                         var event = request.getData();
-                        if (event.type !== "m.room.message" || !event.content || !rooms.knowsMatrixRoom(event.room_id)) {
+                        if (event.type !== "m.room.message" || !event.content) {
+                            return;
+                        }
+                        var hookURL = rooms.webhookForMatrixRoomID(event.room_id);
+                        if (!hookURL) {
+                            console.log("Ignoring event for matrix room with unknown slack channel:" + event.room_id);
                             return;
                         }
                         requestLib({
                             method: "POST",
                             json: true,
-                            uri: rooms.webhookForMatrixRoomID(event.room_id),
+                            uri: hookURL,
                             body: {
                                 username: event.user_id,
                                 text: event.content.body
