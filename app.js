@@ -1,8 +1,9 @@
 // Usage:
 // node app.js -r -c config.yaml -u "http://localhost:9000" # remember to add the registration!
 // node app.js -p 9000 -c config.yaml
-var qs = require('querystring');
+var qs = require("querystring");
 var requestLib = require("request");
+var bridgeLib = require("matrix-appservice-bridge");
 var bridge;
 
 function startServer(config, rooms, callback) {
@@ -48,18 +49,15 @@ function startServer(config, rooms, callback) {
             response.end();
         });
     }).listen(config.slack_hook_port, function() {
-        var protocol = "http";
-        if (config.tls) {
-            protocol = "https";
-        }
+        var protocol = config.tls ? "https" : "http";
         console.log("Slack-side listening on port " + config.slack_port + " over " + protocol);
         callback();
     });
 }
 
-var Cli = require("matrix-appservice-bridge").Cli;
-var Bridge = require("matrix-appservice-bridge").Bridge;
-var AppServiceRegistration = require("matrix-appservice").AppServiceRegistration;
+var Cli = bridgeLib.Cli;
+var Bridge = bridgeLib.Bridge;
+var AppServiceRegistration = bridgeLib.AppServiceRegistration;
 
 function Rooms(config) {
     this.slack_channels = {};
