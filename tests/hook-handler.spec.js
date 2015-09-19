@@ -45,8 +45,15 @@ describe("HookHandler.handle", function() {
         it("sends text messages", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("GOB", "I've made a huge mistake"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "I've made a huge mistake");
+            expect(intent.sendText).toHaveBeenCalledWith(
+                "!room:host", "I've made a huge mistake");
 
+        });
+        it("unescapes special characters", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest("GOB", "&lt;special &amp; characters&gt;"));
+            expect(intent.sendText).toHaveBeenCalledWith(
+                "!room:host", "<special & characters>");
         });
     });
 
