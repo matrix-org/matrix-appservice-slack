@@ -2,6 +2,29 @@
 
 var MatrixHandler = require("../lib/matrix-handler");
 
+function makeEvent(message) {
+    return {
+        type: "m.room.message",
+        room_id: "!foo:bar.baz",
+        content: {
+            body: message
+        },
+        user_id: "@michael:banana.stand"
+    };
+}
+
+function requestLibObjFor(message) {
+    return {
+        method: "POST",
+        json: true,
+        uri: "https://hooks.slack.com/services/AAA/BBB/CCC",
+        body: {
+            username: "@michael:banana.stand",
+            text: message
+        }
+    }
+}
+
 describe("MatrixHandler.handle", function() {
     var handler;
     var requestLib;
@@ -18,24 +41,29 @@ describe("MatrixHandler.handle", function() {
 
     describe("handle text messages", function() {
         it("sends text messages", function() {
-            var event = {
-                type: "m.room.message",
-                room_id: "!foo:bar.baz",
-                content: {
-                    body: "Has anyone in this family ever seen a chicken?"
-                },
-                user_id: "@michael:banana.stand"
-            };
+            var content = "Has anyone in this family ever seen a chicken?";
+            var event = makeEvent(content);
             handler.handle(event);
-            expect(requestLib.do).toHaveBeenCalledWith({
-                method: "POST",
-                json: true,
-                uri: "https://hooks.slack.com/services/AAA/BBB/CCC",
-                body: {
-                    username: event.user_id,
-                    text: event.content.body
-                }
-            }, jasmine.any(Function));
+            expect(requestLib.do).toHaveBeenCalledWith(
+                requestLibObjFor(content),
+                jasmine.any(Function)
+            );
+        });
+        it("escapes special characters", function() {
+            var event = makeEvent("<special & characters>");
+            handler.handle(event);
+            expect(requestLib.do).toHaveBeenCalledWith(
+                requestLibObjFor("&lt;special &amp; characters&gt;"),
+                jasmine.any(Function)
+            );
+        });
+        it("escapes multiple of a special character", function() {
+            var event = makeEvent("<<<<<");
+            handler.handle(event);
+            expect(requestLib.do).toHaveBeenCalledWith(
+                requestLibObjFor("&lt;&lt;&lt;&lt;&lt;"),
+                jasmine.any(Function)
+            );
         });
     });
 
