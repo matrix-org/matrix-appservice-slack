@@ -1,6 +1,6 @@
 "use strict";
 
-var HookHandler = require("../lib/hook-handler");
+var SlackHookHandler = require("../lib/slack-hook-handler");
 
 function makeRequest(user, text) {
     return {
@@ -10,7 +10,7 @@ function makeRequest(user, text) {
     };
 }
 
-describe("HookHandler.handle", function() {
+describe("SlackHookHandler.handle", function() {
     var handler;
     var intent;
 
@@ -34,7 +34,7 @@ describe("HookHandler.handle", function() {
                 return intent;
             }
         };
-        handler = new HookHandler(config, rooms, bridge);
+        handler = new SlackHookHandler(config, rooms, bridge);
     });
 
     describe("handle text messages", function() {
@@ -52,7 +52,7 @@ describe("HookHandler.handle", function() {
 
 });
 
-describe("HookHandler", function() {
+describe("SlackHookHandler", function() {
     it("gets intent", function() {
         var config = {
             username_prefix: "prefix_",
@@ -62,7 +62,7 @@ describe("HookHandler", function() {
         };
         var rooms = undefined;
         var bridge = createSpyObj("bridge", ["getIntent"]);
-        var handler = new HookHandler(config, rooms, bridge)
+        var handler = new SlackHookHandler(config, rooms, bridge)
         handler.getIntent("foo");
         expect(bridge.getIntent).toHaveBeenCalledWith("@prefix_foo:my.homeserver");
     });
