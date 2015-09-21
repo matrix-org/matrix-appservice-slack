@@ -6,7 +6,7 @@
 var qs = require("querystring");
 var requestLib = require("request");
 var Rooms = require("./lib/rooms");
-var HookHandler = require("./lib/hook-handler");
+var SlackHookHandler = require("./lib/slack-hook-handler");
 var MatrixHandler = require("./lib/matrix-handler");
 var bridgeLib = require("matrix-appservice-bridge");
 var bridge;
@@ -87,8 +87,8 @@ new Cli({
                 },
             }
         });
-        var hookHandler = new HookHandler(config, rooms, bridge);
-        startServer(config, hookHandler, function() {
+        var slackHookHandler = new SlackHookHandler(config, rooms, bridge);
+        startServer(config, slackHookHandler, function() {
             console.log("Matrix-side listening on port %s", port);
             bridge.run(port, config);
         });
