@@ -57,6 +57,14 @@ describe("MatrixHandler.handle", function() {
                 jasmine.any(Function)
             );
         });
+        it("escapes multiple of a special character", function() {
+            var event = makeEvent("<<<<<");
+            handler.handle(event);
+            expect(requestLib.do).toHaveBeenCalledWith(
+                requestLibObjFor("&lt;&lt;&lt;&lt;&lt;"),
+                jasmine.any(Function)
+            );
+        });
     });
 
 });
