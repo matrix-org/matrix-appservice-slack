@@ -4,7 +4,8 @@
 var qs = require("querystring");
 var requestLib = require("request");
 var Rooms = require("./lib/rooms");
-var HookHandler = require("./lib/hook-handler");
+var SlackHookHandler = require("./lib/slack-hook-handler");
+var MatrixHandler = require("./lib/matrix-handler");
 var bridgeLib = require("matrix-appservice-bridge");
 var bridge;
 
@@ -64,6 +65,7 @@ new Cli({
     },
     run: function(port, config) {
         var rooms = new Rooms(config);
+        var matrixHandler = new MatrixHandler(rooms, requestLib);
         bridge = new Bridge({
             homeserverUrl: config.homeserver.url,
             domain: config.homeserver.server_name,
@@ -74,37 +76,11 @@ new Cli({
                     return {}; // auto-provision users with no additonal data
                 },
 
-                onEvent: function(request, context) {
-                    var event = request.getData();
-                    if (event.type !== "m.room.message" || !event.content) {
-                        return;
-                    }
-                    var hookURL = rooms.webhookForMatrixRoomID(event.room_id);
-                    if (!hookURL) {
-                        console.log("Ignoring event for matrix room with unknown slack channel:" + event.room_id);
-                        return;
-                    }
-                    requestLib({
-                        method: "POST",
-                        json: true,
-                        uri: hookURL,
-                        body: {
-                            username: event.user_id,
-                            text: event.content.body
-                        }
-                    }, function(err, res) {
-                        if (err) {
-                            console.log("HTTP Error: %s", err);
-                        }
-                        else {
-                            console.log("HTTP %s", res.statusCode);
-                        }
-                    });
-                }
+                onEvent: function(request, context) { matrixHandler.handle(request.getData()); },
             }
         });
-        var hookHandler = new HookHandler(config, rooms, bridge);
-        startServer(config, hookHandler, function() {
+        var slackHookHandler = new SlackHookHandler(config, rooms, bridge);
+        startServer(config, slackHookHandler, function() {
             console.log("Matrix-side listening on port %s", port);
             bridge.run(port, config);
         });
