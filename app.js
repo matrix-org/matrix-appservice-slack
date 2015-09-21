@@ -4,10 +4,11 @@
 var qs = require("querystring");
 var requestLib = require("request");
 var Rooms = require("./lib/rooms");
+var HookHandler = require("./lib/hook-handler");
 var bridgeLib = require("matrix-appservice-bridge");
 var bridge;
 
-function startServer(config, rooms, callback) {
+function startServer(config, hookHandler, callback) {
     var createServer;
     if (config.tls) {
         var fs = require("fs");
@@ -30,21 +31,7 @@ function startServer(config, rooms, callback) {
 
         request.on("end", function() {
             var params = qs.parse(body);
-            if (params.user_id !== "USLACKBOT") {
-                var intent = bridge.getIntent("@" + config.username_prefix + params.user_name + ":" + config.homeserver.server_name);
-                if (rooms.knowsSlackChannel(params["channel_id"])) {
-                    var roomID = rooms.matrixRoomID(params["channel_id"]);
-                    if (roomID) {
-                        intent.sendText(roomID, params.text);
-                    } else {
-                        console.log(
-                            "Ignoring message for slack channel " +
-                            "with unknown matrix ID: " + params["channel_id"] +
-                            " (" + params["channel_name"] + ")"
-                        );
-                    }
-                }
-            }
+            hookHandler.handle(params);
             response.writeHead(200, {"Content-Type": "application/json"});
             response.write(JSON.stringify({}));
             response.end();
@@ -77,46 +64,47 @@ new Cli({
     },
     run: function(port, config) {
         var rooms = new Rooms(config);
-        startServer(config, rooms, function() {
-            bridge = new Bridge({
-                homeserverUrl: config.homeserver.url,
-                domain: config.homeserver.server_name,
-                registration: "slack-registration.yaml",
+        bridge = new Bridge({
+            homeserverUrl: config.homeserver.url,
+            domain: config.homeserver.server_name,
+            registration: "slack-registration.yaml",
 
-                controller: {
-                    onUserQuery: function(queriedUser) {
-                        return {}; // auto-provision users with no additonal data
-                    },
+            controller: {
+                onUserQuery: function(queriedUser) {
+                    return {}; // auto-provision users with no additonal data
+                },
 
-                    onEvent: function(request, context) {
-                        var event = request.getData();
-                        if (event.type !== "m.room.message" || !event.content) {
-                            return;
-                        }
-                        var hookURL = rooms.webhookForMatrixRoomID(event.room_id);
-                        if (!hookURL) {
-                            console.log("Ignoring event for matrix room with unknown slack channel:" + event.room_id);
-                            return;
-                        }
-                        requestLib({
-                            method: "POST",
-                            json: true,
-                            uri: hookURL,
-                            body: {
-                                username: event.user_id,
-                                text: event.content.body
-                            }
-                        }, function(err, res) {
-                            if (err) {
-                                console.log("HTTP Error: %s", err);
-                            }
-                            else {
-                                console.log("HTTP %s", res.statusCode);
-                            }
-                        });
+                onEvent: function(request, context) {
+                    var event = request.getData();
+                    if (event.type !== "m.room.message" || !event.content) {
+                        return;
                     }
+                    var hookURL = rooms.webhookForMatrixRoomID(event.room_id);
+                    if (!hookURL) {
+                        console.log("Ignoring event for matrix room with unknown slack channel:" + event.room_id);
+                        return;
+                    }
+                    requestLib({
+                        method: "POST",
+                        json: true,
+                        uri: hookURL,
+                        body: {
+                            username: event.user_id,
+                            text: event.content.body
+                        }
+                    }, function(err, res) {
+                        if (err) {
+                            console.log("HTTP Error: %s", err);
+                        }
+                        else {
+                            console.log("HTTP %s", res.statusCode);
+                        }
+                    });
                 }
-            });
+            }
+        });
+        var hookHandler = new HookHandler(config, rooms, bridge);
+        startServer(config, hookHandler, function() {
             console.log("Matrix-side listening on port %s", port);
             bridge.run(port, config);
         });
