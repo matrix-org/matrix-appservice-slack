@@ -1,5 +1,7 @@
 // Usage:
-// node app.js -r -c config.yaml -u "http://localhost:9000" # remember to add the registration!
+// The first time, run this first to register with your homeserver:
+// node app.js -r -c config.yaml -u "http://localhost:9000"
+// And any time after that:
 // node app.js -p 9000 -c config.yaml
 var qs = require("querystring");
 var requestLib = require("request");
@@ -17,8 +19,11 @@ function startServer(config, hookHandler, callback) {
             key: fs.readFileSync(config.tls.key_file),
             cert: fs.readFileSync(config.tls.crt_file)
         };
-        createServer = function(cb) { return require("https").createServer(tls_options, cb); };
-    } else {
+        createServer = function(cb) {
+            return require("https").createServer(tls_options, cb);
+        };
+    }
+    else {
         createServer = require("http").createServer;
     }
 
@@ -39,7 +44,8 @@ function startServer(config, hookHandler, callback) {
         });
     }).listen(config.slack_hook_port, function() {
         var protocol = config.tls ? "https" : "http";
-        console.log("Slack-side listening on port " + config.slack_port + " over " + protocol);
+        console.log("Slack-side listening on port " +
+            config.slack_port + " over " + protocol);
         callback();
     });
 }
@@ -76,7 +82,9 @@ new Cli({
                     return {}; // auto-provision users with no additonal data
                 },
 
-                onEvent: function(request, context) { matrixHandler.handle(request.getData()); },
+                onEvent: function(request, context) {
+                    matrixHandler.handle(request.getData());
+                },
             }
         });
         var slackHookHandler = new SlackHookHandler(config, rooms, bridge);

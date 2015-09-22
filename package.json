@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "test": "jasmine-node tests --verbose --forceexit --captureExceptions",
-    "lint": "eslint app.js /lib"
+    "lint": "eslint app.js lib"
   },
   "repository": {
     "type": "git",
