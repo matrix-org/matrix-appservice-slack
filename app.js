@@ -50,7 +50,7 @@ function startServer(config, hookHandler, callback) {
     }).listen(config.slack_hook_port, function() {
         var protocol = config.tls ? "https" : "http";
         console.log("Slack-side listening on port " +
-            config.slack_port + " over " + protocol);
+            config.slack_hook_port + " over " + protocol);
         callback();
     });
 }
