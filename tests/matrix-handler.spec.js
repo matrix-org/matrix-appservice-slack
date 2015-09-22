@@ -16,9 +16,9 @@ function makeEvent(message, type, args) {
         },
         user_id: "@michael:banana.stand"
     };
-    for (var k in args) {
+    Object.keys(args).forEach(function(k) {
         event.content[k] = args[k];
-    }
+    });
     return event;
 }
 
