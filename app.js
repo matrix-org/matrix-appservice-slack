@@ -37,7 +37,12 @@ function startServer(config, hookHandler, callback) {
 
         request.on("end", function() {
             var params = qs.parse(body);
-            hookHandler.handle(params);
+            if (hookHandler.checkAuth(params)) {
+                hookHandler.handle(params);
+            }
+            else {
+                console.log("Ignoring request with bad token: " + JSON.stringify(params));
+            }
             response.writeHead(200, {"Content-Type": "application/json"});
             response.write(JSON.stringify({}));
             response.end();

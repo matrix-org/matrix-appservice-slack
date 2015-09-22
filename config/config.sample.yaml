@@ -12,5 +12,6 @@ tls:
 
 rooms:
   - slack_channel_id: "QWERTYUIOP"
+    slack_api_token: "ABC123"
     matrix_room_id: "!ZXC987:matrix.org"
     webhook_url: "https://hooks.slack.com/services/ABC/DEF/123"
