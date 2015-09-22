@@ -55,6 +55,18 @@ describe("SlackHookHandler.handle", function() {
             expect(intent.sendText).toHaveBeenCalledWith(
                 "!room:host", "<special & characters>");
         });
+        it("unicode-ifies emoji", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest(
+                    "Lucille",
+                    "nudge nudge:wink: :wink::rugby_football:wink :wink wink:"
+                )
+            );
+            expect(intent.sendText).toHaveBeenCalledWith(
+                "!room:host",
+                "nudge nudge😉 😉🏉wink :wink wink:"
+            );
+        });
     });
 
 });
