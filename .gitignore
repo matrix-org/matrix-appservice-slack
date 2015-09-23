@@ -1,3 +1,7 @@
+*.db
+config.yaml
+slack-registration.yaml
+
 # Logs
 logs
 *.log
