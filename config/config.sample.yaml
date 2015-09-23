@@ -2,10 +2,14 @@ slack_hook_port: 9898
 bot_username: "slackbot"
 username_prefix: "slack_"
 
+# Optional
+slack_master_token: "abc-123-def"
+
 homeserver:
   url: http://localhost:8008
   server_name: my.server
 
+# Optional
 tls:
   key_file: /path/to/tls.key
   crt_file: /path/to/tls.crt
