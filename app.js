@@ -65,9 +65,8 @@ new Cli({
         schema: "config/slack-config-schema.yaml",
         affectsRegistration: true
     },
-    generateRegistration: function(appServiceUrl, callback) {
+    generateRegistration: function(reg, callback) {
         var config = Cli.getConfig();
-        var reg = new AppServiceRegistration(appServiceUrl);
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
         reg.setSenderLocalpart(config.bot_username);
