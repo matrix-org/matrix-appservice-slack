@@ -64,6 +64,31 @@ describe("SlackHookHandler.handle", function() {
             expect(intent.sendText).toHaveBeenCalledWith(
                 "!room:host", "<special & characters>");
         });
+        it("unicode-ifies one emojum", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest("Lucille", ":wink:"));
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉");
+        });
+        it("unicode-ifies several emoji", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest("Lucille", ":wink::wink: :rugby_football:"));
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉😉 🏉");
+        });
+        it("doesn't unicode-ifies emoji with whitespace", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest("Lucille", ":win k:"));
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":win k:");
+        });
+        it("doesn't unicode-ifies improperly formed emoji", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest("Lucille", ":k:wink:"));
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":k😉");
+        });
+        it("ignores unknown emoji", function() {
+            intent = createSpyObj("intent", ["sendText"]);
+            handler.handle(makeRequest("Lucille", ":godzillavodka:"));
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":godzillavodka:");
+        });
     });
 
     function mockChannelHistory(reply) {
