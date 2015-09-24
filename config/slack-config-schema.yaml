@@ -37,3 +37,7 @@ properties:
     type: string
   username_prefix:
     type: string
+  slack_master_token:
+    # Required for some functionality, like sending images from Slack to Matrix.
+    # Bridge gracefully degrades if no slack_master_token is specified.
+    type: string
