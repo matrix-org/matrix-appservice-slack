@@ -72,8 +72,8 @@ describe("SlackHookHandler.handle", function() {
         });
         it("doesn't unicode-ifies improperly formed emoji", function() {
             intent = createSpyObj("intent", ["sendText"]);
-            handler.handle(makeRequest("Lucille", ":wink:k:"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉k:");
+            handler.handle(makeRequest("Lucille", ":k:wink:"));
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":k😉");
         });
         it("ignores unknown emoji", function() {
             intent = createSpyObj("intent", ["sendText"]);
