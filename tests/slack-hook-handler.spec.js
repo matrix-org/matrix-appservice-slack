@@ -2,24 +2,45 @@
 
 var SlackHookHandler = require("../lib/slack-hook-handler");
 
-function makeRequest(user, text) {
-    return {
-        "channel_id": "slackchan",
-        "user_id": user,
-        "text": text
-    };
-}
-
 describe("SlackHookHandler.handle", function() {
     var requestLib;
     var handler;
     var intent;
     var config;
-    var timestamp = "1443017615.000193";
 
     function assertNoMessagesSent() {
         expect(intent.sendMessage).not.toHaveBeenCalled();
         expect(intent.sendText).not.toHaveBeenCalled();
+    }
+
+    var timestamp = "1443017615.000193";
+
+    function makeRequest(user, text) {
+        mockChannelHistoryTextMessage(text);
+        return {
+            "channel_id": "slackchan",
+            "user_id": user,
+            "text": text,
+            "timestamp": timestamp,
+        };
+    }
+
+    function mockChannelHistory(reply) {
+        requestLib.post = function(url, params, cb) {
+            expect(url).toEqual("https://slack.com/api/channels.history");
+            expect(params).toEqual({form: {
+                channel: "slackchan",
+                latest: timestamp,
+                oldest: timestamp,
+                inclusive: "1",
+                token: "leavinganote",
+            }});
+            cb(null, undefined, JSON.stringify(reply));
+        };
+    }
+
+    function mockChannelHistoryTextMessage(text) {
+        mockChannelHistory({messages: [{text: text}], ok: true});
     }
 
     beforeEach(function() {
@@ -90,20 +111,6 @@ describe("SlackHookHandler.handle", function() {
             expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":godzillavodka:");
         });
     });
-
-    function mockChannelHistory(reply) {
-        requestLib.post = function(url, params, cb) {
-            expect(url).toEqual("https://slack.com/api/channels.history");
-            expect(params).toEqual({form: {
-                channel: "slackchan",
-                latest: timestamp,
-                oldest: timestamp,
-                inclusive: "1",
-                token: "leavinganote",
-            }});
-            cb(null, undefined, JSON.stringify(reply));
-        };
-    }
 
     function receiveImage() {
         handler.handle({
