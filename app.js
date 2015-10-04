@@ -59,14 +59,14 @@ var Cli = bridgeLib.Cli;
 var Bridge = bridgeLib.Bridge;
 var AppServiceRegistration = bridgeLib.AppServiceRegistration;
 
-new Cli({
+var cli = new Cli({
     registrationPath: "slack-registration.yaml",
     bridgeConfig: {
         schema: "config/slack-config-schema.yaml",
         affectsRegistration: true
     },
     generateRegistration: function(reg, callback) {
-        var config = Cli.getConfig();
+        var config = cli.getConfig();
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
         reg.setSenderLocalpart(config.bot_username);
@@ -97,4 +97,5 @@ new Cli({
             bridge.run(port, config);
         });
     }
-}).run();
+});
+cli.run();
