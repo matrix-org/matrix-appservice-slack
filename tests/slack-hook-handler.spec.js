@@ -77,38 +77,38 @@ describe("SlackHookHandler.handle", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("GOB", "I've made a huge mistake"));
             expect(intent.sendText).toHaveBeenCalledWith(
-                "!room:host", "I've made a huge mistake");
+                "!room:host", "I've made a huge mistake", jasmine.any(Function));
 
         });
         it("unescapes special characters", function() {
             handler.handle(makeRequest("GOB", "&lt;special &amp; characters&gt;"));
             expect(intent.sendText).toHaveBeenCalledWith(
-                "!room:host", "<special & characters>");
+                "!room:host", "<special & characters>", jasmine.any(Function));
         });
         it("unicode-ifies one emojum", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("Lucille", ":wink:"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉");
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉", jasmine.any(Function));
         });
         it("unicode-ifies several emoji", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("Lucille", ":wink::wink: :rugby_football:"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉😉 🏉");
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", "😉😉 🏉", jasmine.any(Function));
         });
         it("doesn't unicode-ifies emoji with whitespace", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("Lucille", ":win k:"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":win k:");
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":win k:", jasmine.any(Function));
         });
         it("doesn't unicode-ifies improperly formed emoji", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("Lucille", ":k:wink:"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":k😉");
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":k😉", jasmine.any(Function));
         });
         it("ignores unknown emoji", function() {
             intent = createSpyObj("intent", ["sendText"]);
             handler.handle(makeRequest("Lucille", ":godzillavodka:"));
-            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":godzillavodka:");
+            expect(intent.sendText).toHaveBeenCalledWith("!room:host", ":godzillavodka:", jasmine.any(Function));
         });
     });
 
@@ -158,7 +158,8 @@ describe("SlackHookHandler.handle", function() {
                         w: 1024,
                         h: 768
                     }
-                }
+                },
+                jasmine.any(Function)
             );
         });
         it("sends image with thumbnail", function() {
@@ -197,7 +198,8 @@ describe("SlackHookHandler.handle", function() {
                         w: 360,
                         h: 240
                     }
-                }
+                },
+                jasmine.any(Function)
             );
         });
         it("sends image with comment", function() {
@@ -231,11 +233,13 @@ describe("SlackHookHandler.handle", function() {
                         w: 1024,
                         h: 768
                     }
-                }
+                },
+                jasmine.any(Function)
             );
             expect(intent.sendText).toHaveBeenCalledWith(
                 "!room:host",
-                "<It's only 63 minutes long>"
+                "<It's only 63 minutes long>",
+                jasmine.any(Function)
             );
         });
         it("ignores non-images", function() {

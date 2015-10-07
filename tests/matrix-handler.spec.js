@@ -1,6 +1,7 @@
 "use strict";
 
 var MatrixHandler = require("../lib/matrix-handler");
+var EchoSuppresser = require("../lib/echosuppresser");
 
 function makeTextEvent(message) {
     return makeEvent(message, "m.text", {});
@@ -45,6 +46,7 @@ describe("MatrixHandler.handle", function() {
             url: "http://the.oc:92802"
         }
     };
+    var echoSuppresser = new EchoSuppresser();
 
     beforeEach(function() {
         requestLib = createSpyObj("requestLib", ["do"]);
@@ -53,7 +55,7 @@ describe("MatrixHandler.handle", function() {
                 return "https://hooks.slack.com/services/AAA/BBB/CCC";
             }
         };
-        handler = new MatrixHandler(config, rooms, requestLib.do);
+        handler = new MatrixHandler(config, rooms, requestLib.do, echoSuppresser);
     });
 
     describe("handle text messages", function() {

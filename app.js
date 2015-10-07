@@ -8,6 +8,7 @@ var requestLib = require("request");
 var Rooms = require("./lib/rooms");
 var SlackHookHandler = require("./lib/slack-hook-handler");
 var MatrixHandler = require("./lib/matrix-handler");
+var EchoSuppresser = require("./lib/echosuppresser");
 var bridgeLib = require("matrix-appservice-bridge");
 var bridge;
 
@@ -59,6 +60,7 @@ var Cli = bridgeLib.Cli;
 var Bridge = bridgeLib.Bridge;
 var AppServiceRegistration = bridgeLib.AppServiceRegistration;
 
+
 var cli = new Cli({
     registrationPath: "slack-registration.yaml",
     bridgeConfig: {
@@ -75,11 +77,13 @@ var cli = new Cli({
     },
     run: function(port, config) {
         var rooms = new Rooms(config);
-        var matrixHandler = new MatrixHandler(config, rooms, requestLib);
+        var echoSuppresser = new EchoSuppresser();
+        var matrixHandler = new MatrixHandler(config, rooms, requestLib, echoSuppresser);
         bridge = new Bridge({
             homeserverUrl: config.homeserver.url,
             domain: config.homeserver.server_name,
             registration: "slack-registration.yaml",
+            clientUsers: config.users,
 
             controller: {
                 onUserQuery: function(queriedUser) {
@@ -91,7 +95,9 @@ var cli = new Cli({
                 },
             }
         });
-        var slackHookHandler = new SlackHookHandler(requestLib, config, rooms, bridge);
+        var slackHookHandler = new SlackHookHandler(
+            requestLib, config, rooms, bridge, echoSuppresser
+        );
         startServer(config, slackHookHandler, function() {
             console.log("Matrix-side listening on port %s", port);
             bridge.run(port, config);
