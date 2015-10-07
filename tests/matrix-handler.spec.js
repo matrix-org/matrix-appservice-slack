@@ -2,6 +2,7 @@
 
 var MatrixHandler = require("../lib/matrix-handler");
 var EchoSuppresser = require("../lib/echosuppresser");
+var Oauth = require("../lib/slack/oauth");
 
 function makeTextEvent(message) {
     return makeEvent(message, "m.text", {});
@@ -55,7 +56,7 @@ describe("MatrixHandler.handle", function() {
                 return "https://hooks.slack.com/services/AAA/BBB/CCC";
             }
         };
-        handler = new MatrixHandler(config, rooms, requestLib.do, echoSuppresser);
+        handler = new MatrixHandler(config, rooms, requestLib.do, echoSuppresser, Oauth.NO_OAUTH);
     });
 
     describe("handle text messages", function() {

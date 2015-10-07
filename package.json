@@ -24,7 +24,9 @@
   "dependencies": {
     "matrix-appservice-bridge": "file:../src/matrix-appservice-bridge",
     "matrix-js-sdk": "^0.2.1",
-    "request": "^2.62.0"
+    "node-uuid": "^1.4.3",
+    "request": "^2.62.0",
+    "simple-oauth2": "^0.2.1"
   },
   "devDependencies": {
     "eslint": "^1.4.3",
