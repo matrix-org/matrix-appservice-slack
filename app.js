@@ -67,6 +67,7 @@ var cli = new Cli({
     },
     generateRegistration: function(reg, callback) {
         var config = cli.getConfig();
+        reg.setId(AppServiceRegistration.generateToken());
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
         reg.setSenderLocalpart(config.bot_username);
