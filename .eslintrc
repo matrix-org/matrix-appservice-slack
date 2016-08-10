@@ -1,4 +1,7 @@
 {
+  "ecmaFeatures": {
+    "templateStrings": true
+  },
   "env": {
     "node": true,
     "jasmine": true

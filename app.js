@@ -8,8 +8,9 @@ var requestLib = require("request");
 var Rooms = require("./lib/rooms");
 var SlackHookHandler = require("./lib/slack-hook-handler");
 var MatrixHandler = require("./lib/matrix-handler");
+var Provisioner = require("./lib/provisioning.js").Provisioner;
 var bridgeLib = require("matrix-appservice-bridge");
-var bridge;
+var bridge, provisioner;
 
 function startServer(config, hookHandler, callback) {
     var createServer;
@@ -96,6 +97,9 @@ var cli = new Cli({
         startServer(config, slackHookHandler, function() {
             console.log("Matrix-side listening on port %s", port);
             bridge.run(port, config);
+
+            console.log("Setting up provisioning...");
+            provisioner = new Provisioner(bridge, rooms, true);
         });
     }
 });
