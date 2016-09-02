@@ -1,8 +1,3 @@
-// Usage:
-// The first time, run this first to register with your homeserver:
-// node app.js -r -c config.yaml -u "http://localhost:9000"
-// And any time after that:
-// node app.js -p 9000 -c config.yaml
 var qs = require("querystring");
 var requestLib = require("request");
 var Rooms = require("./lib/rooms");
