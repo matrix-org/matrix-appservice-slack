@@ -83,6 +83,20 @@ var cli = new Cli({
                 },
 
                 onEvent: function(request, context) {
+                    var ev = request.getData();
+
+                    if (ev.type === "m.room.member" &&
+                            ev.state_key === bridge.getBot().getUserId()) {
+                        // A membership event about myself
+                        var membership = ev.content.membership;
+                        if (membership === "invite") {
+                            // Automatically accept all invitations
+                            bridge.getIntent().join(ev.room_id);
+                        }
+
+                        return;
+                    }
+
                     matrixHandler.handle(request.getData());
                 },
             }
