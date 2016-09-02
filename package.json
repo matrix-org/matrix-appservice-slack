@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/matrix-org/matrix-appservice-slack#readme",
   "dependencies": {
+    "bluebird": "^3",
     "request-promise": "^3.0.0",
     "matrix-appservice-bridge": "^0.3.2",
     "request": "^2.62.0",
