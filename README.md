@@ -17,32 +17,51 @@ $ npm install
 Setup
 -----
 
+1. Pick/decide on two spare local TCP port numbers to use. One will listen for
+   messages from Matrix and needs to be visible to the homeserver. The other
+   will listen for messages from Slack and needs to be visible to the internet.
+   Take care to configure firewalls appropriately. These ports will be notated
+   as `$MATRIX_PORT` and `$SLACK_PORT` in the remaining instructions.
+
 1. Create a `config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml` you may wish to copy and
    edit as appropriate.
 
-1. Pick/decide on a spare local TCP port number to run the application service
-   on. This needs to be visible to the homeserver - take care to configure
-   firewalls correctly if that is on another machine to the bridge. This port
-   number will be noted as `$PORT` in the remaining instructions.
+   At minimum this needs to contain:
+
+   ```yaml
+   slack_hook_port: $SLACK_PORT
+   bot_username: "localpart for the bot's own user account"
+   username_prefix: "localpart prefix for generated ghost users"
+
+   homeserver:
+     url: "http URL pointing at the homeserver"
+     server_name: "domain part of the homeserver's name. Used for
+                   ghost username generation"
+
+   rooms: []
+   ```
+
+   For now we will leave the rooms list empty, but we will return to this
+   subject later on.
 
 1. Generate the appservice registration file (if the application service runs
    on the same server you can use `localhost` as the `$HOST` name):
 
    ```sh
-   $ node app.js -r -c config.yaml -u "http://$HOST:$PORT"
+   $ node app.js -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
    ```
 
 1. Start the actual application service. You can use forever
 
    ```sh
-   $ forever start app.js -c config.yaml -p $PORT
+   $ forever start app.js -c config.yaml -p $MATRIX_PORT
    ```
 
    or node
 
    ```sh
-   $ node app.js -c config.yaml -p $PORT
+   $ node app.js -c config.yaml -p $MATRIX_PORT
    ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to the homeserver.
