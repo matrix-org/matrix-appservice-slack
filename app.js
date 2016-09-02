@@ -76,7 +76,7 @@ var cli = new Cli({
     },
     run: function(port, config) {
         var rooms = new Rooms(config);
-        var matrixHandler = new MatrixHandler(config, rooms, requestLib);
+        var matrixHandler = new MatrixHandler(config, rooms, requestLib, qs);
         bridge = new Bridge({
             homeserverUrl: config.homeserver.url,
             domain: config.homeserver.server_name,
