@@ -4,25 +4,68 @@ A Matrix &lt;--> Slack bridge
 This is currently a very barebones bridge, it just does basic text in
 pre-enumerated channels. It will become more exciting.
 
-To install:
-```
+Installation
+------------
+
+```sh
+$ git clone ...
+$ cd matrix-appservice-slack
 $ npm install
 ```
 
-Then fill out a config.yaml file according to the example in
-config/config.sample.yaml and run the following commands:
 
-Register your application service with your homeserver:
-```
-$ node app.js -r -c config.yaml -u "http://localhost:9000"
-```
+Setup
+-----
 
-Reference the resulting registration yaml file from your homeserver's homeserver.yaml config and restart the server to pick it up.
+1. Create a `config.yaml` file for global configuration. There is a sample
+   one to begin with in `config/config.sample.yaml` you may wish to copy and
+   edit as appropriate.
 
-Start your application service:
-```
-$ node app.js -p 9000 -c config.yaml
-```
+1. Pick/decide on a spare local TCP port number to run the application service
+   on. This needs to be visible to the homeserver - take care to configure
+   firewalls correctly if that is on another machine to the bridge. This port
+   number will be noted as `$PORT` in the remaining instructions.
+
+1. Generate the appservice registration file (if the application service runs
+   on the same server you can use `localhost` as the `$HOST` name):
+
+   ```sh
+   $ node app.js -r -c config.yaml -u "http://$HOST:$PORT"
+   ```
+
+1. Start the actual application service. You can use forever
+
+   ```sh
+   $ forever start app.js -c config.yaml -p $PORT
+   ```
+
+   or node
+
+   ```sh
+   $ node app.js -c config.yaml -p $PORT
+   ```
+
+1. Copy the newly-generated `slack-registration.yaml` file to the homeserver.
+   Add the registration file to your homeserver config (default `homeserver.yaml`):
+
+   ```yaml
+   app_service_config_files:
+      - ...
+      - "/path/to/slack-registration.yaml"
+   ```
+
+   Don't forget - it has to be a YAML list of strings, not just a single string.
+
+   Restart your homeserver to have it reread the config file an establish a
+   connection to the bridge.
+
+The bridge itself should now be running.
+
+To actually use it, you will need to configure some linked channels.
+
+
+Provisioning
+------------
 
 To set up on the Slack side:
  * Add inbound & outbound webhook integrations to the room you want to bridge.
