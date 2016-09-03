@@ -25,7 +25,8 @@
     "bluebird": "^3",
     "request-promise": "^3.0.0",
     "matrix-appservice-bridge": "^1",
-    "matrix-js-sdk": "^0.5"
+    "matrix-js-sdk": "^0.5",
+    "yargs": "^5"
   },
   "devDependencies": {
     "eslint": "^1.4.3",
