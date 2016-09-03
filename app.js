@@ -71,7 +71,7 @@ var cli = new Cli({
     },
     run: function(port, config) {
         var rooms = new Rooms(config);
-        var matrixHandler = new MatrixHandler(config, rooms, qs);
+        var matrixHandler;
         bridge = new Bridge({
             homeserverUrl: config.homeserver.url,
             domain: config.homeserver.server_name,
@@ -101,6 +101,7 @@ var cli = new Cli({
                 },
             }
         });
+        matrixHandler = new MatrixHandler(config, rooms, qs, bridge);
         var slackHookHandler = new SlackHookHandler(requestLib, config, rooms, bridge);
         startServer(config, slackHookHandler, function() {
             console.log("Matrix-side listening on port %s", port);
