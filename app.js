@@ -1,57 +1,8 @@
-var qs = require("querystring");
-var requestLib = require("request");
-var Rooms = require("./lib/rooms");
-var SlackHookHandler = require("./lib/slack-hook-handler");
-var MatrixHandler = require("./lib/matrix-handler");
 var bridgeLib = require("matrix-appservice-bridge");
-var bridge;
 
-function startServer(config, hookHandler, callback) {
-    var createServer;
-    if (config.tls) {
-        var fs = require("fs");
-        var tls_options = {
-            key: fs.readFileSync(config.tls.key_file),
-            cert: fs.readFileSync(config.tls.crt_file)
-        };
-        createServer = function(cb) {
-            return require("https").createServer(tls_options, cb);
-        };
-    }
-    else {
-        createServer = require("http").createServer;
-    }
-
-    createServer(function(request, response) {
-        console.log(request.method + " " + request.url);
-
-        var body = "";
-        request.on("data", function(chunk) {
-            body += chunk;
-        });
-
-        request.on("end", function() {
-            var params = qs.parse(body);
-            if (hookHandler.checkAuth(params)) {
-                hookHandler.handle(params);
-            }
-            else {
-                console.log("Ignoring request with bad token: " + JSON.stringify(params));
-            }
-            response.writeHead(200, {"Content-Type": "application/json"});
-            response.write(JSON.stringify({}));
-            response.end();
-        });
-    }).listen(config.slack_hook_port, function() {
-        var protocol = config.tls ? "https" : "http";
-        console.log("Slack-side listening on port " +
-            config.slack_hook_port + " over " + protocol);
-        callback();
-    });
-}
+var MatrixSlackBridge = require("./lib/MatrixSlackBridge");
 
 var Cli = bridgeLib.Cli;
-var Bridge = bridgeLib.Bridge;
 var AppServiceRegistration = bridgeLib.AppServiceRegistration;
 
 var cli = new Cli({
@@ -70,43 +21,8 @@ var cli = new Cli({
         callback(reg);
     },
     run: function(port, config) {
-        var rooms = new Rooms(config);
-        var matrixHandler;
-        bridge = new Bridge({
-            homeserverUrl: config.homeserver.url,
-            domain: config.homeserver.server_name,
-            registration: "slack-registration.yaml",
-
-            controller: {
-                onUserQuery: function(queriedUser) {
-                    return {}; // auto-provision users with no additonal data
-                },
-
-                onEvent: function(request, context) {
-                    var ev = request.getData();
-
-                    if (ev.type === "m.room.member" &&
-                            ev.state_key === bridge.getBot().getUserId()) {
-                        // A membership event about myself
-                        var membership = ev.content.membership;
-                        if (membership === "invite") {
-                            // Automatically accept all invitations
-                            bridge.getIntent().join(ev.room_id);
-                        }
-
-                        return;
-                    }
-
-                    matrixHandler.handle(request.getData());
-                },
-            }
-        });
-        matrixHandler = new MatrixHandler(config, rooms, bridge);
-        var slackHookHandler = new SlackHookHandler(requestLib, config, rooms, bridge);
-        startServer(config, slackHookHandler, function() {
-            console.log("Matrix-side listening on port %s", port);
-            bridge.run(port, config);
-        });
-    }
+        console.log("Matrix-side listening on port %s", port);
+        (new MatrixSlackBridge(config)).run(port);
+    },
 });
 cli.run();
