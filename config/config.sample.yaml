@@ -5,6 +5,9 @@ username_prefix: "slack_"
 # Optional
 slack_master_token: "abc-123-def"
 
+# Optional
+matrix_admin_room: "!aBcDeF:matrix.org"
+
 homeserver:
   url: http://localhost:8008
   server_name: my.server
