@@ -86,11 +86,44 @@ To actually use it, you will need to configure some linked channels.
 Provisioning
 ------------
 
-To set up on the Slack side:
- * Add inbound & outbound webhook integrations to the room you want to bridge.
- * For the inbound webhook, note down the URL that slack provisions for you - e.g. https://hooks.slack.com/services/ABC/DEF/123
- * For the outbound webhook, you'll need to expose your bridge to the internet and hand the URL to slack - e.g. http://slackbridge.domain.com:9000
- * You'll also need to determine the 'token' and 'channel ID' that slack uses to talk to you.  The easiest way to do this is to send a message from Slack to the bridge; the bridge will log the token & channel ID of the unrecognised message it just received.
- * Add the channel ID, token, room ID and slack webhook URL as an entry in the rooms list in the bridge's config.yaml and restart.
+This bridge allows linking together pairs of Matrix rooms and Slack channels,
+relaying messages said by people in one side into the other. To create a link
+first the individual Matrix room and Slack channel need to be created, and then
+the application service config file updated with details of their
+configuration.
+
+1. Create a Matrix room in the usual manner for your client. Take a note of its
+   Matrix room ID - it will look something like `!aBcDeF:example.com`.
+
+1. Create a Slack channel in the usual manner.
+
+1. Add an "Incoming WebHooks" integration to the Slack channel and take a note
+   of its "Webhook URL" from the integration settings in Slack - it will look
+   something like `https://hooks.slack.com/services/ABC/DEF/123`.
+
+1. Add an "Outgoing WebHooks" integration to the Slack channel and take a note
+   of its `token` field. Add a URL to this web hook pointing back at the
+   application service port you configured during setup.
+
+   You will also need to determine the "channel ID" that Slack uses to identify
+   the channel. Unfortunately, it is not easily obtained from the Slack UI. The
+   easiest way to do this is to send a message from Slack to the bridge; the
+   bridge will log the channel ID as part of the unrecognised message output.
+   You can then take note of the `channel_id` field.
+
+1. Add the information collected above into a new entry in the `rooms` list in
+   `config.yaml`:
+
+   ```yaml
+   rooms:
+      - ...
+      - matrix_room_id: "Matrix room ID collected in step 1."
+        webhook_url: "Slack Incoming WebHook URL collected in step 3."
+        slack_channel_id: "Slack channel ID collected in step 4."
+        slack_api_token: "Slack Outgoing Webook Token collected in step 4."
+   ```
+
+1. Restart the application service. You should now find that messages are
+   pushed in both directions by the application service.
 
 See also https://github.com/matrix-org/matrix-appservice-bridge/blob/master/HOWTO.md for the general theory of all this :)
