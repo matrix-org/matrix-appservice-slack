@@ -17,6 +17,9 @@ $ npm install
 Setup
 -----
 
+1. Create a new Matrix room to act as the administration control room. Note its
+   internal room ID.
+
 1. Pick/decide on two spare local TCP port numbers to use. One will listen for
    messages from Matrix and needs to be visible to the homeserver. The other
    will listen for messages from Slack and needs to be visible to the internet.
@@ -39,11 +42,8 @@ Setup
      server_name: "domain part of the homeserver's name. Used for
                    ghost username generation"
 
-   rooms: []
+   matrix_admin_room: "the ID of the room created in step 1."
    ```
-
-   For now we will leave the rooms list empty, but we will return to this
-   subject later on.
 
 1. Generate the appservice registration file (if the application service runs
    on the same server you can use `localhost` as the `$HOST` name):
@@ -89,8 +89,8 @@ Provisioning
 This bridge allows linking together pairs of Matrix rooms and Slack channels,
 relaying messages said by people in one side into the other. To create a link
 first the individual Matrix room and Slack channel need to be created, and then
-the application service config file updated with details of their
-configuration.
+a command needs to be issued in the administration console room to add the link
+to the bridge's database.
 
 1. Create a Matrix room in the usual manner for your client. Take a note of its
    Matrix room ID - it will look something like `!aBcDeF:example.com`.
@@ -111,19 +111,17 @@ configuration.
    bridge will log the channel ID as part of the unrecognised message output.
    You can then take note of the `channel_id` field.
 
-1. Add the information collected above into a new entry in the `rooms` list in
-   `config.yaml`:
+1. Issue a ``link`` command in the administration control room with these
+   collected values as arguments:
 
-   ```yaml
-   rooms:
-      - ...
-      - matrix_room_id: "Matrix room ID collected in step 1."
-        webhook_url: "Slack Incoming WebHook URL collected in step 3."
-        slack_channel_id: "Slack channel ID collected in step 4."
-        slack_api_token: "Slack Outgoing Webook Token collected in step 4."
+   ```
+   link --channel CHANNELID --room !the-matrix:room.id --token THETOKEN --webhook_uri http://the.webhook/uri
    ```
 
-1. Restart the application service. You should now find that messages are
-   pushed in both directions by the application service.
+   These arguments can be shortened to single-letter forms:
+
+   ```
+   link -c CHANNELID -r !the-matrix:room.id -t THETOKEN -u http://the.webhook/uri
+   ```
 
 See also https://github.com/matrix-org/matrix-appservice-bridge/blob/master/HOWTO.md for the general theory of all this :)
