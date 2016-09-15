@@ -19,24 +19,6 @@ properties:
         type: string
   slack_hook_port:
     type: integer
-  rooms:
-    type: array
-    items:
-      type: object
-      required: ["slack_channel_id", "slack_api_token", "webhook_url"]
-      properties:
-        slack_channel_id:
-          type: string
-        slack_api_token:
-          type: string
-        matrix_room_id:
-          type: string
-        matrix_room_ids:
-          type: array
-          items:
-            type: string
-        webhook_url:
-          type: string
   bot_username:
     type: string
   username_prefix:

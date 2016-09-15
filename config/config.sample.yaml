@@ -16,9 +16,3 @@ homeserver:
 tls:
   key_file: /path/to/tls.key
   crt_file: /path/to/tls.crt
-
-rooms:
-  - slack_channel_id: "QWERTYUIOP"
-    slack_api_token: "ABC123"
-    matrix_room_id: "!ZXC987:matrix.org"
-    webhook_url: "https://hooks.slack.com/services/ABC/DEF/123"
