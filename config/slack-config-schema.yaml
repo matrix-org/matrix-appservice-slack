@@ -1,5 +1,5 @@
 type: object
-required: ["homeserver", "slack_hook_port", "bot_username", "username_prefix"]
+required: ["homeserver", "slack_hook_port", "inbound_uri_prefix", "bot_username", "username_prefix"]
 properties:
   homeserver:
     type: object
@@ -19,6 +19,8 @@ properties:
         type: string
   slack_hook_port:
     type: integer
+  inbound_uri_prefix:
+    type: string
   bot_username:
     type: string
   username_prefix:
