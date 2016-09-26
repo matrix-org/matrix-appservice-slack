@@ -21,6 +21,16 @@ properties:
     type: integer
   inbound_uri_prefix:
     type: string
+  oauth2:
+    type: object
+    required: ["redirect_prefix", "client_id", "client_secret"]
+    properties:
+      redirect_prefix:
+        type: string
+      client_id:
+        type: string
+      client_secret:
+        type: string
   bot_username:
     type: string
   username_prefix:
