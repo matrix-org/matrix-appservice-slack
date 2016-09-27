@@ -21,15 +21,21 @@ properties:
     type: integer
   inbound_uri_prefix:
     type: string
+  oauth2:
+    type: object
+    required: ["client_id", "client_secret"]
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      redirect_prefix:
+        type: string
   bot_username:
     type: string
   username_prefix:
     type: string
   matrix_admin_room:
-    type: string
-  slack_master_token:
-    # Required for some functionality, like sending images from Slack to Matrix.
-    # Bridge gracefully degrades if no slack_master_token is specified.
     type: string
   enable_metrics:
     type: boolean
