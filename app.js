@@ -1,6 +1,6 @@
 var bridgeLib = require("matrix-appservice-bridge");
 
-var MatrixSlackBridge = require("./lib/MatrixSlackBridge");
+var Main = require("./lib/Main");
 
 var Cli = bridgeLib.Cli;
 var AppServiceRegistration = bridgeLib.AppServiceRegistration;
@@ -22,7 +22,7 @@ var cli = new Cli({
     },
     run: function(port, config) {
         console.log("Matrix-side listening on port %s", port);
-        (new MatrixSlackBridge(config)).run(port);
+        (new Main(config)).run(port);
     },
 });
 cli.run();
