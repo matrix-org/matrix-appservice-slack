@@ -24,7 +24,7 @@
   "dependencies": {
     "bluebird": "^3",
     "request-promise": "^3.0.0",
-    "matrix-appservice-bridge": "matrix-org/matrix-appservice-bridge#0219cee95f6a6984b8c0aa78acace57cbe7d4e8b",
+    "matrix-appservice-bridge": "matrix-org/matrix-appservice-bridge#20c49d173a72fd23ba3455a74ab00059742e2674",
     "matrix-js-sdk": "^0.5",
     "minimist": "^1.2",
     "randomstring": "^1"
