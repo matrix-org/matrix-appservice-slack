@@ -78,6 +78,14 @@ Setup
    Restart your homeserver to have it reread the config file an establish a
    connection to the bridge.
 
+1. Invite the bridge bot user into the admin room, so it can actually see and
+   respond to commands. The bot's user ID is formed from the `bot_username`
+   field of the config file, and the homeserver's domain name. For example:
+
+   ```
+   /invite @slackbot:my.server.here
+   ```
+
 The bridge itself should now be running.
 
 To actually use it, you will need to configure some linked channels.
