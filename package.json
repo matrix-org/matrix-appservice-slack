@@ -27,7 +27,8 @@
     "matrix-appservice-bridge": "matrix-org/matrix-appservice-bridge#ca40ff5",
     "matrix-js-sdk": "^0.5",
     "minimist": "^1.2",
-    "randomstring": "^1"
+    "randomstring": "^1",
+    "slackdown": "^0.1.1"
   },
   "devDependencies": {
     "eslint": "^1.4.3",
