@@ -133,3 +133,11 @@ to the bridge's database.
    ```
 
 See also https://github.com/matrix-org/matrix-appservice-bridge/blob/master/HOWTO.md for the general theory of all this :)
+
+
+Mattermost
+----------
+
+Because Mattermost's webhook APIs are Slack-compatible, the Matrix &lt;--> Slack bridge
+also works with it. The webhook configuration is very similar to Slack's and is
+documented on [Mattermost's website](https://www.mattermost.org/webhooks/).
