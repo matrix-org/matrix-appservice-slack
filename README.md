@@ -90,6 +90,37 @@ The bridge itself should now be running.
 
 To actually use it, you will need to configure some linked channels.
 
+Slack Bot Setup
+---------------
+
+1. add a custom app to your slack team/workspace by visiting https://api.slack.com/apps
+   and clicking on `Create New App`.
+   
+2. Name the app & select the team/workspace this app will belong to.
+
+3. Click on `bot users` and add a new bot user. We will use this account to bridge the
+   the rooms.
+   
+4. Click on `Event Subscriptions` and enable them. At this point, the bridge needs to be
+   started as slack will do some verification of the request rul. The request url should be
+   `https://$HOST:$SLACK_PORT"`. Then add the following events and save:
+   
+   Bot User Events:
+     
+       - team_domain_change
+       - message.channels
+       
+5. Click on `Install App` and `Install App to Workspace`. Note the `Bot User OAuth Access Token`
+   as you will need it whenever you link a room.
+   
+6. You will need to invite the bot user you created above to each slack channel you would like
+   to bridge.
+   
+   ```
+   /invite @bot-user-name
+
+   ``` 
+
 
 Provisioning
 ------------
