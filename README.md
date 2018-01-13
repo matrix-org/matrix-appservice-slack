@@ -122,11 +122,23 @@ and bot users. This allows you to link as many channels as you would like with o
      
        - team_domain_change
        - message.channels
+       - message.groups (if you want to bridge private channels)
        
-5. Click on `Install App` and `Install App to Workspace`. Note the `Bot User OAuth Access Token`
-   as you will need it whenever you link a room.
+5. Skip this step if you do not want to bridge files.
+   Click on `OAuth & Permissions` and add the following scopes:
+
+   - files:write:user
    
-6. For each channel you would like to bridge, perform the following steps:
+   Note: media uploaded to matrix is currently not permissioned, and anyone with the link
+   can access the file. In order to make slack files visible to matrix users, this bridge
+   will set make the slack file visible to anyone with the url (including files in private channels).
+   The current behavior in slack is that files are only accessible to authenticated users.
+ 
+6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
+   You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
+   `OAuth Access Token` whenever you link a room.
+   
+7. For each channel you would like to bridge, perform the following steps:
 
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
@@ -147,15 +159,22 @@ and bot users. This allows you to link as many channels as you would like with o
    2. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
       
-     ```
-     link --channel_id CHANNELID --room !the-matrix:room.id --slack_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
-     ```
+      with file bridging:
+      
+         ```
+         link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx --slack_user_token xoxp-xxxxxxxx-xxxxxxxxx-xxxxxxxx-xxxxxxxx
+         ```
+      without file bridging:
+      
+         ```
+         link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
+         ```
   
-     These arguments can be shortened to single-letter forms:
+      These arguments can be shortened to single-letter forms:
   
-     ```
-     link -I CHANNELID -R !the-matrix:room.id -t xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
-     ```
+         ```
+         link -I CHANNELID -R !the-matrix:room.id -t xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
+         ```
 
 
 ### Legacy
