@@ -90,8 +90,21 @@ The bridge itself should now be running.
 
 To actually use it, you will need to configure some linked channels.
 
-Slack Bot Setup
----------------
+Provisioning
+------------
+
+This bridge allows linking together pairs of Matrix rooms and Slack channels,
+relaying messages said by people in one side into the other. To create a link
+first the individual Matrix room and Slack channel need to be created, and then
+a command needs to be issued in the administration console room to add the link
+to the bridge's database.
+
+There are 2 ways to bridge a room. The recommended way uses the newer slack events api
+and bot users. This allows you to link as many channels as you would like with only
+1 slack integration. The legacy way uses incoming/outgoing webhooks, and requires
+2 slack integrations per channel to be bridged.
+
+### Recommended 
 
 1. add a custom app to your slack team/workspace by visiting https://api.slack.com/apps
    and clicking on `Create New App`.
@@ -113,23 +126,39 @@ Slack Bot Setup
 5. Click on `Install App` and `Install App to Workspace`. Note the `Bot User OAuth Access Token`
    as you will need it whenever you link a room.
    
-6. You will need to invite the bot user you created above to each slack channel you would like
-   to bridge.
+6. For each channel you would like to bridge, perform the following steps:
+
+   1. Create a Matrix room in the usual manner for your client. Take a note of its
+      Matrix room ID - it will look something like `!aBcDeF:example.com`.
+      
+   2. invite the bot user to the slack channel you would like to bridge.
    
-   ```
-   /invite @bot-user-name
+       ```
+       /invite @bot-user-name
 
-   ``` 
+       ``` 
+       
+       You will also need to determine the "channel ID" that Slack uses to identify
+       the channel. Unfortunately, it is not easily obtained from the Slack UI. The
+       easiest way to do this is to send a message from Slack to the bridge; the
+       bridge will log the channel ID as part of the unrecognised message output.
+       You can then take note of the `channel_id` field.
+    
+   2. Issue a ``link`` command in the administration control room with these
+      collected values as arguments:
+      
+     ```
+     link --channel_id CHANNELID --room !the-matrix:room.id --slack_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
+     ```
+  
+     These arguments can be shortened to single-letter forms:
+  
+     ```
+     link -I CHANNELID -R !the-matrix:room.id -t xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
+     ```
 
 
-Provisioning
-------------
-
-This bridge allows linking together pairs of Matrix rooms and Slack channels,
-relaying messages said by people in one side into the other. To create a link
-first the individual Matrix room and Slack channel need to be created, and then
-a command needs to be issued in the administration console room to add the link
-to the bridge's database.
+### Legacy
 
 1. Create a Matrix room in the usual manner for your client. Take a note of its
    Matrix room ID - it will look something like `!aBcDeF:example.com`.
@@ -154,13 +183,13 @@ to the bridge's database.
    collected values as arguments:
 
    ```
-   link --channel CHANNELID --room !the-matrix:room.id --token THETOKEN --webhook_uri http://the.webhook/uri
+   link --channel_id CHANNELID --room !the-matrix:room.id --webhook_url https://hooks.slack.com/services/ABC/DEF/123
    ```
 
    These arguments can be shortened to single-letter forms:
 
    ```
-   link -c CHANNELID -r !the-matrix:room.id -t THETOKEN -u http://the.webhook/uri
+   link -I CHANNELID -R !the-matrix:room.id -u https://hooks.slack.com/services/ABC/DEF/123
    ```
 
 See also https://github.com/matrix-org/matrix-appservice-bridge/blob/master/HOWTO.md for the general theory of all this :)
