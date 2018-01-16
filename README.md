@@ -106,7 +106,7 @@ and bot users. This allows you to link as many channels as you would like with o
 
 ### Recommended 
 
-1. add a custom app to your slack team/workspace by visiting https://api.slack.com/apps
+1. Add a custom app to your slack team/workspace by visiting https://api.slack.com/apps
    and clicking on `Create New App`.
    
 2. Name the app & select the team/workspace this app will belong to.
@@ -129,10 +129,11 @@ and bot users. This allows you to link as many channels as you would like with o
 
    - files:write:user
    
-   Note: media uploaded to matrix is currently not permissioned, and anyone with the link
-   can access the file. In order to make slack files visible to matrix users, this bridge
-   will set make the slack file visible to anyone with the url (including files in private channels).
-   The current behavior in slack is that files are only accessible to authenticated users.
+   Note: any media uploaded to matrix is currently accessible by anyone who knows the url.
+   In order to make slack files visible to matrix users, this bridge will make slack files
+   visible to anyone with the url (including files in private channels). This is different
+   then the current behavior in slack, which only allows authenticated access to media
+   posted in private channels.
  
 6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
    You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
@@ -151,10 +152,7 @@ and bot users. This allows you to link as many channels as you would like with o
        ``` 
        
        You will also need to determine the "channel ID" that Slack uses to identify
-       the channel. Unfortunately, it is not easily obtained from the Slack UI. The
-       easiest way to do this is to send a message from Slack to the bridge; the
-       bridge will log the channel ID as part of the unrecognised message output.
-       You can then take note of the `channel_id` field.
+       the channel, which can be found in the url `https://XXX.slack.com/messages/<channel id>/`.
     
    2. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
