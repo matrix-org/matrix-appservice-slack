@@ -28,7 +28,7 @@
     "matrix-js-sdk": "^0.5",
     "minimist": "^1.2",
     "randomstring": "^1",
-    "slackdown": "^0.1.1"
+    "slackdown": "half-shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4"
   },
   "devDependencies": {
     "eslint": "^1.4.3",
