@@ -124,6 +124,8 @@ and bot users. This allows you to link as many channels as you would like with o
        - message.channels
        - chat:write:bot
        - message.groups (if you want to bridge private channels)
+       - users:read
+       - team.info
 
 5. Skip this step if you do not want to bridge files.
    Click on `OAuth & Permissions` and add the following scopes:
