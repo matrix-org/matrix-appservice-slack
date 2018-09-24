@@ -122,6 +122,7 @@ and bot users. This allows you to link as many channels as you would like with o
 
        - team_domain_change
        - message.channels
+       - chat:write:bot
        - message.groups (if you want to bridge private channels)
 
 5. Skip this step if you do not want to bridge files.
