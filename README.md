@@ -99,83 +99,83 @@ first the individual Matrix room and Slack channel need to be created, and then
 a command needs to be issued in the administration console room to add the link
 to the bridge's database.
 
-There are 2 ways to bridge a room. The recommended way uses the newer slack events api
+There are 2 ways to bridge a room. The recommended way uses the newer Slack events api
 and bot users. This allows you to link as many channels as you would like with only
-1 slack integration. The legacy way uses incoming/outgoing webhooks, and requires
-2 slack integrations per channel to be bridged.
+1 Slack integration. The legacy way uses incoming/outgoing webhooks, and requires
+2 Slack integrations per channel to be bridged.
 
-### Recommended 
+### Recommended - Events API
 
-1. Add a custom app to your slack team/workspace by visiting https://api.slack.com/apps
+1. Add a custom app to your Slack team/workspace by visiting https://api.slack.com/apps
    and clicking on `Create New App`.
-   
+
 2. Name the app & select the team/workspace this app will belong to.
 
 3. Click on `bot users` and add a new bot user. We will use this account to bridge the
    the rooms.
-   
+
 4. Click on `Event Subscriptions` and enable them. At this point, the bridge needs to be
-   started as slack will do some verification of the request rul. The request url should be
+   started as Slack will do some verification of the request rul. The request url should be
    `https://$HOST:$SLACK_PORT"`. Then add the following events and save:
-   
+
    Bot User Events:
-     
+
        - team_domain_change
        - message.channels
        - message.groups (if you want to bridge private channels)
-       
+
 5. Skip this step if you do not want to bridge files.
    Click on `OAuth & Permissions` and add the following scopes:
 
    - files:write:user
-   
+
    Note: any media uploaded to matrix is currently accessible by anyone who knows the url.
-   In order to make slack files visible to matrix users, this bridge will make slack files
+   In order to make Slack files visible to matrix users, this bridge will make Slack files
    visible to anyone with the url (including files in private channels). This is different
-   then the current behavior in slack, which only allows authenticated access to media
+   then the current behavior in Slack, which only allows authenticated access to media
    posted in private channels.
- 
+
 6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
    You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
    `OAuth Access Token` whenever you link a room.
-   
+
 7. For each channel you would like to bridge, perform the following steps:
 
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
-      
-   2. invite the bot user to the slack channel you would like to bridge.
-   
+
+   2. invite the bot user to the Slack channel you would like to bridge.
+
        ```
        /invite @bot-user-name
 
-       ``` 
-       
+       ```
+
        You will also need to determine the "channel ID" that Slack uses to identify
        the channel, which can be found in the url `https://XXX.slack.com/messages/<channel id>/`.
-    
+
    2. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
-      
+
       with file bridging:
-      
+
          ```
          link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx --slack_user_token xoxp-xxxxxxxx-xxxxxxxxx-xxxxxxxx-xxxxxxxx
          ```
       without file bridging:
-      
+
          ```
          link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
          ```
-  
+
       These arguments can be shortened to single-letter forms:
-  
+
          ```
          link -I CHANNELID -R !the-matrix:room.id -t xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
          ```
 
 
-### Legacy
+### Legacy - Webhooks
 
 1. Create a Matrix room in the usual manner for your client. Take a note of its
    Matrix room ID - it will look something like `!aBcDeF:example.com`.
