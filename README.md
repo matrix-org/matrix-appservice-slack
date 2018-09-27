@@ -136,7 +136,8 @@ and bot users. This allows you to link as many channels as you would like with o
    In order to make Slack files visible to matrix users, this bridge will make Slack files
    visible to anyone with the url (including files in private channels). This is different
    then the current behavior in Slack, which only allows authenticated access to media
-   posted in private channels.
+   posted in private channels. See [MSC701](https://github.com/matrix-org/matrix-doc/issues/701)
+   for details.
 
 6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
    You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
@@ -151,7 +152,6 @@ and bot users. This allows you to link as many channels as you would like with o
 
        ```
        /invite @bot-user-name
-
        ```
 
        You will also need to determine the "channel ID" that Slack uses to identify
