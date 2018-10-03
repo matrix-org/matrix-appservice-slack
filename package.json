@@ -24,13 +24,11 @@
   "dependencies": {
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
     "bluebird": "^3",
-    "matrix-appservice-bridge": "^1.5.0a",
-    "marked": "^0.5.1",
+    "matrix-appservice-bridge": "matrix-org/matrix-appservice-bridge#d47e96cd9f1b62103cfcae2a5f6fa27814457ec3",
     "matrix-js-sdk": "^0.5",
     "minimist": "^1.2",
     "randomstring": "^1",
-    "request-promise": "^3.0.0",
-    "turndown": "^5.0.1"
+    "request-promise": "^3.0.0"
   },
   "devDependencies": {
     "eslint": "^1.4.3",
