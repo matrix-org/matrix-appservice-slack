@@ -52,9 +52,9 @@ properties:
       timestampFormat:
         type: string
       files:
-          type: "array"
+          type: "object"
           items:
-              - type: "object"
+              - type: "string"
                 additionalProperties:
                     - type: "string"
                       enum: ["error","warn","info","debug"]
