@@ -54,7 +54,6 @@ properties:
       files:
           type: "object"
           items:
-              - type: "string"
-                additionalProperties:
-                    - type: "string"
-                      enum: ["error","warn","info","debug"]
+              additionalProperties:
+               - type: "string"
+                 enum: ["error","warn","info","debug"]
