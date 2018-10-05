@@ -148,7 +148,7 @@ and bot users. This allows you to link as many channels as you would like with o
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
 
-   2. invite the bot user to the Slack channel you would like to bridge.
+   2. Invite the bot user to the Slack channel you would like to bridge.
 
        ```
        /invite @bot-user-name
@@ -157,7 +157,7 @@ and bot users. This allows you to link as many channels as you would like with o
        You will also need to determine the "channel ID" that Slack uses to identify
        the channel, which can be found in the url `https://XXX.slack.com/messages/<channel id>/`.
 
-   2. Issue a ``link`` command in the administration control room with these
+   3. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
 
       with file bridging:
