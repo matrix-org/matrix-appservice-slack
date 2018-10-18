@@ -20,10 +20,11 @@ Features:
 
 Bugfixes:
 
-- Fallback to userstore for making user pills if the Slack api fails to find a user #84
+- Fallback to userstore for making user pills if the Slack API fails to find a user #84
 - Fixed file uploads so they work again #91. Thanks @Cadair!
-- Fixed emoji not being subsituted on the Matrix side #103.
+- Fixed emoji not being substituted on the Matrix side #103.
 
 Misc:
 
 - The bridge now uses matrix-appservice-bridge 1.7.0
+
