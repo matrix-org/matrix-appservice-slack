@@ -1,3 +1,10 @@
+Changes in 0.2.0-rc2 (2018-10-20)
+=============================
+
+Bugfixes:
+- Users can now log out from their slack account.
+- The emoji key name is now sent if the text could not be replaced. 
+
 Changes in 0.2.0-rc1 (2018-10-18)
 =============================
 
