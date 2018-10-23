@@ -1,3 +1,8 @@
+Changes in 0.2.0-rc3 (2018-10-23)
+=============================
+Bugfixes:
+- Fix S->M mentions being accidentally escaped. #109 Thanks @Cadair!
+
 Changes in 0.2.0-rc2 (2018-10-20)
 =============================
 
