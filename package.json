@@ -1,6 +1,6 @@
 #{
   "name": "matrix-appservice-slack",
-  "version": "0.2.0-rc3",
+  "version": "0.2.0",
   "description": "A Matrix <--> Slack bridge",
   "main": "app.js",
   "scripts": {
