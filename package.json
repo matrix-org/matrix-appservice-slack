@@ -1,4 +1,4 @@
-#{
+{
   "name": "matrix-appservice-slack",
   "version": "0.2.0",
   "description": "A Matrix <--> Slack bridge",
