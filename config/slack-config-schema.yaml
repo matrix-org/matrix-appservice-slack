@@ -1,6 +1,8 @@
 type: object
 required: ["homeserver", "slack_hook_port", "inbound_uri_prefix", "bot_username", "username_prefix"]
 properties:
+  dbdir:
+    type: string
   homeserver:
     type: object
     required: ["server_name", "url"]
@@ -41,3 +43,19 @@ properties:
     type: string
   enable_metrics:
     type: boolean
+  logging:
+    type: object
+    properties:
+      console:
+        type: "string"
+        enum: ["error", "warn", "info", "debug", "off"]
+      fileDatePattern:
+        type: string
+      timestampFormat:
+        type: string
+      files:
+          type: "object"
+          items:
+              additionalProperties:
+               - type: "string"
+                 enum: ["error","warn","info","debug"]
