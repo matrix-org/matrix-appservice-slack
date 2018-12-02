@@ -1,7 +1,11 @@
 {
   "env": {
     "node": true,
-    "jasmine": true
+    "jasmine": true,
+    "es6": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2018
   },
   "rules": {
     "consistent-return": 2,
@@ -66,7 +70,7 @@
     "no-nested-ternary": 1,
     "no-spaced-func": 1,
     "no-trailing-spaces": 1,
-    "space-after-keywords": [1, "always"],
+    "keyword-spacing": 1,
     "space-before-blocks": [1, "always"]
   }
 }
