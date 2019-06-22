@@ -122,15 +122,17 @@ and bot users. This allows you to link as many channels as you would like with o
 
        - team_domain_change
        - message.channels
-       - chat:write:bot
        - message.groups (if you want to bridge private channels)
-       - users:read
        - team.info
 
-5. Skip this step if you do not want to bridge files.
-   Click on `OAuth & Permissions` and add the following scopes:
+5. Click on `OAuth & Permissions` and add the following scopes:
 
-   - files:write:user
+       - chat:write:bot
+       - users:read
+
+   If you want to bridge files, also add the following:
+
+       - files:write:user
 
    Note: any media uploaded to matrix is currently accessible by anyone who knows the url.
    In order to make Slack files visible to matrix users, this bridge will make Slack files
