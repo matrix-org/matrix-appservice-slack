@@ -3,6 +3,8 @@ required: ["homeserver", "slack_hook_port", "inbound_uri_prefix", "bot_username"
 properties:
   dbdir:
     type: string
+  hs_registration_file:
+    type: string
   homeserver:
     type: object
     required: ["server_name", "url"]
