@@ -15,7 +15,6 @@ logging:
 
 # Optional
 dbdir: /path/to/data/storage/
-hs_registration_file: /path/to/slack-registration.yaml
 
 # Optional
 matrix_admin_room: "!aBcDeF:matrix.org"

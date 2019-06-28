@@ -21,10 +21,10 @@ const cli = new Cli({
         reg.addRegexPattern("users", "@" + config.username_prefix + ".*", true);
         callback(reg);
     },
-    run: function(port, config) {
+    run: function(port, config, registration) {
         Logging.configure(config.logging || {});
         Logging.get("app").info("Matrix-side listening on port %s", port);
-        (new Main(config)).run(port);
+        (new Main(config, registration)).run(port);
     },
 });
 cli.run();
