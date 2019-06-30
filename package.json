@@ -4,6 +4,7 @@
   "description": "A Matrix <--> Slack bridge",
   "main": "app.js",
   "scripts": {
+    "build": "tsc",
     "test": "jasmine-node tests --verbose --forceexit --captureExceptions",
     "lint": "eslint app.js lib"
   },
@@ -22,18 +23,21 @@
   },
   "homepage": "https://github.com/matrix-org/matrix-appservice-slack#readme",
   "dependencies": {
+    "@types/node": "^12.0.10",
+    "@types/yargs-parser": "^13.0.0",
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
     "bluebird": "^3",
     "chalk": "^2.4.1",
     "matrix-appservice-bridge": "matrix-org/matrix-appservice-bridge#48fe2b90ca5d0d003a37559bcc2966f121a97394",
     "matrix-js-sdk": "^0.5",
-    "minimist": "^1.2",
     "nedb": "^1.8.0",
     "randomstring": "^1",
     "request-promise": "^3.0.0",
+    "typescript": "^3.5.2",
     "uuid": "^3.3.2",
     "winston": "^3.1.0",
-    "winston-daily-rotate-file": "^3.3.3"
+    "winston-daily-rotate-file": "^3.3.3",
+    "yargs-parser": "^13.1.1"
   },
   "devDependencies": {
     "eslint": "^1.4.3",
