@@ -1,4 +1,5 @@
 import { SlackGhost } from "./SlackGhost";
+import { Main } from "./Main";
 
 const Promise = require('bluebird');
 const url = require('url');
@@ -50,7 +51,7 @@ export class BridgedRoom {
      */
     private dirty: boolean;
 
-    constructor(private main: any, opts: IBridgedRoomOpts) {
+    constructor(private main: Main, opts: IBridgedRoomOpts) {
     
         if (!opts.inbound_id) {
             throw new Error("BridgedRoom requires an inbound ID");
@@ -233,8 +234,7 @@ export class BridgedRoom {
 
     public async onMatrixRedaction(message: any) {
         if (!this.slackBotToken) return;
-        const eventStore = this.main.getEventStore();
-        const event = await eventStore.getEntryByMatrixId(message.room_id, message.redacts);
+        const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.redacts);
 
         // If we don't get an event then exit
         if (event === null) {
@@ -268,8 +268,7 @@ export class BridgedRoom {
     public async onMatrixEdit(message: any) {
         if (!this.slackWebhookUri && !this.slackBotToken) return;
 
-        const eventStore = this.main.getEventStore();
-        const event = await eventStore.getEntryByMatrixId(message.room_id, message.content['m.relates_to'].event_id);
+        const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.content['m.relates_to'].event_id);
     
         // re-write the message so the matrixToSlack converter works as expected.
         const new_message = JSON.parse(JSON.stringify(message));
@@ -303,13 +302,12 @@ export class BridgedRoom {
         else {
             // Add this event to the event store
             const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-            const store = this.main.getEventStore();
-            store.upsertEvent(event);
+            this.main.eventStore.upsertEvent(event);
         }
         return res;    
     }
 
-    public async onMatrixMessge(message: any) {
+    public async onMatrixMessage(message: any) {
         if (!this.slackWebhookUri && !this.slackBotToken) return;
 
         const user = await this.main.getOrCreateMatrixUser(message.user_id);
@@ -351,8 +349,7 @@ export class BridgedRoom {
         else {
             // Add this event to the event store
             const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-            const store = this.main.getEventStore();
-            store.upsertEvent(event);
+            this.main.eventStore.upsertEvent(event);
         }
         return res;
     }
@@ -371,7 +368,6 @@ export class BridgedRoom {
 
     private async handleSlackMessage(message: any, ghost: SlackGhost) {
         const eventTS = message.event_ts;
-        const eventStore = this.main.getEventStore();
         const channelId = this.slackChannelId!;
     
         ghost.bumpATime();
@@ -421,7 +417,7 @@ export class BridgedRoom {
     
             const formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font> ${after} =&gt; ${before} <font color="green"> ${curr} </font> ${after}`;
     
-            const prev_event = await eventStore.getEntryByRemoteId(channelId, message.previous_message.ts);
+            const prev_event = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message.ts);
             const matrixcontent = {
                 body: outtext,
                 msgtype: "m.text",
@@ -523,9 +519,9 @@ export class BridgedRoom {
     }
 
     public async leaveGhosts(ghosts: string[]) {
-        const promises = [];
+        const promises: Promise<void>[] = [];
         for (const ghost of ghosts) {
-            promises.push(this.main._bridge.getIntent(ghost).leave(this.matrixRoomId));
+            promises.push(this.main.getIntent(ghost).leave(this.matrixRoomId));
         }
         await Promise.all(promises);
     }

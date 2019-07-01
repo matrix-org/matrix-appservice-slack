@@ -1,6 +1,7 @@
 "use strict";
 import * as fs from "fs";
 import { Logging } from "matrix-appservice-bridge";
+import { Main } from "./Main";
 
 const log = Logging.get("substitutions");
 
@@ -87,7 +88,7 @@ class Subsitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-    public async matrixToSlack(event: any, main: any) {
+    public async matrixToSlack(event: any, main: Main) {
         let body = event.content.body;
         body = body.replace(/<((https?:\/\/)?[^>]+?)>/g, '$1');
 
@@ -103,7 +104,7 @@ class Subsitutions {
         const html_string = event.content.formatted_body;
         if (undefined != html_string) {
             const regex = new RegExp('<a href="https://matrix.to/#/@' +
-                                   main.getUserIDPrefix() +
+                                   main.userIdPrefix +
                                    '([^"]+)">([^<]+)</a>', "g");
 
             let match = regex.exec(html_string);
@@ -158,9 +159,9 @@ class Subsitutions {
      * @param {String} room_id The room id to make the maps for.
      * @return {Promise} A mapping of display name to slack user id.
      */
-    public async getDisplayMap(main: any, roomId: string) {
+    public async getDisplayMap(main: Main, roomId: string) {
         const displaymap: {[name: string]: string} = {};
-        const store = main.getUserStore();
+        const store = main.userStore;
         const users = await main.listGhostUsers(roomId);
         const storeUsers: {display_name: string, id: string}[][] = await Promise.all(users.map((id: string) => store.select({id})));
         storeUsers.forEach(user => {

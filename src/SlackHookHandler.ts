@@ -5,6 +5,7 @@ import * as fs from "fs";
 import { createServer as httpCreate, RequestListener, Server, IncomingMessage, ServerResponse } from "http";
 import { createServer as httpsCreate } from "https";
 import { BridgedRoom } from "./BridgedRoom";
+import { Main } from "./Main";
 
 const rp = require('request-promise');
 const qs = require("querystring");
@@ -19,7 +20,7 @@ const PRESERVE_KEYS = [
 
 export class SlackHookHandler extends BaseSlackHandler {
     private eventHandler: SlackEventHandler;
-    constructor(main: any) {
+    constructor(main: Main) {
         super(main);
         this.eventHandler = new SlackEventHandler(main);
     }

@@ -1,3 +1,5 @@
+import { Main } from "./Main";
+
 const rp = require('request-promise');
 const Promise = require('bluebird');
 const getSlackFileUrl = require("./substitutions").getSlackFileUrl;
@@ -16,7 +18,7 @@ export interface ISlackMessage {
 }
 
 export abstract class BaseSlackHandler {
-    constructor(protected main: any) { }
+    constructor(protected main: Main) { }
 
     public async replaceChannelIdsWithNames(message: ISlackMessage, token: string) {
         if (message.text === undefined) {
@@ -81,7 +83,7 @@ export abstract class BaseSlackHandler {
             let display_name = "";
             let user_id = this.main.getUserId(id, team_domain);
     
-            const store = this.main.getUserStore();
+            const store = this.main.userStore
             const users = await store.select({id: user_id});
     
             if (users === undefined || !users.length) {

@@ -2,6 +2,7 @@ import { BaseSlackHandler } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { on } from "cluster";
 import { ServerResponse } from "http";
+import { Main } from "./Main";
 
 const Promise = require('bluebird');
 const log = require("matrix-appservice-bridge").Logging.get("SlackEventHandler");
@@ -53,7 +54,7 @@ interface ISlackEventMessageEvent extends ISlackEventEvent {
 
 
 export class SlackEventHandler extends BaseSlackHandler {
-    constructor(main: any) {
+    constructor(main: Main) {
         super(main);
     }
 
