@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jasmine-node tests --verbose --forceexit --captureExceptions",
-    "lint": "eslint app.js lib"
+    "lint": "tslint -p tsconfig.json"
   },
   "repository": {
     "type": "git",
@@ -32,6 +32,7 @@
     "nedb": "^1.8.0",
     "randomstring": "^1",
     "request-promise": "^3.0.0",
+    "tslint": "^5.18.0",
     "uuid": "^3.3.2",
     "winston": "^3.1.0",
     "winston-daily-rotate-file": "^3.3.3",
@@ -41,7 +42,6 @@
     "@types/node": "^12.0.10",
     "@types/randomstring": "^1.1.6",
     "@types/yargs-parser": "^13.0.0",
-    "eslint": "^1.4.3",
     "jasmine-node": "^1.14.5",
     "typescript": "^3.5.2"
   }
