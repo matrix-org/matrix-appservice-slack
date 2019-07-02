@@ -12,8 +12,6 @@ import { MatrixUser } from "./MatrixUser";
 import { default as subsitutions } from "./substitutions";
 import { SlackHookHandler } from "./SlackHookHandler";
 
-
-const Promise = require('bluebird');
 const AdminCommands = require("./AdminCommands");
 const Provisioning = require("./Provisioning");
 const rp = require('request-promise');

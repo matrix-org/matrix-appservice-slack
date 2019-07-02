@@ -1,7 +1,6 @@
 import { SlackGhost } from "./SlackGhost";
 import { Main } from "./Main";
 
-const Promise = require('bluebird');
 const url = require('url');
 const substitutions = require("./substitutions");
 const rp = require('request-promise');

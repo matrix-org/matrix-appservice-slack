@@ -1,6 +1,5 @@
 "use strict";
 const log = require("matrix-appservice-bridge").Logging.get("AdminCommands");
-var Promise = require('bluebird');
 
 var AdminCommand = require("./AdminCommand");
 

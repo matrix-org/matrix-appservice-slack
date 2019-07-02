@@ -9,7 +9,6 @@ import { Main } from "./Main";
 
 const rp = require('request-promise');
 const qs = require("querystring");
-const Promise = require('bluebird');
 const log = require("matrix-appservice-bridge").Logging.get("SlackHookHandler");
 
 const PRESERVE_KEYS = [
@@ -127,6 +126,9 @@ export class SlackHookHandler extends BaseSlackHandler {
     
         if (method === "POST" && path === "post") {
             try {
+                if (!room) {
+                    throw "No room found for inboundId";
+                }
                 await this.handlePost(room, params);
                 endTimer({outcome: "success"});
             } catch (ex) {
@@ -216,7 +218,7 @@ export class SlackHookHandler extends BaseSlackHandler {
     }
 
     async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string}) {
-        const oauth2 = this.main.getOAuth2();
+        const oauth2 = this.main.oauth2;
         if (!oauth2) {
             log.warn("Wasn't expecting to receive /authorize without OAuth2 configured");
             return {
@@ -224,8 +226,8 @@ export class SlackHookHandler extends BaseSlackHandler {
                 html: `OAuth is not configured on this bridge.`
             };
         }
-        let room = null;
-        let user = null;
+        let room: BridgedRoom|null = null;
+        let user: string|null = null;
         if (typeof roomOrToken === "string") {
             user = oauth2.getUserIdForPreauthToken(roomOrToken);
             // This might be a user token.
@@ -243,11 +245,6 @@ export class SlackHookHandler extends BaseSlackHandler {
             (user ? user : room!.InboundId)
         );
     
-        try {
-
-        } catch (ex) {
-            
-        }
         const result = await oauth2.exchangeCodeForToken({
             code: params.code,
             room: roomOrToken,

@@ -1,7 +1,6 @@
 import { Main } from "./Main";
 
 const rp = require('request-promise');
-const Promise = require('bluebird');
 const getSlackFileUrl = require("./substitutions").getSlackFileUrl;
 const slackGhost = require("./SlackGhost");
 const log = require("matrix-appservice-bridge").Logging.get("BaseSlackHandler");

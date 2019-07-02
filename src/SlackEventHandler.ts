@@ -4,7 +4,6 @@ import { on } from "cluster";
 import { ServerResponse } from "http";
 import { Main } from "./Main";
 
-const Promise = require('bluebird');
 const log = require("matrix-appservice-bridge").Logging.get("SlackEventHandler");
 
 interface ISlackEventParams {
@@ -189,7 +188,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             if (msg.message.bot_id !== undefined) {
                 // Check the edit wasn't sent by us
                 if (msg.message.bot_id === room.SlackBotId) {
-                    return Promise.resolve();
+                    return;
                 }
                 else {
                     msg.user_id = msg.bot_id;
