@@ -1,3 +1,5 @@
+import { Main } from "./Main";
+
 const querystring = require("querystring");
 const rp = require('request-promise');
 const log = require("matrix-appservice-bridge").Logging.get("OAuth2");
@@ -19,13 +21,13 @@ const BOT_SCOPES = [
 ];
 
 export class OAuth2 {
-    private readonly main: any;
+    private readonly main: Main;
     private readonly userTokensWaiting: Map<string,string>;
     private readonly clientId: string;
     private readonly clientSecret: string;
     private readonly redirectPrefix: string;
 
-    constructor(opts: {main: any, client_id: string, client_secret: string, redirect_prefix: string}) {
+    constructor(opts: {main: Main, client_id: string, client_secret: string, redirect_prefix: string}) {
         this.main = opts.main;
         this.userTokensWaiting = new Map(); //token -> userId
         this.clientId = opts.client_id;
@@ -90,7 +92,7 @@ export class OAuth2 {
         if (v && pop) {
             this.userTokensWaiting.delete(token);
         }
-        return v;
+        return v || null;
     }
 
     private makeRedirectURL(roomOrString: string| {getInboundId: () => string}) {

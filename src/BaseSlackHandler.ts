@@ -90,7 +90,7 @@ export abstract class BaseSlackHandler {
                 // if the user is not in the store then we look up the displayname
                 const nullGhost = new slackGhost({main: this.main});
                 const room = this.main.getRoomBySlackChannelId(message.channel);
-                display_name = await nullGhost.getDisplayName(id, room.getAccessToken());
+                display_name = await nullGhost.getDisplayName(id, room!.AccessToken);
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
                 message.text = message.text.replace(USER_ID_REGEX_FIRST, display_name);
             } else {

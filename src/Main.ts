@@ -712,7 +712,7 @@ export class Main {
 
             if (!response.ok) {
                 log.error(`channels.info for ${opts.slack_channel_id} errored:`, response);
-                return;
+                throw Error("Failed to get channel info");
             }
 
             room.SlackChannelName = response.channel.name;
@@ -842,7 +842,7 @@ Provisioning.commands.authurl = new Provisioning.Command({
 
 Provisioning.commands.logout = new Provisioning.Command({
     params: ["user_id", "slack_id"],
-    func: function(main, req, res, user_id, slack_id) {
+    func: async function(main, req, res, user_id, slack_id) {
         const oauth2 = main.getOAuth2();
         if (!oauth2) {
             res.status(400).json({
@@ -851,93 +851,85 @@ Provisioning.commands.logout = new Provisioning.Command({
             return;
         }
         const store = main._bridge.getUserStore();
-        return store.getMatrixUser(user_id).then((matrixUser) => {
-            matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
-            const accounts = matrixUser.get("accounts") || {};
-            delete accounts[slack_id];
-            matrixUser.set("accounts", accounts);
-            store.setMatrixUser(matrixUser);
-            log.info(`Removed accoun ${slack_id} from ${userId}`);
-        });
+        let matrixUser = await store.getMatrixUser(user_id);
+        matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(user_id);
+        const accounts = matrixUser.get("accounts") || {};
+        delete accounts[slack_id];
+        matrixUser.set("accounts", accounts);
+        store.setMatrixUser(matrixUser);
+        log.info(`Removed account ${slack_id} from ${user_id}`);
     }
 });
 
 Provisioning.commands.channels = new Provisioning.Command({
     params: ["user_id", "team_id"],
-    func: function(main, req, res, user_id, team_id) {
-    const store = main._bridge.getUserStore();
+    func: async function(main, req, res, user_id, team_id) {
+        const store = main._bridge.getUserStore();
         log.debug(`${user_id} requested their teams`);
         main.incRemoteCallCounter("conversations.list");
-        return store.getMatrixUser(user_id).then((matrixUser) => {
-            const isAllowed = matrixUser !== null &&
-                Object.values(matrixUser.get("accounts")).find((acct) =>
-                    acct.team_id === team_id
-                );
-            if (!isAllowed) {
-                res.status(403).json({error: "User is not part of this team!"});
-                return Promise.reject();
-            }
-            return main.getTeamFromStore(team_id);
-        }).then((team) => {
-            if (team === null) {
-                throw new Error("No team token for this team_id");
-            }
-            return rp({
-                url: "https://slack.com/api/conversations.list",
-                qs: {
-                    token: team.bot_token,
-                    exclude_archived: true,
-                    types: "public_channel",
-                    limit: 100,
-                },
-                json: true
-            });
-        }).then((response) => {
-            if (!response.ok) {
-                log.error(`Failed trying to fetch channels for ${team_id}.`, response);
-                res.status(500).json({error: "Failed to fetch channels"});
-                return;
-            }
-            res.json({
-                channels: response.channels.map((chan) => ({
-                    id: chan.id,
-                    name: chan.name,
-                    topic: chan.topic,
-                    purpose: chan.purpose,
-                }))
-            });
+        const matrixUser = await store.getMatrixUser(user_id);
+        const isAllowed = matrixUser !== null &&
+            Object.values(matrixUser.get("accounts")).find((acct) =>
+                acct.team_id === team_id
+            );
+        if (!isAllowed) {
+            res.status(403).json({error: "User is not part of this team!"});
+            return Promise.reject();
+        }
+        const team = await main.getTeamFromStore(team_id);
+        if (team === null) {
+            throw new Error("No team token for this team_id");
+        }
+        const response = await rp({
+            url: "https://slack.com/api/conversations.list",
+            qs: {
+                token: team.bot_token,
+                exclude_archived: true,
+                types: "public_channel",
+                limit: 100,
+            },
+            json: true,
+        });
+        if (!response.ok) {
+            log.error(`Failed trying to fetch channels for ${team_id}.`, response);
+            res.status(500).json({error: "Failed to fetch channels"});
+            return;
+        }
+        res.json({
+            channels: response.channels.map((chan) => ({
+                id: chan.id,
+                name: chan.name,
+                topic: chan.topic,
+                purpose: chan.purpose,
+            }))
         });
     }
 });
 
 Provisioning.commands.teams = new Provisioning.Command({
     params: ["user_id"],
-    func: function(main, req, res, user_id) {
+    func: async function(main, req, res, user_id) {
         log.debug(`${user_id} requested their teams`);
         const store = main._bridge.getUserStore();
         let teams = [];
-        return store.getMatrixUser(user_id).then((matrixUser) => {
-            if(matrixUser === null) {
-                res.status(404).json({error: "User has no accounts setup"});
-                return;
-            }
-            const accounts = matrixUser.get("accounts");
-            return Promise.all(Object.keys(accounts).map((slack_id) => {
-                const account = accounts[slack_id];
-                return main.getTeamFromStore(account.team_id).then(
-                    (team) => ({team, slack_id})
-                );
-            }))
-        }).then((results) => {
-            const teams = results.map((res) => ({
-                id: res.team.team_id,
-                name: res.team.team_name,
-                slack_id: res.slack_id,
-            }));
-            res.json({ teams });
-        }).catch((err) => {
-            res.status(500).json({error: err});
-        })
+        const matrixUser = await store.getMatrixUser(user_id);
+        if(matrixUser === null) {
+            res.status(404).json({error: "User has no accounts setup"});
+            return;
+        }
+        const accounts = matrixUser.get("accounts");
+        const results = await Promise.all(Object.keys(accounts).map((slack_id) => {
+            const account = accounts[slack_id];
+            return main.getTeamFromStore(account.team_id).then(
+                (team) => ({team, slack_id})
+            );
+        }));
+        teams = results.map((res) => ({
+            id: res.team.team_id,
+            name: res.team.team_name,
+            slack_id: res.slack_id,
+        }));
+        res.json({ teams });
     }
 });
 
@@ -1004,21 +996,20 @@ Provisioning.commands.getlink = new Provisioning.Command({
 
 Provisioning.commands.link = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: async function(main, req, res, matrix_room_id, user_id) {
+    func: async function(main: Main, req: any, res: any, matrix_room_id: string, user_id: string) {
         log.info("Need to enquire if " + user_id + " is allowed to link " + matrix_room_id);
 
         // Ensure we are in the room.
-        await main._bridge.getIntent().join(matrix_room_id);
+        await main.botIntent.join(matrix_room_id);
 
         const params = req.body;
         const opts = {
             matrix_room_id: matrix_room_id,
+            slack_webhook_uri: params.slack_webhook_uri,
+            slack_channel_id: params.channel_id,
+            team_id: params.team_id,
+            user_id: params.user_id,
         };
-
-        opts.slack_webhook_uri = params.slack_webhook_uri;
-        opts.slack_channel_id = params.channel_id;
-        opts.team_id = params.team_id;
-        opts.user_id = user_id;
 
         // Check if the user is in the team.
         if (opts.team_id && !(await main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {

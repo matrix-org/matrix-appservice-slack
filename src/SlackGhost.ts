@@ -1,8 +1,10 @@
+import { Main } from "./Main";
+
 const rp = require('request-promise');
 const Slackdown = require('Slackdown');
-const log = require("matrix-appservice-bridge").Logging.get("SlackGhost");
 const BridgeLib = require("matrix-appservice-bridge");
 const StoreEvent = BridgeLib.StoreEvent;
+const log = BridgeLib.Logging.get("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
@@ -12,14 +14,14 @@ export class SlackGhost {
     private userInfoCache?: any;
     private userInfoLoading?: Promise<any>;
     constructor(
-        private main: any,
+        private main: Main,
         private userId: string|undefined,
         private displayName: string|undefined,
         private avatarUrl: string|undefined,
         public readonly intent: any|undefined) {
     }
 
-    static fromEntry(main: any, entry: any, intent: any) {
+    static fromEntry(main: Main, entry: any, intent: any) {
         return new SlackGhost(
             main,
             entry.id,
@@ -160,7 +162,7 @@ export class SlackGhost {
         this.main.incCounter("sent_messages", {side: "matrix"});
 
         const event = new StoreEvent(roomId, matrixEvent.event_id, slackRoomID, slackEventTS);
-        const store = this.main.getEventStore();
+        const store = this.main.eventStore;
         await store.upsertEvent(event);
 
         return matrixEvent;

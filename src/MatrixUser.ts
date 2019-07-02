@@ -1,10 +1,12 @@
+import { Main } from "./Main";
+
 /*
  * Represents a user we have seen from Matrix; i.e. a real Matrix user.
  */
 export class MatrixUser {
     public readonly userId: string;
     private atime: number|null;
-    constructor(private main: any, opts: {user_id: string}) {
+    constructor(private main: Main, opts: {user_id: string}) {
         this.userId = opts.user_id;
         this.atime = null;
     }
