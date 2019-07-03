@@ -70,7 +70,11 @@ export class Main {
         return this.config.username_prefix;
     }
 
-    constructor(private config: IConfig) {
+    public get allRooms() {
+        return new Array.from(this.rooms);
+    }
+
+    constructor(public readonly config: IConfig) {
         if (config.oauth2) {
             this.oauth2 = new OAuth2({
                 main: this,
@@ -412,7 +416,7 @@ export class Main {
         await this.botIntent.leave(roomId);
     }
 
-    public async listRoomsFor() {
+    public async listRoomsFor(): Promise<string[]> {
         return this.bridge.getBot().getJoinedRooms();
     }
 
@@ -734,20 +738,20 @@ export class Main {
     }
 
     public async actionUnlink(opts: {
-        matrix_room_id: string
-    }) {    
+        matrix_room_id: string,
+    }) {
         const room = this.getRoomByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
             throw "Cannot unlink - unknown channel";
         }
-    
+
         this.removeBridgedRoom(room);
         delete this.roomsByMatrixRoomId[opts.matrix_room_id];
         this.stateStorage.untrackRoom(opts.matrix_room_id);
-    
+
         const id = room.toEntry().id;
         await this.drainAndLeaveMatrixRoom(opts.matrix_room_id);
-        await this.roomStore.delete({id: id});
+        await this.roomStore.delete({id});
     }
 
     public async checkLinkPermission(matrixRoomId: string, userId: string) {

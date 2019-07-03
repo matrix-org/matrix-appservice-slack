@@ -1,9 +1,10 @@
 import { Main } from "./Main";
+import { BridgedRoom } from "./BridgedRoom";
 
 const querystring = require("querystring");
 const rp = require('request-promise');
 const log = require("matrix-appservice-bridge").Logging.get("OAuth2");
-const uuid = require('uuid/v4');
+const uuid = require('uuid/v4'); 
 
 // The full set of OAuth2 scopes we currently require for all functionality
 const REQUIRED_SCOPES = [
@@ -17,7 +18,7 @@ const REQUIRED_SCOPES = [
 ];
 
 const BOT_SCOPES = [
-    "bot"
+    "bot",
 ];
 
 export class OAuth2 {
@@ -35,18 +36,19 @@ export class OAuth2 {
         this.redirectPrefix = opts.redirect_prefix;
     }
 
-    public makeAuthorizeURL(opts: {room: string, state: string}) {
-        var redirect_uri = this.makeRedirectURL(opts.room);
+    public makeAuthorizeURL(room: string|BridgedRoom, state: string) {
+        const redirectUri = this.makeRedirectURL(room);
         let scopes = Array.from(REQUIRED_SCOPES);
-        if (typeof opts.room === "string") {
+        // XXX: Why do we do this?
+        if (typeof room === "string") {
             scopes = scopes.concat(BOT_SCOPES);
         }
 
-        var qs = querystring.stringify({
+        const qs = querystring.stringify({
             client_id: this.clientId,
+            redirect_uri: redirectUri,
             scope: scopes.join(","),
-            redirect_uri: redirect_uri,
-            state: opts.state,
+            state,
         });
 
         return "https://slack.com/oauth/authorize?" + qs;
@@ -82,7 +84,7 @@ export class OAuth2 {
     public getPreauthToken (userId: string) {
         // NOTE: We use 32 because we need to use it into SlackEventHandler which
         // expects inbound roomIds to be 32 chars.
-        const token = uuid().substr(0,32);
+        const token = uuid().substr(0, 32);
         this.userTokensWaiting.set(token, userId);
         return token;
     }
@@ -95,9 +97,9 @@ export class OAuth2 {
         return v || null;
     }
 
-    private makeRedirectURL(roomOrString: string| {getInboundId: () => string}) {
+    private makeRedirectURL(roomOrString: string| {InboundId: string}) {
         if (typeof roomOrString !== "string") {
-            roomOrString = roomOrString.getInboundId();
+            roomOrString = roomOrString.InboundId;
         }
         return `${this.redirectPrefix}${roomOrString}/authorize`;
     }
