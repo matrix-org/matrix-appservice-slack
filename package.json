@@ -4,6 +4,7 @@
   "description": "A Matrix <--> Slack bridge",
   "main": "app.js",
   "scripts": {
+    "start": "node ./lib/run.js"
     "build": "tsc",
     "test": "jasmine-node tests --verbose --forceexit --captureExceptions",
     "lint": "tslint -p tsconfig.json"

@@ -1,10 +1,5 @@
-const bridgeLib = require("matrix-appservice-bridge");
-
-const Main = require("./lib/Main");
-
-const Cli = bridgeLib.Cli;
-const AppServiceRegistration = bridgeLib.AppServiceRegistration;
-const Logging = bridgeLib.Logging;
+import { Logging, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
+import { Main } from "./Main"; 
 
 const cli = new Cli({
     registrationPath: "slack-registration.yaml",
@@ -24,7 +19,7 @@ const cli = new Cli({
     run: function(port, config) {
         Logging.configure(config.logging || {});
         Logging.get("app").info("Matrix-side listening on port %s", port);
-        (new Main(config)).run(port);
+        new Main(config).run(port);
     },
 });
 cli.run();
