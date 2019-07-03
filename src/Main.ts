@@ -610,6 +610,16 @@ export class Main {
             log.error("Ignoring LEGACY room entry in room-store.db", entry);
         });
 
+        await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
+        this.bridge.run(port, this.config);
+        Provisioning.addAppServicePath(this.bridge, this);
+
+        // TODO(paul): see above; we had to defer this until now
+        this.stateStorage = new StateLookup({
+            eventTypes: ["m.room.member", "m.room.power_levels"],
+            client: this.bridge.getIntent().client,
+        });
+
         const entries = await this.roomStore.select({
             matrix_id: {$exists: true},
         });
@@ -628,16 +638,6 @@ export class Main {
             else {
                 log.error("Ignoring LEGACY room link entry", entry);
             }
-        });
-
-        await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
-        this.bridge.run(port, this.config);
-        Provisioning.addAppServicePath(this.bridge, this);
-
-        // TODO(paul): see above; we had to defer this until now
-        this.stateStorage = new StateLookup({
-            eventTypes: ["m.room.member", "m.room.power_levels"],
-            client: this.bridge.getIntent().client,
         });
 
         if (this.metrics) {
