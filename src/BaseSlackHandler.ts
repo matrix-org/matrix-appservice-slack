@@ -1,9 +1,11 @@
-import { Main } from "./Main";
+import { Logging } from "matrix-appservice-bridge";
+import * as rp from "request-promise-native";
 
-const rp = require('request-promise');
-const getSlackFileUrl = require("./substitutions").getSlackFileUrl;
-const slackGhost = require("./SlackGhost");
-const log = require("matrix-appservice-bridge").Logging.get("BaseSlackHandler");
+import { Main } from "./Main";
+import { SlackGhost } from "./SlackGhost";
+import { getSlackFileUrl } from "./substitutions";
+
+const log = Logging.get("BaseSlackHandler");
 
 const CHANNEL_ID_REGEX = /<#(\w+)\|?\w*?>/g;
 const CHANNEL_ID_REGEX_FIRST = /<#(\w+)\|?\w*?>/;
@@ -49,7 +51,7 @@ export abstract class BaseSlackHandler {
             };
             this.main.incRemoteCallCounter("channels.info");
             try {
-                const response = rp(channelsInfoApiParams);
+                const response = await rp(channelsInfoApiParams);
                 let name = channel;
                 if (response && response.channel && response.channel.name) {
                     name = response.channel.name;
@@ -88,9 +90,9 @@ export abstract class BaseSlackHandler {
             if (users === undefined || !users.length) {
                 log.warn("Mentioned user not in store. Looking up display name from slack.");
                 // if the user is not in the store then we look up the displayname
-                const nullGhost = new slackGhost({main: this.main});
+                const nullGhost = new SlackGhost(this.main);
                 const room = this.main.getRoomBySlackChannelId(message.channel);
-                display_name = await nullGhost.getDisplayName(id, room!.AccessToken);
+                display_name = await nullGhost.getDisplayname(id, room!.AccessToken!) || id;
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
                 message.text = message.text.replace(USER_ID_REGEX_FIRST, display_name);
             } else {

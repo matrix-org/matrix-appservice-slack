@@ -1,9 +1,9 @@
 import { Logging } from "matrix-appservice-bridge";
-import { AdminCommand, ResponseCallback } from "./AdminCommand";
 import * as yargs from "yargs";
+
+import { AdminCommand, ResponseCallback } from "./AdminCommand";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
-import { setTimeout } from "timers";
 
 const log = Logging.get("AdminCommands");
 

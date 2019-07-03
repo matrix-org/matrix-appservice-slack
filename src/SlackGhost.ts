@@ -1,24 +1,36 @@
 import { Main } from "./Main";
+import { Logging, StoreEvent } from "matrix-appservice-bridge";
+import * as rp from "request-promise-native";
+import * as Slackdown from "Slackdown";
 
-const rp = require('request-promise');
-const Slackdown = require('Slackdown');
-const BridgeLib = require("matrix-appservice-bridge");
-const StoreEvent = BridgeLib.StoreEvent;
-const log = BridgeLib.Logging.get("SlackGhost");
+const log = Logging.get("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
 
+interface ISlackUser {
+    profile?: {
+        display_name?: string;
+        real_name?: string;
+        image_original?: string;
+        image_1024?: string;
+        image_512?: string;
+        image_192?: string;
+        image_72?: string;
+        image_48?: string;
+    }
+}
+
 export class SlackGhost {
     private atime?: number;
-    private userInfoCache?: any;
-    private userInfoLoading?: Promise<any>;
+    private userInfoCache?: ISlackUser;
+    private userInfoLoading?: Promise<{user?: ISlackUser}>;
     constructor(
         private main: Main,
-        private userId: string|undefined,
-        private displayName: string|undefined,
-        private avatarUrl: string|undefined,
-        public readonly intent: any|undefined) {
+        private userId?: string,
+        private displayName?: string,
+        private avatarUrl?: string,
+        public readonly intent?: any) {
     }
 
     static fromEntry(main: Main, entry: any, intent: any) {
@@ -91,7 +103,11 @@ export class SlackGhost {
             return this.userInfoCache;
         }
         if (this.userInfoLoading) {
-            return this.userInfoLoading;
+            const response = await this.userInfoLoading;
+            if (response.user) {
+                return response.user;
+            }
+            return undefined;
         }
 
         this.main.incRemoteCallCounter("users.info");
@@ -103,15 +119,15 @@ export class SlackGhost {
             },
             json: true,
         });
-        const response = await this.userInfoLoading;
+        const response = await this.userInfoLoading!;
         if (!response.user || !response.user.profile) {
             log.error("Failed to get user profile", response);
             return;
-        };
+        }
         this.userInfoCache = response.user;
         setTimeout(() => this.userInfoCache = undefined, USER_CACHE_TIMEOUT);
         this.userInfoLoading = undefined;
-        return response.user;
+        return response.user!;
     }
 
     public async updateAvatar(message: any, room: any) {
@@ -121,8 +137,16 @@ export class SlackGhost {
         }
 
         const avatarUrl = await this.lookupAvatarUrl(message.user_id, token);
-        // Half-Shot: Ew
-        const shortname = avatarUrl.match(/\/([^\/]+)$/)[1];
+        if (!avatarUrl) {
+            return;
+        }
+
+        const match = avatarUrl.match(/\/([^\/]+)$/);
+        if (!match || !match[1]) {
+            return;
+        }
+
+        const shortname = match[1];
 
         const response = await rp({
             uri: avatarUrl,

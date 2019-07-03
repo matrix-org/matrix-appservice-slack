@@ -1,4 +1,4 @@
-import { Options, Argv, default as yargs } from "yargs";
+import { Options } from "yargs";
 
 export type ResponseCallback = (response: string) => void;
 interface IHandlerArgs {

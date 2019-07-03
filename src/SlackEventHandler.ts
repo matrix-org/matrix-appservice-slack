@@ -1,10 +1,10 @@
 import { BaseSlackHandler } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
-import { on } from "cluster";
 import { ServerResponse } from "http";
 import { Main } from "./Main";
+import { Logging } from "matrix-appservice-bridge";
 
-const log = require("matrix-appservice-bridge").Logging.get("SlackEventHandler");
+const log = Logging.get("SlackEventHandler");
 
 interface ISlackEventParams {
     team_id: string;
@@ -143,7 +143,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         var channelName = `${room.SlackTeamDomain}.#${params.name}`;
         room.SlackChannelName = channelName;
-        if (room.isDirty()) {
+        if (room.isDirty) {
             this.main.putRoomToStore(room);
         }
     }

@@ -1,9 +1,12 @@
+import * as querystring from "querystring";
+import * as rp from "request-promise-native";
+import * as uuid from "uuid/v4";
+import { Logging } from "matrix-appservice-bridge";
+
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 
-const querystring = require("querystring");
-const rp = require('request-promise');
-const log = require("matrix-appservice-bridge").Logging.get("OAuth2");
+const log = Logging.get("OAuth2");
 const uuid = require('uuid/v4'); 
 
 // The full set of OAuth2 scopes we currently require for all functionality

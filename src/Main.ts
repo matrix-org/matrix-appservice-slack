@@ -3,6 +3,7 @@ import { Bridge, PrometheusMetrics, StateLookup, Logging, MatrixUser as BridgeMa
 import * as Datastore from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
+import * as rp from "request-promise-native";
 
 import { IConfig } from "./IConfig";
 import { OAuth2 } from "./OAuth2";
@@ -13,8 +14,6 @@ import { default as subsitutions } from "./substitutions";
 import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
-
-const rp = require('request-promise');
 
 const log = Logging.get("Main");
 

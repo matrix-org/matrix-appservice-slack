@@ -1,15 +1,16 @@
+import * as fs from "fs";
+import { createServer as httpCreate, RequestListener,
+    Server, IncomingMessage, ServerResponse } from "http";
+import { createServer as httpsCreate } from "https";
+import * as rp from "request-promise-native";
+import { Logging } from "matrix-appservice-bridge";
+
 import { SlackEventHandler } from "./SlackEventHandler";
 import { BaseSlackHandler } from "./BaseSlackHandler";
-import * as fs from "fs";
-
-import { createServer as httpCreate, RequestListener, Server, IncomingMessage, ServerResponse } from "http";
-import { createServer as httpsCreate } from "https";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 
-const rp = require('request-promise');
-const qs = require("querystring");
-const log = require("matrix-appservice-bridge").Logging.get("SlackHookHandler");
+const log = Logging.get("SlackHookHandler");
 
 const PRESERVE_KEYS = [
     "team_domain", "team_id",

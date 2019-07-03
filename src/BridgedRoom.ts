@@ -1,12 +1,11 @@
+import * as rp from "request-promise-native";
+import { StoreEvent, Logging } from "matrix-appservice-bridge";
+
 import { SlackGhost } from "./SlackGhost";
 import { Main } from "./Main";
+import { default as substitutions } from "./substitutions";
 
-const url = require('url');
-const substitutions = require("./substitutions");
-const rp = require('request-promise');
-const log = require("matrix-appservice-bridge").Logging.get("BridgedRoom");
-const BridgeLib = require("matrix-appservice-bridge");
-const StoreEvent = BridgeLib.StoreEvent;
+const log = Logging.get("BridgedRoom");
 
 interface IBridgedRoomOpts {
     // TODO: FILL THIS IN
@@ -316,7 +315,7 @@ export class BridgedRoom {
         const sendMessageParams = {
             method: "POST",
             json: true,
-            uri: uri,
+            uri: uri!,
             body: body,
             headers: {},
         };
@@ -598,7 +597,7 @@ export class BridgedRoom {
  * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/#m-image
  */
 const slackImageToMatrixImage = function(file, url, thumbnail_url) {
-    var message = {
+    const message = {
         msgtype: "m.image",
         url: url,
         body: file.title,
@@ -606,7 +605,8 @@ const slackImageToMatrixImage = function(file, url, thumbnail_url) {
             mimetype: file.mimetype,
             size: file.size,
         }
-    };
+        // TODO: Define some matrix types
+    } as any;
 
     if (file.original_w) {
         message.info.w = file.original_w;
@@ -643,7 +643,7 @@ const slackImageToMatrixImage = function(file, url, thumbnail_url) {
  * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/client_server/r0.4.0.html#m-video
  */
 const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
-    var message = {
+    const message = {
         msgtype: "m.video",
         url: url,
         body: file.title,
@@ -651,7 +651,8 @@ const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
             mimetype: file.mimetype,
             size: file.size,
         }
-    };
+        // TODO: Define some matrix types
+    } as any;
 
     if (file.original_w) {
         message.info.w = file.original_w;
