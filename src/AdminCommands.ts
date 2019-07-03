@@ -201,7 +201,7 @@ export class AdminCommands {
                 }
             },
             {
-                roomId: RoomIdDef,
+                room: RoomIdDef,
             },
         );
     }
@@ -215,7 +215,7 @@ export class AdminCommands {
                 respond("Joined");
             },
             {
-                roomId: RoomIdDef,
+                room: RoomIdDef,
             },
         );
     }
@@ -236,7 +236,7 @@ export class AdminCommands {
                 respond("Drained");
             },
             {
-                roomId: RoomIdDef,
+                room: RoomIdDef,
             },
         );
     }
