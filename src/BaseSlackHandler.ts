@@ -3,7 +3,7 @@ import * as rp from "request-promise-native";
 
 import { Main } from "./Main";
 import { SlackGhost } from "./SlackGhost";
-import { getSlackFileUrl } from "./substitutions";
+import { default as subs } from "./substitutions";
 
 const log = Logging.get("BaseSlackHandler");
 
@@ -146,7 +146,7 @@ export abstract class BaseSlackHandler {
     public async fetchFileContent(file: any, token: string) {
         if (!file) return Promise.resolve();
 
-        const url = getSlackFileUrl(file) || file.permalink_public;
+        const url = subs.getSlackFileUrl(file) || file.permalink_public;
         if (!url) {
             throw "File doesn't have any URLs we can use.";
         }

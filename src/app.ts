@@ -18,7 +18,7 @@ const cli = new Cli({
     },
     run: function(port, config) {
         Logging.configure(config.logging || {});
-        Logging.get("app").info("Matrix-side listening on port %s", port);
+        Logging.get("app").info("Matrix-side listening on port", port);
         new Main(config).run(port);
     },
 });

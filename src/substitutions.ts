@@ -1,4 +1,3 @@
-"use strict";
 import * as fs from "fs";
 import { Logging } from "matrix-appservice-bridge";
 import { Main } from "./Main";
@@ -199,10 +198,65 @@ class Subsitutions {
         return firstwords;
     }
 
+    public makeDiff(prev: string, curr: string) {
+        var i;
+        for (i = 0; i < curr.length && i < prev.length; i++) {
+            if (curr.charAt(i) != prev.charAt(i)) break;
+        }
+        // retreat to the start of a word
+        while(i > 0 && /\S/.test(curr.charAt(i-1))) i--;
+    
+        var prefixLen = i;
+    
+        for(i = 0; i < curr.length && i < prev.length; i++) {
+            if (rcharAt(curr, i) != rcharAt(prev, i)) break;
+        }
+        // advance to the end of a word
+        while(i > 0 && /\S/.test(rcharAt(curr, i-1))) i--;
+    
+        var suffixLen = i;
+    
+        // Extract the common prefix and suffix strings themselves and
+        //   mutate the prev/curr strings to only contain the differing
+        //   middle region
+        var prefix = curr.slice(0, prefixLen);
+        curr = curr.slice(prefixLen);
+        prev = prev.slice(prefixLen);
+    
+        var suffix = "";
+        if (suffixLen > 0) {
+            suffix = curr.slice(-suffixLen);
+            curr = curr.slice(0, -suffixLen);
+            prev = prev.slice(0, -suffixLen);
+        }
+    
+        // At this point, we have four strings; the common prefix and
+        //   suffix, and the edited middle part. To display it nicely as a
+        //   matrix message we'll use the final word of the prefix and the
+        //   first word of the suffix as "context" for a customly-formatted
+        //   message.
+    
+        var before = finalWord(prefix);
+        if (before != prefix) { before = "... " + before; }
+    
+        var after = firstWord(suffix);
+        if (after != suffix) { after = after + " ..."; }
+    
+        // return {prev: prev,
+        //         curr: curr,
+        //         before: before,
+        //         after: after};
+        return {prev, curr, before, after};
+    }
 
-
-    private getSlackFileUrl(file?: any) {
+    public getSlackFileUrl(file: {
+        permalink_public: string,
+        url_private: string,
+    }) {
         const pub_secret = file.permalink_public.match(/https?:\/\/slack-files.com\/[^-]*-[^-]*-(.*)/);
+        if (!pub_secret) {
+            throw Error("Could not determine pub_secret");
+        }
         // try to get direct link to the file
         if (pub_secret !== undefined && pub_secret.length > 0) {
             return file.url_private + "?pub_secret=" + pub_secret[1];
@@ -210,9 +264,9 @@ class Subsitutions {
     }
 }
 
-export default new Subsitutions();
+const subsitutions = new Subsitutions();
 
-
+export default subsitutions;
 
 /**
  * Do string replacement on a message given the display map.
@@ -221,8 +275,8 @@ export default new Subsitutions();
  * @param {Object} displaymap A mapping of display names to slack user ids.
  * @return {String} The string with replacements performed.
  */
-function replacementFromDisplayMap(string, displaymap) {
-    const firstwords = makeFirstWordMap(displaymap);
+function replacementFromDisplayMap(string: string, displaymap) {
+    const firstwords = subsitutions.makeFirstWordMap(displaymap);
 
     // Now parse the message to find the intersection of every word in the
     // message with every first word of all nicks.
@@ -264,7 +318,7 @@ function replacementFromDisplayMap(string, displaymap) {
  * @return {String} The string with replacements performed.
  */
 function plainTextSlackMentions(main, string, room_id) {
-    return getDisplayMap(main, room_id).then(displaymap => replacementFromDisplayMap(string, displaymap));
+    return subsitutions.getDisplayMap(main, room_id).then(displaymap => replacementFromDisplayMap(string, displaymap));
 }
 
 // These functions are copied and modified from the Gitter AS
@@ -281,55 +335,4 @@ function firstWord(s) {
 function finalWord(s) {
     var groups = s.match(/\S+\s*$/);
     return groups ? groups[0] : "";
-}
-
-function makeDiff(prev, curr) {
-    var i;
-    for (i = 0; i < curr.length && i < prev.length; i++) {
-        if (curr.charAt(i) != prev.charAt(i)) break;
-    }
-    // retreat to the start of a word
-    while(i > 0 && /\S/.test(curr.charAt(i-1))) i--;
-
-    var prefixLen = i;
-
-    for(i = 0; i < curr.length && i < prev.length; i++) {
-        if (rcharAt(curr, i) != rcharAt(prev, i)) break;
-    }
-    // advance to the end of a word
-    while(i > 0 && /\S/.test(rcharAt(curr, i-1))) i--;
-
-    var suffixLen = i;
-
-    // Extract the common prefix and suffix strings themselves and
-    //   mutate the prev/curr strings to only contain the differing
-    //   middle region
-    var prefix = curr.slice(0, prefixLen);
-    curr = curr.slice(prefixLen);
-    prev = prev.slice(prefixLen);
-
-    var suffix = "";
-    if (suffixLen > 0) {
-        suffix = curr.slice(-suffixLen);
-        curr = curr.slice(0, -suffixLen);
-        prev = prev.slice(0, -suffixLen);
-    }
-
-    // At this point, we have four strings; the common prefix and
-    //   suffix, and the edited middle part. To display it nicely as a
-    //   matrix message we'll use the final word of the prefix and the
-    //   first word of the suffix as "context" for a customly-formatted
-    //   message.
-
-    var before = finalWord(prefix);
-    if (before != prefix) { before = "... " + before; }
-
-    var after = firstWord(suffix);
-    if (after != suffix) { after = after + " ..."; }
-
-    // return {prev: prev,
-    //         curr: curr,
-    //         before: before,
-    //         after: after};
-    return {prev, curr, before, after};
 }

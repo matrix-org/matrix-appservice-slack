@@ -78,6 +78,10 @@ export class Main {
         return Array.from(this.rooms);
     }
 
+    public get botUserId(): string {
+        return this.bridge.getBot().userId();
+    }
+
     constructor(public readonly config: IConfig) {
         if (config.oauth2) {
             this.oauth2 = new OAuth2({
@@ -814,40 +818,38 @@ export class Main {
 Provisioning.commands.getbotid = new Provisioning.Command({
     params: [],
     func: function(main, req, res) {
-        res.json({bot_user_id: main._bridge.getBot().getUserId()});
+        res.json({bot_user_id: main.botUserId});
     }
 });
 
 Provisioning.commands.authurl = new Provisioning.Command({
     params: ["user_id"],
-    func: function(main, req, res, user_id) {
-        const oauth2 = main.getOAuth2();
-        if (!oauth2) {
+    func: function(main, req, res, user_id: string) {
+        if (!main.oauth2) {
             res.status(400).json({
                 error: "OAuth2 not configured on this bridge",
             });
             return;
         }
-        const token = oauth2.getPreauthToken(user_id);
-        const auth_uri = oauth2.makeAuthorizeURL({
-            room: token,
-            state: token,
-        });
+        const token = main.oauth2.getPreauthToken(user_id);
+        const auth_uri = main.oauth2.makeAuthorizeURL(
+            token,
+            token,
+        );
         res.json({auth_uri});
     }
 });
 
 Provisioning.commands.logout = new Provisioning.Command({
     params: ["user_id", "slack_id"],
-    func: async function(main, req, res, user_id, slack_id) {
-        const oauth2 = main.getOAuth2();
-        if (!oauth2) {
+    func: async function(main, req, res, user_id: string, slack_id: string) {
+        if (!main.oauth2) {
             res.status(400).json({
                 error: "OAuth2 not configured on this bridge",
             });
             return;
         }
-        const store = main._bridge.getUserStore();
+        const store = main.userStore;
         let matrixUser = await store.getMatrixUser(user_id);
         matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(user_id);
         const accounts = matrixUser.get("accounts") || {};
@@ -860,18 +862,18 @@ Provisioning.commands.logout = new Provisioning.Command({
 
 Provisioning.commands.channels = new Provisioning.Command({
     params: ["user_id", "team_id"],
-    func: async function(main, req, res, user_id, team_id) {
-        const store = main._bridge.getUserStore();
+    func: async function(main, req, res, user_id: string, team_id: string) {
+        const store = main.userStore;
         log.debug(`${user_id} requested their teams`);
         main.incRemoteCallCounter("conversations.list");
         const matrixUser = await store.getMatrixUser(user_id);
         const isAllowed = matrixUser !== null &&
-            Object.values(matrixUser.get("accounts")).find((acct) =>
+            Object.values(matrixUser.get("accounts")).find((acct: any) =>
                 acct.team_id === team_id
             );
         if (!isAllowed) {
             res.status(403).json({error: "User is not part of this team!"});
-            return Promise.reject();
+            throw undefined;
         }
         const team = await main.getTeamFromStore(team_id);
         if (team === null) {
@@ -905,10 +907,9 @@ Provisioning.commands.channels = new Provisioning.Command({
 
 Provisioning.commands.teams = new Provisioning.Command({
     params: ["user_id"],
-    func: async function(main, req, res, user_id) {
+    func: async function(main, req, res, user_id: string) {
         log.debug(`${user_id} requested their teams`);
-        const store = main._bridge.getUserStore();
-        let teams = [];
+        const store = main.userStore;
         const matrixUser = await store.getMatrixUser(user_id);
         if(matrixUser === null) {
             res.status(404).json({error: "User has no accounts setup"});
@@ -921,7 +922,7 @@ Provisioning.commands.teams = new Provisioning.Command({
                 (team) => ({team, slack_id})
             );
         }));
-        teams = results.map((res) => ({
+        const teams = results.map((res) => ({
             id: res.team.team_id,
             name: res.team.team_name,
             slack_id: res.slack_id,
@@ -932,68 +933,65 @@ Provisioning.commands.teams = new Provisioning.Command({
 
 Provisioning.commands.getlink = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: function(main, req, res, matrix_room_id, user_id) {
-        var room = main.getRoomByMatrixRoomId(matrix_room_id);
+    func: async function(main, req, res, matrix_room_id: string, user_id: string) {
+        const room = main.getRoomByMatrixRoomId(matrix_room_id);
         if (!room) {
             res.status(404).json({error: "Link not found"});
             return;
         }
 
         log.info("Need to enquire if " + user_id + " is allowed to get links for " + matrix_room_id);
-
-        return main.checkLinkPermission(matrix_room_id, user_id).then((allowed) => {
-            if (!allowed) return Promise.reject({
+        const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
+        if (!allowed) {
+            throw {
                 code: 403,
                 text: user_id + " is not allowed to provision links in " + matrix_room_id
-            });
-        }).then(
-            () => {
-                // Convert the room 'status' into a scalar 'status'
-                var status = room.getStatus();
-                if (status.match(/^ready/)) {
-                    // OK
-                }
-                else if(status === "pending-params") {
-                    status = "partial";
-                }
-                else if(status === "pending-name") {
-                    status = "pending";
-                }
-                else {
-                    status = "unknown";
-                }
+            };
+        }
 
-                var auth_uri;
-                var oauth2 = main.getOAuth2();
-                if (oauth2 && !room.getAccessToken()) {
-                    // We don't have an auth token but we do have the ability
-                    // to ask for one
-                    auth_uri = oauth2.makeAuthorizeURL({
-                        room: room,
-                        state: room.getInboundId(),
-                    });
-                }
+        // Convert the room 'status' into a scalar 'status'
+        let status = room.getStatus();
+        if (status.match(/^ready/)) {
+            // OK
+        }
+        else if(status === "pending-params") {
+            status = "partial";
+        }
+        else if(status === "pending-name") {
+            status = "pending";
+        }
+        else {
+            status = "unknown";
+        }
 
-                res.json({
-                    status: status,
-                    slack_channel_id: room.getSlackChannelId(),
-                    slack_channel_name: room.getSlackChannelName(),
-                    slack_webhook_uri: room.getSlackWebhookUri(),
-                    team_id: room.getSlackTeamId(),
-                    isWebhook: !room.getSlackBotId(),
-                    // This is slightly a lie
-                    matrix_room_id: matrix_room_id,
-                    inbound_uri: main.getInboundUrlForRoom(room),
-                    auth_uri: auth_uri,
-                });
-            }
-        );
+        let authUri;
+        if (main.oauth2 && !room.AccessToken) {
+            // We don't have an auth token but we do have the ability
+            // to ask for one
+            authUri = main.oauth2.makeAuthorizeURL(
+                room,
+                room.InboundId,
+            );
+        }
+
+        res.json({
+            status: status,
+            slack_channel_id: room.SlackChannelId,
+            slack_channel_name: room.SlackChannelName,
+            slack_webhook_uri: room.SlackWebhookUri,
+            team_id: room.SlackTeamId,
+            isWebhook: !room.SlackBotId,
+            // This is slightly a lie
+            matrix_room_id: matrix_room_id,
+            inbound_uri: main.getInboundUrlForRoom(room),
+            auth_uri: authUri,
+        });
     }
 });
 
 Provisioning.commands.link = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: async function(main: Main, req: any, res: any, matrix_room_id: string, user_id: string) {
+    func: async function(main, req, res, matrix_room_id: string, user_id: string) {
         log.info("Need to enquire if " + user_id + " is allowed to link " + matrix_room_id);
 
         // Ensure we are in the room.
@@ -1049,18 +1047,17 @@ Provisioning.commands.link = new Provisioning.Command({
 
 Provisioning.commands.unlink = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: function(main, req, res, matrix_room_id, user_id) {
+    func: async function(main, req, res, matrix_room_id: string, user_id: string) {
         log.info("Need to enquire if " + user_id + " is allowed to unlink " + matrix_room_id);
 
-        return main.checkLinkPermission(matrix_room_id, user_id).then((allowed) => {
-            if (!allowed) return Promise.reject({
+        const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
+        if (!allowed) {
+            throw {
                 code: 403,
                 text: user_id + " is not allowed to provision links in " + matrix_room_id,
-            });
-
-            return main.actionUnlink({matrix_room_id: matrix_room_id});
-        }).then(
-            ()    => { res.json({}); }
-        );
+            };
+        }
+        await main.actionUnlink({matrix_room_id});
+        res.json({});
     }
 });
