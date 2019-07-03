@@ -8,7 +8,7 @@ export const commands: {[verb: string]: Command} = {};
 export class Command {
     private params: any[];
     private func: CommandFunc;
-    constructor (opts: {params: any[], func: CommandFunc}) {
+    constructor(opts: {params: any[], func: CommandFunc}) {
         this.params = opts.params;
         this.func = opts.func;
     }
@@ -17,11 +17,11 @@ export class Command {
         const body = req.body;
         const args = [service, req, res];
         for (const param of this.params) {
-            if(!(param in body)) {
+            if (!(param in body)) {
                 res.status(400).json({error: "Required parameter " + param + " missing"});
                 return;
             }
-    
+
             args.push(body[param]);
         }
 
@@ -47,16 +47,17 @@ export async function handle(service: any, verb: string, req: any, res: any) {
         log.error("Provisioning command failed:", e);
         res.status(500).json({error: "Provisioning command failed " + e});
     }
-};
+}
 
 export function addAppServicePath(bridge: any, service: any) {
     bridge.addAppServicePath({
-        method: "POST",
-        path: "/_matrix/provision/:verb",
         handler: (req: any, res: any) => {
-            var verb = req.params.verb;
+            const verb = req.params.verb;
             log.info("Received a _matrix/provision request for " + verb);
             handle(service, verb, req, res);
-        }
+        },
+        method: "POST",
+        path: "/_matrix/provision/:verb",
     });
 }
+ 

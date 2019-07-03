@@ -18,7 +18,7 @@ export class MatrixUser {
      */
     public getDisplaynameForRoom(roomId: string) {
         const myMemberEvent = this.main.getStoredEvent(
-            roomId, "m.room.member", this.userId
+            roomId, "m.room.member", this.userId,
         );
 
         let displayname: string|null = null;
@@ -34,11 +34,12 @@ export class MatrixUser {
         // them all
 
         const memberEvents = this.main.getStoredEvent(
-            roomId, "m.room.member"
+            roomId, "m.room.member",
         );
 
         const matching: string[] = memberEvents.filter(
-            (ev: any) => ev.content && ev.content.displayname === displayname
+            // tslint:disable-next-line:no-any
+            (ev: any) => ev.content && ev.content.displayname === displayname,
         );
 
         if (matching.length > 1) {
@@ -51,7 +52,7 @@ export class MatrixUser {
 
     public getAvatarUrlForRoom(roomId: string) {
         const myMemberEvent = this.main.getStoredEvent(
-            roomId, "m.room.member", this.userId
+            roomId, "m.room.member", this.userId,
         );
 
         if (myMemberEvent && myMemberEvent.content && myMemberEvent.content.avatar_url) {
