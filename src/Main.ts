@@ -1039,8 +1039,8 @@ Provisioning.commands.link = new Provisioning.Command({
         log.info(`Result of link for ${matrix_room_id} -> ${status} ${opts.slack_channel_id}`);
         res.json({
             status: status,
-            slack_channel_name: room.getSlackChannelName(),
-            slack_webhook_uri: room.getSlackWebhookUri(),
+            slack_channel_name: room.SlackChannelName,
+            slack_webhook_uri: room.SlackWebhookUri,
             matrix_room_id: matrix_room_id,
             inbound_uri: main.getInboundUrlForRoom(room),
         });

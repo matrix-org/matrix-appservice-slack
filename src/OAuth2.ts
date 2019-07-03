@@ -7,7 +7,6 @@ import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 
 const log = Logging.get("OAuth2");
-const uuid = require('uuid/v4'); 
 
 // The full set of OAuth2 scopes we currently require for all functionality
 const REQUIRED_SCOPES = [
@@ -57,15 +56,15 @@ export class OAuth2 {
         return "https://slack.com/oauth/authorize?" + qs;
     }
 
-    public async exchangeCodeForToken (opts: {code: string, room: string}) {
-        const redirect_uri = this.makeRedirectURL(opts.room);
+    public async exchangeCodeForToken (code: string, room: string|BridgedRoom) {
+        const redirect_uri = this.makeRedirectURL(room);
         this.main.incRemoteCallCounter("oauth.access");
         const response = await rp({
             uri: "https://slack.com/api/oauth.access",
             qs: {
                 client_id: this.clientId,
                 client_secret: this.clientSecret,
-                code: opts.code,
+                code,
                 redirect_uri: redirect_uri,
             },
             json: true
@@ -100,7 +99,7 @@ export class OAuth2 {
         return v || null;
     }
 
-    private makeRedirectURL(roomOrString: string| {InboundId: string}) {
+    private makeRedirectURL(roomOrString: string| BridgedRoom) {
         if (typeof roomOrString !== "string") {
             roomOrString = roomOrString.InboundId;
         }

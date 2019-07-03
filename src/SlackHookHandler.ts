@@ -3,6 +3,7 @@ import { createServer as httpCreate, RequestListener,
     Server, IncomingMessage, ServerResponse } from "http";
 import { createServer as httpsCreate } from "https";
 import * as rp from "request-promise-native";
+import * as qs from "querystring";
 import { Logging } from "matrix-appservice-bridge";
 
 import { SlackEventHandler } from "./SlackEventHandler";
@@ -62,7 +63,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                     });
                 }
                 else {
-                    var params = qs.parse(body);
+                    const params = qs.parse(body);
                     this.handle(req.method!, req.url!, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
@@ -233,10 +234,10 @@ export class SlackHookHandler extends BaseSlackHandler {
             user = oauth2.getUserIdForPreauthToken(roomOrToken);
             // This might be a user token.
             if (!user) {
-                return Promise.resolve({
+                return {
                     code: 500,
                     html: `Token not known.`
-                });
+                };
             }
         } else {
             room = roomOrToken;
@@ -246,51 +247,47 @@ export class SlackHookHandler extends BaseSlackHandler {
             (user ? user : room!.InboundId)
         );
     
-        const result = await oauth2.exchangeCodeForToken({
-            code: params.code,
-            room: roomOrToken,
-        });
-        log.debug("Got a full OAuth2 token");
-        if (room) { // Legacy webhook
-            room.updateAccessToken(result.access_token, new Set(result.access_scopes));
-            this.main.putRoomToStore(room);
-        } else { // New event api
-            this.main.setUserAccessToken(
-                user,
-                result.team_id,
-                result.user_id,
-                result.access_token,
+        try {
+            const result = await oauth2.exchangeCodeForToken(
+                params.code,
+                roomOrToken,
             );
-            this.main.updateTeamBotStore(
-                result.team_id,
-                result.team_name,
-                result.bot.bot_user_id,
-                result.bot.bot_access_token,
-            );
-            return null;
-        }
-        }).then(
-            () => {
-                return {
-                    html: `
-    <h2>Integration Successful!</h2>
-    
-    <p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>
-    `
-                };
-            },
-            (err) => {
-                log.error("Error during handling of an oauth token:", err);
-                return {
-                    code: 403,
-                    html: `
-    <h2>Integration Failed</h2>
-    
-    <p>Unfortunately your channel integration did not go as expected...</p>
-    `
-                };
+            log.debug("Got a full OAuth2 token");
+            if (room) { // Legacy webhook
+                room.updateAccessToken(result.access_token, new Set(result.access_scopes));
+                this.main.putRoomToStore(room);
+            } else if(user) { // New event api
+                this.main.setUserAccessToken(
+                    user,
+                    result.team_id,
+                    result.user_id,
+                    result.access_token,
+                );
+                this.main.updateTeamBotStore(
+                    result.team_id,
+                    result.team_name,
+                    result.bot.bot_user_id,
+                    result.bot.bot_access_token,
+                );
             }
-        );    
+        } catch (err) {
+            log.error("Error during handling of an oauth token:", err);
+            return {
+                code: 403,
+                html: `
+<h2>Integration Failed</h2>
+
+<p>Unfortunately your channel integration did not go as expected...</p>
+`
+            };
+        }
+        return {
+            html: `
+<h2>Integration Successful!</h2>
+
+<p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>
+`
+        };
     }
 
     /**
@@ -302,13 +299,11 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param {string} channelID Slack channel ID.
      * @param {string} timestamp Timestamp when message was received, in seconds
      *     formatted as a float.
-     * @param {Intent} intent Intent for sending messages as the relevant user.
-     * @param {string} roomID Matrix room ID associated with channelID.
      */
     async lookupMessage (channelID, timestamp, token) {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.
-        var params = {
+        const params = {
             method: 'POST',
             form : {
                 channel: channelID,
@@ -320,39 +315,36 @@ export class SlackHookHandler extends BaseSlackHandler {
             uri: "https://slack.com/api/channels.history",
             json: true
         };
-        this._main.incRemoteCallCounter("channels.history");
-        return rp(params).then((response) => {
-            if (!response || !response.messages || response.messages.length === 0) {
-                log.warn("Could not find history: " + response);
-                return undefined;
-            }
-            if (response.messages.length != 1) {
-                // Just laziness.
-                // If we get unlucky and two messages were sent at exactly the
-                // same microsecond, we could parse them all, filter by user,
-                // filter by whether they have attachments, and such, and pick
-                // the right message. But this is unlikely, and I'm lazy, so
-                // we'll just drop the message...
-                log.warn("Really unlucky, got multiple messages at same" +
-                    " microsecond, dropping:" + response);
-                return undefined;
-            }
-            var message = response.messages[0];
-            log.debug("Looked up message from history as " + JSON.stringify(message));
+        this.main.incRemoteCallCounter("channels.history");
+        const response = await rp(params);
+        if (!response || !response.messages || response.messages.length === 0) {
+            log.warn("Could not find history: " + response);
+            return undefined;
+        }
+        if (response.messages.length != 1) {
+            // Just laziness.
+            // If we get unlucky and two messages were sent at exactly the
+            // same microsecond, we could parse them all, filter by user,
+            // filter by whether they have attachments, and such, and pick
+            // the right message. But this is unlikely, and I'm lazy, so
+            // we'll just drop the message...
+            log.warn("Really unlucky, got multiple messages at same" +
+                " microsecond, dropping:" + response);
+            return undefined;
+        }
+        var message = response.messages[0];
+        log.debug("Looked up message from history as " + JSON.stringify(message));
 
-            if (message.subtype !== "file_share") {
-                return message;
-            }
-            return this.enablePublicSharing(message.file, token)
-            .then((file) => {
-                message.file = file;
-                return this.fetchFileContent(message.file, token);
-            }).then((content) => {
-                message.file._content = content;
-                return message;
-            }).catch((err) => {
-                log.error("Failed to get file content: ", err);
-            });
-        });
+        if (message.subtype !== "file_share") {
+            return message;
+        }
+        try {
+            message.file = this.enablePublicSharing(message.file, token);
+            message.file._content = this.fetchFileContent(message.file, token);
+        } catch (err) {
+            log.error("Failed to get file content: ", err);
+        }
+        return message;
+
     }
 }

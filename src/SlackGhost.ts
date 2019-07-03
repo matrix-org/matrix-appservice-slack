@@ -24,7 +24,7 @@ interface ISlackUser {
 export class SlackGhost {
     private atime?: number;
     private userInfoCache?: ISlackUser;
-    private userInfoLoading?: Promise<{user?: ISlackUser}>;
+    private userInfoLoading?: rp.RequestPromise<{user? :ISlackUser}>;
     constructor(
         private main: Main,
         private userId?: string,
@@ -118,7 +118,7 @@ export class SlackGhost {
                 user: slackUserId,
             },
             json: true,
-        });
+        }) as rp.RequestPromise<{user? :ISlackUser}>;
         const response = await this.userInfoLoading!;
         if (!response.user || !response.user.profile) {
             log.error("Failed to get user profile", response);

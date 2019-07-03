@@ -74,23 +74,21 @@ export class SlackEventHandler extends BaseSlackHandler {
                 response.end();
                 return;
             }
-    
-            let result = null;
-            let err = null;
+
+            let err: string|null = null;
             try {
                 switch (params.event.type) {
                     case 'message':
-                        result = await this.handleMessageEvent(params as ISlackEventParamsMessage);
+                        await this.handleMessageEvent(params as ISlackEventParamsMessage);
                         break;
                     case 'channel_rename':
-                        result = await this.handleChannelRenameEvent(params);
+                        await this.handleChannelRenameEvent(params);
                         break;
                     case 'team_domain_change':
-                        result = await this.handleDomainChangeEvent(params);
+                        await this.handleDomainChangeEvent(params);
                         break;
+                    // XXX: Unused?
                     case 'file_comment_added':
-                        result = undefined;
-                        break;
                     default:
                         err = "unknown_event"
                 }
@@ -110,14 +108,11 @@ export class SlackEventHandler extends BaseSlackHandler {
                 endTimer({outcome: "fail"});
             }
 
-            if (err !== null) {
+            if (err === null) {
+                endTimer({outcome: "success"});
+            } else {
                 log.error("Failed to handle slack event");
             }
-
-            if (result !== null) {
-                endTimer({outcome: "success"});
-            }
-
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
         }
@@ -199,9 +194,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         // user but as the AS user. (There is no user_id in the message event from
         // which to create a ghost.)
         else if (msg.subtype === "message_deleted") {
-            const store = this.main.getEventStore();
+            const store = this.main.eventStore;
             const originalEvent = await store.getEntryByRemoteId(msg.channel, msg.deleted_ts);
-            const botClient = this.main.getBotIntent().getClient();
+            const botClient = this.main.botIntent.getClient();
             return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
         }
 
