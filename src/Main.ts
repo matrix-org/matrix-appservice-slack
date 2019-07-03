@@ -576,7 +576,7 @@ export class Main {
                 respond("Done");
             }
         } catch (ex) {
-            respond("Command failed: " + e);
+            respond("Command failed: " + ex);
         }
 
         const message = (response.length == 1) ?

@@ -18,7 +18,7 @@ export class AdminCommands {
     constructor(private main: Main) {
         this.yargs = yargs.parserConfiguration({
 
-        });
+        }).version(false).help(false); // We provide our own help, and version is not required.
         [
             this.list,
             this.show,
@@ -262,8 +262,11 @@ export class AdminCommands {
         return new AdminCommand(
             "help",
             "describes the commands available",
-            () => {
-                // TODO: This
+            ({respond}) => {
+                // HACK: This is the only way to pull a command list out
+                // of yargs without it printing to the console :|.
+                const helpString: string = (this.yargs as any).getUsageInstance().help();
+                helpString.split("\n").forEach(respond);
             },
         );
     }
@@ -278,7 +281,7 @@ export class AdminCommands {
                     respond,
                     matched: () => { matched = true; },
                     completed: (err) => { err ? reject(err) : resolve(true)}
-                }, (err) => { reject(err)});
+                }, (err) => { reject(err) });
                 if (!matched) {
                     resolve(false);
                 }

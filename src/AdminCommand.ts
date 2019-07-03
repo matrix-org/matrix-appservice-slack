@@ -15,11 +15,9 @@ export class AdminCommand {
         public readonly description: string,
         private readonly cb: CommandCallback,
         public readonly options: {[key: string]: Options} = {}) {
-
     }
 
     public async handler(argv: IHandlerArgs) {
-        // This might be promisey
         argv.matched(true);
         try {
             await this.cb(argv);
