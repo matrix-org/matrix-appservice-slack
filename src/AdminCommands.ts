@@ -3,6 +3,7 @@ import { AdminCommand, ResponseCallback } from "./AdminCommand";
 import * as yargs from "yargs";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
+import { setTimeout } from "timers";
 
 const log = Logging.get("AdminCommands");
 
@@ -267,9 +268,23 @@ export class AdminCommands {
         );
     }
 
-    public parse(argv: string, respond: ResponseCallback) {
-        this.yargs.parse(argv, {
-            respond,
+    public parse(argv: string, respond: ResponseCallback): Promise<boolean> {
+        // yargs has no way to tell us if a command matched, so we have this
+        // slightly whacky function to manage it.
+        return new Promise((resolve, reject) => {
+            try {
+                let matched = false;
+                this.yargs.parse(argv, {
+                    respond,
+                    matched: () => { matched = true; },
+                    completed: (err) => { err ? reject(err) : resolve(true)}
+                }, (err) => { reject(err)});
+                if (!matched) {
+                    resolve(false);
+                }
+            } catch (ex) {
+                reject(ex);
+            }
         });
     }
 }

@@ -11,18 +11,21 @@ import { SlackGhost } from "./SlackGhost";
 import { MatrixUser } from "./MatrixUser";
 import { default as subsitutions } from "./substitutions";
 import { SlackHookHandler } from "./SlackHookHandler";
+import { AdminCommands } from "./AdminCommands";
+import * as Provisioning from "./Provisioning";
 
-const AdminCommands = require("./AdminCommands");
-const Provisioning = require("./Provisioning");
 const rp = require('request-promise');
 
 const log = Logging.get("Main");
 
+const RECENT_EVENTID_SIZE = 20;
+
 export class Main {
-    private teams: Map<string, any> = new Map();
     public readonly oauth2: OAuth2|null = null;
 
-    private recentMatrixEventIds: string[] = new Array(20);
+    private teams: Map<string, any> = new Map();
+
+    private recentMatrixEventIds: string[] = new Array(RECENT_EVENTID_SIZE);
     private mostRecentEventIdIdx = 0;
 
     private rooms: BridgedRoom[] = [];
@@ -46,6 +49,8 @@ export class Main {
 
     private metrics: any;
 
+    private adminCommands = new AdminCommands(this);
+
     public get eventStore() : any {
         return this.bridge.getEventStore();
     }
@@ -53,7 +58,7 @@ export class Main {
     public get roomStore() : any {
         return this.bridge.getRoomStore();
     }
-     
+
     public get userStore() : any {
         return this.bridge.getUserStore();
     }
@@ -71,7 +76,7 @@ export class Main {
     }
 
     public get allRooms() {
-        return new Array.from(this.rooms);
+        return Array.from(this.rooms);
     }
 
     constructor(public readonly config: IConfig) {
@@ -561,28 +566,17 @@ export class Main {
             }
             response.push(message);
         };
-        // Split the command string into optionally-quoted whitespace-separated
-        //   tokens. The quoting preserves whitespace within quoted forms
-        // TODO(paul): see if there's a "split like a shell does" function we can use
-        //   here instead.
-        const args = cmd.match(/(?:[^\s"]+|"[^"]*")+/g);
-        cmd = args.shift();
-    
-        let cmdRes: any = undefined;
-        let c = AdminCommands[cmd];
-        if (c) {
-            try {
-                cmdRes = await c.run(this, args, respond);
-            } catch (e) {
-                respond("Command failed: " + e);
+        
+        try {
+            // This will return true or false if the command matched.
+            const matched = await this.adminCommands.parse(cmd, respond);
+            if (!matched) {
+                respond("Unrecognised command: " + cmd);
+            } else if (respond.length === 0) {
+                respond("Done");
             }
-        }
-        else {
-            respond("Unrecognised command: " + cmd);
-        }
-
-        if (!respond.length) {
-            response.push("Done");
+        } catch (ex) {
+            respond("Command failed: " + e);
         }
 
         const message = (response.length == 1) ?

@@ -2,6 +2,8 @@ import { Options, Argv, default as yargs } from "yargs";
 
 export type ResponseCallback = (response: string) => void;
 interface IHandlerArgs {
+    matched: (b: true) =>  void,
+    completed: (err: Error|null) =>  void,
     respond: ResponseCallback;
     [key: string]: unknown;
 }
@@ -18,6 +20,12 @@ export class AdminCommand {
 
     public async handler(argv: IHandlerArgs) {
         // This might be promisey
-        await this.cb(argv);
+        argv.matched(true);
+        try {
+            await this.cb(argv);
+            argv.completed(null);
+        } catch (ex) {
+            argv.completed(ex);
+        }
     }
 }
