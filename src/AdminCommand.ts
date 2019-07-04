@@ -62,7 +62,7 @@ export class AdminCommand {
             const alias = opt.alias && !positional ? `|-${opt.alias}`: "";
             const k = positional ? key : `--${key}`;
             const required = opt.demandOption ? " (Required)" : ""
-            response.push(`  ${k}${alias} - ${opt.description}${required})`);
+            response.push(`  ${k}${alias} - ${opt.description}${required}`);
         });
         return response;
     }

@@ -15,9 +15,7 @@ interface ISlackEventParams {
 
 interface ISlackEventEvent {
     type: string;
-    channel: {
-        id: string;
-    };
+    channel: string;
     domain: string|undefined;
 }
 
@@ -97,8 +95,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
 
             if (err === "unknown_channel") {
-                log.warn("Ignoring message from unrecognised slack channel id : %s (%s)",
-                    params.event.channel.id, params.team_id);
+                log.warn(`Ignoring message from unrecognised slack channel id : ${params.event.channel} (${params.team_id})`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
@@ -133,7 +130,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
     private async handleChannelRenameEvent(params: ISlackEventParams) {
         //TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.getRoomBySlackChannelId(params.event.channel.id);
+        const room = this.main.getRoomBySlackChannelId(params.event.channel);
         if (!room) throw "unknown_channel";
 
         var channelName = `${room.SlackTeamDomain}.#${params.name}`;
@@ -150,7 +147,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Attempts to make the message as native-matrix feeling as it can.
      */
     private async handleMessageEvent(params: ISlackEventParamsMessage) {
-        const room = this.main.getRoomBySlackChannelId(params.event.channel.id) as BridgedRoom;
+        const room = this.main.getRoomBySlackChannelId(params.event.channel) as BridgedRoom;
         if (!room) throw "unknown_channel";
 
         if (params.event.subtype === 'bot_message' &&

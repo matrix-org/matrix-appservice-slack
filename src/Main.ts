@@ -673,6 +673,12 @@ export class Main {
     
         let isNew = false;
         if (!existingRoom) {
+            try {
+                await this.botIntent.join(matrixRoomId);
+            } catch (ex) {
+                log.error("Couldn't join room, not bridging");
+                throw Error("Could not join room");
+            }
             const inboundId = this.genInboundId();
     
             room = new BridgedRoom(this, {
