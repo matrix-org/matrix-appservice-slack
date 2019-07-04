@@ -59,7 +59,7 @@ export class AdminCommands {
                         return;
                     }
 
-                    if (room && r.MatrixRoomId.includes(room as string)) {
+                    if (room && !r.MatrixRoomId.includes(room as string)) {
                         return;
                     }
 
@@ -120,7 +120,7 @@ export class AdminCommands {
                 respond("  Slack Name: " + bridgedRoom.SlackChannelName || "PENDING");
                 respond("  Webhook URI: " + bridgedRoom.SlackWebhookUri);
                 respond("  Inbound ID: " + bridgedRoom.InboundId);
-                respond("  Inbound URL: " + this.main.getInboundUrlForRoom(room));
+                respond("  Inbound URL: " + this.main.getInboundUrlForRoom(bridgedRoom));
                 respond("  Matrix room ID: " + bridgedRoom.MatrixRoomId);
 
                 if (this.main.oauth2) {
@@ -163,7 +163,7 @@ export class AdminCommands {
                     });
                     respond("Room is now " + r.getStatus());
                     if (r.SlackWebhookUri) {
-                        respond("Inbound URL is " + this.main.getInboundUrlForRoom(room));
+                        respond("Inbound URL is " + this.main.getInboundUrlForRoom(r));
                     }
                 } catch (ex) {
                     respond("Cannot link - " + ex );
@@ -192,7 +192,7 @@ export class AdminCommands {
 
     public get unlink() {
         return new AdminCommand(
-            "unlink",
+            "unlink room",
             "disconnect a linked Matrix and Slack room",
             async ({room, respond}) => {
                 try {
@@ -214,7 +214,7 @@ export class AdminCommands {
 
     public get join() {
         return new AdminCommand(
-            "join",
+            "join room",
             "join a new room",
             async ({room, respond}) => {
                 await this.main.botIntent.join(room);
@@ -228,11 +228,10 @@ export class AdminCommands {
 
     public get leave() {
         return new AdminCommand(
-            "leave",
+            "leave room",
             "leave an unlinked room",
             async ({room, respond}) => {
                 const roomId: string = room as string;
-
                 const userIds = await this.main.listGhostUsers(roomId);
                 respond(`Draining ${userIds.length} ghosts from ${roomId}`);
                 Promise.all(userIds.map((userId) => {
@@ -266,14 +265,28 @@ export class AdminCommands {
 
     public get help() {
         return new AdminCommand(
-            "help",
+            "help [command]",
             "describes the commands available",
-            ({respond}) => {
+            ({respond, command}) => {
+                if (command) {
+                    const cmd = this[command as string] as AdminCommand;
+                    if (!cmd) {
+                        respond("Command not found. No help can be provided.");
+                        return;
+                    }
+                    cmd.detailedHelp().forEach(s => respond(s));
+                    return;
+                }
                 this.commands.forEach((cmd) => {
-                    // TODO: Options?
-                    respond(`${cmd.command} - ${cmd.description}`);
+                    respond(cmd.simpleHelp());
                 });
             },
+            {
+                command: {
+                    demandOption: false,
+                    description: "Get help about a particular command",
+                }
+            }
         );
     }
 
