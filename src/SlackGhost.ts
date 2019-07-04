@@ -83,7 +83,7 @@ export class SlackGhost {
             displayName = await this.getDisplayname(message.user_id, token);
         }
 
-        if (!displayName || !this.displayName == displayName) {
+        if (!displayName || this.displayName === displayName) {
             return; // Nothing to do.
         }
 
@@ -106,6 +106,7 @@ export class SlackGhost {
 
     public async lookupUserInfo(slackUserId: string, slackAccessToken: string) {
         if (this.userInfoCache) {
+            log.debug("Using cached userInfo for", slackUserId);
             return this.userInfoCache;
         }
         if (this.userInfoLoading) {
@@ -115,6 +116,7 @@ export class SlackGhost {
             }
             return undefined;
         }
+        log.debug("Using fresh userInfo for", slackUserId)
 
         this.main.incRemoteCallCounter("users.info");
         this.userInfoLoading = rp({
@@ -143,7 +145,7 @@ export class SlackGhost {
         }
 
         const avatarUrl = await this.lookupAvatarUrl(message.user_id, token);
-        if (!avatarUrl) {
+        if (!avatarUrl || this.avatarUrl === avatarUrl) {
             return;
         }
 
