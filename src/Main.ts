@@ -276,6 +276,7 @@ export class Main {
         );
 
         if (this.ghostsByUserId[userId]) {
+            log.debug("Getting existing ghost from cache for", userId);
             return this.ghostsByUserId[userId];
         }
 
@@ -284,8 +285,10 @@ export class Main {
 
         let ghost;
         if (entries.length) {
+            log.debug("Getting existing ghost for", userId);
             ghost = SlackGhost.fromEntry(this, entries[0], intent);
         } else {
+            log.debug("Creating new ghost for", userId);
             ghost = new SlackGhost(
                 this,
                 userId,
