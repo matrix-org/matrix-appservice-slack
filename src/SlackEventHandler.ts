@@ -71,6 +71,11 @@ export class SlackEventHandler extends BaseSlackHandler {
                 response.write(JSON.stringify({challenge: challengeParams.challenge}));
                 response.end();
                 return;
+            } else {
+                // See https://api.slack.com/events-api#responding_to_events
+                // We must respond within 3 seconds or it will be sent again!
+                response.writeHead(200, "OK");
+                response.end();
             }
 
             let err: string|null = null;
@@ -113,10 +118,6 @@ export class SlackEventHandler extends BaseSlackHandler {
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
         }
-    
-        // return 200 so slack doesn't keep sending the event
-        response.writeHead(200, {"Content-Type": "text/plain"});
-        response.end();
     }
 
     private async handleDomainChangeEvent(params: ISlackEventParams) {

@@ -52,13 +52,13 @@ export class SlackHookHandler extends BaseSlackHandler {
         let body = "";
         req.on("data", (chunk) => body += chunk);
         req.on("end", () => {
-            log.debug(`${req.method} ${req.url} ${body.length}`);
+            log.debug(`${req.method} ${req.url} bodyLen=${body.length}`);
             // if isEvent === true, this was an event emitted from the slack Event API
             // https://api.slack.com/events-api
             const isEvent = req.headers['content-type'] === 'application/json' && req.method === 'POST';
             try {
                 if (isEvent) {
-                    var params = JSON.parse(body);
+                    const params = JSON.parse(body);
                     this.eventHandler.handle(params, res).catch((ex) => {
                         log.error("Failed to handle event", ex);
                     });
