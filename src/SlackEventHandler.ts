@@ -108,7 +108,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             if (err === null) {
                 endTimer({outcome: "success"});
             } else {
-                log.error("Failed to handle slack event");
+                log.error("Failed to handle slack event:", err);
             }
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
