@@ -562,7 +562,7 @@ export class Main {
         log.info("Admin: " + cmd);
     
         const response: any[] = [];
-        const respond = (message: any) => {
+        const respond = (message: string) => {
             if (!response) {
                 log.info("Command response too late: " + message);
                 return;
@@ -588,7 +588,12 @@ export class Main {
         ev.user_id + ": " + response[0] :
         ev.user_id + ":\n" + response.map((s) => "  " + s).join("\n");
 
-        await this.botIntent.sendText(ev.room_id, message);
+        await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
+            msgtype: "m.notice",
+            body: message,
+            format: "org.matrix.custom.html",
+            formatted_body: `<pre>${message}</pre>`,
+        });
     }
 
     public async run(port: number) {
