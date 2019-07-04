@@ -584,15 +584,15 @@ export class Main {
             respond("Command failed: " + ex);
         }
 
-        const message = (response.length == 1) ?
-        ev.user_id + ": " + response[0] :
-        ev.user_id + ":\n" + response.map((s) => "  " + s).join("\n");
+        const message = response.join("\n");
+
+        const userId = `${ev.user_id}:${response.length > 1 ? "\n": " "}`;
 
         await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
             msgtype: "m.notice",
-            body: message,
+            body: userId + message,
             format: "org.matrix.custom.html",
-            formatted_body: `<pre>${message}</pre>`,
+            formatted_body: `<p>${userId}</p><pre>${message}</pre>`,
         });
     }
 
