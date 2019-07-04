@@ -55,7 +55,7 @@ class Subsitutions {
      * @param file options slack file object
      */
     public slackToMatrix(body: string, file?: any): string {
-        log.verbose("running substitutions on ", body);
+        log.debug("running substitutions on ", body);
         for (const pair of this.pairs) {
             body.replace(new RegExp(`/${pair.slack}/g`), pair.matrix);
         }

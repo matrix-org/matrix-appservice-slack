@@ -15,13 +15,14 @@ const USER_ID_REGEX = /<@(\w+)\|?\w*?>/g;
 const USER_ID_REGEX_FIRST = /<@(\w+)\|?\w*?>/;
 
 export interface ISlackMessage {
+    channel: string;
     text?: string;
 }
 
 export abstract class BaseSlackHandler {
     constructor(protected main: Main) { }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, token: string) {
+    public async replaceChannelIdsWithNames(message: ISlackMessage, token: string): Promise<ISlackMessage> {
         if (message.text === undefined) {
             return message;
         }
@@ -69,7 +70,7 @@ export abstract class BaseSlackHandler {
         return message;
     }
 
-    public async replaceUserIdsWithNames(message: any, token: string) {
+    public async replaceUserIdsWithNames(message: ISlackMessage, token: string): Promise<ISlackMessage> {
         if (message.text === undefined) {
             return message;
         }

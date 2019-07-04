@@ -2,6 +2,7 @@ import { Main } from "./Main";
 import { Logging, StoreEvent } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
+import { BridgedRoom } from "./BridgedRoom";
 
 const log = Logging.get("SlackGhost");
 
@@ -70,11 +71,16 @@ export class SlackGhost {
         }
     }
 
-    public async updateDisplayname(message: any, room: any) {
+    public async updateDisplayname(message: any, room: BridgedRoom) {
+        const token = room.AccessToken;
+        if (!token) {
+            return;
+        }
+
         let displayName = message.user_name;
 
         if (!displayName) {
-            displayName = await this.getDisplayname(message.user_id, room.getAccessToken());
+            displayName = await this.getDisplayname(message.user_id, token);
         }
 
         if (!displayName || !this.displayName == displayName) {
@@ -130,8 +136,8 @@ export class SlackGhost {
         return response.user!;
     }
 
-    public async updateAvatar(message: any, room: any) {
-        const token = room.getAccessToken();
+    public async updateAvatar(message: any, room: BridgedRoom) {
+        const token = room.AccessToken;
         if (!token) {
             return;
         }
