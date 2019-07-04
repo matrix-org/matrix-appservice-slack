@@ -15,11 +15,7 @@ const RoomIdDef = {
 
 export class AdminCommands {
     private yargs: yargs.Argv;
-    constructor(private main: Main) {
-        this.yargs = yargs.parserConfiguration({
-
-        }).version(false).help(false); // We provide our own help, and version is not required.
-        [
+    private commands = [
             this.list,
             this.show,
             this.link,
@@ -28,8 +24,18 @@ export class AdminCommands {
             this.leave,
             this.stalerooms,
             this.help,
-        ].forEach((cmd) => {
-            this.yargs = this.yargs.command(cmd).options(cmd.options);
+    ];
+    constructor(private main: Main) {
+        this.yargs = yargs.parserConfiguration({
+
+        }).version(false).help(false); // We provide our own help, and version is not required.
+        this.commands.forEach((cmd) => {
+            this.yargs = this.yargs.command(cmd.command, cmd.description, ((yg) => {
+                if (cmd.options) {
+                    return yg.options(cmd.options);
+                }
+            // TODO: Fix typing
+            }) as any, cmd.handler.bind(cmd));
         });
     }
 
@@ -208,7 +214,7 @@ export class AdminCommands {
 
     public get join() {
         return new AdminCommand(
-            "leave roomId",
+            "join",
             "join a new room",
             async ({room, respond}) => {
                 await this.main.botIntent.join(room);
@@ -222,7 +228,7 @@ export class AdminCommands {
 
     public get leave() {
         return new AdminCommand(
-            "leave roomId",
+            "leave",
             "leave an unlinked room",
             async ({room, respond}) => {
                 const roomId: string = room as string;
@@ -263,10 +269,10 @@ export class AdminCommands {
             "help",
             "describes the commands available",
             ({respond}) => {
-                // HACK: This is the only way to pull a command list out
-                // of yargs without it printing to the console :|.
-                const helpString: string = (this.yargs as any).getUsageInstance().help();
-                helpString.split("\n").forEach(respond);
+                this.commands.forEach((cmd) => {
+                    // TODO: Options?
+                    respond(`${cmd.command} - ${cmd.description}`);
+                });
             },
         );
     }
@@ -281,8 +287,9 @@ export class AdminCommands {
                     respond,
                     matched: () => { matched = true; },
                     completed: (err) => { err ? reject(err) : resolve(true)}
-                }, (err) => { reject(err) });
+                }, (err) => {  if (err !== null) { reject(err) } });
                 if (!matched) {
+                    log.debug("No match");
                     resolve(false);
                 }
             } catch (ex) {

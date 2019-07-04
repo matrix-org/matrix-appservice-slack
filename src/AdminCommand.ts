@@ -14,7 +14,7 @@ export class AdminCommand {
         public readonly command: string | string[],
         public readonly description: string,
         private readonly cb: CommandCallback,
-        public readonly options: {[key: string]: Options} = {}) {
+        public readonly options: {[key: string]: Options}|null = null) {
     }
 
     public async handler(argv: IHandlerArgs) {
