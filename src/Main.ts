@@ -586,13 +586,11 @@ export class Main {
 
         const message = response.join("\n");
 
-        const userId = `${ev.user_id}:${response.length > 1 ? "\n": " "}`;
-
         await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
             msgtype: "m.notice",
-            body: userId + message,
+            body: message,
             format: "org.matrix.custom.html",
-            formatted_body: `<p>${userId}</p><pre>${message}</pre>`,
+            formatted_body: `<pre>${message}</pre>`,
         });
     }
 
