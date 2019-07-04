@@ -23,7 +23,7 @@ export abstract class BaseSlackHandler {
 
     public async replaceChannelIdsWithNames(message: ISlackMessage, token: string) {
         if (message.text === undefined) {
-            return;
+            return message;
         }
         const testForName = message.text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
@@ -32,7 +32,7 @@ export abstract class BaseSlackHandler {
         if (testForName && testForName.length) {
             matches = testForName.length;
         } else {
-            return;
+            return message;
         }
         while (iteration < matches) {
             const idMatch = testForName[iteration].match(CHANNEL_ID_REGEX_FIRST);
@@ -66,6 +66,7 @@ export abstract class BaseSlackHandler {
                 iteration++;
             }
         }
+        return message;
     }
 
     public async replaceUserIdsWithNames(message: any, token: string) {
