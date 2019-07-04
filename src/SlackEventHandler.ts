@@ -205,29 +205,20 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackMessage(msg);
         }
 
-        let result;
         if (msg.subtype === "file_share" && msg.file) {
             // we need a user token to be able to enablePublicSharing
             if (room.SlackUserToken) {
                 // TODO check is_public when matrix supports authenticated media
                 // https://github.com/matrix-org/matrix-doc/issues/701
-                result = this.enablePublicSharing(msg.file, room.SlackUserToken)
-                    .then((file: any) => {
-                        if (file) {
-                            msg.file = file;
-                        }
-
-                        return this.fetchFileContent(msg.file, token)
-                            .then((content) => {
-                                msg.file!._content = content;
-                            });
-                    });
+                const file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
+                if (file) {
+                    msg.file = file;
+                    msg.file!._content = await this.fetchFileContent(msg.file, token);
+                }
             }
-        } else {
-            result = Promise.resolve();
         }
 
-        let newMsg = await this.replaceChannelIdsWithNames((await result), token);
+        let newMsg = await this.replaceChannelIdsWithNames(msg, token);
         newMsg = await this.replaceUserIdsWithNames(newMsg, token);
         newMsg = await room.onSlackMessage(newMsg);
         return newMsg;
