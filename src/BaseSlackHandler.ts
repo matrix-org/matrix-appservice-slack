@@ -14,9 +14,21 @@ const CHANNEL_ID_REGEX_FIRST = /<#(\w+)\|?\w*?>/;
 const USER_ID_REGEX = /<@(\w+)\|?\w*?>/g;
 const USER_ID_REGEX_FIRST = /<@(\w+)\|?\w*?>/;
 
+export const INTERNAL_ID_LEN = 32;
+
 export interface ISlackMessage {
-    channel: string
+    channel: string;
     text?: string;
+}
+
+export interface ISlackFile {
+    permalink_public: string;
+    id: string;
+    url_private: string;
+    public_url_shared: string;
+// tslint:disable-next-line: no-any
+    _content: any;
+    permalink: string;
 }
 
 export abstract class BaseSlackHandler {
@@ -24,41 +36,41 @@ export abstract class BaseSlackHandler {
 
     public async getSlackRoomNameFromID(id: string, token: string) {
         const channelsInfoApiParams = {
-            uri: 'https://slack.com/api/channels.info',
+            json: true,
             qs: {
-                token: token,
-                channel: id
+                channel: id,
+                token,
             },
-            json: true
+            uri: "https://slack.com/api/channels.info",
         };
         this.main.incRemoteCallCounter("channels.info");
         try {
             const response = await rp(channelsInfoApiParams);
             if (response && response.channel && response.channel.name) {
-                log.info("channels.info: " + id + " mapped to " + response.channel.name);
+                log.info(`channels.info: ${id} mapped to ${response.channel.name}`);
                 return response.channel.name;
             }
             log.info("channels.info returned no result for " + id);
-    
-        } catch(err) {
+
+        } catch (err) {
             log.error("Caught error handling channels.info:" + err);
         }
         return id;
     }
 
-    public async doChannelUserReplacements (msg: any, text: string, token: string) {
+    public async doChannelUserReplacements(msg: ISlackMessage, text: string, token: string) {
         text = (await this.replaceChannelIdsWithNames(msg, text, token))!;
         return await this.replaceUserIdsWithNames(msg, text, token);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text:string|undefined, token: string): Promise<string|undefined> {
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string|undefined, token: string) {
         if (text === undefined) {
             return text;
         }
         const testForName = text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
         let matches = 0;
-        
+
         if (testForName && testForName.length) {
             matches = testForName.length;
         }
@@ -94,46 +106,45 @@ export abstract class BaseSlackHandler {
         return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, text: string|undefined, token: string): Promise<string|undefined> {
+    public async replaceUserIdsWithNames(message: ISlackMessage, text: string|undefined, token: string) {
         if (text === undefined) {
             return text;
         }
-    
+
         let match = USER_ID_REGEX.exec(text);
         while (match !== null && match[0]) {
             // foreach userId, pull out the ID
             // (if this is an emote msg, the format is <@ID|nick>, but in normal msgs it's just <@ID>
             const id = match[0].match(USER_ID_REGEX_FIRST)![1];
-    
-            const team_domain = await this.main.getTeamDomainForMessage(message);
-    
-            let display_name = "";
-            let user_id = this.main.getUserId(id, team_domain);
-    
-            const store = this.main.userStore
-            const users = await store.select({id: user_id});
-    
+
+            const teamDomain = await this.main.getTeamDomainForMessage(message);
+
+            let displayName = "";
+            const userId = this.main.getUserId(id, teamDomain);
+
+            const store = this.main.userStore;
+            const users = await store.select({id: userId});
+
             if (users === undefined || !users.length) {
                 log.warn("Mentioned user not in store. Looking up display name from slack.");
                 // if the user is not in the store then we look up the displayname
                 const nullGhost = new SlackGhost(this.main);
                 const room = this.main.getRoomBySlackChannelId(message.channel);
-                display_name = await nullGhost.getDisplayname(id, room!.AccessToken!) || id;
+                displayName = await nullGhost.getDisplayname(id, room!.AccessToken!) || id;
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
-                text = text.replace(USER_ID_REGEX_FIRST, display_name);
+                text = text.replace(USER_ID_REGEX_FIRST, displayName);
             } else {
-                display_name = users[0].display_name || user_id;
+                displayName = users[0].display_name || userId;
                 text = text.replace(
                     USER_ID_REGEX_FIRST,
-                    `<https://matrix.to/#/${user_id}|${display_name}>`
+                    `<https://matrix.to/#/${userId}|${displayName}>`,
                 );
             }
             // Check for the next match.
             match = USER_ID_REGEX.exec(text);
         }
-        return text;    
+        return text;
     }
-
 
     /**
      * Enables public sharing on the given file object. then fetches its content.
@@ -142,18 +153,18 @@ export abstract class BaseSlackHandler {
      * @param {string} token A slack API token that has 'files:write:user' scope
      * @return {Promise<Object>} A Promise of the updated slack file data object
      */
-    public async enablePublicSharing(file: any, token: string) {
-        if (file.public_url_shared) return file;
+    public async enablePublicSharing(file: ISlackFile, token: string) {
+        if (file.public_url_shared) { return file; }
 
         this.main.incRemoteCallCounter("files.sharedPublicURL");
         const response = await rp({
-            method: 'POST',
             form: {
                 file: file.id,
-                token: token,
+                token,
             },
+            json: true,
+            method: "POST",
             uri: "https://slack.com/api/files.sharedPublicURL",
-            json: true
         });
         if (!response || !response.file || !response.file.permalink_public) {
             log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
@@ -163,28 +174,27 @@ export abstract class BaseSlackHandler {
     }
 
     /**
-     * Fetchs the file at a given url.
+     * Fetches the file at a given url.
      *
      * @param {Object} file A slack 'message.file' data object
      * @return {Promise<string>} A Promise of file contents
      */
-    public async fetchFileContent(file: any, token: string) {
-        if (!file) return;
+    public async fetchFileContent(file: ISlackFile) {
+        if (!file) { return; }
 
         const url = subs.getSlackFileUrl(file) || file.permalink_public;
         if (!url) {
-            throw "File doesn't have any URLs we can use.";
+            throw new Error("File doesn't have any URLs we can use.");
         }
-    
+
         const response = await rp({
-            uri: url,
+            encoding: null,
             resolveWithFullResponse: true,
-            encoding: null
+            uri: url,
         });
-        
+
         const content = response.body;
-        log.debug("Successfully fetched file " + file.id +
-            " content (" + content.length + " bytes)");
+        log.debug(`Successfully fetched file ${file.id}  content (${content.length} bytes)`);
         return content;
     }
 }

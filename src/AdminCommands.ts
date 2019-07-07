@@ -35,6 +35,7 @@ export class AdminCommands {
                     return yg.options(cmd.options);
                 }
             // TODO: Fix typing
+            // tslint:disable-next-line: no-any
             }) as any, cmd.handler.bind(cmd));
         });
     }
@@ -234,7 +235,7 @@ export class AdminCommands {
                 const roomId: string = room as string;
                 const userIds = await this.main.listGhostUsers(roomId);
                 respond(`Draining ${userIds.length} ghosts from ${roomId}`);
-                Promise.all(userIds.map((userId) => {
+                await Promise.all(userIds.map((userId) => {
                     return this.main.getIntent(userId).leave(roomId);
                 }));
                 await this.main.botIntent.leave(roomId);
@@ -274,7 +275,7 @@ export class AdminCommands {
                         respond("Command not found. No help can be provided.");
                         return;
                     }
-                    cmd.detailedHelp().forEach(s => respond(s));
+                    cmd.detailedHelp().forEach((s) => respond(s));
                     return;
                 }
                 this.commands.forEach((cmd) => {
@@ -285,22 +286,22 @@ export class AdminCommands {
                 command: {
                     demandOption: false,
                     description: "Get help about a particular command",
-                }
-            }
+                },
+            },
         );
     }
 
-    public parse(argv: string, respond: ResponseCallback): Promise<boolean> {
+    public async parse(argv: string, respond: ResponseCallback): Promise<boolean> {
         // yargs has no way to tell us if a command matched, so we have this
         // slightly whacky function to manage it.
         return new Promise((resolve, reject) => {
             try {
                 let matched = false;
                 this.yargs.parse(argv, {
-                    respond,
+                    completed: (err) => { err ? reject(err) : resolve(true); },
                     matched: () => { matched = true; },
-                    completed: (err) => { err ? reject(err) : resolve(true)}
-                }, (err) => {  if (err !== null) { reject(err) } });
+                    respond,
+                }, (err) => {  if (err !== null) { reject(err); } });
                 if (!matched) {
                     log.debug("No match");
                     resolve(false);

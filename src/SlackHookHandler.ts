@@ -19,6 +19,8 @@ const PRESERVE_KEYS = [
     "user_name", "user_id",
 ];
 
+const HTTP_OK = 200;
+
 export class SlackHookHandler extends BaseSlackHandler {
     private eventHandler: SlackEventHandler;
     constructor(main: Main) {
@@ -26,13 +28,12 @@ export class SlackHookHandler extends BaseSlackHandler {
         this.eventHandler = new SlackEventHandler(main);
     }
 
-    startAndListen(port: number, tlsConfig: {key_file: string, crt_file: string}) {
+    public async startAndListen(port: number, tlsConfig: {key_file: string, crt_file: string}) {
         let createServer: (cb?: RequestListener) => Server = httpCreate;
-        
         if (tlsConfig) {
             const tlsOptions = {
-                key: fs.readFileSync(tlsConfig.key_file),
                 cert: fs.readFileSync(tlsConfig.crt_file),
+                key: fs.readFileSync(tlsConfig.key_file),
             };
             createServer = (cb) => httpsCreate(tlsOptions, cb);
         }
@@ -41,38 +42,37 @@ export class SlackHookHandler extends BaseSlackHandler {
             srv.once("error", reject);
             srv.listen(port, () => {
                 const protocol = tlsConfig ? "https" : "http";
-                log.info("Slack-side listening on port " + port + " over " + protocol);
+                log.info(`Slack-side listening on port ${port} over ${protocol}`);
                 srv.removeAllListeners("error");
-                resolve();    
+                resolve();
             });
         });
     }
 
-    onRequest(req: IncomingMessage, res: ServerResponse) {
+    private onRequest(req: IncomingMessage, res: ServerResponse) {
+        const HTTP_SERVER_ERROR = 500;
         let body = "";
         req.on("data", (chunk) => body += chunk);
         req.on("end", () => {
             log.debug(`${req.method} ${req.url} bodyLen=${body.length}`);
             // if isEvent === true, this was an event emitted from the slack Event API
             // https://api.slack.com/events-api
-            const isEvent = req.headers['content-type'] === 'application/json' && req.method === 'POST';
+            const isEvent = req.headers["content-type"] === "application/json" && req.method === "POST";
             try {
                 if (isEvent) {
                     const params = JSON.parse(body);
                     this.eventHandler.handle(params, res).catch((ex) => {
                         log.error("Failed to handle event", ex);
                     });
-                }
-                else {
+                } else {
                     const params = qs.parse(body);
                     this.handle(req.method!, req.url!, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
                 }
-            }
-            catch (e) {
+            } catch (e) {
                 log.error("SlackHookHandler failed:", e);
-                res.writeHead(500, {"Content-Type": "text/plain"});
+                res.writeHead(HTTP_SERVER_ERROR, {"Content-Type": "text/plain"});
                 if (req.method !== "HEAD") {
                     res.write("Internal Server Error");
                 }
@@ -87,50 +87,51 @@ export class SlackHookHandler extends BaseSlackHandler {
      * Sends a message to Matrix if it understands enough of the message to do so.
      * Attempts to make the message as native-matrix feeling as it can.
      */
-    async handle(method: string, url: string, params: any, response: ServerResponse) {
-        log.info("Received slack webhook " + method + " " + url + ": " + JSON.stringify(params));
+    private async handle(method: string, url: string, params: {[key: string]: string|string[]},
+                         response: ServerResponse) {
+        log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
         const urlMatch = url.match(/^\/(.{32})(?:\/(.*))?$/);
 
         if (!urlMatch) {
             log.error("Ignoring message with bad slackhook URL " + url);
-    
-            response.writeHead(200, {"Content-Type": "text/plain"});
+
+            response.writeHead(HTTP_OK, {"Content-Type": "text/plain"});
             response.end();
-    
+
             endTimer({outcome: "dropped"});
             return;
         }
 
         const inboundId = urlMatch[1];
         let path = urlMatch[2] || "post";
-    
+
         // GET requests (e.g. authorize) have params in query string
         if (method === "GET") {
             const result = path.match(/^([^?]+)(?:\?(.*))$/);
             path = result![1];
             params = qs.parse(result![2]);
         }
-    
+
         const room = this.main.getRoomByInboundId(inboundId);
         // authorize is special
         if (!room && path !== "authorize") {
             log.warn("Ignoring message from unrecognised inbound ID: %s (%s.#%s)",
-                inboundId, params.team_domain, params.channel_name
+                inboundId, params.team_domain, params.channel_name,
             );
             this.main.incCounter("received_messages", {side: "remote"});
-    
-            response.writeHead(200, {"Content-Type": "text/plain"});
+
+            response.writeHead(HTTP_OK, {"Content-Type": "text/plain"});
             response.end();
-    
+
             endTimer({outcome: "dropped"});
             return;
         }
-    
+
         if (method === "POST" && path === "post") {
             try {
                 if (!room) {
-                    throw "No room found for inboundId";
+                    throw new Error("No room found for inboundId");
                 }
                 await this.handlePost(room, params);
                 endTimer({outcome: "success"});
@@ -138,14 +139,14 @@ export class SlackHookHandler extends BaseSlackHandler {
                 endTimer({outcome: "fail"});
                 log.error("handlePost failed: ", ex);
             }
-            response.writeHead(200, {"Content-Type": "application/json"});
+            response.writeHead(HTTP_OK, {"Content-Type": "application/json"});
             response.end();
             return;
         }
-        
+
         if (method === "GET" && path === "authorize") {
             const result = await this.handleAuthorize(room || inboundId, params);
-            response.writeHead(result.code || 200, {"Content-Type": "text/html"});
+            response.writeHead(result.code || HTTP_OK, {"Content-Type": "text/html"});
             response.write(result.html);
             response.end();
             endTimer({outcome: "success"});
@@ -153,7 +154,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
 
         log.debug(`Got call to ${method}${path} that we can't handle`);
-        response.writeHead(200, {"Content-Type": "application/json"});
+        response.writeHead(HTTP_OK, {"Content-Type": "application/json"});
         if (method !== "HEAD") {
             response.write("{}");
         }
@@ -161,13 +162,13 @@ export class SlackHookHandler extends BaseSlackHandler {
         endTimer({outcome: "dropped"});
     }
 
-    async handlePost(room: BridgedRoom, params: {[key: string]: string}) {
+    private async handlePost(room: BridgedRoom, params: {[key: string]: string|string[]}) {
         // We can't easily query the name of a channel from its ID, but we can
         // infer its current name every time we receive a message, because slack
         // tells us.
-        const channel_name = params.team_domain + ".#" + params.channel_name;
+        const channelName = `${params.team_domain}.#${params.channel_name}`;
 
-        room.SlackChannelName = channel_name;
+        room.SlackChannelName = channelName;
         if (room.isDirty) {
             this.main.putRoomToStore(room);
         }
@@ -198,7 +199,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             return;
         }
 
-        const text = params.text;
+        const text = params.text as string;
         if (!text) {
             // TODO(paul): When I started looking at this code there was no lookupAndSendMessage()
             //   I wonder if this code path never gets called...?
@@ -206,9 +207,9 @@ export class SlackHookHandler extends BaseSlackHandler {
             return;
         }
 
-        let msg = await this.lookupMessage(params.channel_id, params.timestamp, token);
+        let msg = await this.lookupMessage(params.channel_id as string, params.timestamp as string, token);
 
-        if(!msg) {
+        if (!msg) {
             msg = params;
         }
 
@@ -219,13 +220,13 @@ export class SlackHookHandler extends BaseSlackHandler {
         return room.onSlackMessage(msg);
     }
 
-    async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string}) {
+    private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {
         const oauth2 = this.main.oauth2;
         if (!oauth2) {
             log.warn("Wasn't expecting to receive /authorize without OAuth2 configured");
             return {
                 code: 500,
-                html: `OAuth is not configured on this bridge.`
+                html: `OAuth is not configured on this bridge.`,
             };
         }
         let room: BridgedRoom|null = null;
@@ -236,28 +237,28 @@ export class SlackHookHandler extends BaseSlackHandler {
             if (!user) {
                 return {
                     code: 500,
-                    html: `Token not known.`
+                    html: "Token not known.",
                 };
             }
         } else {
             room = roomOrToken;
         }
-    
+
         log.debug("Exchanging temporary code for full OAuth2 token " +
-            (user ? user : room!.InboundId)
+            (user ? user : room!.InboundId),
         );
-    
+
         try {
             const result = await oauth2.exchangeCodeForToken(
-                params.code,
+                params.code as string,
                 roomOrToken,
             );
             log.debug("Got a full OAuth2 token");
             if (room) { // Legacy webhook
                 room.updateAccessToken(result.access_token, new Set(result.access_scopes));
                 this.main.putRoomToStore(room);
-            } else if(user) { // New event api
-                this.main.setUserAccessToken(
+            } else if (user) { // New event api
+                await this.main.setUserAccessToken(
                     user,
                     result.team_id,
                     result.user_id,
@@ -278,7 +279,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 <h2>Integration Failed</h2>
 
 <p>Unfortunately your channel integration did not go as expected...</p>
-`
+`,
             };
         }
         return {
@@ -286,7 +287,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 <h2>Integration Successful!</h2>
 
 <p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>
-`
+`,
         };
     }
 
@@ -300,20 +301,20 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param {string} timestamp Timestamp when message was received, in seconds
      *     formatted as a float.
      */
-    async lookupMessage (channelID, timestamp, token) {
+    private async lookupMessage(channelID: string, timestamp: string, token: string) {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.
         const params = {
-            method: 'POST',
             form : {
                 channel: channelID,
+                inclusive: "1",
                 latest: timestamp,
                 oldest: timestamp,
-                inclusive: "1",
-                token: token,
+                token,
             },
+            json: true,
+            method: "POST",
             uri: "https://slack.com/api/channels.history",
-            json: true
         };
         this.main.incRemoteCallCounter("channels.history");
         const response = await rp(params);
@@ -321,18 +322,17 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.warn("Could not find history: " + response);
             return undefined;
         }
-        if (response.messages.length != 1) {
+        if (response.messages.length !== 1) {
             // Just laziness.
             // If we get unlucky and two messages were sent at exactly the
             // same microsecond, we could parse them all, filter by user,
             // filter by whether they have attachments, and such, and pick
             // the right message. But this is unlikely, and I'm lazy, so
             // we'll just drop the message...
-            log.warn("Really unlucky, got multiple messages at same" +
-                " microsecond, dropping:" + response);
+            log.warn(`Really unlucky, got multiple messages at same microsecond, dropping:`, response);
             return undefined;
         }
-        var message = response.messages[0];
+        const message = response.messages[0];
         log.debug("Looked up message from history as " + JSON.stringify(message));
 
         if (message.subtype !== "file_share") {
@@ -340,7 +340,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
         try {
             message.file = this.enablePublicSharing(message.file, token);
-            message.file._content = this.fetchFileContent(message.file, token);
+            message.file._content = this.fetchFileContent(message.file);
         } catch (err) {
             log.error("Failed to get file content: ", err);
         }

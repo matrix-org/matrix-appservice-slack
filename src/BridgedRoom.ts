@@ -25,110 +25,18 @@ interface IBridgedRoomOpts {
 }
 export class BridgedRoom {
 
-    private matrixRoomId: string;
-    private inboundId: string;
-    private slackChannelName?: string;
-    private slackChannelId?: string;
-    private slackWebhookUri?: string;
-    private slackBotToken?: string;
-    private slackUserToken?: string;
-    private slackTeamDomain?: string;
-    private slackTeamId?: string;
-    private slackBotId?: string;
-    private accessToken?: string;
-
-    private slackUserId?: string;
-    private accessScopes?: Set<string>;
-
-    // last activity time in epoch seconds
-    private slackATime?: number;
-    private matrixATime?: number;
-
-    /**
-     * True if this instance has changed from the version last read/written to the RoomStore.
-     */
-    private dirty: boolean;
-
-    constructor(private main: Main, opts: IBridgedRoomOpts) {
-    
-        if (!opts.inbound_id) {
-            throw new Error("BridgedRoom requires an inbound ID");
-        }
-        if (!opts.matrix_room_id) {
-            throw new Error("BridgedRoom requires an Matrix Room ID");
-        }
-    
-        // NOTE: Wow f**k me that's a lot of opts.
-        this.matrixRoomId = opts.matrix_room_id;
-        this.inboundId = opts.inbound_id;
-        this.slackChannelName = opts.slack_channel_name;
-        this.slackChannelId = opts.slack_channel_id;
-        this.slackWebhookUri = opts.slack_webhook_uri;
-        this.slackBotToken = opts.slack_bot_token;
-        this.slackUserToken = opts.slack_user_token;
-        this.slackTeamDomain = opts.slack_team_domain;
-        this.slackTeamId = opts.slack_team_id;
-        this.slackUserId = opts.slack_user_id;
-        this.slackBotId =  opts.slack_bot_id;
-        this.accessToken = opts.access_token;
-        this.accessScopes = opts.access_scopes;
-
-        this.dirty = true;
-    }
-
-    public static fromEntry(main: any, entry: any) {
-        return new BridgedRoom(main, {
-            inbound_id: entry.remote_id,
-            matrix_room_id: entry.matrix_id,
-            slack_channel_id: entry.remote.id,
-            slack_channel_name: entry.remote.name,
-            slack_webhook_uri: entry.remote.webhook_uri,
-            slack_bot_token: entry.remote.slack_bot_token,
-            slack_user_token: entry.remote.slack_user_token,
-            slack_team_domain: entry.remote.slack_team_domain,
-            slack_team_id: entry.remote.slack_team_id,
-            slack_user_id: entry.remote.slack_user_id,
-            slack_bot_id: entry.remote.slack_bot_id,
-            access_token: entry.remote.access_token,
-            access_scopes: entry.remote.access_scopes,
-        });
-    }
-
-    public getStatus() {
-        if (!this.slackWebhookUri && !this.slackBotToken) {
-            return "pending-params";
-        }
-        if (!this.slackChannelName) {
-            return "pending-name";
-        }
-        if (!this.accessToken && !this.slackBotToken) {
-            return "ready-no-token";
-        }
-        return "ready";
-    }
-
-    
     public get isDirty() {
         return this.dirty;
     }
-    
+
     public get InboundId() {
         return this.inboundId;
-    }
-
-    private setValue(key: string, value: any) {
-        const sneakyThis = this as any;
-        if (sneakyThis[key] === value) {
-            return;
-        }
-        sneakyThis[key] = value;
-        this.dirty = true;
     }
 
     public set InboundId(value) {
         this.setValue("inboundId", value);
     }
-    
+
     public get SlackChannelId() {
         return this.slackChannelId;
     }
@@ -193,8 +101,101 @@ export class BridgedRoom {
         this.setValue("slackUserToken", value);
     }
 
+
+
+    public get RemoteATime() {
+        return this.slackATime;
+    }
+
+    public get MatrixATime() {
+        return this.matrixATime;
+    }
+
+
+    public static fromEntry(main: any, entry: any) {
+        return new BridgedRoom(main, {
+            inbound_id: entry.remote_id,
+            matrix_room_id: entry.matrix_id,
+            slack_channel_id: entry.remote.id,
+            slack_channel_name: entry.remote.name,
+            slack_webhook_uri: entry.remote.webhook_uri,
+            slack_bot_token: entry.remote.slack_bot_token,
+            slack_user_token: entry.remote.slack_user_token,
+            slack_team_domain: entry.remote.slack_team_domain,
+            slack_team_id: entry.remote.slack_team_id,
+            slack_user_id: entry.remote.slack_user_id,
+            slack_bot_id: entry.remote.slack_bot_id,
+            access_token: entry.remote.access_token,
+            access_scopes: entry.remote.access_scopes,
+        });
+    }
+
+    private matrixRoomId: string;
+    private inboundId: string;
+    private slackChannelName?: string;
+    private slackChannelId?: string;
+    private slackWebhookUri?: string;
+    private slackBotToken?: string;
+    private slackUserToken?: string;
+    private slackTeamDomain?: string;
+    private slackTeamId?: string;
+    private slackBotId?: string;
+    private accessToken?: string;
+
+    private slackUserId?: string;
+    private accessScopes?: Set<string>;
+
+    // last activity time in epoch seconds
+    private slackATime?: number;
+    private matrixATime?: number;
+
+    /**
+     * True if this instance has changed from the version last read/written to the RoomStore.
+     */
+    private dirty: boolean;
+
+    constructor(private main: Main, opts: IBridgedRoomOpts) {
+
+        if (!opts.inbound_id) {
+            throw new Error("BridgedRoom requires an inbound ID");
+        }
+        if (!opts.matrix_room_id) {
+            throw new Error("BridgedRoom requires an Matrix Room ID");
+        }
+
+        // NOTE: Wow f**k me that's a lot of opts.
+        this.matrixRoomId = opts.matrix_room_id;
+        this.inboundId = opts.inbound_id;
+        this.slackChannelName = opts.slack_channel_name;
+        this.slackChannelId = opts.slack_channel_id;
+        this.slackWebhookUri = opts.slack_webhook_uri;
+        this.slackBotToken = opts.slack_bot_token;
+        this.slackUserToken = opts.slack_user_token;
+        this.slackTeamDomain = opts.slack_team_domain;
+        this.slackTeamId = opts.slack_team_id;
+        this.slackUserId = opts.slack_user_id;
+        this.slackBotId =  opts.slack_bot_id;
+        this.accessToken = opts.access_token;
+        this.accessScopes = opts.access_scopes;
+
+        this.dirty = true;
+    }
+
+    public getStatus() {
+        if (!this.slackWebhookUri && !this.slackBotToken) {
+            return "pending-params";
+        }
+        if (!this.slackChannelName) {
+            return "pending-name";
+        }
+        if (!this.accessToken && !this.slackBotToken) {
+            return "ready-no-token";
+        }
+        return "ready";
+    }
+
     public updateAccessToken(token: string, scopes: Set<string>) {
-        log.info('updateAccessToken ->', token, scopes);
+        log.info("updateAccessToken ->", token, scopes);
         const sameScopes = this.accessScopes && [...this.accessScopes!].sort().join(",") === [...scopes].sort().join(",");
         if (this.accessToken === token && sameScopes) {
             return;
@@ -225,27 +226,27 @@ export class BridgedRoom {
             id: `INTEG-${this.inboundId}`,
             matrix_id: this.matrixRoomId,
             remote_id: this.inboundId,
-        }
+        };
         this.dirty = false;
         return entry;
     }
 
     public async onMatrixReaction(message: any) {
-        if (!this.SlackBotToken) return;
+        if (!this.SlackBotToken) { return; }
 
-        const relates_to = message.content['m.relates_to'];
+        const relates_to = message.content["m.relates_to"];
         const eventStore = this.main.eventStore;
         const event = await eventStore.getEntryByMatrixId(message.room_id, relates_to.event_id);
-    
+
         // If we don't get an event then exit
         if (event === null) {
             log.debug("Could not find event to react to.");
             return;
         }
-    
+
         // Convert the unicode emoji into a slack emote name
         let emoji_key_name: string;
-        let emoji_item = emoji.find(relates_to.key);
+        const emoji_item = emoji.find(relates_to.key);
         if (emoji_item !== undefined) {
             emoji_key_name = emoji_item.key;
         } else {
@@ -255,28 +256,28 @@ export class BridgedRoom {
                 emoji_key_name = emoji_key_name.substring(1, emoji_key_name.length - 1);
             }
         }
-    
+
         // TODO: This only works once from matrix as we are sending the event as the
         // bot user.
         const body = {channel: this.slackChannelId,
                       timestamp: event.remoteEventId,
                       name: emoji_key_name,
                       as_user: false};
-    
+
         const sendMessageParams = {
             method: "POST",
             json: true,
             uri: "https://slack.com/api/reactions.add",
-            body: body,
-            headers: {}
+            body,
+            headers: {},
         };
-    
+
         if (this.slackBotToken) {
             sendMessageParams.headers = {
-                Authorization: 'Bearer ' + this.slackBotToken
+                Authorization: "Bearer " + this.slackBotToken,
             };
         }
-    
+
         const res = await rp(sendMessageParams);
         if (!res || !res.ok) {
             log.error("HTTP Error: ", res);
@@ -286,11 +287,11 @@ export class BridgedRoom {
             // So we can't store it in the event store
         }
         return res;
-    
+
     }
 
     public async onMatrixRedaction(message: any) {
-        if (!this.slackBotToken) return;
+        if (!this.slackBotToken) { return; }
         const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.redacts);
 
         // If we don't get an event then exit
@@ -298,18 +299,18 @@ export class BridgedRoom {
             log.debug("Could not find event '${message.redacts}' in room '${message.room_id}' to delete.");
             return;
         }
-        
+
         const body = {
             channel: this.slackChannelId,
             ts: event.remoteEventId,
-            as_user: false
+            as_user: false,
         };
 
         const sendMessageParams = {
             method: "POST",
             json: true,
             uri: "https://slack.com/api/chat.delete",
-            body: body,
+            body,
             headers: {},
         };
 
@@ -327,31 +328,31 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        if (!this.slackWebhookUri && !this.slackBotToken) return;
+        if (!this.slackWebhookUri && !this.slackBotToken) { return; }
 
-        const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.content['m.relates_to'].event_id);
-    
+        const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.content["m.relates_to"].event_id);
+
         // re-write the message so the matrixToSlack converter works as expected.
         const new_message = JSON.parse(JSON.stringify(message));
-        new_message.content = message.content['m.new_content'];
-    
+        new_message.content = message.content["m.new_content"];
+
         const body = await substitutions.matrixToSlack(new_message, this.main, this.SlackTeamId!);
-    
+
         const sendMessageParams = {
             method: "POST",
             json: true,
             uri: "https://slack.com/api/chat.update",
-            body: body,
+            body,
             headers: {},
         };
 
         sendMessageParams.body.ts = event.remoteEventId;
         sendMessageParams.body.as_user = false;
         sendMessageParams.body.channel = this.slackChannelId;
-    
+
         if (this.slackBotToken) {
             sendMessageParams.headers = {
-                Authorization: `Bearer ${this.slackBotToken}`
+                Authorization: `Bearer ${this.slackBotToken}`,
             };
         }
 
@@ -359,13 +360,12 @@ export class BridgedRoom {
         this.main.incCounter("sent_messages", {side: "remote"});
         if (!res || !res.ok) {
             log.error("HTTP Error: ", res);
-        }
-        else {
+        } else {
             // Add this event to the event store
             const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
             this.main.eventStore.upsertEvent(event);
         }
-        return res;    
+        return res;
     }
 
     /*
@@ -373,21 +373,21 @@ export class BridgedRoom {
       https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
     */
     public async stripMatrixReplyFallback(event: any) {
-        let realHtml = event["content"]["formatted_body"];
-        let realText = event["content"]["body"];
+        let realHtml = event.content.formatted_body;
+        let realText = event.content.body;
 
-        if (event["content"]["format"] === "org.matrix.custom.html" && event["content"]["formatted_body"]) {
-            const formattedBody = event["content"]["formatted_body"];
+        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
+            const formattedBody = event.content.formatted_body;
             if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
                 const parts = formattedBody.split("</mx-reply>");
                 realHtml = parts[1];
 
-                event["content"]["formatted_body"] = realHtml.trim();
+                event.content.formatted_body = realHtml.trim();
             }
         }
 
         let processedFallback = false;
-        const body = event["content"]["body"] || "";
+        const body = event.content.body || "";
         for (const line of body.split("\n")) {
             if (line.startsWith("> ") && !processedFallback) {
                 continue;
@@ -399,31 +399,29 @@ export class BridgedRoom {
             }
         }
 
-        event["content"]["body"] = realText.trim();
+        event.content.body = realText.trim();
         return event;
-    };
-
+    }
     /*
     Given an event which is in reply to something else return the event ID of the
     top most event in the reply chain, i.e. the one without a relates to.
     */
     public async findParentReply(message: any) {
         // Extract the referenced event
-        if (!message["content"]) return message.event_id;
-        if (!message["content"]["m.relates_to"]) return message.event_id;
-        if (!message["content"]["m.relates_to"]["m.in_reply_to"]) return message.event_id;
-        const parentEventId = message["content"]["m.relates_to"]["m.in_reply_to"]["event_id"];
-        if (!parentEventId) return message.event_id;
+        if (!message.content) { return message.event_id; }
+        if (!message.content["m.relates_to"]) { return message.event_id; }
+        if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
+        const parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
+        if (!parentEventId) { return message.event_id; }
 
         // Get the previous event
         const intent = this.main.botIntent;
         const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent);
-    };
-
+    }
     public async onMatrixMessage(message: any) {
-        if (!this.slackWebhookUri && !this.slackBotToken) return;
+        if (!this.slackWebhookUri && !this.slackBotToken) { return; }
 
         const user = await this.main.getOrCreateMatrixUser(message.user_id);
         message = this.stripMatrixReplyFallback(message);
@@ -434,13 +432,13 @@ export class BridgedRoom {
             method: "POST",
             json: true,
             uri: uri!,
-            body: body,
+            body,
             headers: {},
         };
 
         if (this.slackBotToken) {
             sendMessageParams.headers = {
-                Authorization: `Bearer ${this.slackBotToken}`
+                Authorization: `Bearer ${this.slackBotToken}`,
             };
             // See https://api.slack.com/methods/chat.postMessage#authorship
             // Setting as_user to false means "When the as_user parameter is set to
@@ -451,16 +449,16 @@ export class BridgedRoom {
         }
 
         sendMessageParams.body.username = user.getDisplaynameForRoom(message.room_id);
-        
+
         const reply = await this.findParentReply(message);
         if (reply !== message.event_id) {
             // We have a reply
             const parentStoredEvent = await this.main.eventStore.getEntryByMatrixId(message.room_id, reply);
             sendMessageParams.body.thread_ts = parentStoredEvent.remoteEventId;
         }
-    
+
         const avatar_url = user.getAvatarUrlForRoom(message.room_id);
-      
+
         if (avatar_url && avatar_url.indexOf("mxc://") === 0) {
             sendMessageParams.body.icon_url = this.main.getUrlForMxc(avatar_url);
         }
@@ -471,8 +469,7 @@ export class BridgedRoom {
         this.main.incCounter("sent_messages", {side: "remote"});
         if (!res || !res.ok) {
             log.error("HTTP Error: ", res);
-        }
-        else {
+        } else {
             // Add this event to the event store
             const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
             this.main.eventStore.upsertEvent(event);
@@ -485,39 +482,98 @@ export class BridgedRoom {
             const ghost = await this.main.getGhostForSlackMessage(message);
             await ghost.update(message, this);
             return await this.handleSlackMessage(message, ghost);
-        } catch(err) {
+        } catch (err) {
             log.error("Failed to process event");
             log.error(err);
         }
-    
+
     }
 
-    public async onSlackReactionAdded (message: any) {
+    public async onSlackReactionAdded(message: any) {
         if (message.user_id === this.slackUserId) {
             return;
         }
         const ghost = await this.main.getGhostForSlackMessage(message);
         await ghost.update(message, this);
-    
+
         const reaction = `:${message.reaction}:`;
-        let reaction_key = emoji.emojify(reaction, onMissingEmoji);
-    
+        const reaction_key = emoji.emojify(reaction, onMissingEmoji);
+
         const eventStore = this.main.eventStore;
         const event = await eventStore.getEntryByRemoteId(message.item.channel, message.item.ts);
-    
+
         return ghost.sendReaction(this.MatrixRoomId, event.eventId, reaction_key,
                                   message.item.channel, message.event_ts);
+    }
+
+    public async leaveGhosts(ghosts: string[]) {
+        const promises: Promise<void>[] = [];
+        for (const ghost of ghosts) {
+            promises.push(this.main.getIntent(ghost).leave(this.matrixRoomId));
+        }
+        await Promise.all(promises);
+    }
+
+    public async refreshTeamInfo() {
+        if (!this.slackBotToken) { return; }
+
+        const response = await rp({
+            uri: "https://slack.com/api/team.info",
+            qs: {
+                token: this.slackBotToken,
+            },
+            json: true,
+        });
+        if (!response.team) { return; }
+
+        this.setValue("SlackTeamDomain", response.team.domain);
+        this.setValue("slackTeamId", response.team.id);
+    }
+
+    public async refreshUserInfo() {
+        if (!this.slackBotToken) { return; }
+
+        const testRes = await rp({
+            uri: "https://slack.com/api/auth.test",
+            qs: {
+                token: this.slackBotToken,
+            },
+            json: true,
+        });
+
+        log.debug("auth.test res:", testRes);
+        if (!testRes.user_id) { return; }
+        this.setValue("slackUserId", testRes.user_id);
+
+        const usersRes = await rp({
+            uri: "https://slack.com/api/users.info",
+            qs: {
+                token: this.slackBotToken,
+                user: testRes.user_id,
+            },
+            json: true,
+        });
+        if (!usersRes.user || !usersRes.user.profile) { return; }
+        this.setValue("slackBotId", usersRes.user.profile.bot_id);
+    }
+    private setValue(key: string, value: any) {
+        const sneakyThis = this as any;
+        if (sneakyThis[key] === value) {
+            return;
+        }
+        sneakyThis[key] = value;
+        this.dirty = true;
     }
 
     private async handleSlackMessage(message: any, ghost: SlackGhost) {
         const eventTS = message.event_ts;
         const channelId = this.slackChannelId!;
-    
+
         ghost.bumpATime();
         this.slackATime = Date.now() / 1000;
-    
+
         const subtype = message.subtype;
-    
+
         // Transform the text if it is present.
         if (message.text) {
             message.text = substitutions.slackToMatrix(message.text,
@@ -536,60 +592,56 @@ export class BridgedRoom {
             replyToTS = parentEvent._extras.slackThreadMessages.slice(-1)[0] || message.thread_ts;
             parentEvent._extras.slackThreadMessages.push(message.ts);
             await eventStore.upsertEvent(parentEvent);
-    
+
             // Get event to reply to
             const replyToEvent = await eventStore.getEntryByRemoteId(this.SlackChannelId, replyToTS);
             const m_in_reply_to = {"m.in_reply_to": {event_id: replyToEvent.eventId}};
-    
+
             const extraContent = {"m.relates_to": m_in_reply_to};
             return ghost.sendText(this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, extraContent);
         }
-    
+
         // If we are only handling text, send the text.
         if ([undefined, "bot_message", "file_comment"].includes(subtype)) {
             return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
-        }
-        // emotes
-        else if (subtype === "me_message") {
+        } else if (subtype === "me_message") {
             message = {
                 msgtype: "m.emote",
-                body: message.text
+                body: message.text,
             };
             return ghost.sendMessage(this.matrixRoomId, message, channelId, eventTS);
-        }
-        // edits
-        else if (subtype === "message_changed") {
+        } else if (subtype === "message_changed") {
             const previous_message = ghost.prepareBody(substitutions.slackToMatrix(message.previous_message.text));
             // We use message.text here rather than the proper message.message.text
             // as we have added message.text ourselves and then transformed it.
             const new_message_rich = substitutions.slackToMatrix(message.text);
             const new_message = ghost.prepareBody(new_message_rich);
-    
+
             // The substitutions might make the messages the same
             if (previous_message === new_message) {
                 log.debug("Ignoring edit message because messages are the same post-substitutions.");
                 return;
             }
-    
+
             const edits = substitutions.makeDiff(previous_message, new_message);
-    
+
             const outtext = "(edited) " +
                 edits.before + edits.prev + edits.after + " => " +
                 edits.before + edits.curr + edits.after;
-    
+
             const prev   = substitutions.htmlEscape(edits.prev);
             const curr   = substitutions.htmlEscape(edits.curr);
             const before = substitutions.htmlEscape(edits.before);
             const after  = substitutions.htmlEscape(edits.after);
-    
+
             const formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font> ${after} =&gt; ${before} <font color="green"> ${curr} </font> ${after}`;
-        
+
             const prev_event = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message.ts);
             const matrixcontent = {
-                body: ghost.prepareBody(outtext),
-                msgtype: "m.text",
-                formatted_body: formatted,
-                format: "org.matrix.custom.html",
+                "body": ghost.prepareBody(outtext),
+                "msgtype": "m.text",
+                "formatted_body": formatted,
+                "format": "org.matrix.custom.html",
                 "m.relates_to": {
                     rel_type: "m.replace",
                     event_id: prev_event.eventId},
@@ -597,14 +649,13 @@ export class BridgedRoom {
                     msgtype: "m.text",
                     body: ghost.prepareBody(new_message_rich),
                     formatted_body: ghost.prepareFormattedBody(new_message_rich),
-                    format: "org.matrix.custom.html"
-                }
+                    format: "org.matrix.custom.html",
+                },
             };
-    
+
             return ghost.sendMessage(this.MatrixRoomId, matrixcontent, channelId, eventTS);
-        }
-        else if (message.files != undefined) {
-            for (var i = 0; i < message.files.length; i++) {
+        } else if (message.files != undefined) {
+            for (let i = 0; i < message.files.length; i++) {
                 const file = message.files[i];
                 if (file.mode === "snippet") {
                     let htmlString: string;
@@ -613,32 +664,31 @@ export class BridgedRoom {
                             uri: file.url_private,
                             headers: {
                                 Authorization: `Bearer ${this.slackBotToken}`,
-                            }
+                            },
                         });
                     } catch (ex) {
                         log.error("Failed to download snippet", ex);
                         continue;
                     }
                     let htmlCode = "";
-                    let code = '```';
-                    code += '\n';
+                    let code = "```";
+                    code += "\n";
                     code += htmlString;
-                    code += '\n';
-                    code += '```';
+                    code += "\n";
+                    code += "```";
                     if (file.filetype) {
                         htmlCode = '<pre><code class="language-' + file.filetype + '">';
-                    }
-                    else {
-                        htmlCode = '<pre><code>';
+                    } else {
+                        htmlCode = "<pre><code>";
                     }
                     htmlCode += substitutions.htmlEscape(htmlString);
-                    htmlCode += '</code></pre>';
+                    htmlCode += "</code></pre>";
 
                     const content = {
                         body: code,
                         msgtype: "m.text",
                         formatted_body: htmlCode,
-                        format: "org.matrix.custom.html"
+                        format: "org.matrix.custom.html",
                     };
                     await ghost.sendMessage(this.matrixRoomId, content, channelId, eventTS);
                     // TODO: Currently Matrix lacks a way to upload a "captioned image",
@@ -647,9 +697,7 @@ export class BridgedRoom {
                     if (message.text) {
                         return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
                     }
-                }
-                // A file which is not a snippet
-                else {
+                } else {
                     // We also need to upload the thumbnail
                     let thumbnail_promise = Promise.resolve();
                     // Slack ain't a believer in consistency.
@@ -664,14 +712,14 @@ export class BridgedRoom {
                             this.slackBotToken!,
                         );
                     }
-                    let content_uri = "";
+                    const content_uri = "";
                     const fileContentUri = await ghost.uploadContentFromURI(file, file.url_private, this.slackBotToken!);
                     const thumbnailContentUri = await thumbnail_promise;
                     await ghost.sendMessage(
                         this.matrixRoomId,
                         slackFileToMatrixMessage(file, fileContentUri, thumbnailContentUri),
                         channelId,
-                        eventTS
+                        eventTS,
                     );
                     // TODO: Currently Matrix lacks a way to upload a "captioned image",
                     //   so we just send a separate `m.image` and `m.text` message
@@ -681,71 +729,11 @@ export class BridgedRoom {
                     }
                 }
             }
-        }
-        else {
+        } else {
             log.warn("Ignoring message with subtype: " + subtype);
-        }    
-    }
-
-    public async leaveGhosts(ghosts: string[]) {
-        const promises: Promise<void>[] = [];
-        for (const ghost of ghosts) {
-            promises.push(this.main.getIntent(ghost).leave(this.matrixRoomId));
         }
-        await Promise.all(promises);
     }
 
-    public get RemoteATime() {
-        return this.slackATime;
-    }
-
-    public get MatrixATime() {
-        return this.matrixATime;
-    }
-
-    public async refreshTeamInfo() {
-        if (!this.slackBotToken) return;
-    
-        const response = await rp({
-            uri: 'https://slack.com/api/team.info',
-            qs: {
-                token: this.slackBotToken
-            },
-            json: true,
-        });
-        if (!response.team) return;
-
-        this.setValue("SlackTeamDomain", response.team.domain);
-        this.setValue("slackTeamId", response.team.id);
-    }
-    
-    public async refreshUserInfo() {
-        if (!this.slackBotToken) return;
-    
-        const testRes = await rp({
-            uri: 'https://slack.com/api/auth.test',
-            qs: {
-                token: this.slackBotToken
-            },
-            json: true,
-        });
-
-        log.debug("auth.test res:", testRes);
-        if (!testRes.user_id) return;
-        this.setValue("slackUserId", testRes.user_id);
-
-        const usersRes = await rp({
-            uri: 'https://slack.com/api/users.info',
-            qs: {
-                token: this.slackBotToken,
-                user: testRes.user_id,
-            },
-            json: true,
-        });
-        if (!usersRes.user || !usersRes.user.profile) return;
-        this.setValue("slackBotId", usersRes.user.profile.bot_id);
-    };
-    
 }
 
 /**
@@ -770,12 +758,12 @@ export class BridgedRoom {
 const slackImageToMatrixImage = function(file, url, thumbnail_url) {
     const message = {
         msgtype: "m.image",
-        url: url,
+        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
-        }
+        },
         // TODO: Define some matrix types
     } as any;
 
@@ -816,12 +804,12 @@ const slackImageToMatrixImage = function(file, url, thumbnail_url) {
 const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
     const message = {
         msgtype: "m.video",
-        url: url,
+        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
-        }
+        },
         // TODO: Define some matrix types
     } as any;
 
@@ -854,12 +842,12 @@ const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
 const slackImageToMatrixAudio = function(file, url) {
     return {
         msgtype: "m.audio",
-        url: url,
+        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
-        }
+        },
     };
 };
 /**
@@ -883,12 +871,12 @@ const slackFileToMatrixMessage = function(file, url, thumbnail_url) {
 
     const message = {
         msgtype: "m.file",
-        url: url,
+        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
-        }
+        },
     };
     return message;
 };

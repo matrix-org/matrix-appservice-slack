@@ -11,12 +11,12 @@
       "severity": "warning"
     },
     "arrow-return-shorthand": true,
-    "no-magic-numbers": [true, -1, 0, 1, 1000],
+    "no-magic-numbers": [true, -1, 0, 1, 2, 1000],
     "prefer-for-of": true,
     "typedef": {
       "severity": "warning"
     },
-    "await-promise": [true],
+    "await-promise": [true, "RequestPromise"],
     "curly": true,
     "no-empty": false,
     "no-invalid-this": true,

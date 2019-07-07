@@ -2,15 +2,15 @@ import * as fs from "fs";
 import { Logging } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import * as emoji from "node-emoji";
+import { ISlackFile } from "./BaseSlackHandler";
 
 const log = Logging.get("substitutions");
 
 export function onMissingEmoji(name) {
     return `:${name}:`;
-};
+}
 
-
-class Subsitutions {
+class Substitutions {
     // Ordered
     private pairs: {slack: string, matrix: string}[];
     constructor() {
@@ -24,7 +24,7 @@ class Subsitutions {
             {slack: "&lt;", matrix: "<"},
             {slack: "&gt;", matrix: ">"},
             // &amp; must be after all replacements involving &s.
-            {slack: "&amp;", matrix: "&"}
+            {slack: "&amp;", matrix: "&"},
         ];
     }
 
@@ -35,7 +35,7 @@ class Subsitutions {
      * @param body the text, in Slack's format.
      * @param file options slack file object
      */
-    public slackToMatrix(body: string, file?: any): string {
+    public slackToMatrix(body: string, file?: ISlackFile): string {
         log.debug("running substitutions on ", body);
         for (const pair of this.pairs) {
             body.replace(new RegExp(`/${pair.slack}/g`), pair.matrix);
@@ -61,34 +61,35 @@ class Subsitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
+// tslint:disable-next-line: no-any
     public async matrixToSlack(event: any, main: Main, teamId: string) {
         let body = event.content.body;
-        body = body.replace(/<((https?:\/\/)?[^>]+?)>/g, '$1');
+        body = body.replace(/<((https?:\/\/)?[^>]+?)>/g, "$1");
 
         for (const pair of this.pairs) {
             body.replace(new RegExp(`/${pair.matrix}/g`), pair.slack);
         }
         // emotes in slack are just italicised
         if (event.content.msgtype === "m.emote") {
-            body = `_${body}_`
+            body = `_${body}_`;
         }
 
         // replace riot "pill" behavior to "@" mention for slack users
-        const html_string = event.content.formatted_body;
-        if (undefined != html_string) {
+        const htmlString = event.content.formatted_body;
+        if (htmlString) {
             const regex = new RegExp('<a href="https://matrix.to/#/#' +
                                      '([^"]+)">([^<]+)</a>', "g");
 
-            let match = regex.exec(html_string);
+            let match = regex.exec(htmlString);
             while (match != null) {
                 const alias = match[2];
                 const client = main.botIntent.getClient();
-                const room_id = await client.getRoomIdForAlias(alias);
-                const room = main.getRoomByMatrixRoomId(room_id['room_id']);
-                if (room !== undefined && room.SlackTeamId === teamId) {
-                    body = body.replace(alias, "<#" + room.SlackChannelId + ">");
+                const roomIdResponse = await client.getRoomIdForAlias(alias);
+                const room = main.getRoomByMatrixRoomId(roomIdResponse.room_id);
+                if (room && room.SlackTeamId === teamId) {
+                    body = body.replace(alias, `<#${room.SlackChannelId!}>`);
                 }
-                match = regex.exec(html_string);
+                match = regex.exec(htmlString);
             }
         }
 
@@ -102,21 +103,22 @@ class Subsitutions {
         // meaning if we can we use the much simpler pill subs rather than this.
         const modifiedBody = await plainTextSlackMentions(main, body, event.room_id);
 
+// tslint:disable-next-line: no-any
         const ret: any = {
-            username: event.user_id,
+            link_names: 1,  // This no longer works for nicks but is needed to make @channel work.
             text: modifiedBody,
-            link_names: 1  //This no longer works for nicks but is needed to make @channel work.
+            username: event.user_id,
         };
         if (event.content.msgtype === "m.image" && event.content.url.indexOf("mxc://") === 0) {
             const url = main.getUrlForMxc(event.content.url);
             delete ret.text;
             ret.attachments = [{
                 fallback: modifiedBody,
-                image_url: url
+                image_url: url,
             }];
         } else if (event.content.msgtype === "m.file" && event.content.url.indexOf("mxc://") === 0) {
             const url = main.getUrlForMxc(event.content.url);
-            ret.text = "<" + url + "|" + modifiedBody + ">";
+            ret.text = `<${url}|${modifiedBody}>`;
         }
 
         return ret;
@@ -138,8 +140,10 @@ class Subsitutions {
         const displaymap: {[name: string]: string} = {};
         const store = main.userStore;
         const users = await main.listGhostUsers(roomId);
-        const storeUsers: {display_name: string, id: string}[][] = await Promise.all(users.map((id: string) => store.select({id})));
-        storeUsers.forEach(user => {
+        const storeUsers: {display_name: string, id: string}[][] = await Promise.all(
+            users.map((id: string) => store.select({id})),
+        );
+        storeUsers.forEach((user) => {
             if (user && user[0]) {
                 displaymap[user[0].display_name] = user[0].id.split("_")[2].split(":")[0];
             }
@@ -166,8 +170,7 @@ class Subsitutions {
             amap[dispname] = displaymap[dispname];
             if (firstwords.hasOwnProperty(firstword)) {
                 firstwords[firstword].push(amap);
-            }
-            else {
+            } else {
                 firstwords[firstword] = [amap];
             }
         }
@@ -177,47 +180,47 @@ class Subsitutions {
     public makeDiff(prev: string, curr: string) {
         let i;
         for (i = 0; i < curr.length && i < prev.length; i++) {
-            if (curr.charAt(i) != prev.charAt(i)) break;
+            if (curr.charAt(i) !== prev.charAt(i)) { break; }
         }
         // retreat to the start of a word
-        while(i > 0 && /\S/.test(curr.charAt(i-1))) i--;
-    
-        let prefixLen = i;
-    
-        for(i = 0; i < curr.length && i < prev.length; i++) {
-            if (rcharAt(curr, i) != rcharAt(prev, i)) break;
+        while (i > 0 && /\S/.test(curr.charAt(i - 1))) { i--; }
+
+        const prefixLen = i;
+
+        for (i = 0; i < curr.length && i < prev.length; i++) {
+            if (rcharAt(curr, i) !== rcharAt(prev, i)) { break; }
         }
         // advance to the end of a word
-        while(i > 0 && /\S/.test(rcharAt(curr, i-1))) i--;
-    
-        let suffixLen = i;
-    
+        while (i > 0 && /\S/.test(rcharAt(curr, i - 1))) { i--; }
+
+        const suffixLen = i;
+
         // Extract the common prefix and suffix strings themselves and
         //   mutate the prev/curr strings to only contain the differing
         //   middle region
-        let prefix = curr.slice(0, prefixLen);
+        const prefix = curr.slice(0, prefixLen);
         curr = curr.slice(prefixLen);
         prev = prev.slice(prefixLen);
-    
+
         let suffix = "";
         if (suffixLen > 0) {
             suffix = curr.slice(-suffixLen);
             curr = curr.slice(0, -suffixLen);
             prev = prev.slice(0, -suffixLen);
         }
-    
+
         // At this point, we have four strings; the common prefix and
         //   suffix, and the edited middle part. To display it nicely as a
         //   matrix message we'll use the final word of the prefix and the
         //   first word of the suffix as "context" for a customly-formatted
         //   message.
-    
+
         let before = finalWord(prefix);
-        if (before != prefix) { before = "... " + before; }
-    
+        if (before !== prefix) { before = "... " + before; }
+
         let after = firstWord(suffix);
-        if (after != suffix) { after = after + " ..."; }
-    
+        if (after !== suffix) { after = after + " ..."; }
+
         // return {prev: prev,
         //         curr: curr,
         //         before: before,
@@ -229,20 +232,20 @@ class Subsitutions {
         permalink_public: string,
         url_private: string,
     }) {
-        const pub_secret = file.permalink_public.match(/https?:\/\/slack-files.com\/[^-]*-[^-]*-(.*)/);
-        if (!pub_secret) {
+        const pubSecret = file.permalink_public.match(/https?:\/\/slack-files.com\/[^-]*-[^-]*-(.*)/);
+        if (!pubSecret) {
             throw Error("Could not determine pub_secret");
         }
         // try to get direct link to the file
-        if (pub_secret !== undefined && pub_secret.length > 0) {
-            return file.url_private + "?pub_secret=" + pub_secret[1];
+        if (pubSecret && pubSecret.length > 0) {
+            return `${file.url_private}?pub_secret=${pubSecret[1]}`;
         }
     }
 }
 
-const subsitutions = new Subsitutions();
+const substitutions = new Substitutions();
 
-export default subsitutions;
+export default substitutions;
 
 /**
  * Do string replacement on a message given the display map.
@@ -251,39 +254,37 @@ export default subsitutions;
  * @param {Object} displaymap A mapping of display names to slack user ids.
  * @return {String} The string with replacements performed.
  */
-function replacementFromDisplayMap(string: string, displaymap) {
-    const firstwords = subsitutions.makeFirstWordMap(displaymap);
+function replacementFromDisplayMap(str: string, displaymap: {[matrixId: string]: string}) {
+    const firstwords = substitutions.makeFirstWordMap(displaymap);
 
     // Now parse the message to find the intersection of every word in the
     // message with every first word of all nicks.
-    const match_words = new Set(Object.keys(firstwords));
-    const string_words = new Set(string.split(" "));
-    const matches = [...string_words].filter(x => match_words.has(x));
+    const matchWords = new Set(Object.keys(firstwords));
+    const stringWords = new Set(str.split(" "));
+    const matches = [...stringWords].filter((x) => matchWords.has(x));
 
     if (matches && matches.length) {
         for (const firstword of matches) {
-            if (firstwords.hasOwnProperty(firstword)) {
+            if (firstwords[firstword]) {
                 const nicks = firstwords[firstword];
                 if (nicks.length === 1) {
-                    string = string.replace(firstword, "<@" + nicks[0][firstword] + ">");
-                }
-                else {
+                    str = str.replace(firstword, `<@${nicks[0][firstword]}>`);
+                } else {
                     // Sort the displaynames by longest string first, and then match them from longest to shortest.
                     // This can match multiple times if there is more than one mention in the message
-                    const displaynames = nicks.map(x => Object.keys(x)[0]);
-                    displaynames.sort((x, y) => y.length - x.length);
+                    const displaynames: string[] = nicks.map((x: {}) => Object.keys(x)[0]);
+                    displaynames.sort((x: string, y: string) => y.length - x.length);
                     for (const displayname of displaynames) {
-                        if (string.includes(displayname)) {
-                            string = string.replace(displayname, "<@" + displaymap[displayname] + ">");
+                        if (str.includes(displayname)) {
+                            str = str.replace(displayname, `<@${displaymap[displayname]}`);
                         }
                     }
                 }
             }
         }
     }
-    return string;
+    return str;
 }
-
 
 /**
  * Replace plain text form of @displayname mentions with the slack mention syntax.
@@ -293,25 +294,25 @@ function replacementFromDisplayMap(string: string, displaymap) {
  * @param {String} room_id The room the message was sent in.
  * @return {String} The string with replacements performed.
  */
-async function plainTextSlackMentions(main: Main, s: string, room_id: string) {
+async function plainTextSlackMentions(main: Main, s: string, roomId: string) {
     return replacementFromDisplayMap(
         s,
-        await subsitutions.getDisplayMap(main, room_id)
+        await substitutions.getDisplayMap(main, roomId),
     );
 }
 
 // These functions are copied and modified from the Gitter AS
 // idx counts backwards from the end of the string; 0 is final character
-function rcharAt(s,idx) {
-    return s.charAt(s.length-1 - idx);
+function rcharAt(s: string, idx: number) {
+    return s.charAt(s.length - 1 - idx);
 }
 
-function firstWord(s) {
-    let groups = s.match(/^\s*\S+/);
+function firstWord(s: string) {
+    const groups = s.match(/^\s*\S+/);
     return groups ? groups[0] : "";
 }
 
-function finalWord(s) {
-    let groups = s.match(/\S+\s*$/);
+function finalWord(s: string) {
+    const groups = s.match(/\S+\s*$/);
     return groups ? groups[0] : "";
 }

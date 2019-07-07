@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/matrix-org/matrix-appservice-slack#readme",
   "dependencies": {
+    "@types/express": "^4.17.0",
     "@types/node-emoji": "^1.8.1",
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
     "chalk": "^2.4.1",

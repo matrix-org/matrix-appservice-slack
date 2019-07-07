@@ -16,25 +16,25 @@ export interface IConfig {
         url: string;
         server_name: string;
         media_url?: string;
-    }
+    };
 
     tls: {
         key_file: string;
         crt_file: string;
-    }
+    };
 
     logging: {
         console: LogEnum;
         fileDatePattern: string;
         timestampFormat: string;
         files: {[filename: string]: LogEnum}
-    }
+    };
 
     oauth2?: {
         client_id: string;
         client_secret: string;
         redirect_prefix?: string;
-    }
+    };
 
     enable_metrics: boolean;
 

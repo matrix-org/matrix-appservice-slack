@@ -5,6 +5,7 @@ import { Logging } from "matrix-appservice-bridge";
 
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
+import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 
 const log = Logging.get("OAuth2");
 
@@ -25,14 +26,14 @@ const BOT_SCOPES = [
 
 export class OAuth2 {
     private readonly main: Main;
-    private readonly userTokensWaiting: Map<string,string>;
+    private readonly userTokensWaiting: Map<string, string>;
     private readonly clientId: string;
     private readonly clientSecret: string;
     private readonly redirectPrefix: string;
 
     constructor(opts: {main: Main, client_id: string, client_secret: string, redirect_prefix: string}) {
         this.main = opts.main;
-        this.userTokensWaiting = new Map(); //token -> userId
+        this.userTokensWaiting = new Map(); // token -> userId
         this.clientId = opts.client_id;
         this.clientSecret = opts.client_secret;
         this.redirectPrefix = opts.redirect_prefix;
@@ -56,25 +57,25 @@ export class OAuth2 {
         return "https://slack.com/oauth/authorize?" + qs;
     }
 
-    public async exchangeCodeForToken (code: string, room: string|BridgedRoom) {
-        const redirect_uri = this.makeRedirectURL(room);
+    public async exchangeCodeForToken(code: string, room: string|BridgedRoom) {
+        const redirectUri = this.makeRedirectURL(room);
         this.main.incRemoteCallCounter("oauth.access");
         const response = await rp({
-            uri: "https://slack.com/api/oauth.access",
+            json: true,
             qs: {
                 client_id: this.clientId,
                 client_secret: this.clientSecret,
                 code,
-                redirect_uri: redirect_uri,
+                redirect_uri: redirectUri,
             },
-            json: true
+            uri: "https://slack.com/api/oauth.access",
         });
         if (response.ok) {
             response.access_scopes = response.scope.split(/,/);
             return response;
         }
         log.error("oauth.access failed: ", response);
-        throw `OAuth2 process failed: '${response.error}'`;
+        throw new Error(`OAuth2 process failed: '${response.error}'`);
     }
 
     // Authenticating users is a bit tricky:
@@ -83,10 +84,10 @@ export class OAuth2 {
     // Slack send that token to us.
     // We store the user token in the user's
 
-    public getPreauthToken (userId: string) {
+    public getPreauthToken(userId: string) {
         // NOTE: We use 32 because we need to use it into SlackEventHandler which
         // expects inbound roomIds to be 32 chars.
-        const token = uuid().substr(0, 32);
+        const token = uuid().substr(0, INTERNAL_ID_LEN);
         this.userTokensWaiting.set(token, userId);
         return token;
     }

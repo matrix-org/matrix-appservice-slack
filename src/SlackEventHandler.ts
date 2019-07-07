@@ -1,4 +1,4 @@
-import { BaseSlackHandler } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackFile } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { ServerResponse } from "http";
 import { Main } from "./Main";
@@ -8,7 +8,7 @@ const log = Logging.get("SlackEventHandler");
 
 interface ISlackEventParams {
     team_id: string;
-    event: ISlackEventEvent,
+    event: ISlackEventEvent;
     name: string;
     type: string;
 }
@@ -20,16 +20,16 @@ interface ISlackEventEvent {
 }
 
 interface ISlackEventParamsVerification extends ISlackEventParams {
-    type: "url_verification"
+    type: "url_verification";
     challenge: string;
 }
 
 interface ISlackEventParamsMessage extends ISlackEventParams {
-    event: ISlackEventMessageEvent
+    event: ISlackEventMessageEvent;
 }
 
 interface ISlackEventMessageAttachment {
-    fallback: any;
+    fallback: string;
 }
 
 interface ISlackEventMessageEvent extends ISlackEventEvent {
@@ -41,22 +41,21 @@ interface ISlackEventMessageEvent extends ISlackEventEvent {
     // For comments
     comment?: {
         user: string;
-    },
-    attachments? : ISlackEventMessageAttachment[],
+    };
+    attachments?: ISlackEventMessageAttachment[];
     // For message_changed
     message?: {
         text: string;
         user: string;
         bot_id: string;
-    },
+    };
     previous_message?: {
         text: string;
-    }
-    file?: {
-        _content: Buffer,
-    },
+    };
+    file?: ISlackFile;
 }
 
+const HTTP_OK = 200;
 
 export class SlackEventHandler extends BaseSlackHandler {
     constructor(main: Main) {
@@ -69,48 +68,49 @@ export class SlackEventHandler extends BaseSlackHandler {
     public async handle(params: ISlackEventParams, response: ServerResponse) {
         try {
             log.debug("Received slack event:", params);
-        
+
             const endTimer = this.main.startTimer("remote_request_seconds");
-    
+
             // respond to event url challenges
-            if (params.type === 'url_verification') {
+            if (params.type === "url_verification") {
                 const challengeParams = params as ISlackEventParamsVerification;
-                response.writeHead(200, {"Content-Type": "application/json"});
+                response.writeHead(HTTP_OK, {"Content-Type": "application/json"});
                 response.write(JSON.stringify({challenge: challengeParams.challenge}));
                 response.end();
                 return;
             } else {
                 // See https://api.slack.com/events-api#responding_to_events
                 // We must respond within 3 seconds or it will be sent again!
-                response.writeHead(200, "OK");
+                response.writeHead(HTTP_OK, "OK");
                 response.end();
             }
 
             let err: string|null = null;
             try {
                 switch (params.event.type) {
-                    case 'message':
-                    case 'reaction_added':
-                    case 'reaction_removed':
+                    case "message":
+                    case "reaction_added":
+                    case "reaction_removed":
                         await this.handleMessageEvent(params as ISlackEventParamsMessage);
                         break;
-                    case 'channel_rename':
+                    case "channel_rename":
                         await this.handleChannelRenameEvent(params);
                         break;
-                    case 'team_domain_change':
+                    case "team_domain_change":
                         await this.handleDomainChangeEvent(params);
                         break;
                     // XXX: Unused?
-                    case 'file_comment_added':
+                    case "file_comment_added":
                     default:
-                        err = "unknown_event"
+                        err = "unknown_event";
                 }
             } catch (ex) {
                 err = ex;
             }
 
             if (err === "unknown_channel") {
-                log.warn(`Ignoring message from unrecognised slack channel id : ${params.event.channel} (${params.team_id})`);
+                const chanIdMix = `${params.event.channel} (${params.team_id})`;
+                log.warn(`Ignoring message from unrecognised slack channel id: ${chanIdMix}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
@@ -140,11 +140,11 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleChannelRenameEvent(params: ISlackEventParams) {
-        //TODO test me. and do we even need this? doesn't appear to be used anymore
+        // TODO test me. and do we even need this? doesn't appear to be used anymore
         const room = this.main.getRoomBySlackChannelId(params.event.channel);
-        if (!room) throw "unknown_channel";
+        if (!room) { throw new Error("unknown_channel"); }
 
-        var channelName = `${room.SlackTeamDomain}.#${params.name}`;
+        const channelName = `${room.SlackTeamDomain}.#${params.name}`;
         room.SlackChannelName = channelName;
         if (room.isDirty) {
             this.main.putRoomToStore(room);
@@ -159,9 +159,9 @@ export class SlackEventHandler extends BaseSlackHandler {
      */
     private async handleMessageEvent(params: ISlackEventParamsMessage) {
         const room = this.main.getRoomBySlackChannelId(params.event.channel) as BridgedRoom;
-        if (!room) throw "unknown_channel";
+        if (!room) { throw new Error("unknown_channel"); }
 
-        if (params.event.subtype === 'bot_message' &&
+        if (params.event.subtype === "bot_message" &&
             (!room.SlackBotId || params.event.bot_id === room.SlackBotId)) {
             return;
         }
@@ -171,11 +171,11 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         const token = room.AccessToken;
 
-        let msg = Object.assign({}, params.event, {
-            user_id: params.event.user || params.event.bot_id,
+        const msg = Object.assign({}, params.event, {
+            channel_id: params.event.channel,
             team_domain: room.SlackTeamDomain || room.SlackTeamId,
             team_id: params.team_id,
-            channel_id: params.event.channel
+            user_id: params.event.user || params.event.bot_id,
         });
 
         if (params.event.type === "reaction_added") {
@@ -193,15 +193,14 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackMessage(msg);
         }
 
-
         // Handle events with attachments like bot messages.
         if (params.event.type === "message" && params.event.attachments) {
-            for (let attachment of params.event.attachments) {
+            for (const attachment of params.event.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
                 return await room.onSlackMessage(msg);
             }
-            if (params.event.text == '') {
+            if (params.event.text === "") {
                 return;
             }
             msg.text = params.event.text;
@@ -209,10 +208,9 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         // In this method we must standardise the message object so that
         // getGhostForSlackMessage works correctly.
-        if (msg.subtype === 'file_comment' && msg.comment) {
+        if (msg.subtype === "file_comment" && msg.comment) {
             msg.user_id = msg.comment.user;
-        }
-        else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
+        } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user;
             msg.text = msg.message.text;
             msg.previous_message.text = (await this.doChannelUserReplacements(msg, msg.previous_message.text, token))!;
@@ -222,16 +220,11 @@ export class SlackEventHandler extends BaseSlackHandler {
                 // Check the edit wasn't sent by us
                 if (msg.message.bot_id === room.SlackBotId) {
                     return;
-                }
-                else {
+                } else {
                     msg.user_id = msg.bot_id;
                 }
             }
-        }
-        // We must handle message deleted here because it is not done as the ghost
-        // user but as the AS user. (There is no user_id in the message event from
-        // which to create a ghost.)
-        else if (msg.subtype === "message_deleted") {
+        } else if (msg.subtype === "message_deleted") {
             const store = this.main.eventStore;
             const originalEvent = await store.getEntryByRemoteId(msg.channel, msg.deleted_ts);
             const botClient = this.main.botIntent.getClient();
@@ -254,7 +247,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                 const file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
                 if (file) {
                     msg.file = file;
-                    msg.file!._content = await this.fetchFileContent(msg.file, token);
+                    msg.file!._content = await this.fetchFileContent(msg.file!);
                 }
             }
         }

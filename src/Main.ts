@@ -1,5 +1,6 @@
 
-import { Bridge, PrometheusMetrics, StateLookup, Logging, MatrixUser as BridgeMatrixUser } from "matrix-appservice-bridge";
+import { Bridge, PrometheusMetrics, StateLookup,
+    Logging, Intent, MatrixUser as BridgeMatrixUser } from "matrix-appservice-bridge";
 import * as Datastore from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -10,16 +11,44 @@ import { OAuth2 } from "./OAuth2";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { MatrixUser } from "./MatrixUser";
-import { default as subsitutions } from "./substitutions";
 import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
+import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 
 const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
 
 export class Main {
+
+    public get eventStore(): any {
+        return this.bridge.getEventStore();
+    }
+
+    public get roomStore(): any {
+        return this.bridge.getRoomStore();
+    }
+
+    public get userStore(): any {
+        return this.bridge.getUserStore();
+    }
+
+    public get botIntent(): Intent {
+        return this.bridge.getIntent();
+    }
+
+    public get userIdPrefix(): string {
+        return this.config.username_prefix;
+    }
+
+    public get allRooms() {
+        return Array.from(this.rooms);
+    }
+
+    public get botUserId(): string {
+        return this.bridge.getBot().userId();
+    }
     public readonly oauth2: OAuth2|null = null;
 
     private teams: Map<string, any> = new Map();
@@ -50,73 +79,48 @@ export class Main {
 
     private adminCommands = new AdminCommands(this);
 
-    public get eventStore() : any {
-        return this.bridge.getEventStore();
-    }
-
-    public get roomStore() : any {
-        return this.bridge.getRoomStore();
-    }
-
-    public get userStore() : any {
-        return this.bridge.getUserStore();
-    }
-
-    public get botIntent(): any {
-        return this.bridge.getIntent();
-    }
-
-    public getIntent(userId: string) {
-        return this.bridge.getIntent(userId);
-    }
-
-    public get userIdPrefix(): string {
-        return this.config.username_prefix;
-    }
-
-    public get allRooms() {
-        return Array.from(this.rooms);
-    }
-
-    public get botUserId(): string {
-        return this.bridge.getBot().userId();
-    }
-
     constructor(public readonly config: IConfig) {
         if (config.oauth2) {
             this.oauth2 = new OAuth2({
-                main: this,
                 client_id: config.oauth2.client_id,
                 client_secret: config.oauth2.client_secret,
+                main: this,
                 redirect_prefix: config.oauth2.redirect_prefix || config.inbound_uri_prefix,
-            })
+            });
         }
-        
+
         const dbdir = config.dbdir || "";
 
         this.bridge = new Bridge({
-            homeserverUrl: config.homeserver.url,
-            domain: config.homeserver.server_name,
-            registration: "slack-registration.yaml",
-            userStore: path.join(dbdir, "user-store.db"),
-            roomStore: path.join(dbdir, "room-store.db"),
-            eventStore: path.join(dbdir, "event-store.db"),
-    
             controller: {
-                onUserQuery: () => ({}), // auto-provision users with no additonal data
                 onEvent: (request: any) => {
                     const ev = request.getData();
                     this.stateStorage.onEvent(ev);
-                    this.onMatrixEvent(ev);
+                    this.onMatrixEvent(ev).then(() => {
+                        log.info(`Handled ${ev.event_id} (${ev.room_id})`);
+                    }).catch((ex) => {
+                        log.error(`Failed to handle ${ev.event_id} (${ev.room_id})`, ex);
+                    });
                 },
-            }
+                onUserQuery: () => ({}), // auto-provision users with no additional data
+            },
+            domain: config.homeserver.server_name,
+            eventStore: path.join(dbdir, "event-store.db"),
+            homeserverUrl: config.homeserver.url,
+            registration: "slack-registration.yaml",
+            roomStore: path.join(dbdir, "room-store.db"),
+            userStore: path.join(dbdir, "user-store.db"),
         });
 
-        this.slackHookHandler = new SlackHookHandler(this);    
+        this.slackHookHandler = new SlackHookHandler(this);
 
         if (config.enable_metrics) {
             this.initialiseMetrics();
         }
+    }
+
+    public getIntent(userId: string) {
+        return this.bridge.getIntent(userId);
     }
 
     public initialiseMetrics() {
@@ -124,81 +128,81 @@ export class Main {
 
         this.bridge.registerBridgeGauges(() => {
             const now = Date.now() / 1000;
-    
-            const remote_rooms_by_age = new PrometheusMetrics.AgeCounters();
-            const matrix_rooms_by_age = new PrometheusMetrics.AgeCounters();
-    
+
+            const remoteRoomsByAge = new PrometheusMetrics.AgeCounters();
+            const matrixRoomsByAge = new PrometheusMetrics.AgeCounters();
+
             this.rooms.forEach((room) => {
-                remote_rooms_by_age.bump(now - room.RemoteATime!);
-                matrix_rooms_by_age.bump(now - room.MatrixATime!);
+                remoteRoomsByAge.bump(now - room.RemoteATime!);
+                matrixRoomsByAge.bump(now - room.MatrixATime!);
             });
-    
-            const count_ages = (users: {[key: string]: MatrixUser|SlackGhost}) => {
-                var counts = new PrometheusMetrics.AgeCounters();
-    
+
+            const countAges = (users: {[key: string]: MatrixUser|SlackGhost}) => {
+                const counts = new PrometheusMetrics.AgeCounters();
+
                 Object.keys(users).forEach((id) => {
                     counts.bump(now - users[id].aTime!);
                 });
-    
+
                 return counts;
-            }
-    
+            };
+
             return {
                 matrixRoomConfigs:
                     Object.keys(this.roomsByMatrixRoomId).length,
                 remoteRoomConfigs:
                     Object.keys(this.roomsByInboundId).length,
-    
+
                 // As a relaybot we don't create remote-side ghosts
                 remoteGhosts: 0,
-    
-                matrixRoomsByAge: matrix_rooms_by_age,
-                remoteRoomsByAge: remote_rooms_by_age,
-    
-                matrixUsersByAge: count_ages(this.matrixUsersById),
-                remoteUsersByAge: count_ages(this.ghostsByUserId),
-            }
+
+                matrixRoomsByAge,
+                remoteRoomsByAge,
+
+                matrixUsersByAge: countAges(this.matrixUsersById),
+                remoteUsersByAge: countAges(this.ghostsByUserId),
+            };
         });
-    
+
         this.metrics.addCounter({
-            name: "received_messages",
             help: "count of received messages",
             labels: ["side"],
+            name: "received_messages",
         });
         this.metrics.addCounter({
-            name: "sent_messages",
             help: "count of sent messages",
             labels: ["side"],
+            name: "sent_messages",
         });
         this.metrics.addCounter({
-            name: "remote_api_calls",
             help: "Count of the number of remote API calls made",
             labels: ["method"],
+            name: "remote_api_calls",
         });
         this.metrics.addTimer({
-            name: "matrix_request_seconds",
             help: "Histogram of processing durations of received Matrix messages",
             labels: ["outcome"],
+            name: "matrix_request_seconds",
         });
         this.metrics.addTimer({
-            name: "remote_request_seconds",
             help: "Histogram of processing durations of received remote messages",
             labels: ["outcome"],
+            name: "remote_request_seconds",
         });
     }
 
     public incCounter(name: string, labels: any = {}) {
-        if (!this.metrics) return;
+        if (!this.metrics) { return; }
         this.metrics.incCounter(name, labels);
     }
 
     public incRemoteCallCounter(type: string) {
-        if (!this.metrics) return;
+        if (!this.metrics) { return; }
         this.metrics.incCounter("remote_api_calls", {method: type});
     }
 
     public startTimer(name: string, labels: any = {}) {
-        if (!this.metrics) return function() {};
+        if (!this.metrics) { return function() {}; }
         return this.metrics.startTimer(name, labels);
     }
 
@@ -211,39 +215,38 @@ export class Main {
         const entry = user.toEntry();
         return this.userStore.upsert({id: entry.id}, entry);
     }
-    
-    public getUrlForMxc(mxc_url: string) {
+
+    public getUrlForMxc(mxcUrl: string) {
         const hs = this.config.homeserver;
-        return (hs.media_url || hs.url) + "/_matrix/media/r0/download/" +
-            mxc_url.substring("mxc://".length);
+        return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
     public async getTeamDomainForMessage(message: any) {
         if (message.team_domain) {
             return message.team_domain;
         }
-    
+
         if (!message.team_id) {
-            throw "Cannot determine team, no id given.";
+            throw new Error("Cannot determine team, no id given.");
         }
-    
+
         if (this.teams.has(message.team_id)) {
             return this.teams.get(message.team_id).domain;
         }
-    
+
         const room = this.getRoomBySlackChannelId(message.channel);
 
         if (!room) {
             log.error("Couldn't find channel in order to get team domain");
             return;
         }
-    
-        var channelsInfoApiParams = {
-            uri: 'https://slack.com/api/team.info',
+
+        const channelsInfoApiParams = {
+            json: true,
             qs: {
-                token: room.AccessToken
+                token: room.AccessToken,
             },
-            json: true
+            uri: "https://slack.com/api/team.info",
         };
         this.incRemoteCallCounter("team.info");
         const response = await rp(channelsInfoApiParams);
@@ -257,7 +260,8 @@ export class Main {
     }
 
     public getUserId(id: string, teamDomain: string) {
-        return `@${this.userIdPrefix}${teamDomain.toLowerCase()}_${id.toUpperCase()}:${this.config.homeserver.server_name}`;
+        const localpart = `${this.userIdPrefix}${teamDomain.toLowerCase()}_${id.toUpperCase()}`;
+        return `@${localpart}:${this.config.homeserver.server_name}`;
     }
 
     public async getGhostForSlackMessage(message: any) {
@@ -313,9 +317,9 @@ export class Main {
     public genInboundId() {
         let attempts = 10;
         while (attempts > 0) {
-            const id = randomstring.generate(32);
-            if (!(id in this.roomsByInboundId)) return id;
-    
+            const id = randomstring.generate(INTERNAL_ID_LEN);
+            if (!(id in this.roomsByInboundId)) { return id; }
+
             attempts--;
         }
         // Prevent tightlooping if randomness goes odd
@@ -337,7 +341,7 @@ export class Main {
             if (this.roomsBySlackTeamId[room.SlackTeamId]) {
                 this.roomsBySlackTeamId[room.SlackTeamId].push(room);
             } else {
-                this.roomsBySlackTeamId[room.SlackTeamId] = [ room ]
+                this.roomsBySlackTeamId[room.SlackTeamId] = [ room ];
             }
         }
     }
@@ -378,11 +382,11 @@ export class Main {
     public getRoomByMatrixRoomId(roomId: string): BridgedRoom|undefined {
         return this.roomsByMatrixRoomId[roomId];
     }
-    
+
     public getRoomByInboundId(inboundId: string): BridgedRoom|undefined {
         return this.roomsByInboundId[inboundId];
     }
-    
+
     public getInboundUrlForRoom(room) {
         return this.config.inbound_uri_prefix + room.getInboundId();
     }
@@ -399,7 +403,7 @@ export class Main {
             //   *just the content*
             return cachedEvent[0].content;
         }
-    
+
         return this.botIntent.client.getStateEvent(roomId, eventType);
     }
 
@@ -414,7 +418,7 @@ export class Main {
         return userIds.filter((i) => i.match(regexp));
     }
 
-    public async drainAndLeaveMatrixRoom (roomId: string) {
+    public async drainAndLeaveMatrixRoom(roomId: string) {
         const userIds = await this.listGhostUsers(roomId);
         log.info("Draining " + userIds.length + " ghosts from " + roomId);
         const promises: Promise<void>[] = [];
@@ -429,7 +433,7 @@ export class Main {
         return this.bridge.getBot().getJoinedRooms();
     }
 
-    public async onMatrixEvent (ev: any) {
+    public async onMatrixEvent(ev: any) {
         // simple de-dup
         const recents = this.recentMatrixEventIds;
         for (let i = 0; i < recents.length; i++) {
@@ -445,12 +449,12 @@ export class Main {
         }
         this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % 20;
         recents[this.mostRecentEventIdIdx] = ev.ev_id;
-    
+
         this.incCounter("received_messages", {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
-    
+
         const myUserId = this.bridge.getBot().getUserId();
-    
+
         if (ev.type === "m.room.member" && ev.state_key === myUserId) {
             // A membership event about myself
             const membership = ev.content.membership;
@@ -460,11 +464,11 @@ export class Main {
                 // before the homeserver believes we can actually join the room.
                 await this.botIntent.join(ev.room_id);
             }
-    
+
             endTimer({outcome: "success"});
             return;
         }
-    
+
         if (ev.type === "m.room.member"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
             && ev.sender !== myUserId) {
@@ -484,12 +488,12 @@ export class Main {
             endTimer({outcome: "success"});
             return;
         }
-    
+
         if (ev.sender === myUserId) {
             endTimer({outcome: "success"});
             return;
         }
-    
+
         if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room) {
             try {
                 await this.onMatrixAdminMessage(ev);
@@ -501,7 +505,7 @@ export class Main {
             endTimer({outcome: "success"});
             return;
         }
-    
+
         const room = this.getRoomByMatrixRoomId(ev.room_id);
         if (!room) {
             log.warn("Ignoring ev for matrix room with unknown slack channel:" +
@@ -509,7 +513,7 @@ export class Main {
             endTimer({outcome: "dropped"});
             return;
         }
-    
+
         // Handle a m.room.redaction event
         if (ev.type === "m.room.redaction") {
             try {
@@ -522,11 +526,11 @@ export class Main {
             endTimer({outcome: "success"});
             return;
         }
-    
+
         // Handle a m.room.message event
         if (ev.type === "m.room.message" || ev.content) {
-            if (ev.content['m.relates_to'] !== undefined) {
-                const relates_to = ev.content['m.relates_to'];
+            if (ev.content["m.relates_to"] !== undefined) {
+                const relates_to = ev.content["m.relates_to"];
                 if (relates_to.rel_type === "m.replace" && relates_to.event_id !== undefined) {
                     // We have an edit.
                     try {
@@ -553,15 +557,15 @@ export class Main {
     }
 
     public async onMatrixAdminMessage(ev) {
-        let cmd = ev.content.body;
+        const cmd = ev.content.body;
 
         // Ignore "# comment" lines as chatter between humans sharing the console
         if (cmd.match(/^\s*#/))  {
             return;
         }
-    
+
         log.info("Admin: " + cmd);
-    
+
         const response: any[] = [];
         const respond = (message: string) => {
             if (!response) {
@@ -570,7 +574,7 @@ export class Main {
             }
             response.push(message);
         };
-        
+
         try {
             // This will return true or false if the command matched.
             const matched = await this.adminCommands.parse(cmd, respond);
@@ -599,15 +603,15 @@ export class Main {
         log.info("Loading databases");
         await this.bridge.loadDatabases();
         log.info("Loading teams.db");
-        this.teamDatastore = new Datastore({ filename: './teams.db', autoload: true });
+        this.teamDatastore = new Datastore({ filename: "./teams.db", autoload: true });
         await new Promise((resolve, reject) => {
             this.teamDatastore.loadDatabase((err) => {
             if (err) {
                 reject(err);
                 return;
-            };
+            }
             resolve();
-        })});
+        }); });
 
         // Legacy-style BridgedRoom instances
         (await this.roomStore.select({
@@ -636,12 +640,11 @@ export class Main {
             // Only way to tell is via the form of the id
             const result = entry.id.match(/^INTEG-(.*)$/);
             if (result) {
-                var room = BridgedRoom.fromEntry(this, entry);
+                const room = BridgedRoom.fromEntry(this, entry);
                 this.addBridgedRoom(room);
                 this.roomsByMatrixRoomId[entry.matrix_id] = room;
                 this.stateStorage.trackRoom(entry.matrix_id);
-            }
-            else {
+            } else {
                 log.error("Ignoring LEGACY room link entry", entry);
             }
         });
@@ -669,9 +672,9 @@ export class Main {
     }) {
         const matrixRoomId = opts.matrix_room_id;
 
-        let existingRoom = this.getRoomByMatrixRoomId(matrixRoomId);
+        const existingRoom = this.getRoomByMatrixRoomId(matrixRoomId);
         let room: BridgedRoom;
-    
+
         let isNew = false;
         if (!existingRoom) {
             try {
@@ -681,7 +684,7 @@ export class Main {
                 throw Error("Could not join room");
             }
             const inboundId = this.genInboundId();
-    
+
             room = new BridgedRoom(this, {
                 inbound_id: inboundId,
                 matrix_room_id: matrixRoomId,
@@ -692,15 +695,15 @@ export class Main {
         } else {
             room = existingRoom;
         }
-    
+
         if (opts.slack_webhook_uri) {
             room.SlackWebhookUri = opts.slack_webhook_uri;
         }
-    
+
         if (opts.slack_channel_id) {
             room.SlackChannelId = opts.slack_channel_id;
         }
-    
+
         if (opts.slack_user_token) {
             room.SlackUserToken = opts.slack_user_token;
         }
@@ -720,7 +723,7 @@ export class Main {
                     token: teamToken,
                     channel: opts.slack_channel_id,
                 },
-                json: true
+                json: true,
             });
 
             if (!response.ok) {
@@ -751,7 +754,7 @@ export class Main {
     }) {
         const room = this.getRoomByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
-            throw "Cannot unlink - unknown channel";
+            throw new Error("Cannot unlink - unknown channel");
         }
 
         this.removeBridgedRoom(room);
@@ -794,7 +797,6 @@ export class Main {
         log.info(`Set new access token for ${userId} (team: ${teamId})`);
     }
 
-
     public updateTeamBotStore(teamId: string, teamName: string, userId: string, botToken: string) {
         this.teamDatastore.update({team_id: teamId}, {
             team_id: teamId,
@@ -819,7 +821,7 @@ export class Main {
 
     public async matrixUserInSlackTeam(teamId: string, userId: string) {
         const matrixUser = await this.userStore.getMatrixUser(userId);
-        if(matrixUser === null) {
+        if (matrixUser === null) {
             return false;
         }
         const accounts = Object.values(matrixUser.get("accounts"));
@@ -829,14 +831,14 @@ export class Main {
 
 Provisioning.commands.getbotid = new Provisioning.Command({
     params: [],
-    func: function(main, req, res) {
+    func(main, req, res) {
         res.json({bot_user_id: main.botUserId});
-    }
+    },
 });
 
 Provisioning.commands.authurl = new Provisioning.Command({
     params: ["user_id"],
-    func: function(main, req, res, user_id: string) {
+    func(main, req, res, user_id: string) {
         if (!main.oauth2) {
             res.status(400).json({
                 error: "OAuth2 not configured on this bridge",
@@ -849,12 +851,12 @@ Provisioning.commands.authurl = new Provisioning.Command({
             token,
         );
         res.json({auth_uri});
-    }
+    },
 });
 
 Provisioning.commands.logout = new Provisioning.Command({
     params: ["user_id", "slack_id"],
-    func: async function(main, req, res, user_id: string, slack_id: string) {
+    async func(main, req, res, user_id: string, slack_id: string) {
         if (!main.oauth2) {
             res.status(400).json({
                 error: "OAuth2 not configured on this bridge",
@@ -869,19 +871,19 @@ Provisioning.commands.logout = new Provisioning.Command({
         matrixUser.set("accounts", accounts);
         store.setMatrixUser(matrixUser);
         log.info(`Removed account ${slack_id} from ${user_id}`);
-    }
+    },
 });
 
 Provisioning.commands.channels = new Provisioning.Command({
     params: ["user_id", "team_id"],
-    func: async function(main, req, res, user_id: string, team_id: string) {
+    async func(main, req, res, user_id: string, team_id: string) {
         const store = main.userStore;
         log.debug(`${user_id} requested their teams`);
         main.incRemoteCallCounter("conversations.list");
         const matrixUser = await store.getMatrixUser(user_id);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts")).find((acct: any) =>
-                acct.team_id === team_id
+                acct.team_id === team_id,
             );
         if (!isAllowed) {
             res.status(403).json({error: "User is not part of this team!"});
@@ -912,18 +914,18 @@ Provisioning.commands.channels = new Provisioning.Command({
                 name: chan.name,
                 topic: chan.topic,
                 purpose: chan.purpose,
-            }))
+            })),
         });
-    }
+    },
 });
 
 Provisioning.commands.teams = new Provisioning.Command({
     params: ["user_id"],
-    func: async function(main, req, res, user_id: string) {
+    async func(main, req, res, user_id: string) {
         log.debug(`${user_id} requested their teams`);
         const store = main.userStore;
         const matrixUser = await store.getMatrixUser(user_id);
-        if(matrixUser === null) {
+        if (matrixUser === null) {
             res.status(404).json({error: "User has no accounts setup"});
             return;
         }
@@ -931,7 +933,7 @@ Provisioning.commands.teams = new Provisioning.Command({
         const results = await Promise.all(Object.keys(accounts).map((slack_id) => {
             const account = accounts[slack_id];
             return main.getTeamFromStore(account.team_id).then(
-                (team) => ({team, slack_id})
+                (team) => ({team, slack_id}),
             );
         }));
         const teams = results.map((res) => ({
@@ -940,12 +942,12 @@ Provisioning.commands.teams = new Provisioning.Command({
             slack_id: res.slack_id,
         }));
         res.json({ teams });
-    }
+    },
 });
 
 Provisioning.commands.getlink = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: async function(main, req, res, matrix_room_id: string, user_id: string) {
+    async func(main, req, res, matrix_room_id: string, user_id: string) {
         const room = main.getRoomByMatrixRoomId(matrix_room_id);
         if (!room) {
             res.status(404).json({error: "Link not found"});
@@ -957,7 +959,7 @@ Provisioning.commands.getlink = new Provisioning.Command({
         if (!allowed) {
             throw {
                 code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id
+                text: user_id + " is not allowed to provision links in " + matrix_room_id,
             };
         }
 
@@ -965,14 +967,11 @@ Provisioning.commands.getlink = new Provisioning.Command({
         let status = room.getStatus();
         if (status.match(/^ready/)) {
             // OK
-        }
-        else if(status === "pending-params") {
+        } else if (status === "pending-params") {
             status = "partial";
-        }
-        else if(status === "pending-name") {
+        } else if (status === "pending-name") {
             status = "pending";
-        }
-        else {
+        } else {
             status = "unknown";
         }
 
@@ -987,23 +986,23 @@ Provisioning.commands.getlink = new Provisioning.Command({
         }
 
         res.json({
-            status: status,
+            status,
             slack_channel_id: room.SlackChannelId,
             slack_channel_name: room.SlackChannelName,
             slack_webhook_uri: room.SlackWebhookUri,
             team_id: room.SlackTeamId,
             isWebhook: !room.SlackBotId,
             // This is slightly a lie
-            matrix_room_id: matrix_room_id,
+            matrix_room_id,
             inbound_uri: main.getInboundUrlForRoom(room),
             auth_uri: authUri,
         });
-    }
+    },
 });
 
 Provisioning.commands.link = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: async function(main, req, res, matrix_room_id: string, user_id: string) {
+    async func(main, req, res, matrix_room_id: string, user_id: string) {
         log.info("Need to enquire if " + user_id + " is allowed to link " + matrix_room_id);
 
         // Ensure we are in the room.
@@ -1011,7 +1010,7 @@ Provisioning.commands.link = new Provisioning.Command({
 
         const params = req.body;
         const opts = {
-            matrix_room_id: matrix_room_id,
+            matrix_room_id,
             slack_webhook_uri: params.slack_webhook_uri,
             slack_channel_id: params.channel_id,
             team_id: params.team_id,
@@ -1033,33 +1032,30 @@ Provisioning.commands.link = new Provisioning.Command({
         }
         const room = await main.actionLink(opts);
         // Convert the room 'status' into a scalar 'status'
-        var status = room.getStatus();
+        let status = room.getStatus();
         if (status === "ready") {
             // OK
-        }
-        else if(status === "pending-params") {
+        } else if (status === "pending-params") {
             status = "partial";
-        }
-        else if(status === "pending-name") {
+        } else if (status === "pending-name") {
             status = "pending";
-        }
-        else {
+        } else {
             status = "unknown";
         }
         log.info(`Result of link for ${matrix_room_id} -> ${status} ${opts.slack_channel_id}`);
         res.json({
-            status: status,
+            status,
             slack_channel_name: room.SlackChannelName,
             slack_webhook_uri: room.SlackWebhookUri,
-            matrix_room_id: matrix_room_id,
+            matrix_room_id,
             inbound_uri: main.getInboundUrlForRoom(room),
         });
-    }
+    },
 });
 
 Provisioning.commands.unlink = new Provisioning.Command({
     params: ["matrix_room_id", "user_id"],
-    func: async function(main, req, res, matrix_room_id: string, user_id: string) {
+    async func(main, req, res, matrix_room_id: string, user_id: string) {
         log.info("Need to enquire if " + user_id + " is allowed to unlink " + matrix_room_id);
 
         const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
@@ -1071,5 +1067,6 @@ Provisioning.commands.unlink = new Provisioning.Command({
         }
         await main.actionUnlink({matrix_room_id});
         res.json({});
-    }
+    },
+// tslint:disable-next-line: max-file-line-count
 });

@@ -1,5 +1,5 @@
 import { Main } from "./Main";
-import { Logging, StoredEvent } from "matrix-appservice-bridge";
+import { Logging, StoredEvent, Intent } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
@@ -7,6 +7,7 @@ import { BridgedRoom } from "./BridgedRoom";
 const log = Logging.get("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
+// tslint:disable-next-line: no-magic-numbers
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
 
 interface ISlackUser {
@@ -19,40 +20,56 @@ interface ISlackUser {
         image_192?: string;
         image_72?: string;
         image_48?: string;
-    }
+    };
+}
+
+interface ISlackFile {
+    title: string;
+    _content: string;
+    mimetype: string;
+}
+
+interface ISlackGhostEntry {
+    id?: string;
+    display_name?: string;
+    avatar_url?: string;
 }
 
 export class SlackGhost {
-    private atime?: number;
-    private userInfoCache?: ISlackUser;
-    private userInfoLoading?: rp.RequestPromise<{user? :ISlackUser}>;
-    constructor(
-        private main: Main,
-        private userId?: string,
-        private displayName?: string,
-        private avatarUrl?: string,
-        public readonly intent?: any) {
+
+    public get aTime() {
+        return this.atime;
     }
 
-    static fromEntry(main: Main, entry: any, intent: any) {
+    public static fromEntry(main: Main, entry: ISlackGhostEntry, intent: Intent) {
         return new SlackGhost(
             main,
             entry.id,
             entry.display_name,
             entry.avatar_url,
-            intent
-        );    
+            intent,
+        );
+    }
+    private atime?: number;
+    private userInfoCache?: ISlackUser;
+    private userInfoLoading?: rp.RequestPromise<{user?: ISlackUser}>;
+    constructor(
+        private main: Main,
+        private userId?: string,
+        private displayName?: string,
+        private avatarUrl?: string,
+        public readonly intent?: Intent) {
     }
 
-    public toEntry() {
+    public toEntry(): ISlackGhostEntry {
         return {
-            id: this.userId,
-            display_name: this.displayName,
             avatar_url: this.avatarUrl,
+            display_name: this.displayName,
+            id: this.userId,
         };
     }
 
-    public update(message: any, room: any) {
+    public async update(message: {user_id?: string}, room: BridgedRoom) {
         log.info("Updating user information for " + message.user_id);
         return Promise.all([
             this.updateDisplayname(message, room).catch((e) => {
@@ -71,7 +88,8 @@ export class SlackGhost {
         }
     }
 
-    public async updateDisplayname(message: any, room: BridgedRoom) {
+    public async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
+                                   room: BridgedRoom) {
         const token = room.AccessToken;
         if (!token) {
             return;
@@ -97,7 +115,7 @@ export class SlackGhost {
 
     public async lookupAvatarUrl(slackUserId: string, slackAccessToken: string) {
         const user = await this.lookupUserInfo(slackUserId, slackAccessToken);
-        if (!user || !user.profile) return;
+        if (!user || !user.profile) { return; }
         const profile = user.profile;
 
         // Pick the original image if we can, otherwise pick the largest image
@@ -108,19 +126,19 @@ export class SlackGhost {
     }
 
     public async getBotInfo(bot: string, token: string) {
-        if (!token) return;
-    
+        if (!token) { return; }
+
         this.main.incRemoteCallCounter("bots.info");
         return await rp({
-            uri: 'https://slack.com/api/bots.info',
-            qs: {
-                token: token,
-                bot,
-            },
             json: true,
+            qs: {
+                bot,
+                token,
+            },
+            uri: "https://slack.com/api/bots.info",
         });
     }
-    
+
     public async getBotName(botId: string, token: string) {
         const response = await this.getBotInfo(botId, token);
         if (!response.bot || !response.bot.name) {
@@ -135,7 +153,7 @@ export class SlackGhost {
         if (!response.bot || !response.bot.icons.image_72) {
             log.error("Failed to get bot name", response);
             return;
-        };
+        }
         const icons = response.bot.icons;
         return icons.image_original || icons.image_1024 || icons.image_512 ||
             icons.image_192 || icons.image_72 || icons.image_48;
@@ -147,23 +165,23 @@ export class SlackGhost {
             return this.userInfoCache;
         }
         if (this.userInfoLoading) {
-            const response = await this.userInfoLoading;
-            if (response.user) {
-                return response.user;
+            const existingReq = await this.userInfoLoading;
+            if (existingReq.user) {
+                return existingReq.user;
             }
-            return undefined;
+            return;
         }
-        log.debug("Using fresh userInfo for", slackUserId)
+        log.debug("Using fresh userInfo for", slackUserId);
 
         this.main.incRemoteCallCounter("users.info");
         this.userInfoLoading = rp({
-            uri: 'https://slack.com/api/users.info',
+            json: true,
             qs: {
                 token: slackAccessToken,
                 user: slackUserId,
             },
-            json: true,
-        }) as rp.RequestPromise<{user? :ISlackUser}>;
+            uri: "https://slack.com/api/users.info",
+        }) as rp.RequestPromise<{user?: ISlackUser}>;
         const response = await this.userInfoLoading!;
         if (!response.user || !response.user.profile) {
             log.error("Failed to get user profile", response);
@@ -175,7 +193,7 @@ export class SlackGhost {
         return response.user!;
     }
 
-    public async updateAvatar(message: any, room: BridgedRoom) {
+    public async updateAvatar(message: {bot_id?: string, user_id?: string}, room: BridgedRoom) {
         const token = room.AccessToken;
         if (!token) {
             return;
@@ -199,17 +217,17 @@ export class SlackGhost {
             return;
         }
 
-        const shortname = match[1];
+        const title = match[1];
 
         const response = await rp({
-            uri: avatarUrl,
-            resolveWithFullResponse: true,
             encoding: null,
+            resolveWithFullResponse: true,
+            uri: avatarUrl,
         });
         const contentUri = await this.uploadContent({
             _content: response.body,
-            title: shortname,
             mimetype: response.headers["content-type"],
+            title,
         });
         await this.intent.setAvatarUrl(contentUri);
         this.avatarUrl = avatarUrl;
@@ -217,34 +235,33 @@ export class SlackGhost {
     }
 
     public prepareBody(body: string) {
-        //TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
+        // TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
         return body.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
     }
-    
+
     public prepareFormattedBody(body: string) {
         return Slackdown.parse(body);
     }
-    
-    public sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string, extraContent?: any) {
+
+    public async sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string, extra: {} = {}) {
         // TODO: Slack's markdown is their own thing that isn't really markdown,
         // but the only parser we have for it is slackdown. However, Matrix expects
         // a variant of markdown that is in the realm of sanity. Currently text
         // will be slack's markdown until we've got a slack -> markdown parser.
 
-        //TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
+        // TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
         const body = text.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
-        const extra = extraContent || {};
         const content = {
             body,
-            msgtype: "m.text",
-            formatted_body: Slackdown.parse(text),
             format: "org.matrix.custom.html",
+            formatted_body: Slackdown.parse(text),
+            msgtype: "m.text",
             ...extra,
         };
         return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: any, slackRoomID: string, slackEventTS: string) {
+    public async sendMessage(roomId: string, msg: {}, slackRoomID: string, slackEventTS: string) {
         const matrixEvent = await this.intent.sendMessage(roomId, msg);
         this.main.incCounter("sent_messages", {side: "matrix"});
 
@@ -254,32 +271,33 @@ export class SlackGhost {
         return matrixEvent;
     }
 
-    public async sendReaction (room_id: string, event_id: string, key: string, slackRoomId: string, slackEventTs: string) {
+    public async sendReaction(roomId: string, eventId: string, key: string,
+                              slackRoomId: string, slackEventTs: string) {
         const content = {
             "m.relates_to": {
-                "event_id": event_id,
-                "rel_type": "m.annotation",
-                "key": key
-            }
+                event_id: eventId,
+                key,
+                rel_type: "m.annotation",
+            },
         };
-    
-        const matrixEvent = await this.intent.sendEvent(room_id, "m.reaction", content);
-    
+
+        const matrixEvent = await this.intent.sendEvent(roomId, "m.reaction", content);
+
         // Add this event to the eventStore
-        const event = new StoredEvent(room_id, matrixEvent.event_id, slackRoomId, slackEventTs);
+        const event = new StoredEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
         this.main.eventStore.upsertEvent(event);
-    
+
         return matrixEvent;
     }
 
-    public async uploadContentFromURI(file: any, uri: any, slackAccessToken: string) {
+    public async uploadContentFromURI(file: ISlackFile, uri: string, slackAccessToken: string) {
         try {
             const buffer = await rp({
-                uri: uri,
+                encoding: null, // Because we expect a binary
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
-                encoding: null, // Because we expect a binary
+                uri,
             });
             file._content = buffer;
             return await this.uploadContent(file);
@@ -289,10 +307,10 @@ export class SlackGhost {
         }
     }
 
-    public async uploadContent(file: any) {
+    public async uploadContent(file: ISlackFile) {
         const response = await this.intent.getClient().uploadContent({
-            stream: new Buffer(file._content, "binary"),
             name: file.title,
+            stream: new Buffer(file._content, "binary"),
             type: file.mimetype,
         });
         const content_uri = JSON.parse(response).content_uri;
@@ -303,8 +321,4 @@ export class SlackGhost {
     public bumpATime() {
         this.atime = Date.now() / 1000;
     }
-    
-    public get aTime() {
-        return this.atime;
-    }   
 }
