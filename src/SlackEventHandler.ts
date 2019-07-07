@@ -28,6 +28,10 @@ interface ISlackEventParamsMessage extends ISlackEventParams {
     event: ISlackEventMessageEvent
 }
 
+interface ISlackEventMessageAttachment {
+    fallback: any;
+}
+
 interface ISlackEventMessageEvent extends ISlackEventEvent {
     subtype: string;
     user?: string;
@@ -38,12 +42,16 @@ interface ISlackEventMessageEvent extends ISlackEventEvent {
     comment?: {
         user: string;
     },
+    attachments? : ISlackEventMessageAttachment[],
     // For message_changed
     message?: {
         text: string;
         user: string;
         bot_id: string;
     },
+    previous_message?: {
+        text: string;
+    }
     file?: {
         _content: Buffer,
     },
@@ -82,6 +90,8 @@ export class SlackEventHandler extends BaseSlackHandler {
             try {
                 switch (params.event.type) {
                     case 'message':
+                    case 'reaction_added':
+                    case 'reaction_removed':
                         await this.handleMessageEvent(params as ISlackEventParamsMessage);
                         break;
                     case 'channel_rename':
@@ -141,6 +151,11 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
+    public async doChannelUserReplacements (msg, text, token) {
+        text = await this.replaceChannelIdsWithNames(msg, text, token);
+        return await this.replaceUserIdsWithNames(msg, text, token);
+    }
+
     /**
      * Attempts to handle the `message` event.
      *
@@ -161,21 +176,41 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         const token = room.AccessToken;
 
-        var msg = Object.assign({}, params.event, {
+        let msg = Object.assign({}, params.event, {
             user_id: params.event.user || params.event.bot_id,
             team_domain: room.SlackTeamDomain || room.SlackTeamId,
             team_id: params.team_id,
             channel_id: params.event.channel
         });
 
+        if (params.event.type === "reaction_added") {
+            return room.onSlackReactionAdded(msg);
+        } else if (params.event.type === "reaction_removed") {
+            return room.onSlackReactionRemoved(msg);
+        }
+
+        // Handle events with attachments like bot messages.
+        if (params.event.type === "message" && params.event.attachments) {
+            for (let attachment of params.event.attachments) {
+                msg.text = attachment.fallback;
+                msg.text = await this.doChannelUserReplacements(msg, msg.text, token);
+                return await room.onSlackMessage(msg);
+            }
+            if (params.event.text == '') {
+                return;
+            }
+            msg.text = params.event.text;
+        }
+
         // In this method we must standardise the message object so that
         // getGhostForSlackMessage works correctly.
         if (msg.subtype === 'file_comment' && msg.comment) {
             msg.user_id = msg.comment.user;
         }
-        else if (msg.subtype === "message_changed" && msg.message) {
+        else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user;
             msg.text = msg.message.text;
+            msg.previous_message.text = (await this.doChannelUserReplacements(msg, msg.previous_message.text, token))!;
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
@@ -219,9 +254,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
         }
 
-        let newMsg = await this.replaceChannelIdsWithNames(msg, token);
-        newMsg = await this.replaceUserIdsWithNames(newMsg, token);
-        newMsg = await room.onSlackMessage(newMsg);
-        return newMsg;
+        msg.text = await this.doChannelUserReplacements(msg, msg.text, token);
+        return room.onSlackMessage(msg);
     }
 }

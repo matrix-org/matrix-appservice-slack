@@ -15,67 +15,86 @@ const USER_ID_REGEX = /<@(\w+)\|?\w*?>/g;
 const USER_ID_REGEX_FIRST = /<@(\w+)\|?\w*?>/;
 
 export interface ISlackMessage {
-    channel: string;
+    channel: string
     text?: string;
 }
 
 export abstract class BaseSlackHandler {
     constructor(protected main: Main) { }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, token: string): Promise<ISlackMessage> {
-        if (message.text === undefined) {
-            return message;
+    public async getSlackRoomNameFromID(id: string, token: string) {
+        const channelsInfoApiParams = {
+            uri: 'https://slack.com/api/channels.info',
+            qs: {
+                token: token,
+                channel: id
+            },
+            json: true
+        };
+        this.main.incRemoteCallCounter("channels.info");
+        try {
+            const response = await rp(channelsInfoApiParams);
+            if (response && response.channel && response.channel.name) {
+                log.info("channels.info: " + id + " mapped to " + response.channel.name);
+                return response.channel.name;
+            }
+            log.info("channels.info returned no result for " + id);
+    
+        } catch(err) {
+            log.error("Caught error handling channels.info:" + err);
         }
-        const testForName = message.text.match(CHANNEL_ID_REGEX);
+        return id;
+    }
+
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text:string|undefined, token: string): Promise<string|undefined> {
+        if (text === undefined) {
+            return text;
+        }
+        const testForName = text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
         let matches = 0;
         
         if (testForName && testForName.length) {
             matches = testForName.length;
-        } else {
-            return message;
         }
+
         while (iteration < matches) {
-            const idMatch = testForName[iteration].match(CHANNEL_ID_REGEX_FIRST);
-            if (idMatch === null) {
-                iteration++;
-                continue;
-            }
-            let channel = idMatch[1];
-            const channelsInfoApiParams = {
-                uri: 'https://slack.com/api/channels.info',
-                qs: {
-                    token: token,
-                    channel
-                },
-                json: true
-            };
-            this.main.incRemoteCallCounter("channels.info");
-            try {
-                const response = await rp(channelsInfoApiParams);
-                let name = channel;
-                if (response && response.channel && response.channel.name) {
-                    name = response.channel.name;
-                    log.info(`channels.info: ${channel} mapped to ${name}`);
+            // foreach channelId, pull out the ID
+            // (if this is an emote msg, the format is <#ID|name>, but in normal msgs it's just <#ID>
+            const id = testForName![iteration].match(CHANNEL_ID_REGEX_FIRST)![1];
+
+            // Lookup the room in the store.
+            let room = this.main.getRoomBySlackChannelId(id);
+
+            // If we bridge the room, attempt to look up its canonical alias.
+            if (room !== undefined) {
+                const client = this.main.botIntent.getClient();
+                const canonical = await client.getStateEvent(room.MatrixRoomId, "m.room.canonical_alias");
+                if (canonical !== undefined && canonical.alias !== undefined) {
+                    text = text.replace(CHANNEL_ID_REGEX_FIRST, canonical.alias);
                 } else {
-                    log.info("channels.info returned no result for " + channel);
+                    // If we can't find a canonical alias fall back to just the slack channel name.
+                    room = undefined;
                 }
-                message.text = message.text.replace(CHANNEL_ID_REGEX_FIRST, `#${name}`);
-            } catch (ex) {
-                log.error("Caught error handling channels.info:" + ex);
-            } finally {
-                iteration++;
             }
+
+            // If we can't match the room then we just put the slack name
+            if (room === undefined) {
+                const name = await this.getSlackRoomNameFromID(id, token);
+                text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
+            }
+            iteration++;
+
         }
-        return message;
+        return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, token: string): Promise<ISlackMessage> {
-        if (message.text === undefined) {
-            return message;
+    public async replaceUserIdsWithNames(message: ISlackMessage, text: string|undefined, token: string): Promise<string|undefined> {
+        if (text === undefined) {
+            return text;
         }
     
-        let match = USER_ID_REGEX.exec(message.text);
+        let match = USER_ID_REGEX.exec(text);
         while (match !== null && match[0]) {
             // foreach userId, pull out the ID
             // (if this is an emote msg, the format is <@ID|nick>, but in normal msgs it's just <@ID>
@@ -96,18 +115,18 @@ export abstract class BaseSlackHandler {
                 const room = this.main.getRoomBySlackChannelId(message.channel);
                 display_name = await nullGhost.getDisplayname(id, room!.AccessToken!) || id;
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
-                message.text = message.text.replace(USER_ID_REGEX_FIRST, display_name);
+                text = text.replace(USER_ID_REGEX_FIRST, display_name);
             } else {
                 display_name = users[0].display_name || user_id;
-                message.text = message.text.replace(
+                text = text.replace(
                     USER_ID_REGEX_FIRST,
                     `<https://matrix.to/#/${user_id}|${display_name}>`
                 );
             }
             // Check for the next match.
-            match = USER_ID_REGEX.exec(message.text);
+            match = USER_ID_REGEX.exec(text);
         }
-        return message;    
+        return text;    
     }
 
 
@@ -118,11 +137,11 @@ export abstract class BaseSlackHandler {
      * @param {string} token A slack API token that has 'files:write:user' scope
      * @return {Promise<Object>} A Promise of the updated slack file data object
      */
-    public enablePublicSharing(file: any, token: string) {
-        if (file.public_url_shared) return Promise.resolve(file);
+    public async enablePublicSharing(file: any, token: string) {
+        if (file.public_url_shared) return file;
 
         this.main.incRemoteCallCounter("files.sharedPublicURL");
-        return rp({
+        const response = await rp({
             method: 'POST',
             form: {
                 file: file.id,
@@ -130,13 +149,12 @@ export abstract class BaseSlackHandler {
             },
             uri: "https://slack.com/api/files.sharedPublicURL",
             json: true
-        }).then((response: any) => {
-            if (!response || !response.file || !response.file.permalink_public) {
-                log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
-                return;
-            }
-            return response.file;
-        });    
+        });
+        if (!response || !response.file || !response.file.permalink_public) {
+            log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
+            return;
+        }
+        return response.file;
     }
 
     /**
@@ -146,7 +164,7 @@ export abstract class BaseSlackHandler {
      * @return {Promise<string>} A Promise of file contents
      */
     public async fetchFileContent(file: any, token: string) {
-        if (!file) return Promise.resolve();
+        if (!file) return;
 
         const url = subs.getSlackFileUrl(file) || file.permalink_public;
         if (!url) {
