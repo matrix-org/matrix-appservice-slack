@@ -117,8 +117,6 @@ export class Main {
         if (config.enable_metrics) {
             this.initialiseMetrics();
         }
-
-        subsitutions.loadEmojiIndex();
     }
 
     public initialiseMetrics() {

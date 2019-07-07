@@ -8,7 +8,7 @@
     },
     "object-literal-sort-keys": "off",
     "no-any": {
-      "severity": "warning",
+      "severity": "warning"
     },
     "arrow-return-shorthand": true,
     "no-magic-numbers": [true, -1, 0, 1, 1000],

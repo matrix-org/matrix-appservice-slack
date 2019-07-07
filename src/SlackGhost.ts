@@ -225,7 +225,7 @@ export class SlackGhost {
         return Slackdown.parse(body);
     }
     
-    public sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string) {
+    public sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string, extraContent?: any) {
         // TODO: Slack's markdown is their own thing that isn't really markdown,
         // but the only parser we have for it is slackdown. However, Matrix expects
         // a variant of markdown that is in the realm of sanity. Currently text
@@ -233,12 +233,13 @@ export class SlackGhost {
 
         //TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
         const body = text.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
-        
+        const extra = extraContent || {};
         const content = {
             body,
             msgtype: "m.text",
             formatted_body: Slackdown.parse(text),
-            format: "org.matrix.custom.html"
+            format: "org.matrix.custom.html",
+            ...extra,
         };
         return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }

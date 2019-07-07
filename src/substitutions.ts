@@ -61,7 +61,7 @@ class Subsitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-    public async matrixToSlack(event: any, main: Main) {
+    public async matrixToSlack(event: any, main: Main, teamId: string) {
         let body = event.content.body;
         body = body.replace(/<((https?:\/\/)?[^>]+?)>/g, '$1');
 
@@ -76,16 +76,18 @@ class Subsitutions {
         // replace riot "pill" behavior to "@" mention for slack users
         const html_string = event.content.formatted_body;
         if (undefined != html_string) {
-            const regex = new RegExp('<a href="https://matrix.to/#/@' +
-                                   main.userIdPrefix +
-                                   '([^"]+)">([^<]+)</a>', "g");
+            const regex = new RegExp('<a href="https://matrix.to/#/#' +
+                                     '([^"]+)">([^<]+)</a>', "g");
 
             let match = regex.exec(html_string);
             while (match != null) {
-                // Extract the slack ID from the matrix id
-                const userid = match[1].split("_")[1].split(":")[0];
-                // Construct the new slack mention
-                body = body.replace(match[2], "<@" + userid + ">");
+                const alias = match[2];
+                const client = main.botIntent.getClient();
+                const room_id = await client.getRoomIdForAlias(alias);
+                const room = main.getRoomByMatrixRoomId(room_id['room_id']);
+                if (room !== undefined && room.SlackTeamId === teamId) {
+                    body = body.replace(alias, "<#" + room.SlackChannelId + ">");
+                }
                 match = regex.exec(html_string);
             }
         }

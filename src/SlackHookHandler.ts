@@ -215,8 +215,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // Restore the original parameters, because we've forgotten a lot of
         // them by now
         PRESERVE_KEYS.forEach((k) => msg[k] = params[k]);
-        msg = await this.replaceChannelIdsWithNames(msg, token);
-        msg = await this.replaceUserIdsWithNames(msg, token);
+        msg.text = await this.doChannelUserReplacements(msg, text, token);
         return room.onSlackMessage(msg);
     }
 

@@ -151,11 +151,6 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
-    public async doChannelUserReplacements (msg, text, token) {
-        text = await this.replaceChannelIdsWithNames(msg, text, token);
-        return await this.replaceUserIdsWithNames(msg, text, token);
-    }
-
     /**
      * Attempts to handle the `message` event.
      *
@@ -185,15 +180,25 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         if (params.event.type === "reaction_added") {
             return room.onSlackReactionAdded(msg);
-        } else if (params.event.type === "reaction_removed") {
+        }  // TODO: We cannot remove reactions yet, see #154
+        /* else if (params.event.type === "reaction_removed") {
             return room.onSlackReactionRemoved(msg);
+        } */
+
+        if (!token) {
+            // If we can't look up more details about the message
+            // (because we don't have a master token), but it has text,
+            // just send the message as text.
+            log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
+            return room.onSlackMessage(msg);
         }
+
 
         // Handle events with attachments like bot messages.
         if (params.event.type === "message" && params.event.attachments) {
             for (let attachment of params.event.attachments) {
                 msg.text = attachment.fallback;
-                msg.text = await this.doChannelUserReplacements(msg, msg.text, token);
+                msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
                 return await room.onSlackMessage(msg);
             }
             if (params.event.text == '') {
@@ -254,7 +259,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
         }
 
-        msg.text = await this.doChannelUserReplacements(msg, msg.text, token);
+        msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
         return room.onSlackMessage(msg);
     }
 }

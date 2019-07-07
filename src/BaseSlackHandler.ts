@@ -46,6 +46,11 @@ export abstract class BaseSlackHandler {
         return id;
     }
 
+    public async doChannelUserReplacements (msg: any, text: string, token: string) {
+        text = (await this.replaceChannelIdsWithNames(msg, text, token))!;
+        return await this.replaceUserIdsWithNames(msg, text, token);
+    }
+
     public async replaceChannelIdsWithNames(message: ISlackMessage, text:string|undefined, token: string): Promise<string|undefined> {
         if (text === undefined) {
             return text;
