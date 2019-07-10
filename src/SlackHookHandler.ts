@@ -7,7 +7,7 @@ import * as qs from "querystring";
 import { Logging } from "matrix-appservice-bridge";
 
 import { SlackEventHandler } from "./SlackEventHandler";
-import { BaseSlackHandler } from "./BaseSlackHandler";
+import { BaseSlackHandler, HTTP_CODES } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 
@@ -18,8 +18,6 @@ const PRESERVE_KEYS = [
     "channel_name", "channel_id",
     "user_name", "user_id",
 ];
-
-const HTTP_OK = 200;
 
 export class SlackHookHandler extends BaseSlackHandler {
     private eventHandler: SlackEventHandler;
@@ -96,7 +94,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         if (!urlMatch) {
             log.error("Ignoring message with bad slackhook URL " + url);
 
-            response.writeHead(HTTP_OK, {"Content-Type": "text/plain"});
+            response.writeHead(HTTP_CODES.NOT_FOUND, {"Content-Type": "text/plain"});
             response.end();
 
             endTimer({outcome: "dropped"});
@@ -121,7 +119,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             );
             this.main.incCounter("received_messages", {side: "remote"});
 
-            response.writeHead(HTTP_OK, {"Content-Type": "text/plain"});
+            response.writeHead(HTTP_CODES.OK, {"Content-Type": "text/plain"});
             response.end();
 
             endTimer({outcome: "dropped"});
@@ -139,14 +137,14 @@ export class SlackHookHandler extends BaseSlackHandler {
                 endTimer({outcome: "fail"});
                 log.error("handlePost failed: ", ex);
             }
-            response.writeHead(HTTP_OK, {"Content-Type": "application/json"});
+            response.writeHead(HTTP_CODES.OK, {"Content-Type": "application/json"});
             response.end();
             return;
         }
 
         if (method === "GET" && path === "authorize") {
             const result = await this.handleAuthorize(room || inboundId, params);
-            response.writeHead(result.code || HTTP_OK, {"Content-Type": "text/html"});
+            response.writeHead(result.code || HTTP_CODES.OK, {"Content-Type": "text/html"});
             response.write(result.html);
             response.end();
             endTimer({outcome: "success"});
@@ -154,7 +152,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
 
         log.debug(`Got call to ${method}${path} that we can't handle`);
-        response.writeHead(HTTP_OK, {"Content-Type": "application/json"});
+        response.writeHead(HTTP_CODES.OK, {"Content-Type": "application/json"});
         if (method !== "HEAD") {
             response.write("{}");
         }

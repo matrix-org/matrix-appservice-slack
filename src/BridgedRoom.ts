@@ -112,21 +112,21 @@ export class BridgedRoom {
     }
 
 
-    public static fromEntry(main: any, entry: any) {
+    public static fromEntry(main: Main, entry: any) {
         return new BridgedRoom(main, {
+            access_scopes: entry.remote.access_scopes,
+            access_token: entry.remote.access_token,
             inbound_id: entry.remote_id,
             matrix_room_id: entry.matrix_id,
+            slack_bot_id: entry.remote.slack_bot_id,
+            slack_bot_token: entry.remote.slack_bot_token,
             slack_channel_id: entry.remote.id,
             slack_channel_name: entry.remote.name,
-            slack_webhook_uri: entry.remote.webhook_uri,
-            slack_bot_token: entry.remote.slack_bot_token,
-            slack_user_token: entry.remote.slack_user_token,
             slack_team_domain: entry.remote.slack_team_domain,
             slack_team_id: entry.remote.slack_team_id,
             slack_user_id: entry.remote.slack_user_id,
-            slack_bot_id: entry.remote.slack_bot_id,
-            access_token: entry.remote.access_token,
-            access_scopes: entry.remote.access_scopes,
+            slack_user_token: entry.remote.slack_user_token,
+            slack_webhook_uri: entry.remote.webhook_uri,
         });
     }
 
@@ -196,7 +196,8 @@ export class BridgedRoom {
 
     public updateAccessToken(token: string, scopes: Set<string>) {
         log.info("updateAccessToken ->", token, scopes);
-        const sameScopes = this.accessScopes && [...this.accessScopes!].sort().join(",") === [...scopes].sort().join(",");
+        const sameScopes = this.accessScopes && [
+            ...this.accessScopes!].sort().join(",") === [...scopes].sort().join(",");
         if (this.accessToken === token && sameScopes) {
             return;
         }
@@ -210,21 +211,21 @@ export class BridgedRoom {
      */
     public toEntry() {
         const entry = {
+            id: `INTEG-${this.inboundId}`,
+            matrix_id: this.matrixRoomId,
             remote: {
+                access_scopes: this.accessScopes ? [...this.accessScopes] : [],
+                access_token: this.accessToken,
                 id: this.slackChannelId,
                 name: this.slackChannelName,
-                webhook_uri: this.slackWebhookUri,
+                slack_bot_id: this.slackBotId,
                 slack_bot_token: this.slackBotToken,
-                slack_user_token: this.slackUserToken,
                 slack_team_domain: this.slackTeamDomain,
                 slack_team_id: this.slackTeamId,
                 slack_user_id: this.slackUserId,
-                slack_bot_id: this.slackBotId,
-                access_token: this.accessToken,
-                access_scopes: this.accessScopes ? [...this.accessScopes] : [],
+                slack_user_token: this.slackUserToken,
+                webhook_uri: this.slackWebhookUri,
             },
-            id: `INTEG-${this.inboundId}`,
-            matrix_id: this.matrixRoomId,
             remote_id: this.inboundId,
         };
         this.dirty = false;
@@ -234,9 +235,9 @@ export class BridgedRoom {
     public async onMatrixReaction(message: any) {
         if (!this.SlackBotToken) { return; }
 
-        const relates_to = message.content["m.relates_to"];
+        const relatesTo = message.content["m.relates_to"];
         const eventStore = this.main.eventStore;
-        const event = await eventStore.getEntryByMatrixId(message.room_id, relates_to.event_id);
+        const event = await eventStore.getEntryByMatrixId(message.room_id, relatesTo.event_id);
 
         // If we don't get an event then exit
         if (event === null) {
@@ -245,15 +246,15 @@ export class BridgedRoom {
         }
 
         // Convert the unicode emoji into a slack emote name
-        let emoji_key_name: string;
-        const emoji_item = emoji.find(relates_to.key);
-        if (emoji_item !== undefined) {
-            emoji_key_name = emoji_item.key;
+        let emojiKeyName: string;
+        const emojiItem = emoji.find(relatesTo.key);
+        if (emojiItem !== undefined) {
+            emojiKeyName = emojiItem.key;
         } else {
-            emoji_key_name = relates_to.key;
+            emojiKeyName = relatesTo.key;
             // Strip the colons
-            if (emoji_key_name.startsWith(":") && emoji_key_name.endsWith(":")) {
-                emoji_key_name = emoji_key_name.substring(1, emoji_key_name.length - 1);
+            if (emojiKeyName.startsWith(":") && emojiKeyName.endsWith(":")) {
+                emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
             }
         }
 
@@ -705,8 +706,9 @@ export class BridgedRoom {
                     if (thumb_uri && file.filetype) {
                         thumbnail_promise = ghost.uploadContentFromURI(
                             {
-                                title: `${file.name}_thumb.${file.filetype}`,
+                                _content: "",
                                 mimetype: file.mimetype,
+                                title: `${file.name}_thumb.${file.filetype}`,
                             },
                             thumb_uri,
                             this.slackBotToken!,

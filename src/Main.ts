@@ -1,6 +1,7 @@
 
 import { Bridge, PrometheusMetrics, StateLookup,
-    Logging, Intent, MatrixUser as BridgeMatrixUser } from "matrix-appservice-bridge";
+    Logging, Intent, MatrixUser as BridgeMatrixUser,
+    EventStore, RoomStore, UserStore, Request } from "matrix-appservice-bridge";
 import * as Datastore from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -20,17 +21,21 @@ const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
 
+export interface ISlackTeam {
+    domain: string;
+}
+
 export class Main {
 
-    public get eventStore(): any {
+    public get eventStore(): EventStore {
         return this.bridge.getEventStore();
     }
 
-    public get roomStore(): any {
+    public get roomStore(): RoomStore {
         return this.bridge.getRoomStore();
     }
 
-    public get userStore(): any {
+    public get userStore(): UserStore {
         return this.bridge.getUserStore();
     }
 
@@ -51,7 +56,7 @@ export class Main {
     }
     public readonly oauth2: OAuth2|null = null;
 
-    private teams: Map<string, any> = new Map();
+    private teams: Map<string, ISlackTeam> = new Map();
 
     private recentMatrixEventIds: string[] = new Array(RECENT_EVENTID_SIZE);
     private mostRecentEventIdIdx = 0;
@@ -93,7 +98,7 @@ export class Main {
 
         this.bridge = new Bridge({
             controller: {
-                onEvent: (request: any) => {
+                onEvent: (request: Request) => {
                     const ev = request.getData();
                     this.stateStorage.onEvent(ev);
                     this.onMatrixEvent(ev).then(() => {
@@ -231,7 +236,7 @@ export class Main {
         }
 
         if (this.teams.has(message.team_id)) {
-            return this.teams.get(message.team_id).domain;
+            return this.teams.get(message.team_id)!.domain;
         }
 
         const room = this.getRoomBySlackChannelId(message.channel);
@@ -369,7 +374,6 @@ export class Main {
     }
 
     public getRoomBySlackChannelName(channelName: string) {
-        // TODO(paul): this gets inefficient for long lists
         for (const room of this.rooms) {
             if (room.SlackChannelName === channelName) {
                 return room;
@@ -408,7 +412,10 @@ export class Main {
     }
 
     public async listAllUsers(roomId: string) {
-        const members: {[userId: string]: {display_name: string, avatar_url: string}} = await this.bridge.getBot().getJoinedMembers(roomId);
+        const members: {[userId: string]: {
+            displayname: string,
+            avatar_url: string,
+        }} = await this.bridge.getBot().getJoinedMembers(roomId);
         return Object.keys(members);
     }
 
@@ -420,12 +427,10 @@ export class Main {
 
     public async drainAndLeaveMatrixRoom(roomId: string) {
         const userIds = await this.listGhostUsers(roomId);
-        log.info("Draining " + userIds.length + " ghosts from " + roomId);
-        const promises: Promise<void>[] = [];
-        for (const userId of userIds) {
-            promises.push(this.getIntent(userId).leave(roomId));
-        }
-        await Promise.all(promises);
+        log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
+        await Promise.all(userIds.map((userId) =>
+            this.getIntent(userId).leave(roomId),
+        ));
         await this.botIntent.leave(roomId);
     }
 
@@ -433,22 +438,30 @@ export class Main {
         return this.bridge.getBot().getJoinedRooms();
     }
 
-    public async onMatrixEvent(ev: any) {
+    public async onMatrixEvent(ev: {
+        event_id: string,
+        state_key: string,
+        type: string,
+        room_id: string,
+        sender: string,
+// tslint:disable-next-line: no-any
+        content: any,
+    }) {
         // simple de-dup
         const recents = this.recentMatrixEventIds;
         for (let i = 0; i < recents.length; i++) {
-            if (recents[i] != undefined && recents[i] == ev.ev_id) {
+            if (recents[i] && recents[i] === ev.event_id) {
               // move the most recent ev to where we found a dup and add the
               // duplicate at the end (reasoning: we only want one of the
               // duplicated ev_id in the list, but we want it at the end)
               recents[i] = recents[this.mostRecentEventIdIdx];
-              recents[this.mostRecentEventIdIdx] = ev.ev_id;
-              log.warn("Ignoring duplicate ev: " + ev.ev_id);
+              recents[this.mostRecentEventIdIdx] = ev.event_id;
+              log.warn("Ignoring duplicate ev: " + ev.event_id);
               return;
             }
         }
         this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % 20;
-        recents[this.mostRecentEventIdIdx] = ev.ev_id;
+        recents[this.mostRecentEventIdIdx] = ev.event_id;
 
         this.incCounter("received_messages", {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
@@ -478,8 +491,8 @@ export class Main {
             try {
                 await intent.join(ev.room_id);
                 await intent.sendEvent(ev.room_id, "m.room.message", {
-                    msgtype: "m.notice",
                     body: "The slack bridge doesn't support private messaging, or inviting to rooms.",
+                    msgtype: "m.notice",
                 });
             } catch (err) {
                 log.error("Couldn't send warning to user(s) about not supporting PMs", err);
@@ -508,8 +521,7 @@ export class Main {
 
         const room = this.getRoomByMatrixRoomId(ev.room_id);
         if (!room) {
-            log.warn("Ignoring ev for matrix room with unknown slack channel:" +
-                ev.room_id);
+            log.warn(`Ignoring ev for matrix room with unknown slack channel: ${ev.room_id}`);
             endTimer({outcome: "dropped"});
             return;
         }
@@ -530,13 +542,13 @@ export class Main {
         // Handle a m.room.message event
         if (ev.type === "m.room.message" || ev.content) {
             if (ev.content["m.relates_to"] !== undefined) {
-                const relates_to = ev.content["m.relates_to"];
-                if (relates_to.rel_type === "m.replace" && relates_to.event_id !== undefined) {
+                const relatesTo = ev.content["m.relates_to"];
+                if (relatesTo.rel_type === "m.replace" && !relatesTo.event_id) {
                     // We have an edit.
                     try {
                         await room.onMatrixEdit(ev);
                     } catch (e) {
-                        log.error("Failed procesing matrix edit: ", e);
+                        log.error("Failed processing matrix edit: ", e);
                         endTimer({outcome: "fail"});
                         return;
                     }
@@ -547,7 +559,7 @@ export class Main {
             try {
                 await room.onMatrixMessage(ev);
             } catch (e) {
-                log.error("Failed procesing matrix message: ", e);
+                log.error("Failed processing matrix message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
@@ -592,10 +604,10 @@ export class Main {
         const message = response.join("\n");
 
         await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
-            msgtype: "m.notice",
             body: message,
             format: "org.matrix.custom.html",
             formatted_body: `<pre>${message}</pre>`,
+            msgtype: "m.notice",
         });
     }
 
@@ -626,8 +638,8 @@ export class Main {
 
         // TODO(paul): see above; we had to defer this until now
         this.stateStorage = new StateLookup({
-            eventTypes: ["m.room.member", "m.room.power_levels"],
             client: this.bridge.getIntent().client,
+            eventTypes: ["m.room.member", "m.room.power_levels"],
         });
 
         const entries = await this.roomStore.select({
@@ -718,12 +730,12 @@ export class Main {
             room.SlackBotToken = teamToken;
             this.incRemoteCallCounter("channels.info");
             const response = await rp({
-                url: "https://slack.com/api/channels.info",
-                qs: {
-                    token: teamToken,
-                    channel: opts.slack_channel_id,
-                },
                 json: true,
+                qs: {
+                    channel: opts.slack_channel_id,
+                    token: teamToken,
+                },
+                url: "https://slack.com/api/channels.info",
             });
 
             if (!response.ok) {
@@ -767,20 +779,21 @@ export class Main {
     }
 
     public async checkLinkPermission(matrixRoomId: string, userId: string) {
+        const STATE_DEFAULT = 50;
         // We decide to allow a user to link or unlink, if they have a powerlevel
         //   sufficient to affect the 'm.room.power_levels' state; i.e. the
         //   "operator" heuristic.
         const powerLevels = await this.getState(matrixRoomId, "m.room.power_levels");
-        const user_level =
+        const userLevel =
             (powerLevels.users && userId in powerLevels.users) ? powerLevels.users[userId] :
             powerLevels.users_default;
 
-        const requires_level =
-            (powerLevels.events && "m.room.power_levels" in powerLevels.events) ? powerLevels.events["m.room.power_levels"] :
-            ("state_default" in powerLevels) ? powerLevels.powerLevels :
-                50;
+        const requiresLevel =
+            (powerLevels.events && "m.room.power_levels" in powerLevels.events) ?
+            powerLevels.events["m.room.power_levels"] :
+            ("state_default" in powerLevels) ? powerLevels.powerLevels : STATE_DEFAULT;
 
-        return user_level >= requires_level;
+        return userLevel >= requiresLevel;
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string) {
@@ -789,8 +802,8 @@ export class Main {
         matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
         accounts[slackId] = {
-            team_id: teamId,
             access_token: accessToken,
+            team_id: teamId,
         };
         matrixUser.set("accounts", accounts);
         await store.setMatrixUser(matrixUser);
@@ -799,15 +812,15 @@ export class Main {
 
     public updateTeamBotStore(teamId: string, teamName: string, userId: string, botToken: string) {
         this.teamDatastore.update({team_id: teamId}, {
+            bot_token: botToken,
             team_id: teamId,
             team_name: teamName,
-            bot_token: botToken,
             user_id: userId,
         }, {upsert: true});
         log.info(`Setting details for team ${teamId} ${teamName}`);
     }
 
-    public getTeamFromStore(teamId: string): Promise<any> {
+    public async getTeamFromStore(teamId: string): Promise<any> {
         return new Promise((resolve, reject) => {
             this.teamDatastore.findOne({team_id: teamId}, (err, doc) => {
                 if (err) {
@@ -824,249 +837,8 @@ export class Main {
         if (matrixUser === null) {
             return false;
         }
-        const accounts = Object.values(matrixUser.get("accounts"));
-        return accounts.find((acct: any) => acct.team_id === teamId);
+        const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
+        return accounts.find((acct) => acct.team_id === teamId);
     }
-}
-
-Provisioning.commands.getbotid = new Provisioning.Command({
-    params: [],
-    func(main, req, res) {
-        res.json({bot_user_id: main.botUserId});
-    },
-});
-
-Provisioning.commands.authurl = new Provisioning.Command({
-    params: ["user_id"],
-    func(main, req, res, user_id: string) {
-        if (!main.oauth2) {
-            res.status(400).json({
-                error: "OAuth2 not configured on this bridge",
-            });
-            return;
-        }
-        const token = main.oauth2.getPreauthToken(user_id);
-        const auth_uri = main.oauth2.makeAuthorizeURL(
-            token,
-            token,
-        );
-        res.json({auth_uri});
-    },
-});
-
-Provisioning.commands.logout = new Provisioning.Command({
-    params: ["user_id", "slack_id"],
-    async func(main, req, res, user_id: string, slack_id: string) {
-        if (!main.oauth2) {
-            res.status(400).json({
-                error: "OAuth2 not configured on this bridge",
-            });
-            return;
-        }
-        const store = main.userStore;
-        let matrixUser = await store.getMatrixUser(user_id);
-        matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(user_id);
-        const accounts = matrixUser.get("accounts") || {};
-        delete accounts[slack_id];
-        matrixUser.set("accounts", accounts);
-        store.setMatrixUser(matrixUser);
-        log.info(`Removed account ${slack_id} from ${user_id}`);
-    },
-});
-
-Provisioning.commands.channels = new Provisioning.Command({
-    params: ["user_id", "team_id"],
-    async func(main, req, res, user_id: string, team_id: string) {
-        const store = main.userStore;
-        log.debug(`${user_id} requested their teams`);
-        main.incRemoteCallCounter("conversations.list");
-        const matrixUser = await store.getMatrixUser(user_id);
-        const isAllowed = matrixUser !== null &&
-            Object.values(matrixUser.get("accounts")).find((acct: any) =>
-                acct.team_id === team_id,
-            );
-        if (!isAllowed) {
-            res.status(403).json({error: "User is not part of this team!"});
-            throw undefined;
-        }
-        const team = await main.getTeamFromStore(team_id);
-        if (team === null) {
-            throw new Error("No team token for this team_id");
-        }
-        const response = await rp({
-            url: "https://slack.com/api/conversations.list",
-            qs: {
-                token: team.bot_token,
-                exclude_archived: true,
-                types: "public_channel",
-                limit: 100,
-            },
-            json: true,
-        });
-        if (!response.ok) {
-            log.error(`Failed trying to fetch channels for ${team_id}.`, response);
-            res.status(500).json({error: "Failed to fetch channels"});
-            return;
-        }
-        res.json({
-            channels: response.channels.map((chan) => ({
-                id: chan.id,
-                name: chan.name,
-                topic: chan.topic,
-                purpose: chan.purpose,
-            })),
-        });
-    },
-});
-
-Provisioning.commands.teams = new Provisioning.Command({
-    params: ["user_id"],
-    async func(main, req, res, user_id: string) {
-        log.debug(`${user_id} requested their teams`);
-        const store = main.userStore;
-        const matrixUser = await store.getMatrixUser(user_id);
-        if (matrixUser === null) {
-            res.status(404).json({error: "User has no accounts setup"});
-            return;
-        }
-        const accounts = matrixUser.get("accounts");
-        const results = await Promise.all(Object.keys(accounts).map((slack_id) => {
-            const account = accounts[slack_id];
-            return main.getTeamFromStore(account.team_id).then(
-                (team) => ({team, slack_id}),
-            );
-        }));
-        const teams = results.map((res) => ({
-            id: res.team.team_id,
-            name: res.team.team_name,
-            slack_id: res.slack_id,
-        }));
-        res.json({ teams });
-    },
-});
-
-Provisioning.commands.getlink = new Provisioning.Command({
-    params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrix_room_id: string, user_id: string) {
-        const room = main.getRoomByMatrixRoomId(matrix_room_id);
-        if (!room) {
-            res.status(404).json({error: "Link not found"});
-            return;
-        }
-
-        log.info("Need to enquire if " + user_id + " is allowed to get links for " + matrix_room_id);
-        const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
-        if (!allowed) {
-            throw {
-                code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id,
-            };
-        }
-
-        // Convert the room 'status' into a scalar 'status'
-        let status = room.getStatus();
-        if (status.match(/^ready/)) {
-            // OK
-        } else if (status === "pending-params") {
-            status = "partial";
-        } else if (status === "pending-name") {
-            status = "pending";
-        } else {
-            status = "unknown";
-        }
-
-        let authUri;
-        if (main.oauth2 && !room.AccessToken) {
-            // We don't have an auth token but we do have the ability
-            // to ask for one
-            authUri = main.oauth2.makeAuthorizeURL(
-                room,
-                room.InboundId,
-            );
-        }
-
-        res.json({
-            status,
-            slack_channel_id: room.SlackChannelId,
-            slack_channel_name: room.SlackChannelName,
-            slack_webhook_uri: room.SlackWebhookUri,
-            team_id: room.SlackTeamId,
-            isWebhook: !room.SlackBotId,
-            // This is slightly a lie
-            matrix_room_id,
-            inbound_uri: main.getInboundUrlForRoom(room),
-            auth_uri: authUri,
-        });
-    },
-});
-
-Provisioning.commands.link = new Provisioning.Command({
-    params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrix_room_id: string, user_id: string) {
-        log.info("Need to enquire if " + user_id + " is allowed to link " + matrix_room_id);
-
-        // Ensure we are in the room.
-        await main.botIntent.join(matrix_room_id);
-
-        const params = req.body;
-        const opts = {
-            matrix_room_id,
-            slack_webhook_uri: params.slack_webhook_uri,
-            slack_channel_id: params.channel_id,
-            team_id: params.team_id,
-            user_id: params.user_id,
-        };
-
-        // Check if the user is in the team.
-        if (opts.team_id && !(await main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
-            return Promise.reject({
-                code: 403,
-                text: user_id + " is not in this team.",
-            });
-        }
-        if (!(await main.checkLinkPermission(matrix_room_id, user_id))) {
-            return Promise.reject({
-                code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id,
-            });
-        }
-        const room = await main.actionLink(opts);
-        // Convert the room 'status' into a scalar 'status'
-        let status = room.getStatus();
-        if (status === "ready") {
-            // OK
-        } else if (status === "pending-params") {
-            status = "partial";
-        } else if (status === "pending-name") {
-            status = "pending";
-        } else {
-            status = "unknown";
-        }
-        log.info(`Result of link for ${matrix_room_id} -> ${status} ${opts.slack_channel_id}`);
-        res.json({
-            status,
-            slack_channel_name: room.SlackChannelName,
-            slack_webhook_uri: room.SlackWebhookUri,
-            matrix_room_id,
-            inbound_uri: main.getInboundUrlForRoom(room),
-        });
-    },
-});
-
-Provisioning.commands.unlink = new Provisioning.Command({
-    params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrix_room_id: string, user_id: string) {
-        log.info("Need to enquire if " + user_id + " is allowed to unlink " + matrix_room_id);
-
-        const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
-        if (!allowed) {
-            throw {
-                code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id,
-            };
-        }
-        await main.actionUnlink({matrix_room_id});
-        res.json({});
-    },
 // tslint:disable-next-line: max-file-line-count
-});
+}
