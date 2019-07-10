@@ -262,7 +262,7 @@ export class BridgedRoom {
         // bot user.
         const body = {channel: this.slackChannelId,
                       timestamp: event.remoteEventId,
-                      name: emoji_key_name,
+                      name: emojiKeyName,
                       as_user: false};
 
         const sendMessageParams = {
