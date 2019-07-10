@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ./lib/app.js",
     "build": "tsc",
-    "test": "jasmine-node tests --verbose --forceexit --captureExceptions",
+    "test": "mocha --reporter list --ui bdd --require ts-node/register --require source-map-support/register --recursive lib/tests/config.js lib/tests",
     "lint": "tslint -p tsconfig.json"
   },
   "repository": {
@@ -24,9 +24,12 @@
   },
   "homepage": "https://github.com/matrix-org/matrix-appservice-slack#readme",
   "dependencies": {
+    "@types/chai": "^4.1.7",
     "@types/express": "^4.17.0",
+    "@types/mocha": "^5.2.7",
     "@types/node-emoji": "^1.8.1",
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
+    "chai": "^4.2.0",
     "chalk": "^2.4.1",
     "matrix-appservice-bridge": "^1.9.0",
     "matrix-js-sdk": "^0.5",
@@ -36,6 +39,8 @@
     "randomstring": "^1",
     "request-promise": "^3.0.0",
     "request-promise-native": "^1.0.7",
+    "source-map-support": "^0.5.12",
+    "ts-node": "^8.3.0",
     "uuid": "^3.3.2",
     "winston": "^3.1.0",
     "winston-daily-rotate-file": "^3.3.3",
@@ -47,10 +52,10 @@
     "@types/randomstring": "^1.1.6",
     "@types/yargs-parser": "^13.0.0",
     "@types/yargs": "^13.0.0",
-    "jasmine-node": "^1.14.5",
-    "tslint": "^5.18.0",
-    "typescript": "^3.5",
     "@types/request-promise-native": "^1.0.16",
-    "@types/uuid": "^3.4.5"
+    "@types/uuid": "^3.4.5",
+    "mocha": "^6.1.4",
+    "tslint": "^5.18.0",
+    "typescript": "^3.5"
   }
 }

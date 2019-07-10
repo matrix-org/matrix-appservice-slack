@@ -37,5 +37,13 @@
     "no-debugger": true,
     "no-floating-promises": true,
     "prefer-template": [true, "allow-single-concat"]
-  }
+  },
+  "overrides": [
+    {
+        "files": ["test_*.ts"],
+        "rules": {
+            "no-unused-expressions": "off"
+        }
+    }
+]
 }
