@@ -1,7 +1,6 @@
-import * as fs from "fs";
 import { Logging } from "matrix-appservice-bridge";
-import { Main } from "./Main";
 import * as emoji from "node-emoji";
+import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
 
 const log = Logging.get("substitutions");
@@ -254,32 +253,32 @@ export default substitutions;
  * @param {Object} displaymap A mapping of display names to slack user ids.
  * @return {String} The string with replacements performed.
  */
-function replacementFromDisplayMap(str: string, displaymap: {[matrixId: string]: string}) {
+export function replacementFromDisplayMap(str: string, displaymap: {[matrixId: string]: string}) {
     const firstwords = substitutions.makeFirstWordMap(displaymap);
 
     // Now parse the message to find the intersection of every word in the
     // message with every first word of all nicks.
     const matchWords = new Set(Object.keys(firstwords));
     const stringWords = new Set(str.split(" "));
-    const matches = [...stringWords].filter((x) => matchWords.has(x));
+    const matches = [...stringWords].filter((x) => matchWords.has(x.substr(x.startsWith("@") ? 1 : 0)));
+    for (const firstword of matches) {
+        const sglFirstWord = firstword.substr(firstword.startsWith("@") ? 1 : 0);
+        const nicks = firstwords[sglFirstWord];
+        if (!nicks) {
+            continue;
+        }
 
-    if (matches && matches.length) {
-        for (const firstword of matches) {
-            if (firstwords[firstword]) {
-                const nicks = firstwords[firstword];
-                if (nicks.length === 1) {
-                    str = str.replace(firstword, `<@${nicks[0][firstword]}>`);
-                } else {
-                    // Sort the displaynames by longest string first, and then match them from longest to shortest.
-                    // This can match multiple times if there is more than one mention in the message
-                    const displaynames: string[] = nicks.map((x: {}) => Object.keys(x)[0]);
-                    displaynames.sort((x: string, y: string) => y.length - x.length);
-                    for (const displayname of displaynames) {
-                        if (str.includes(displayname)) {
-                            str = str.replace(displayname, `<@${displaymap[displayname]}`);
-                        }
-                    }
-                }
+        if (nicks.length === 1) {
+            str = str.replace(firstword, `<@${nicks[0][sglFirstWord]}>`);
+        } else {
+            // Sort the displaynames by longest string first, and then match them from longest to shortest.
+            // This can match multiple times if there is more than one mention in the message
+            const displaynames: string[] = nicks.map((x: {}) => Object.keys(x)[0]);
+            displaynames.sort((x: string, y: string) => y.length - x.length);
+            for (let displayname of displaynames) {
+                const aDisplayname = `@${displayname}`;
+                const includeSig = str.includes(aDisplayname);
+                str = str.replace(includeSig ? aDisplayname : displayname, `<@${displaymap[displayname]}>`);
             }
         }
     }
