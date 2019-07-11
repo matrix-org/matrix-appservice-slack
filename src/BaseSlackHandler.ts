@@ -17,6 +17,7 @@ const USER_ID_REGEX_FIRST = /<@(\w+)\|?\w*?>/;
 export const INTERNAL_ID_LEN = 32;
 export const HTTP_CODES = {
     CLIENT_ERROR: 400,
+    FORBIDDEN: 403,
     NOT_FOUND: 404,
     OK: 200,
     SERVER_ERROR: 500,

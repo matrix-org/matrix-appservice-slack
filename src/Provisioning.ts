@@ -188,19 +188,19 @@ commands.teams = new Command({
 
 commands.getlink = new Command({
     params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrix_room_id: string, user_id: string) {
-        const room = main.getRoomByMatrixRoomId(matrix_room_id);
+    async func(main, req, res, matrixRoomId, userId) {
+        const room = main.getRoomByMatrixRoomId(matrixRoomId);
         if (!room) {
-            res.status(404).json({error: "Link not found"});
+            res.status(HTTP_CODES.NOT_FOUND).json({error: "Link not found"});
             return;
         }
 
-        log.info("Need to enquire if " + user_id + " is allowed to get links for " + matrix_room_id);
-        const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
+        log.info(`Need to enquire if ${userId} is allowed get links for ${matrixRoomId}`);
+        const allowed = await main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
             throw {
-                code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id,
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             };
         }
 
@@ -227,33 +227,33 @@ commands.getlink = new Command({
         }
 
         res.json({
-            status,
+            auth_uri: authUri,
+            inbound_uri: main.getInboundUrlForRoom(room),
+            isWebhook: !room.SlackBotId,
+            // This is slightly a lie
+            matrix_room_id: matrixRoomId,
             slack_channel_id: room.SlackChannelId,
             slack_channel_name: room.SlackChannelName,
             slack_webhook_uri: room.SlackWebhookUri,
+            status,
             team_id: room.SlackTeamId,
-            isWebhook: !room.SlackBotId,
-            // This is slightly a lie
-            matrix_room_id,
-            inbound_uri: main.getInboundUrlForRoom(room),
-            auth_uri: authUri,
         });
     },
 });
 
 commands.link = new Command({
     params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrix_room_id: string, user_id: string) {
-        log.info("Need to enquire if " + user_id + " is allowed to link " + matrix_room_id);
+    async func(main, req, res, matrixRoomId, userId) {
+        log.info(`Need to enquire if ${userId} is allowed to link ${matrixRoomId}`);
 
         // Ensure we are in the room.
-        await main.botIntent.join(matrix_room_id);
+        await main.botIntent.join(matrixRoomId);
 
         const params = req.body;
         const opts = {
-            matrix_room_id,
-            slack_webhook_uri: params.slack_webhook_uri,
+            matrix_room_id: matrixRoomId,
             slack_channel_id: params.channel_id,
+            slack_webhook_uri: params.slack_webhook_uri,
             team_id: params.team_id,
             user_id: params.user_id,
         };
@@ -261,14 +261,14 @@ commands.link = new Command({
         // Check if the user is in the team.
         if (opts.team_id && !(await main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
             return Promise.reject({
-                code: 403,
-                text: user_id + " is not in this team.",
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not in this team.`,
             });
         }
-        if (!(await main.checkLinkPermission(matrix_room_id, user_id))) {
+        if (!(await main.checkLinkPermission(matrixRoomId, userId))) {
             return Promise.reject({
-                code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id,
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             });
         }
         const room = await main.actionLink(opts);
@@ -283,30 +283,30 @@ commands.link = new Command({
         } else {
             status = "unknown";
         }
-        log.info(`Result of link for ${matrix_room_id} -> ${status} ${opts.slack_channel_id}`);
+        log.info(`Result of link for ${matrixRoomId} -> ${status} ${opts.slack_channel_id}`);
         res.json({
-            status,
+            inbound_uri: main.getInboundUrlForRoom(room),
+            matrix_room_id: matrixRoomId,
             slack_channel_name: room.SlackChannelName,
             slack_webhook_uri: room.SlackWebhookUri,
-            matrix_room_id,
-            inbound_uri: main.getInboundUrlForRoom(room),
+            status,
         });
     },
 });
 
 commands.unlink = new Command({
     params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrix_room_id: string, user_id: string) {
-        log.info("Need to enquire if " + user_id + " is allowed to unlink " + matrix_room_id);
+    async func(main, req, res, matrixRoomId, userId) {
+        log.info(`Need to enquire if ${userId} is allowed to unlink ${matrixRoomId}`);
 
-        const allowed = await main.checkLinkPermission(matrix_room_id, user_id);
+        const allowed = await main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
             throw {
-                code: 403,
-                text: user_id + " is not allowed to provision links in " + matrix_room_id,
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             };
         }
-        await main.actionUnlink({matrix_room_id});
+        await main.actionUnlink({matrix_room_id: matrixRoomId});
         res.json({});
     },
 // tslint:disable-next-line: max-file-line-count

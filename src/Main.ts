@@ -207,7 +207,7 @@ export class Main {
     }
 
     public startTimer(name: string, labels: any = {}) {
-        if (!this.metrics) { return function() {}; }
+        if (!this.metrics) { return () => {}; }
         return this.metrics.startTimer(name, labels);
     }
 
@@ -460,7 +460,7 @@ export class Main {
               return;
             }
         }
-        this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % 20;
+        this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % RECENT_EVENTID_SIZE;
         recents[this.mostRecentEventIdIdx] = ev.event_id;
 
         this.incCounter("received_messages", {side: "matrix"});
@@ -579,12 +579,12 @@ export class Main {
         log.info("Admin: " + cmd);
 
         const response: any[] = [];
-        const respond = (message: string) => {
+        const respond = (responseMsg: string) => {
             if (!response) {
-                log.info("Command response too late: " + message);
+                log.info(`Command response too late: ${responseMsg}`);
                 return;
             }
-            response.push(message);
+            response.push(responseMsg);
         };
 
         try {

@@ -645,29 +645,29 @@ export class BridgedRoom {
                 "body": ghost.prepareBody(outtext),
                 "format": "org.matrix.custom.html",
                 "formatted_body": formatted,
+                "m.new_content": {
+                    body: ghost.prepareBody(newMessageRich),
+                    format: "org.matrix.custom.html",
+                    formatted_body: ghost.prepareFormattedBody(newMessageRich),
+                    msgtype: "m.text",
+                },
                 "m.relates_to": {
+                    event_id: prevEvent.eventId,
                     rel_type: "m.replace",
-                    event_id: prevEvent.eventId},
-                    "m.new_content": {
-                        msgtype: "m.text",
-                        body: ghost.prepareBody(newMessageRich),
-                        formatted_body: ghost.prepareFormattedBody(newMessageRich),
-                        format: "org.matrix.custom.html",
-                    },type": "m.text",
+                },
+                "msgtype": "m.text",
             };
-
             return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
-        } else if (message.files != undefined) {
-            for (let i = 0; i < message.files.length; i++) {
-                const file = message.files[i];
+        } else if (message.files !== undefined) {
+            for (const file of message.files) {
                 if (file.mode === "snippet") {
                     let htmlString: string;
                     try {
                         htmlString = await rp({
-                            uri: file.url_private,
                             headers: {
                                 Authorization: `Bearer ${this.slackBotToken}`,
                             },
+                            uri: file.url_private,
                         });
                     } catch (ex) {
                         log.error("Failed to download snippet", ex);
@@ -680,7 +680,7 @@ export class BridgedRoom {
                     code += "\n";
                     code += "```";
                     if (file.filetype) {
-                        htmlCode = '<pre><code class="language-' + file.filetype + '">';
+                        htmlCode = `<pre><code class="language-${file.filetype}'">`;
                     } else {
                         htmlCode = "<pre><code>";
                     }
@@ -689,9 +689,9 @@ export class BridgedRoom {
 
                     const content = {
                         body: code,
-                        msgtype: "m.text",
-                        formatted_body: htmlCode,
                         format: "org.matrix.custom.html",
+                        formatted_body: htmlCode,
+                        msgtype: "m.text",
                     };
                     await ghost.sendMessage(this.matrixRoomId, content, channelId, eventTS);
                     // TODO: Currently Matrix lacks a way to upload a "captioned image",
@@ -702,23 +702,23 @@ export class BridgedRoom {
                     }
                 } else {
                     // We also need to upload the thumbnail
-                    let thumbnail_promise = Promise.resolve();
+                    let thumbnailPromise: Promise<any> = Promise.resolve();
                     // Slack ain't a believer in consistency.
-                    const thumb_uri = file.thumb_video || file.thumb_360;
-                    if (thumb_uri && file.filetype) {
-                        thumbnail_promise = ghost.uploadContentFromURI(
+                    const thumbUri = file.thumb_video || file.thumb_360;
+                    if (thumbUri && file.filetype) {
+                        thumbnailPromise = ghost.uploadContentFromURI(
                             {
                                 _content: "",
                                 mimetype: file.mimetype,
                                 title: `${file.name}_thumb.${file.filetype}`,
                             },
-                            thumb_uri,
+                            thumbUri,
                             this.slackBotToken!,
                         );
                     }
-                    const content_uri = "";
-                    const fileContentUri = await ghost.uploadContentFromURI(file, file.url_private, this.slackBotToken!);
-                    const thumbnailContentUri = await thumbnail_promise;
+                    const fileContentUri = await ghost.uploadContentFromURI(
+                        file, file.url_private, this.slackBotToken!);
+                    const thumbnailContentUri = await thumbnailPromise;
                     await ghost.sendMessage(
                         this.matrixRoomId,
                         slackFileToMatrixMessage(file, fileContentUri, thumbnailContentUri),
@@ -734,7 +734,7 @@ export class BridgedRoom {
                 }
             }
         } else {
-            log.warn("Ignoring message with subtype: " + subtype);
+            log.warn(`Ignoring message with subtype: ${subtype}`);
         }
     }
 
@@ -759,15 +759,15 @@ export class BridgedRoom {
  * @param {?string} thumbnail_url The matrix thumbnail mxc.
  * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/#m-image
  */
-const slackImageToMatrixImage = function(file, url, thumbnail_url) {
+const slackImageToMatrixImage = (file, url: string, thumbnailUrl?: string) => {
     const message = {
-        msgtype: "m.image",
-        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
         },
+        msgtype: "m.image",
+        url,
         // TODO: Define some matrix types
     } as any;
 
@@ -779,8 +779,8 @@ const slackImageToMatrixImage = function(file, url, thumbnail_url) {
         message.info.h = file.original_h;
     }
 
-    if (thumbnail_url) {
-        message.thumbnail_url = thumbnail_url;
+    if (thumbnailUrl) {
+        message.thumbnail_url = thumbnailUrl;
         message.thumbnail_info = {};
         if (file.thumb_360_w) {
             message.thumbnail_info.w = file.thumb_360_w;
@@ -807,13 +807,13 @@ const slackImageToMatrixImage = function(file, url, thumbnail_url) {
  */
 const slackImageToMatrixVideo = (file, url: string, thumbnailUrl?: string) => {
     const message = {
-        msgtype: "m.video",
-        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
         },
+        msgtype: "m.video",
+        url,
         // TODO: Define some matrix types
     } as any;
 
@@ -883,3 +883,4 @@ const slackFileToMatrixMessage = (file, url: string, thumbnailUrl?: string) => {
         url,
     };
 };
+// tslint:disable-next-line: max-file-line-count
