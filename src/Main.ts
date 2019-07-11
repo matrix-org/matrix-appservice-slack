@@ -615,7 +615,10 @@ export class Main {
         log.info("Loading databases");
         await this.bridge.loadDatabases();
         log.info("Loading teams.db");
-        this.teamDatastore = new Datastore({ filename: "./teams.db", autoload: true });
+        this.teamDatastore = new Datastore({
+            autoload: true,
+            filename: path.join(this.config.dbdir || "", "teams.db"),
+        });
         await new Promise((resolve, reject) => {
             this.teamDatastore.loadDatabase((err) => {
             if (err) {
