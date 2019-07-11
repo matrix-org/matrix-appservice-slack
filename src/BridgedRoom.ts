@@ -101,8 +101,6 @@ export class BridgedRoom {
         this.setValue("slackUserToken", value);
     }
 
-
-
     public get RemoteATime() {
         return this.slackATime;
     }
@@ -110,7 +108,6 @@ export class BridgedRoom {
     public get MatrixATime() {
         return this.matrixATime;
     }
-
 
     public static fromEntry(main: Main, entry: any) {
         return new BridgedRoom(main, {
@@ -260,17 +257,19 @@ export class BridgedRoom {
 
         // TODO: This only works once from matrix as we are sending the event as the
         // bot user.
-        const body = {channel: this.slackChannelId,
-                      timestamp: event.remoteEventId,
-                      name: emojiKeyName,
-                      as_user: false};
+        const body = {
+            as_user: false,
+            channel: this.slackChannelId,
+            name: emojiKeyName,
+            timestamp: event.remoteEventId,
+        };
 
         const sendMessageParams = {
-            method: "POST",
-            json: true,
-            uri: "https://slack.com/api/reactions.add",
             body,
             headers: {},
+            json: true,
+            method: "POST",
+            uri: "https://slack.com/api/reactions.add",
         };
 
         if (this.slackBotToken) {
@@ -302,17 +301,17 @@ export class BridgedRoom {
         }
 
         const body = {
+            as_user: false,
             channel: this.slackChannelId,
             ts: event.remoteEventId,
-            as_user: false,
         };
 
         const sendMessageParams = {
-            method: "POST",
-            json: true,
-            uri: "https://slack.com/api/chat.delete",
             body,
             headers: {},
+            json: true,
+            method: "POST",
+            uri: "https://slack.com/api/chat.delete",
         };
 
         if (this.slackBotToken) {
@@ -331,20 +330,23 @@ export class BridgedRoom {
     public async onMatrixEdit(message: any) {
         if (!this.slackWebhookUri && !this.slackBotToken) { return; }
 
-        const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.content["m.relates_to"].event_id);
+        const event = await this.main.eventStore.getEntryByMatrixId(
+            message.content["m.relates_to"].event_id,
+            message.room_id,
+        );
 
         // re-write the message so the matrixToSlack converter works as expected.
-        const new_message = JSON.parse(JSON.stringify(message));
-        new_message.content = message.content["m.new_content"];
+        const newMessage = JSON.parse(JSON.stringify(message));
+        newMessage.content = message.content["m.new_content"];
 
-        const body = await substitutions.matrixToSlack(new_message, this.main, this.SlackTeamId!);
+        const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
         const sendMessageParams = {
-            method: "POST",
-            json: true,
-            uri: "https://slack.com/api/chat.update",
             body,
             headers: {},
+            json: true,
+            method: "POST",
+            uri: "https://slack.com/api/chat.update",
         };
 
         sendMessageParams.body.ts = event.remoteEventId;
@@ -363,8 +365,8 @@ export class BridgedRoom {
             log.error("HTTP Error: ", res);
         } else {
             // Add this event to the event store
-            const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-            this.main.eventStore.upsertEvent(event);
+            const storeEv = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+            this.main.eventStore.upsertEvent(storeEv);
         }
         return res;
     }
@@ -421,20 +423,21 @@ export class BridgedRoom {
 
         return this.findParentReply(nextEvent);
     }
+
     public async onMatrixMessage(message: any) {
         if (!this.slackWebhookUri && !this.slackBotToken) { return; }
 
-        const user = await this.main.getOrCreateMatrixUser(message.user_id);
+        const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = this.stripMatrixReplyFallback(message);
         const body = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         const uri = (this.slackBotToken) ? "https://slack.com/api/chat.postMessage" : this.slackWebhookUri;
 
         const sendMessageParams = {
-            method: "POST",
-            json: true,
-            uri: uri!,
             body,
             headers: {},
+            json: true,
+            method: "POST",
+            uri: uri!,
         };
 
         if (this.slackBotToken) {
@@ -458,10 +461,10 @@ export class BridgedRoom {
             sendMessageParams.body.thread_ts = parentStoredEvent.remoteEventId;
         }
 
-        const avatar_url = user.getAvatarUrlForRoom(message.room_id);
+        const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
 
-        if (avatar_url && avatar_url.indexOf("mxc://") === 0) {
-            sendMessageParams.body.icon_url = this.main.getUrlForMxc(avatar_url);
+        if (avatarUrl && avatarUrl.indexOf("mxc://") === 0) {
+            sendMessageParams.body.icon_url = this.main.getUrlForMxc(avatarUrl);
         }
 
         user.bumpATime();
@@ -498,12 +501,12 @@ export class BridgedRoom {
         await ghost.update(message, this);
 
         const reaction = `:${message.reaction}:`;
-        const reaction_key = emoji.emojify(reaction, onMissingEmoji);
+        const reactionKey = emoji.emojify(reaction, onMissingEmoji);
 
         const eventStore = this.main.eventStore;
         const event = await eventStore.getEntryByRemoteId(message.item.channel, message.item.ts);
 
-        return ghost.sendReaction(this.MatrixRoomId, event.eventId, reaction_key,
+        return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
                                   message.item.channel, message.event_ts);
     }
 
@@ -519,11 +522,11 @@ export class BridgedRoom {
         if (!this.slackBotToken) { return; }
 
         const response = await rp({
-            uri: "https://slack.com/api/team.info",
+            json: true,
             qs: {
                 token: this.slackBotToken,
             },
-            json: true,
+            uri: "https://slack.com/api/team.info",
         });
         if (!response.team) { return; }
 
@@ -535,11 +538,11 @@ export class BridgedRoom {
         if (!this.slackBotToken) { return; }
 
         const testRes = await rp({
-            uri: "https://slack.com/api/auth.test",
+            json: true,
             qs: {
                 token: this.slackBotToken,
             },
-            json: true,
+            uri: "https://slack.com/api/auth.test",
         });
 
         log.debug("auth.test res:", testRes);
@@ -547,12 +550,12 @@ export class BridgedRoom {
         this.setValue("slackUserId", testRes.user_id);
 
         const usersRes = await rp({
-            uri: "https://slack.com/api/users.info",
+            json: true,
             qs: {
                 token: this.slackBotToken,
                 user: testRes.user_id,
             },
-            json: true,
+            uri: "https://slack.com/api/users.info",
         });
         if (!usersRes.user || !usersRes.user.profile) { return; }
         this.setValue("slackBotId", usersRes.user.profile.bot_id);
@@ -596,9 +599,9 @@ export class BridgedRoom {
 
             // Get event to reply to
             const replyToEvent = await eventStore.getEntryByRemoteId(this.SlackChannelId, replyToTS);
-            const m_in_reply_to = {"m.in_reply_to": {event_id: replyToEvent.eventId}};
+            const mInReplyTo = {"m.in_reply_to": {event_id: replyToEvent.eventId}};
 
-            const extraContent = {"m.relates_to": m_in_reply_to};
+            const extraContent = {"m.relates_to": mInReplyTo};
             return ghost.sendText(this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, extraContent);
         }
 
@@ -607,54 +610,53 @@ export class BridgedRoom {
             return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
         } else if (subtype === "me_message") {
             message = {
-                msgtype: "m.emote",
                 body: message.text,
+                msgtype: "m.emote",
             };
             return ghost.sendMessage(this.matrixRoomId, message, channelId, eventTS);
         } else if (subtype === "message_changed") {
-            const previous_message = ghost.prepareBody(substitutions.slackToMatrix(message.previous_message.text));
+            const previousMessage = ghost.prepareBody(substitutions.slackToMatrix(message.previous_message.text));
             // We use message.text here rather than the proper message.message.text
             // as we have added message.text ourselves and then transformed it.
-            const new_message_rich = substitutions.slackToMatrix(message.text);
-            const new_message = ghost.prepareBody(new_message_rich);
+            const newMessageRich = substitutions.slackToMatrix(message.text);
+            const newMessage = ghost.prepareBody(newMessageRich);
 
             // The substitutions might make the messages the same
-            if (previous_message === new_message) {
+            if (previousMessage === newMessage) {
                 log.debug("Ignoring edit message because messages are the same post-substitutions.");
                 return;
             }
 
-            const edits = substitutions.makeDiff(previous_message, new_message);
+            const edits = substitutions.makeDiff(previousMessage, newMessage);
 
-            const outtext = "(edited) " +
-                edits.before + edits.prev + edits.after + " => " +
-                edits.before + edits.curr + edits.after;
+            const outtext = `(edited) ${edits.before} ${edits.prev} ${edits.after} => ` +
+                `${edits.before} ${edits.curr}  ${edits.after}`;
 
             const prev   = substitutions.htmlEscape(edits.prev);
             const curr   = substitutions.htmlEscape(edits.curr);
             const before = substitutions.htmlEscape(edits.before);
             const after  = substitutions.htmlEscape(edits.after);
 
-            const formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font> ${after} =&gt; ${before} <font color="green"> ${curr} </font> ${after}`;
+            const formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font>` +
+            `${after} =&gt; ${before} <font color="green"> ${curr} </font> ${after}`;
 
-            const prev_event = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message.ts);
-            const matrixcontent = {
+            const prevEvent = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message.ts);
+            const matrixContent = {
                 "body": ghost.prepareBody(outtext),
-                "msgtype": "m.text",
-                "formatted_body": formatted,
                 "format": "org.matrix.custom.html",
+                "formatted_body": formatted,
                 "m.relates_to": {
                     rel_type: "m.replace",
-                    event_id: prev_event.eventId},
-                "m.new_content": {
-                    msgtype: "m.text",
-                    body: ghost.prepareBody(new_message_rich),
-                    formatted_body: ghost.prepareFormattedBody(new_message_rich),
-                    format: "org.matrix.custom.html",
-                },
+                    event_id: prevEvent.eventId},
+                    "m.new_content": {
+                        msgtype: "m.text",
+                        body: ghost.prepareBody(newMessageRich),
+                        formatted_body: ghost.prepareFormattedBody(newMessageRich),
+                        format: "org.matrix.custom.html",
+                    },type": "m.text",
             };
 
-            return ghost.sendMessage(this.MatrixRoomId, matrixcontent, channelId, eventTS);
+            return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
         } else if (message.files != undefined) {
             for (let i = 0; i < message.files.length; i++) {
                 const file = message.files[i];
@@ -793,17 +795,17 @@ const slackImageToMatrixImage = function(file, url, thumbnail_url) {
 /**
  * Converts a slack video attachment to a matrix video event.
  *
- * @param {Object} file The slack video attachment file object.
- * @param {?integer} file.size size of the file in bytes.
- * @param {string} file.title alt-text for the file.
- * @param {string} file.mimetype mime-type of the file.
- * @param {?integer} file.original_w width of the file if an image, in pixels.
- * @param {?integer} file.original_h height of the file if an image, in pixels.
- * @param {string} url The matrix file mxc.
- * @param {?string} thumbnail_url The matrix thumbnail mxc.
- * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/client_server/r0.4.0.html#m-video
+ * @param file The slack video attachment file object.
+ * @param file.size size of the file in bytes.
+ * @param file.title alt-text for the file.
+ * @param file.mimetype mime-type of the file.
+ * @param file.original_w width of the file if an image, in pixels.
+ * @param file.original_h height of the file if an image, in pixels.
+ * @param url The matrix file mxc.
+ * @param thumbnail_url The matrix thumbnail mxc.
+ * @return Matrix event content, as per https://matrix.org/docs/spec/client_server/r0.4.0.html#m-video
  */
-const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
+const slackImageToMatrixVideo = (file, url: string, thumbnailUrl?: string) => {
     const message = {
         msgtype: "m.video",
         url,
@@ -823,8 +825,8 @@ const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
         message.info.h = file.original_h;
     }
 
-    if (thumbnail_url) {
-        message.thumbnail_url = thumbnail_url;
+    if (thumbnailUrl) {
+        message.thumbnail_url = thumbnailUrl;
         // Slack don't tell us the thumbnail size for videos. Boo
     }
 
@@ -841,44 +843,43 @@ const slackImageToMatrixVideo = function(file, url, thumbnail_url) {
  * @param {string} url The matrix file mxc.
  * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/client_server/r0.4.0.html#m-audio
  */
-const slackImageToMatrixAudio = function(file, url) {
+const slackImageToMatrixAudio = (file, url: string) => {
     return {
-        msgtype: "m.audio",
-        url,
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
         },
+        msgtype: "m.audio",
+        url,
     };
 };
 /**
  * Converts a slack file upload to a matrix file upload event.
  *
- * @param {Object} file The slack file object.
- * @param {string} url The matrix file mxc.
- * @param {?string} thumbnail_url The matrix thumbnail mxc.
- * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/#m-file
+ * @param file The slack file object.
+ * @param url The matrix file mxc.
+ * @param thumbnail_url The matrix thumbnail mxc.
+ * @return Matrix event content, as per https://matrix.org/docs/spec/#m-file
  */
-const slackFileToMatrixMessage = function(file, url, thumbnail_url) {
+const slackFileToMatrixMessage = (file, url: string, thumbnailUrl?: string) => {
     if (file.mimetype) {
         if (file.mimetype.startsWith("image/")) {
-            return slackImageToMatrixImage(file, url, thumbnail_url);
+            return slackImageToMatrixImage(file, url, thumbnailUrl);
         } else if (file.mimetype.startsWith("video/")) {
-            return slackImageToMatrixVideo(file, url, thumbnail_url);
+            return slackImageToMatrixVideo(file, url, thumbnailUrl);
         } else if (file.mimetype.startsWith("audio/")) {
             return slackImageToMatrixAudio(file, url);
         }
     }
 
-    const message = {
-        msgtype: "m.file",
-        url,
+    return  {
         body: file.title,
         info: {
             mimetype: file.mimetype,
             size: file.size,
         },
+        msgtype: "m.file",
+        url,
     };
-    return message;
 };

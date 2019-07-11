@@ -275,7 +275,7 @@ export function replacementFromDisplayMap(str: string, displaymap: {[matrixId: s
             // This can match multiple times if there is more than one mention in the message
             const displaynames: string[] = nicks.map((x: {}) => Object.keys(x)[0]);
             displaynames.sort((x: string, y: string) => y.length - x.length);
-            for (let displayname of displaynames) {
+            for (const displayname of displaynames) {
                 const aDisplayname = `@${displayname}`;
                 const includeSig = str.includes(aDisplayname);
                 str = str.replace(includeSig ? aDisplayname : displayname, `<@${displaymap[displayname]}>`);
