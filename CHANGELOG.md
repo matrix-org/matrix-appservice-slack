@@ -1,3 +1,16 @@
+Changes in 0.3.0-rc3 (2019-07-12)
+=============================
+Bugfixes:
+- Fix slack -> matrix emote messages
+- Stop logging bodies
+
+Changes in 0.3.0-rc2 (2019-07-11)
+=============================
+Bugfixes:
+- Remove call to onSlackReactionRemoved (as it's not used)
+- teams.db path should use dbdir #156. Thanks @vrutkovs
+
+
 Changes in 0.3.0-rc1 (2019-07-05)
 =============================
 
