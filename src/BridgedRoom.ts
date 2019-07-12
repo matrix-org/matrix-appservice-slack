@@ -5,6 +5,7 @@ import { SlackGhost } from "./SlackGhost";
 import { Main } from "./Main";
 import { default as substitutions, onMissingEmoji } from "./substitutions";
 import * as emoji from "node-emoji";
+import { SlackMessageProcessor } from "./SlackMessageProcessor";
 
 const log = Logging.get("BridgedRoom");
 
@@ -127,6 +128,8 @@ export class BridgedRoom {
         });
     }
 
+    private messageProcessor: SlackMessageProcessor;
+
     private matrixRoomId: string;
     private inboundId: string;
     private slackChannelName?: string;
@@ -176,6 +179,7 @@ export class BridgedRoom {
         this.accessScopes = opts.access_scopes;
 
         this.dirty = true;
+        this.messageProcessor = new SlackMessageProcessor();
     }
 
     public getStatus() {
@@ -485,6 +489,7 @@ export class BridgedRoom {
         try {
             const ghost = await this.main.getGhostForSlackMessage(message);
             await ghost.update(message, this);
+            const result = await this.messageProcessor.process(message);
             return await this.handleSlackMessage(message, ghost);
         } catch (err) {
             log.error("Failed to process event");
