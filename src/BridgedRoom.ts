@@ -296,7 +296,7 @@ export class BridgedRoom {
 
         // If we don't get an event then exit
         if (event === null) {
-            log.debug("Could not find event '${message.redacts}' in room '${message.room_id}' to delete.");
+            log.debug(`Could not find event '${message.redacts}' in room '${message.room_id}' to delete.`);
             return;
         }
 
