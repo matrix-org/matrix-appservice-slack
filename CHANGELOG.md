@@ -1,3 +1,48 @@
+Changes in 0.3.0 (2019-07-19)
+=============================
+
+No changes since 0.3.0-rc3
+
+Changes in 0.3.0-rc3 (2019-07-12)
+=============================
+Bugfixes:
+- Fix slack -> matrix emote messages
+- Stop logging bodies
+
+Changes in 0.3.0-rc2 (2019-07-11)
+=============================
+Bugfixes:
+- Remove call to onSlackReactionRemoved (as it's not used)
+- teams.db path should use dbdir #156. Thanks @vrutkovs
+
+
+Changes in 0.3.0-rc1 (2019-07-05)
+=============================
+
+Features:
+
+Special shoutout to @Cadair for this release, who dedicated a lot of his time to these features.
+
+- Implement message deletion #129.
+- Add support for edits #130.
+- Add support for reactions #131.
+- Add support for threading (using replies) #132.
+- Support displayname and avatar lookups for Slack bots #141
+- Replace channel mentions with canonical aliases for bridged rooms #146.
+- Support slack attachments #126 #147. Thanks @umitalp for the inital groundwork and @Cadair for the cleanup.
+
+Bugfixes:
+
+- Fix the discrepancy between nicks and names in pills and mentions #111. Thanks @Cadair!
+- Fix an issue where slack thumbnails were always assumed to be JPEGs #123. Thanks @Berulacks
+
+Misc:
+
+- Update README to include instructions on authentication setup #140. Thanks @ineiti.
+- Remove duplication of registration path and tidy example config #143. Thanks @Cadair.
+- Add a dockerfile #145. Thanks @Cadair.
+
+
 Changes in 0.2.0 (2018-10-24)
 =============================
 

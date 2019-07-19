@@ -3,23 +3,23 @@ inbound_uri_prefix: "https://my.server.here:9898/"
 bot_username: "slackbot"
 username_prefix: "slack_"
 
-# Optional
-slack_master_token: "abc-123-def"
-
-# Optional
-matrix_admin_room: "!aBcDeF:matrix.org"
-
 homeserver:
   url: http://localhost:8008
   server_name: my.server
-
-# Optional
-tls:
-  key_file: /path/to/tls.key
-  crt_file: /path/to/tls.crt
 
 logging:
   console: "info"
   files:
       - "./debug.log": "info"
       - "./error.log": "error"
+
+# Optional
+dbdir: /path/to/data/storage/
+
+# Optional
+matrix_admin_room: "!aBcDeF:matrix.org"
+
+# Optional
+tls:
+  key_file: /path/to/tls.key
+  crt_file: /path/to/tls.crt
