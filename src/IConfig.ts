@@ -8,8 +8,6 @@ export interface IConfig {
     bot_username: string;
     username_prefix: string;
 
-    slack_master_token?: string;
-
     matrix_admin_room?: string;
 
     homeserver: {

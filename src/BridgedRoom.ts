@@ -1,5 +1,5 @@
 import * as rp from "request-promise-native";
-import { StoreEvent, Logging } from "matrix-appservice-bridge";
+import { StoredEvent, Logging } from "matrix-appservice-bridge";
 
 import { SlackGhost } from "./SlackGhost";
 import { Main } from "./Main";
@@ -365,7 +365,7 @@ export class BridgedRoom {
             log.error("HTTP Error: ", res);
         } else {
             // Add this event to the event store
-            const storeEv = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+            const storeEv = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
             this.main.eventStore.upsertEvent(storeEv);
         }
         return res;
@@ -428,7 +428,7 @@ export class BridgedRoom {
         if (!this.slackWebhookUri && !this.slackBotToken) { return; }
 
         const user = this.main.getOrCreateMatrixUser(message.user_id);
-        message = this.stripMatrixReplyFallback(message);
+        message = await this.stripMatrixReplyFallback(message);
         const body = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         const uri = (this.slackBotToken) ? "https://slack.com/api/chat.postMessage" : this.slackWebhookUri;
 
@@ -475,7 +475,7 @@ export class BridgedRoom {
             log.error("HTTP Error: ", res);
         } else {
             // Add this event to the event store
-            const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+            const event = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
             this.main.eventStore.upsertEvent(event);
         }
         return res;

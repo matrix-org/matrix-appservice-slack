@@ -130,34 +130,13 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
-    private async handleDomainChangeEvent(params: ISlackEventParams) {
-        this.main.getRoomsBySlackTeamId(params.team_id).forEach((room: BridgedRoom) => {
-            room.SlackTeamDomain = params.event.domain!;
-            if (room.isDirty) {
-                this.main.putRoomToStore(room);
-            }
-        });
-    }
-
-    private async handleChannelRenameEvent(params: ISlackEventParams) {
-        // TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.getRoomBySlackChannelId(params.event.channel);
-        if (!room) { throw new Error("unknown_channel"); }
-
-        const channelName = `${room.SlackTeamDomain}.#${params.name}`;
-        room.SlackChannelName = channelName;
-        if (room.isDirty) {
-            this.main.putRoomToStore(room);
-        }
-    }
-
     /**
      * Attempts to handle the `message` event.
      *
      * Sends a message to Matrix if it understands enough of the message to do so.
      * Attempts to make the message as native-matrix feeling as it can.
      */
-    private async handleMessageEvent(params: ISlackEventParamsMessage) {
+    protected async handleMessageEvent(params: ISlackEventParamsMessage) {
         const room = this.main.getRoomBySlackChannelId(params.event.channel) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
@@ -254,5 +233,26 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
         return room.onSlackMessage(msg);
+    }
+
+    private async handleDomainChangeEvent(params: ISlackEventParams) {
+        this.main.getRoomsBySlackTeamId(params.team_id).forEach((room: BridgedRoom) => {
+            room.SlackTeamDomain = params.event.domain!;
+            if (room.isDirty) {
+                this.main.putRoomToStore(room);
+            }
+        });
+    }
+
+    private async handleChannelRenameEvent(params: ISlackEventParams) {
+        // TODO test me. and do we even need this? doesn't appear to be used anymore
+        const room = this.main.getRoomBySlackChannelId(params.event.channel);
+        if (!room) { throw new Error("unknown_channel"); }
+
+        const channelName = `${room.SlackTeamDomain}.#${params.name}`;
+        room.SlackChannelName = channelName;
+        if (room.isDirty) {
+            this.main.putRoomToStore(room);
+        }
     }
 }

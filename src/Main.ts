@@ -16,13 +16,16 @@ import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
+import { SlackRTMHandler } from "./SlackHandler";
 
 const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
 
 export interface ISlackTeam {
+    id: string;
     domain: string;
+    name: string;
 }
 
 export class Main {
@@ -78,7 +81,8 @@ export class Main {
 
     private teamDatastore: any|null = null;
 
-    private slackHookHandler: SlackHookHandler;
+    private slackHookHandler?: SlackHookHandler;
+    private slackRtm: SlackRTMHandler;
 
     private metrics: any;
 
@@ -117,7 +121,8 @@ export class Main {
             userStore: path.join(dbdir, "user-store.db"),
         });
 
-        this.slackHookHandler = new SlackHookHandler(this);
+        //this.slackHookHandler = new SlackHookHandler(this);
+        this.slackRtm = new SlackRTMHandler(this);
 
         if (config.enable_metrics) {
             this.initialiseMetrics();
@@ -348,7 +353,12 @@ export class Main {
             } else {
                 this.roomsBySlackTeamId[room.SlackTeamId] = [ room ];
             }
+
+            if (room.SlackBotToken) {
+                this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
+            }
         }
+
     }
 
     public removeBridgedRoom(room: BridgedRoom) {
@@ -635,7 +645,7 @@ export class Main {
             log.error("Ignoring LEGACY room entry in room-store.db", entry);
         });
 
-        await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
+        //await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
         this.bridge.run(port, this.config);
         Provisioning.addAppServicePath(this.bridge, this);
 
