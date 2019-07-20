@@ -13,27 +13,56 @@ $ npm install
 $ npm run build
 ```
 
+How it Works:
+------------
+The bridge's server listens on two ports: One for events from your matrix
+homeserver and one for events from slack. This tutorial will walk you through
+configuring your homeserver and slack to send messages to this bridge and
+setting up the api so this bridge can relay those message (all messages) to
+the other bridged channel. Since reaching your Matrix homeserver requires
+a unique link with another port, your bridge will use a total of three unique
+ports and a slack app. For the sake of this tutorial, we will assume your
+homeserver is hosted on the same server as this bridge at the port `8008`
+(http://localhost:8008).
+
+If you've set up other bridges, you're probably familiar with the link used
+to reach your homeserver, the "homeserver url". This is the same URL. This
+is the same port. No problem! Multiple bridges can plug into the same
+homeserver url without conflicting with each other.
+
+NOTE: If your bridge and homeserver run on different machines, you will need
+to introduce proxying into the mix, which is beyond the scope of this readme.
+There are some really awesome and kind people in the Matrix community. If you're
+ever stuck, you can post a question in the [Matrix Bridging channel]
+(https://matrix.to/#/#bridges:matrix.org).
+
 Setup
 -----
 
 1. Create a new Matrix room to act as the administration control room. Note its
-   internal room ID.
+   internal room ID (EX: !abcdefg12345hijk:coolserver.com).
 
 1. Pick/decide on two spare local TCP port numbers to use. One will listen for
    messages from Matrix and needs to be visible to the homeserver. The other
-   will listen for messages from Slack and needs to be visible to the internet.
-   Take care to configure firewalls appropriately. These ports will be notated
-   as `$MATRIX_PORT` and `$SLACK_PORT` in the remaining instructions.
+   will listen for messages from Slack and needs to be visible to the  internet
+   This may require looking up your public IP address, or adding a section
+   to your web server config to publicize the slack port. Take care to configure
+   firewalls appropriately. These ports will be notated as `$MATRIX_PORT` and
+   `$SLACK_PORT` in the remaining instructions.
 
 1. Create a `config.yaml` file for global configuration. There is a sample
+<<<<<<< HEAD
    one to begin with in `config/config.sample.yaml` you may wish to copy and
    edit as appropriate. The required and optional values are flagged in the config.
 
 
 1. See [datastores](docs/datastores.md) on how to setup a database with the bridge.
 
-1. Generate the appservice registration file (if the application service runs
-   on the same server you can use `localhost` as the `$HOST` name):
+1. Generate the appservice registration file. This will be used by the
+   matrix homeserver. Here, you must specify the direct link the
+   **Matrix Homserver** can use to access the bridge, including the matrix
+   port it will send messages through (if this bridge runs on the same
+   machine you can use `localhost` as the `$HOST` name):
 
    ```sh
    $ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
@@ -51,8 +80,9 @@ Setup
    $ npm start -- -c config.yaml -p $MATRIX_PORT
    ```
 
-1. Copy the newly-generated `slack-registration.yaml` file to the homeserver.
-   Add the registration file to your homeserver config (default `homeserver.yaml`):
+1. Copy the newly-generated `slack-registration.yaml` file to your matrix
+   homeserver. Add the registration file to your homeserver config (default
+   `homeserver.yaml`):
 
    ```yaml
    app_service_config_files:
@@ -73,7 +103,17 @@ Setup
    /invite @slackbot:my.server.here
    ```
 
-The bridge itself should now be running.
+NOTE: At the time of writing, Riot does not recognize the Slack bot. This is
+okay. The bot *is there*... probably. Either way, when Riot asks if you're
+sure you want to invite @slackbot, just say yes.
+
+The bridge bot will stay offline for most of the time. This is normal. You
+will know if the bridge is working (and that your homeserver is properly
+connected) if it accepts your invitation. You can expect the bot to accept
+within 45 seconds of being invited. If it never accepts the invitation,
+check your bridge's logs and review the above steps.
+
+The bridge itself should now be running. Congrats!
 
 To actually use it, you will need to configure some linked channels.
 
@@ -81,7 +121,7 @@ Provisioning
 ------------
 
 This bridge allows linking together pairs of Matrix rooms and Slack channels,
-relaying messages said by people in one side into the other. To create a link
+relaying messages said by people in one side into the other. To create a link,
 first the individual Matrix room and Slack channel need to be created, and then
 a command needs to be issued in the administration console room to add the link
 to the bridge's database.
@@ -102,27 +142,30 @@ and bot users. This allows you to link as many channels as you would like with o
    the rooms.
 
 4. Click on `Event Subscriptions` and enable them. At this point, the bridge needs to be
-   started as Slack will do some verification of the request rul. The request url should be
-   `https://$HOST:$SLACK_PORT"`. Then add the following events and save:
+   started as Slack will do some verification of the request url. The request url is the
+   inbound uri from your config file (the publically visible link to your bridge's slack
+   port). Then add the following events as either bot user events or workspace events (it
+   changes little) and save:
 
-   Bot User Events:
-
-       - team_domain_change
-       - message.channels
-       - chat:write:bot
-       - message.groups (if you want to bridge private channels)
-       - users:read
-       - team.info
+      - team_domain_change
+      - message.channels
+      - message.groups (if you want to bridge private channels)
+      - chat:write:bot
+      - users:read
+      - team.info
+      
+      - reaction_added
+      - reaction_removed
 
 5. Skip this step if you do not want to bridge files.
    Click on `OAuth & Permissions` and add the following scopes:
 
    - files:write:user
+   - reactions:write
 
-   Note: any media uploaded to matrix is currently accessible by anyone who knows the url.
-   In order to make Slack files visible to matrix users, this bridge will make Slack files
+   Note: In order to make Slack files visible to matrix users, this bridge will make Slack files
    visible to anyone with the url (including files in private channels). This is different
-   then the current behavior in Slack, which only allows authenticated access to media
+   than the current behavior in Slack, which only allows authenticated access to media
    posted in private channels. See [MSC701](https://github.com/matrix-org/matrix-doc/issues/701)
    for details.
 
@@ -135,16 +178,27 @@ and bot users. This allows you to link as many channels as you would like with o
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
 
-   2. Invite the bot user to the Slack channel you would like to bridge.
+   2. Invite the matrix bot user to the Matrix channel you would like to bridge.
+
+       ```
+       /invite @slackbot:my.server.here
+       ```
+
+       This is the same command used to invite the bot to the Admin Control Room. Note
+       that you may have to wait for the slackbot to accept the invitation.
+
+   3. Invite the slack bot user to the Slack channel you would like to bridge.
 
        ```
        /invite @bot-user-name
        ```
 
        You will also need to determine the "channel ID" that Slack uses to identify
-       the channel, which can be found in the url `https://XXX.slack.com/messages/<channel id>/`.
+       the channel. Right-click your channel name in slack and select "Copy Link".
+       The channel id is the last argument in the url
+       (`https://XXX.slack.com/messages/<channel id>/`)
 
-   3. Issue a ``link`` command in the administration control room with these
+   4. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
 
       with file bridging:
@@ -199,11 +253,53 @@ and bot users. This allows you to link as many channels as you would like with o
    link -I CHANNELID -R !the-matrix:room.id -u https://hooks.slack.com/services/ABC/DEF/123
    ```
 
+**NOTE**: If you ever want to unlink a channel, you can issue an ``unlink`` command:
+```
+unlink --room matrix_room_id
+```
+
 See also https://github.com/matrix-org/matrix-appservice-bridge/blob/master/HOWTO.md for the general theory of all this :)
 
+------------
 
-Mattermost
-----------
+#### Docker
+
+NOTE: The following instructions may be outdated. Be sure to inquire at the official
+[Matrix Bridging Room](https://matrix.to/#/#bridges:matrix.org) if you run into any problems
+
+Following the instructions above, generate a registration file. The file may also be hand-crafted if you're familiar with the layout. You'll need this file to use the Docker image.
+
+```
+# Create the volume where we'll keep the bridge's files
+mkdir -p /matrix-appservice-slack
+
+# Create the configuration file. Use the sample configuration file as a template.
+# Be sure to set the database paths to something like this:
+#  database:
+#    userStorePath: "/data/user-store.db"
+#    roomStorePath: "/data/room-store.db"
+#  dbdir: "/data"
+nano /matrix-appservice-slack/config.yaml
+
+# Copy the registration file to the volume
+cp slack-registration.yaml /matrix-appservice-slack/slack-registration.yaml
+
+# Recommended: Build the container yourself (requires a git clone, and to be in the root of the project)
+docker build -t matrix-appservice-slack.
+
+# Run the container (this image is unnoficial. The docs will be updated when the official one is online)
+docker run -v /matrix-appservice-slack:/usr/src/app:z matrix-appservice-slack
+```
+
+#### Proxying
+
+If you want to host this bridge on a different server than your homeserver, you will have
+to proxy the bridge so both the matrix port (specified when creating your registration file
+through the -u property) and the slack port (specified by the inbound_uri prefix in your
+config file) can be reached. This way both the matrix homeserver and the slack API can reach
+your bridge.
+
+#### Mattermost
 
 Because Mattermost's webhook APIs are Slack-compatible, the Matrix &lt;--> Slack bridge
 also works with it. The webhook configuration is very similar to Slack's and is

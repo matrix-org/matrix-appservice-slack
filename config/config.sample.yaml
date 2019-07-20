@@ -1,8 +1,11 @@
-# Port to listen on for incoming slack requests from webhooks and event API messages.
-# Both options are optional if using RTM, required otherwise.
+# Port for incoming slack requests from webhooks and event API messages.
 slack_hook_port: 9898
 # Prefix of incoming requests to strip when handing. This is NOT the bind host
+  #NOTE: Unlike most of the other urls, this one cannot use localhost,
+  #as this one must be publicly visible to the slack API
 inbound_uri_prefix: "https://my.server.here:9898/"
+
+# Both of the above options are optional if using RTM (see below), required otherwise.
 
 # TLS files to be used when handing slack requests
 # Optional
@@ -34,7 +37,10 @@ username_prefix: "slack_" # Required
 homeserver: # Required
   # The domain name of your homeserver
   server_name: my.server.here
-  # The URL which the bridge can reach the homeserver on.
+  # The URL which the bridge server can reach the homeserver on.
+  # You can use localhost so long as the bridge and homeserver are
+  # hosted on the same machine
+  # 8008 is assumed to be the port the homeserver listens on
   url: http://localhost:8008
   # The public facing url for media on your homeserver.
   # This is usually the public url of your homeserver.
@@ -49,7 +55,6 @@ logging:
       "./debug.log": "info"
       "./error.log": "error"
 
-
 # Specify the location of NeDB datastore files
 # This option is DEPRECATED in favor of using the database options below. See docs/datastore.md for more information
 dbdir: "."
@@ -61,7 +66,7 @@ db:
   engine: "postgres" # "postgres" or "nedb". If using "nedb", do not define connectionString
   connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge?sslmode=require" # A postgres connection string
 
-# Use a matrix room to issue commands to the bridge
+# Use a matrix room to issue link and unlink commands to the bridge
 # Optional
 matrix_admin_room: "!aBcDeF:matrix.org"
 
