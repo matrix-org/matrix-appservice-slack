@@ -1,3 +1,11 @@
+Changes in 0.3.1 (2019-07-22)
+=============================
+
+Bugfixes:
+- Fixed issue where invalid slack ghost ids were being used for pills #167.
+- Correctly add reply fallbacks on messages in threads, and edits in threads #169. Thanks @Cadair!
+- Fix an issue where webhooks would fail to bridge across messages #165.
+
 Changes in 0.3.0 (2019-07-19)
 =============================
 
