@@ -1,3 +1,9 @@
+Changes in 0.3.2 (2019-07-22)
+=============================
+
+Bugfixes:
+- `this.main` should have just been `main`
+
 Changes in 0.3.1 (2019-07-22)
 =============================
 
