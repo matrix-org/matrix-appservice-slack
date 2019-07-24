@@ -9,6 +9,10 @@ export function onMissingEmoji(name) {
     return `:${name}:`;
 }
 
+interface IDisplayMap {
+    [name: string]: string;
+}
+
 class Substitutions {
     // Ordered
     private pairs: {slack: string, matrix: string}[];
@@ -133,10 +137,10 @@ class Substitutions {
      * Get a mapping of the nicknames of all Slack Ghosts in the room to their slack user IDs.
      *
      * @param {String} room_id The room id to make the maps for.
-     * @return {Promise} A mapping of display name to slack user ID.
+     * @return {Promise<IDisplayMap>} A mapping of display name to slack user ID.
      */
     public async getDisplayMap(main: Main, roomId: string) {
-        const displaymap: {[name: string]: string} = {};
+        const displaymap: IDisplayMap = {};
         const store = main.userStore;
         const users = await main.listGhostUsers(roomId);
         const storeUsers: {display_name: string, id: string}[][] = await Promise.all(
@@ -159,7 +163,7 @@ class Substitutions {
      * @param {Object} displaymap A mapping of display names to slack user IDs.
      * @return {Object} A mapping of first words of display names.
      */
-    public makeFirstWordMap(displaymap) {
+    public makeFirstWordMap(displaymap: IDisplayMap) {
         const displaynames = Object.keys(displaymap);
         const firstwords = {};
 
@@ -253,7 +257,7 @@ export default substitutions;
  * @param {Object} displaymap A mapping of display names to slack user IDs.
  * @return {String} The string with replacements performed.
  */
-export function replacementFromDisplayMap(str: string, displaymap: {[matrixId: string]: string}) {
+export function replacementFromDisplayMap(str: string, displaymap: IDisplayMap) {
     const firstwords = substitutions.makeFirstWordMap(displaymap);
 
     // Now parse the message to find the intersection of every word in the
