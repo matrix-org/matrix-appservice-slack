@@ -273,19 +273,17 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.error("Error during handling of an oauth token:", err);
             return {
                 code: 403,
-                html: `
-<h2>Integration Failed</h2>
-
-<p>Unfortunately your channel integration did not go as expected...</p>
-`,
+                // Not using templaes to avoid newline awfulness.
+                // tslint:disable-next-line: prefer-template
+                html: "<h2>Integration Failed</h2>\n" +
+                "<p>Unfortunately your channel integration did not go as expected...</p>",
             };
         }
         return {
-            html: `
-<h2>Integration Successful!</h2>
-
-<p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>
-`,
+            // Not using templaes to avoid newline awfulness.
+            // tslint:disable-next-line: prefer-template
+            html: `<h2>Integration Successful!</h2>\n` +
+                  `<p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>`,
         };
     }
 
