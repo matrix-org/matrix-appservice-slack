@@ -130,10 +130,10 @@ class Substitutions {
     }
 
     /**
-     * Get a mapping of the nicknames of all Slack Ghosts in the room to their slack user ids.
+     * Get a mapping of the nicknames of all Slack Ghosts in the room to their slack user IDs.
      *
      * @param {String} room_id The room id to make the maps for.
-     * @return {Promise} A mapping of display name to slack user id.
+     * @return {Promise} A mapping of display name to slack user ID.
      */
     public async getDisplayMap(main: Main, roomId: string) {
         const displaymap: {[name: string]: string} = {};
@@ -153,10 +153,10 @@ class Substitutions {
     /**
      * Construct a mapping of the first words of all the display names to
      * an array of objects which map full display names to their slack
-     * user ids.
+     * user IDs.
      * i.e. {"bob": [{"bob": "U123123"}, {"bob smith": "U2891283"}]}
      *
-     * @param {Object} displaymap A mapping of display names to slack user ids.
+     * @param {Object} displaymap A mapping of display names to slack user IDs.
      * @return {Object} A mapping of first words of display names.
      */
     public makeFirstWordMap(displaymap) {
@@ -250,7 +250,7 @@ export default substitutions;
  * Do string replacement on a message given the display map.
  *
  * @param {String} string The string to perform replacements on.
- * @param {Object} displaymap A mapping of display names to slack user ids.
+ * @param {Object} displaymap A mapping of display names to slack user IDs.
  * @return {String} The string with replacements performed.
  */
 export function replacementFromDisplayMap(str: string, displaymap: {[matrixId: string]: string}) {
