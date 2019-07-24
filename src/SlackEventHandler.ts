@@ -180,7 +180,8 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         if (params.event.type === "reaction_added") {
             return room.onSlackReactionAdded(msg);
-        }  // TODO: We cannot remove reactions yet, see #154
+        }
+        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
         /* else if (params.event.type === "reaction_removed") {
             return room.onSlackReactionRemoved(msg);
         } */

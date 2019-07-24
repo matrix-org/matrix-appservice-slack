@@ -234,7 +234,8 @@ export class SlackGhost {
     }
 
     public prepareBody(body: string) {
-        // TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
+        // TODO: This is fixing plaintext mentions, but should be refactored.
+        // See https://github.com/matrix-org/matrix-appservice-slack/issues/110
         return body.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
     }
 
@@ -248,7 +249,8 @@ export class SlackGhost {
         // a variant of markdown that is in the realm of sanity. Currently text
         // will be slack's markdown until we've got a slack -> markdown parser.
 
-        // TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
+        // TODO: This is fixing plaintext mentions, but should be refactored.
+        // https://github.com/matrix-org/matrix-appservice-slack/issues/110
         const body = text.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
         const content = {
             body,
