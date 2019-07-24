@@ -7,7 +7,6 @@ import { BridgedRoom } from "./BridgedRoom";
 const log = Logging.get("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
-// tslint:disable-next-line: no-magic-numbers
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
 
 interface ISlackUser {
