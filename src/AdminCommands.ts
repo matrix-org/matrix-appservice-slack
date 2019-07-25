@@ -26,7 +26,7 @@ const log = Logging.get("AdminCommands");
 const RoomIdDef = {
     alias: "R",
     demandOption: true,
-    description: "Matrix Room Id",
+    description: "Matrix Room ID",
 };
 
 export class AdminCommands {
