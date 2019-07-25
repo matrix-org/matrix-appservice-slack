@@ -49,7 +49,7 @@ export interface ISlackFile {
     id: string;
     url_private: string;
     public_url_shared: string;
-// tslint:disable-next-line: no-any
+    // tslint:disable-next-line: no-any
     _content: any;
     permalink: string;
 }
@@ -74,7 +74,6 @@ export abstract class BaseSlackHandler {
                 return response.channel.name;
             }
             log.info("channels.info returned no result for " + id);
-
         } catch (err) {
             log.error("Caught error handling channels.info:" + err);
         }
@@ -124,7 +123,6 @@ export abstract class BaseSlackHandler {
                 text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
             }
             iteration++;
-
         }
         return text;
     }
