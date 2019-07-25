@@ -34,12 +34,6 @@
       "spaces",
       4
     ],
-    "max-file-line-count": {
-      "severity": "warning",
-      "options": [
-        500
-      ]
-    },
     "no-duplicate-imports": true,
     "array-type": [
       true,
