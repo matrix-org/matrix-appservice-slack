@@ -156,10 +156,7 @@ export class AdminCommands {
                     alias: "I",
                     description: "Slack channel ID",
                 },
-                room: {
-                    alias: "R",
-                    description: "Matrix room ID",
-                },
+                room: { ...RoomIdDef, demandOption: false },
             },
         );
     }
