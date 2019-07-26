@@ -21,6 +21,8 @@ interface IHandlerArgs {
     matched: (b: true) =>  void;
     completed: (err: Error|null) =>  void;
     respond: ResponseCallback;
+    // yargs annoyingly puts the string parameters in with the more complex types
+    // above. To save lots of if|else|other types, unknown is being used here.
     [key: string]: unknown;
 }
 type CommandCallback = (args: IHandlerArgs) => void|Promise<void>;
