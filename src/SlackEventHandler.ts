@@ -124,11 +124,15 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleChannelRenameEvent(params: ISlackEventParams) {
-        // TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.getRoomBySlackChannelId(params.event.channel);
+        // See https://api.slack.com/events/channel_rename
+        const channelUpdate = params.event.channel as unknown as {
+            id: string,
+            name: string,
+        };
+        const room = this.main.getRoomBySlackChannelId(channelUpdate.id);
         if (!room) { throw new Error("unknown_channel"); }
 
-        const channelName = `${room.SlackTeamDomain}.#${params.name}`;
+        const channelName = `${room.SlackTeamDomain}.#${channelUpdate.id}`;
         room.SlackChannelName = channelName;
         if (room.isDirty) {
             this.main.putRoomToStore(room);
