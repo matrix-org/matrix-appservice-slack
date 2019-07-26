@@ -25,7 +25,7 @@ const log = Logging.get("substitutions");
  * Will return the emoji's name within ':'.
  * @param name The emoji's name.
  */
-export function onMissingEmoji(name): string {
+export function getFallbackForMissingEmoji(name): string {
     return `:${name}:`;
 }
 
@@ -37,7 +37,7 @@ interface IFirstWordMap {
     [firstword: string]: [IDisplayMap];
 }
 
-interface ISlackToMatrixResult {
+export interface ISlackToMatrixResult {
         link_names: number;  // This no longer works for nicks but is needed to make @channel work.
         text: string;
         username: string;
@@ -81,11 +81,14 @@ class Substitutions {
 
         // if we have a file, attempt to get the direct link to the file
         if (file && file.public_url_shared) {
-            const url = this.getSlackFileUrl(file);
-            body = url ? body.replace(file.permalink, url) : body;
+            const url = this.getSlackFileUrl({
+                permalink_public: file.permalink_public!,
+                url_private: file.url_private!,
+            });
+            body = url ? body.replace(file.permalink!, url) : body;
         }
 
-        body = emoji.emojify(body, onMissingEmoji);
+        body = emoji.emojify(body, getFallbackForMissingEmoji);
 
         return body;
     }
@@ -98,7 +101,7 @@ class Substitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-// tslint:disable-next-line: no-any
+    // tslint:disable-next-line: no-any
     public async matrixToSlack(event: any, main: Main, teamId: string): Promise<ISlackToMatrixResult> {
         let body = event.content.body;
         body = body.replace(/<((https?:\/\/)?[^>]+?)>/g, "$1");
@@ -140,7 +143,7 @@ class Substitutions {
         // meaning if we can we use the much simpler pill subs rather than this.
         const modifiedBody = await plainTextSlackMentions(main, body, event.room_id);
 
-// tslint:disable-next-line: no-any
+        // tslint:disable-next-line: no-any
         const ret: ISlackToMatrixResult = {
             link_names: 1,  // This no longer works for nicks but is needed to make @channel work.
             text: modifiedBody,

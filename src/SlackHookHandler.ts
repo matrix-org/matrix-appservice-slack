@@ -23,7 +23,7 @@ import * as qs from "querystring";
 import { Logging } from "matrix-appservice-bridge";
 
 import { SlackEventHandler } from "./SlackEventHandler";
-import { BaseSlackHandler, HTTP_CODES } from "./BaseSlackHandler";
+import { BaseSlackHandler, HTTP_CODES, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 
@@ -208,30 +208,25 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.warn("no slack token for " + params.team_domain);
 
             if (params.text) {
-                return room.onSlackMessage(params);
+                // Converting params to an object here, as we assume that params is the right shape.
+                return room.onSlackMessage(params as unknown as ISlackMessageEvent);
             }
             return;
         }
 
         const text = params.text as string;
-        if (!text) {
-            // TODO(paul): When I started looking at this code there was no lookupAndSendMessage()
-            //   I wonder if this code path never gets called...?
-            // lookupAndSendMessage(params.channel_id, params.timestamp, intent, roomID, token);
-            return;
-        }
+        const lookupRes = await this.lookupMessage(params.channel_id as string, params.timestamp as string, token);
 
-        let msg = await this.lookupMessage(params.channel_id as string, params.timestamp as string, token);
-
-        if (!msg) {
-            msg = params;
+        if (!lookupRes.message) {
+            // Converting params to an object here, as we assume that params is the right shape.
+            lookupRes.message = params as unknown as ISlackMessageEvent;
         }
 
         // Restore the original parameters, because we've forgotten a lot of
         // them by now
-        PRESERVE_KEYS.forEach((k) => msg[k] = params[k]);
-        msg.text = await this.doChannelUserReplacements(msg, text, token);
-        return room.onSlackMessage(msg);
+        PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
+        lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, token);
+        return room.onSlackMessage(lookupRes.message, lookupRes.content);
     }
 
     private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {
@@ -309,11 +304,15 @@ export class SlackHookHandler extends BaseSlackHandler {
      * The webhook request that we receive doesn't have enough information to richly
      * represent the message in Matrix, so we look up more details.
      *
+     * @throws If the message failed to be looked up, or collided with another event
+     * sent at the same microsecond.
      * @param {string} channelID Slack channel ID.
      * @param {string} timestamp Timestamp when message was received, in seconds
      *     formatted as a float.
      */
-    private async lookupMessage(channelID: string, timestamp: string, token: string) {
+    private async lookupMessage(channelID: string, timestamp: string, token: string): Promise<{
+        // tslint:disable-next-line: no-any
+        message: ISlackMessageEvent, content: Buffer|undefined}> {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.
         const params = {
@@ -332,7 +331,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         const response = await rp(params);
         if (!response || !response.messages || response.messages.length === 0) {
             log.warn("Could not find history: " + response);
-            return undefined;
+            throw Error("Could not find history");
         }
         if (response.messages.length !== 1) {
             // Just laziness.
@@ -342,21 +341,22 @@ export class SlackHookHandler extends BaseSlackHandler {
             // the right message. But this is unlikely, and I'm lazy, so
             // we'll just drop the message...
             log.warn(`Really unlucky, got multiple messages at same microsecond, dropping:`, response);
-            return undefined;
+            throw Error("Collision");
         }
         const message = response.messages[0];
         log.debug("Looked up message from history as " + JSON.stringify(message));
 
-        if (message.subtype !== "file_share") {
-            return message;
+        if (message.subtype === "file_share") {
+            try {
+                message.file = await this.enablePublicSharing(message.file, token);
+                const content = await this.fetchFileContent(message.file);
+                return { message, content };
+            } catch (err) {
+                log.error("Failed to get file content: ", err);
+                // Fall through here and handle like a normal message.
+            }
         }
-        try {
-            message.file = this.enablePublicSharing(message.file, token);
-            message.file._content = this.fetchFileContent(message.file);
-        } catch (err) {
-            log.error("Failed to get file content: ", err);
-        }
-        return message;
 
+        return { message, content: undefined };
     }
 }

@@ -35,6 +35,8 @@ import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
+export const METRIC_SENT_MESSAGES = "sent_messages";
+
 
 export interface ISlackTeam {
     domain: string;
@@ -192,7 +194,7 @@ export class Main {
         this.metrics.addCounter({
             help: "count of sent messages",
             labels: ["side"],
-            name: "sent_messages",
+            name: METRIC_SENT_MESSAGES,
         });
         this.metrics.addCounter({
             help: "Count of the number of remote API calls made",
@@ -858,5 +860,4 @@ export class Main {
         const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
         return accounts.find((acct) => acct.team_id === teamId);
     }
-// tslint:disable-next-line: max-file-line-count
 }

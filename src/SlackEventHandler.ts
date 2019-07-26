@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackFile } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackFile, ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { ServerResponse } from "http";
 import { Main } from "./Main";
@@ -24,15 +24,9 @@ const log = Logging.get("SlackEventHandler");
 
 interface ISlackEventParams {
     team_id: string;
-    event: ISlackEventEvent;
+    event: ISlackEvent;
     name: string;
     type: string;
-}
-
-interface ISlackEventEvent {
-    type: string;
-    channel: string;
-    domain: string|undefined;
 }
 
 interface ISlackEventParamsVerification extends ISlackEventParams {
@@ -41,34 +35,7 @@ interface ISlackEventParamsVerification extends ISlackEventParams {
 }
 
 interface ISlackEventParamsMessage extends ISlackEventParams {
-    event: ISlackEventMessageEvent;
-}
-
-interface ISlackEventMessageAttachment {
-    fallback: string;
-}
-
-interface ISlackEventMessageEvent extends ISlackEventEvent {
-    subtype: string;
-    user?: string;
-    bot_id?: string;
-    text?: string;
-    deleted_ts: number;
-    // For comments
-    comment?: {
-        user: string;
-    };
-    attachments?: ISlackEventMessageAttachment[];
-    // For message_changed
-    message?: {
-        text: string;
-        user: string;
-        bot_id: string;
-    };
-    previous_message?: {
-        text: string;
-    };
-    file?: ISlackFile;
+    event: ISlackMessageEvent;
 }
 
 const HTTP_OK = 200;
@@ -80,6 +47,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
     /**
      * Handles a slack event request.
+     * @param ISlackEventParams
      */
     public async handle(params: ISlackEventParams, response: ServerResponse) {
         try {
@@ -172,6 +140,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      *
      * Sends a message to Matrix if it understands enough of the message to do so.
      * Attempts to make the message as native-matrix feeling as it can.
+     * @param ISlackEventParamsMessage The slack message event to handle
      */
     private async handleMessageEvent(params: ISlackEventParamsMessage) {
         const room = this.main.getRoomBySlackChannelId(params.event.channel) as BridgedRoom;
@@ -230,7 +199,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user;
             msg.text = msg.message.text;
-            msg.previous_message.text = (await this.doChannelUserReplacements(msg, msg.previous_message.text, token))!;
+            msg.previous_message.text = (await this.doChannelUserReplacements(
+                msg, msg.previous_message!.text!, token)
+            )!;
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
@@ -256,20 +227,23 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackMessage(msg);
         }
 
+        let content: Buffer|undefined;
+
         if (msg.subtype === "file_share" && msg.file) {
             // we need a user token to be able to enablePublicSharing
             if (room.SlackUserToken) {
                 // TODO check is_public when matrix supports authenticated media
                 // https://github.com/matrix-org/matrix-doc/issues/701
-                const file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
-                if (file) {
-                    msg.file = file;
-                    msg.file!._content = await this.fetchFileContent(msg.file!);
+                try {
+                    msg.file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
+                    content = await this.fetchFileContent(msg.file);
+                } catch {
+                    // Couldn't get a shareable URL for the file, oh well.
                 }
             }
         }
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-        return room.onSlackMessage(msg);
+        return room.onSlackMessage(msg, content);
     }
 }

@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node ./lib/app.js",
     "build": "tsc",
-    "test": "mocha --reporter list --ui bdd --require ts-node/register --require source-map-support/register --recursive lib/tests/config.js lib/tests",
+    "test": "mocha --reporter list --ui bdd --require ts-node/register --require source-map-support/register --recursive lib/tests",
     "lint": "tslint -p tsconfig.json"
   },
   "repository": {

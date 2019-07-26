@@ -18,9 +18,10 @@ import * as rp from "request-promise-native";
 import { StoreEvent, Logging } from "matrix-appservice-bridge";
 
 import { SlackGhost } from "./SlackGhost";
-import { Main } from "./Main";
-import { default as substitutions, onMissingEmoji } from "./substitutions";
+import { Main, METRIC_SENT_MESSAGES } from "./Main";
+import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
+import { ISlackMessageEvent } from "./BaseSlackHandler";
 
 const log = Logging.get("BridgedRoom");
 
@@ -39,6 +40,14 @@ interface IBridgedRoomOpts {
     access_token?: string;
     access_scopes?: Set<string>;
 }
+
+interface ISlackChatMessagePayload extends ISlackToMatrixResult {
+    as_user?: boolean;
+    channel?: string;
+    thread_ts?: string;
+    icon_url?: string;
+}
+
 export class BridgedRoom {
 
     public get isDirty() {
@@ -358,16 +367,17 @@ export class BridgedRoom {
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
         const sendMessageParams = {
-            body,
+            body: {
+                ts: event.remoteEventId,
+                as_user: false,
+                channel: this.slackChannelId,
+                ...body,
+            },
             headers: {},
             json: true,
             method: "POST",
             uri: "https://slack.com/api/chat.update",
         };
-
-        sendMessageParams.body.ts = event.remoteEventId;
-        sendMessageParams.body.as_user = false;
-        sendMessageParams.body.channel = this.slackChannelId;
 
         if (this.slackBotToken) {
             sendMessageParams.headers = {
@@ -376,7 +386,7 @@ export class BridgedRoom {
         }
 
         const res = await rp(sendMessageParams);
-        this.main.incCounter("sent_messages", {side: "remote"});
+        this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         if (!res || !res.ok) {
             log.error("HTTP Error: ", res);
         } else {
@@ -445,7 +455,10 @@ export class BridgedRoom {
 
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = this.stripMatrixReplyFallback(message);
-        const body = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
+        const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
+        const body: ISlackChatMessagePayload = {
+            ...matrixToSlackResult,
+        };
         const uri = (this.slackBotToken) ? "https://slack.com/api/chat.postMessage" : this.slackWebhookUri;
 
         const sendMessageParams = {
@@ -468,7 +481,8 @@ export class BridgedRoom {
             sendMessageParams.body.channel = this.slackChannelId;
         }
 
-        sendMessageParams.body.username = user.getDisplaynameForRoom(message.room_id);
+        sendMessageParams.body.username = user.getDisplaynameForRoom(message.room_id)
+                                          || sendMessageParams.body.username;
 
         const reply = await this.findParentReply(message);
         if (reply !== message.event_id) {
@@ -486,7 +500,7 @@ export class BridgedRoom {
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
         const res = await rp(sendMessageParams);
-        this.main.incCounter("sent_messages", {side: "remote"});
+        this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         if (!res || !res.ok) {
             log.error("HTTP Error: ", res);
         } else {
@@ -497,11 +511,11 @@ export class BridgedRoom {
         return res;
     }
 
-    public async onSlackMessage(message: any) {
+    public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
         try {
             const ghost = await this.main.getGhostForSlackMessage(message);
             await ghost.update(message, this);
-            return await this.handleSlackMessage(message, ghost);
+            return await this.handleSlackMessage(message, ghost, content);
         } catch (err) {
             log.error("Failed to process event");
             log.error(err);
@@ -517,7 +531,7 @@ export class BridgedRoom {
         await ghost.update(message, this);
 
         const reaction = `:${message.reaction}:`;
-        const reactionKey = emoji.emojify(reaction, onMissingEmoji);
+        const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
 
         const eventStore = this.main.eventStore;
         const event = await eventStore.getEntryByRemoteId(message.item.channel, message.item.ts);
@@ -585,8 +599,8 @@ export class BridgedRoom {
         this.dirty = true;
     }
 
-    private async handleSlackMessage(message: any, ghost: SlackGhost) {
-        const eventTS = message.event_ts;
+    private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost, content?: Buffer) {
+        const eventTS = message.event_ts || message.ts;
         const channelId = this.slackChannelId!;
 
         ghost.bumpATime();
@@ -618,23 +632,22 @@ export class BridgedRoom {
             const mInReplyTo = {"m.in_reply_to": {event_id: replyToEvent.eventId}};
 
             const extraContent = {"m.relates_to": mInReplyTo};
-            return ghost.sendText(this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, extraContent);
+            return ghost.sendText(this.MatrixRoomId, message.text!, this.SlackChannelId!, eventTS, extraContent);
         }
 
         // If we are only handling text, send the text.
         if ([undefined, "bot_message", "file_comment"].includes(subtype)) {
-            return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
+            return ghost.sendText(this.matrixRoomId, message.text!, channelId, eventTS);
         } else if (subtype === "me_message") {
-            message = {
-                body: message.text,
+            return ghost.sendMessage(this.matrixRoomId, {
+                body: message.text!,
                 msgtype: "m.emote",
-            };
-            return ghost.sendMessage(this.matrixRoomId, message, channelId, eventTS);
+            }, channelId, eventTS);
         } else if (subtype === "message_changed") {
-            const previousMessage = ghost.prepareBody(substitutions.slackToMatrix(message.previous_message.text));
+            const previousMessage = ghost.prepareBody(substitutions.slackToMatrix(message.previous_message!.text!));
             // We use message.text here rather than the proper message.message.text
             // as we have added message.text ourselves and then transformed it.
-            const newMessageRich = substitutions.slackToMatrix(message.text);
+            const newMessageRich = substitutions.slackToMatrix(message.text!);
             const newMessage = ghost.prepareBody(newMessageRich);
 
             // The substitutions might make the messages the same
@@ -656,7 +669,7 @@ export class BridgedRoom {
             const formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font>` +
             `${after} =&gt; ${before} <font color="green"> ${curr} </font> ${after}`;
 
-            const prevEvent = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message.ts);
+            const prevEvent = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message!.ts);
             const matrixContent = {
                 "body": ghost.prepareBody(outtext),
                 "format": "org.matrix.custom.html",
@@ -674,8 +687,12 @@ export class BridgedRoom {
                 "msgtype": "m.text",
             };
             return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
-        } else if (message.files !== undefined) {
+        } else if (message.files) {
             for (const file of message.files) {
+                if (!file.url_private) {
+                    // Cannot do anything with this.
+                    continue;
+                }
                 if (file.mode === "snippet") {
                     let htmlString: string;
                     try {
@@ -683,18 +700,16 @@ export class BridgedRoom {
                             headers: {
                                 Authorization: `Bearer ${this.slackBotToken}`,
                             },
-                            uri: file.url_private,
+                            uri: file.url_private!,
                         });
                     } catch (ex) {
                         log.error("Failed to download snippet", ex);
                         continue;
                     }
                     let htmlCode = "";
-                    let code = "```";
-                    code += "\n";
-                    code += htmlString;
-                    code += "\n";
-                    code += "```";
+                    // Because escaping 6 backticks is not good for readability.
+                    // tslint:disable-next-line: prefer-template
+                    const code = "```" + `\n${htmlString}\n` + "```";
                     if (file.filetype) {
                         htmlCode = `<pre><code class="language-${file.filetype}'">`;
                     } else {
@@ -703,13 +718,13 @@ export class BridgedRoom {
                     htmlCode += substitutions.htmlEscape(htmlString);
                     htmlCode += "</code></pre>";
 
-                    const content = {
+                    const messageContent = {
                         body: code,
                         format: "org.matrix.custom.html",
                         formatted_body: htmlCode,
                         msgtype: "m.text",
                     };
-                    await ghost.sendMessage(this.matrixRoomId, content, channelId, eventTS);
+                    await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
                     // TODO: Currently Matrix lacks a way to upload a "captioned image",
                     //   so we just send a separate `m.image` and `m.text` message
                     // See https://github.com/matrix-org/matrix-doc/issues/906
@@ -718,13 +733,12 @@ export class BridgedRoom {
                     }
                 } else {
                     // We also need to upload the thumbnail
-                    let thumbnailPromise: Promise<any> = Promise.resolve();
+                    let thumbnailPromise: Promise<string> = Promise.resolve("");
                     // Slack ain't a believer in consistency.
                     const thumbUri = file.thumb_video || file.thumb_360;
                     if (thumbUri && file.filetype) {
                         thumbnailPromise = ghost.uploadContentFromURI(
                             {
-                                _content: "",
                                 mimetype: file.mimetype,
                                 title: `${file.name}_thumb.${file.filetype}`,
                             },
@@ -753,8 +767,9 @@ export class BridgedRoom {
             log.warn(`Ignoring message with subtype: ${subtype}`);
         }
     }
-
 }
+
+
 
 /**
  * Converts a slack image attachment to a matrix image event.
@@ -899,4 +914,3 @@ const slackFileToMatrixMessage = (file, url: string, thumbnailUrl?: string) => {
         url,
     };
 };
-// tslint:disable-next-line: max-file-line-count

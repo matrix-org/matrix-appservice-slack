@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Main } from "./Main";
+import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { Logging, StoredEvent, Intent } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
+import { ISlackFile } from "./BaseSlackHandler";
 
 const log = Logging.get("SlackGhost");
 
@@ -36,12 +37,6 @@ interface ISlackUser {
         image_72?: string;
         image_48?: string;
     };
-}
-
-interface ISlackFile {
-    title: string;
-    _content: string;
-    mimetype: string;
 }
 
 interface ISlackGhostEntry {
@@ -240,10 +235,9 @@ export class SlackGhost {
             uri: avatarUrl,
         });
         const contentUri = await this.uploadContent({
-            _content: response.body,
             mimetype: response.headers["content-type"],
             title,
-        });
+        }, response.body);
         await this.intent.setAvatarUrl(contentUri);
         this.avatarUrl = avatarUrl;
         this.main.putUserToStore(this);
@@ -280,7 +274,7 @@ export class SlackGhost {
 
     public async sendMessage(roomId: string, msg: {}, slackRoomID: string, slackEventTS: string) {
         const matrixEvent = await this.intent.sendMessage(roomId, msg);
-        this.main.incCounter("sent_messages", {side: "matrix"});
+        this.main.incCounter(METRIC_SENT_MESSAGES, {side: "matrix"});
 
         const event = new StoredEvent(roomId, matrixEvent.event_id, slackRoomID, slackEventTS);
         await this.main.eventStore.upsertEvent(event);
@@ -307,27 +301,27 @@ export class SlackGhost {
         return matrixEvent;
     }
 
-    public async uploadContentFromURI(file: ISlackFile, uri: string, slackAccessToken: string) {
+    public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
+    : Promise<string> {
         try {
-            const buffer = await rp({
+            const response = await rp({
                 encoding: null, // Because we expect a binary
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
                 uri,
             });
-            file._content = buffer;
-            return await this.uploadContent(file);
+            return await this.uploadContent(file, response.body as Buffer);
         } catch (reason) {
             log.error("Failed to upload content:\n%s", reason);
             throw reason;
         }
     }
 
-    public async uploadContent(file: ISlackFile) {
+    public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
         const response = await this.intent.getClient().uploadContent({
             name: file.title,
-            stream: new Buffer(file._content, "binary"),
+            stream: buffer,
             type: file.mimetype,
         });
         const content_uri = JSON.parse(response).content_uri;

@@ -44,14 +44,59 @@ export interface ISlackMessage {
     text?: string;
 }
 
+export interface ISlackEvent {
+    type: string;
+    channel: string;
+    domain?: string;
+    ts: string;
+}
+
+export interface ISlackEventMessageAttachment {
+    fallback: string;
+}
+
+export interface ISlackMessageEvent extends ISlackEvent {
+    subtype: string;
+    user?: string;
+    bot_id?: string;
+    text?: string;
+    deleted_ts: number;
+    // For comments
+    comment?: {
+        user: string;
+    };
+    attachments?: ISlackEventMessageAttachment[];
+    // For message_changed
+    message?: {
+        text: string;
+        user: string;
+        bot_id: string;
+    };
+    previous_message?: ISlackMessageEvent;
+    file?: ISlackFile;
+    files?: ISlackFile[];
+    /**
+     * PSA: `event_ts` refers to the time an event was acted upon,
+     * and `ts` is the events timestamp itself. Use `event_ts` over `ts`
+     * when handling.
+     */
+    event_ts?: string;
+    thread_ts?: string;
+}
+
 export interface ISlackFile {
-    permalink_public: string;
+    name?: string;
+    thumb_360?: string;
+    thumb_video?: string;
+    filetype?: string;
+    mode?: string;
+    title: string;
+    mimetype: string;
+    permalink_public?: string;
     id: string;
-    url_private: string;
-    public_url_shared: string;
-    // tslint:disable-next-line: no-any
-    _content: any;
-    permalink: string;
+    url_private?: string;
+    public_url_shared?: string;
+    permalink?: string;
 }
 
 export abstract class BaseSlackHandler {
@@ -173,8 +218,9 @@ export abstract class BaseSlackHandler {
      * @param {Object} file A slack 'message.file' data object
      * @param {string} token A slack API token that has 'files:write:user' scope
      * @return {Promise<Object>} A Promise of the updated slack file data object
+     * @throws if the slack request fails or the response didn't contain `file.permalink_public`
      */
-    public async enablePublicSharing(file: ISlackFile, token: string) {
+    public async enablePublicSharing(file: ISlackFile, token: string): Promise<ISlackFile> {
         if (file.public_url_shared) { return file; }
 
         this.main.incRemoteCallCounter("files.sharedPublicURL");
@@ -189,7 +235,7 @@ export abstract class BaseSlackHandler {
         });
         if (!response || !response.file || !response.file.permalink_public) {
             log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
-            return;
+            throw Error("files.sharedPublicURL didn't return a shareable url");
         }
         return response.file;
     }
@@ -200,21 +246,23 @@ export abstract class BaseSlackHandler {
      * @param {Object} file A slack 'message.file' data object
      * @return {Promise<string>} A Promise of file contents
      */
-    public async fetchFileContent(file: ISlackFile) {
-        if (!file) { return; }
-
-        const url = subs.getSlackFileUrl(file) || file.permalink_public;
+    public async fetchFileContent(file: ISlackFile): Promise<Buffer> {
+        const url = subs.getSlackFileUrl({
+            permalink_public: file.permalink_public!,
+            url_private: file.url_private!,
+        }) || file.permalink_public;
         if (!url) {
             throw new Error("File doesn't have any URLs we can use.");
         }
 
         const response = await rp({
+            // This causes response.body to be a buffer.
             encoding: null,
             resolveWithFullResponse: true,
             uri: url,
         });
 
-        const content = response.body;
+        const content = response.body as Buffer;
         log.debug(`Successfully fetched file ${file.id}  content (${content.length} bytes)`);
         return content;
     }
