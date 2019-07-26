@@ -21,7 +21,6 @@ import * as Datastore from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import * as rp from "request-promise-native";
-
 import { IConfig } from "./IConfig";
 import { OAuth2 } from "./OAuth2";
 import { BridgedRoom } from "./BridgedRoom";

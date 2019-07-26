@@ -16,7 +16,6 @@ limitations under the License.
 
 import { Logging } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
-
 import { Main } from "./Main";
 import { SlackGhost } from "./SlackGhost";
 import { default as subs } from "./substitutions";

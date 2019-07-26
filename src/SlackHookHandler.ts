@@ -21,7 +21,6 @@ import { createServer as httpsCreate } from "https";
 import * as rp from "request-promise-native";
 import * as qs from "querystring";
 import { Logging } from "matrix-appservice-bridge";
-
 import { SlackEventHandler } from "./SlackEventHandler";
 import { BaseSlackHandler, HTTP_CODES, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
@@ -270,7 +269,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                 await this.main.setUserAccessToken(
                     user,
                     response.team_id,
-                    result.user_id,
+                    response.user_id,
                     response.access_token,
                 );
                 this.main.updateTeamBotStore(

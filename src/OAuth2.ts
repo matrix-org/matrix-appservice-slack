@@ -18,7 +18,6 @@ import * as querystring from "querystring";
 import * as rp from "request-promise-native";
 import * as uuid from "uuid/v4";
 import { Logging } from "matrix-appservice-bridge";
-
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";

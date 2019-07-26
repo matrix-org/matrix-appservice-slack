@@ -16,7 +16,6 @@ limitations under the License.
 
 import * as rp from "request-promise-native";
 import { StoreEvent, Logging } from "matrix-appservice-bridge";
-
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackFile, ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { ServerResponse } from "http";
 import { Main } from "./Main";

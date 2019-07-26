@@ -16,7 +16,6 @@ limitations under the License.
 
 import { Logging } from "matrix-appservice-bridge";
 import * as yargs from "yargs";
-
 import { AdminCommand, ResponseCallback } from "./AdminCommand";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
