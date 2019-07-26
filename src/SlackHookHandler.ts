@@ -130,8 +130,18 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
 
         const room = this.main.getRoomByInboundId(inboundId);
-        // authorize is special
-        if (!room && path !== "authorize") {
+
+        if (method === "GET" && path === "authorize") {
+            // We may or may not have a room bound to the inboundId.
+            const result = await this.handleAuthorize(room || inboundId, params);
+            response.writeHead(result.code || HTTP_CODES.OK, {"Content-Type": "text/html"});
+            response.write(result.html);
+            response.end();
+            endTimer({outcome: "success"});
+            return;
+        }
+
+        if (!room) {
             log.warn("Ignoring message from unrecognised inbound ID: %s (%s.#%s)",
                 inboundId, params.team_domain, params.channel_name,
             );
@@ -157,15 +167,6 @@ export class SlackHookHandler extends BaseSlackHandler {
             }
             response.writeHead(HTTP_CODES.OK, {"Content-Type": "application/json"});
             response.end();
-            return;
-        }
-
-        if (method === "GET" && path === "authorize") {
-            const result = await this.handleAuthorize(room || inboundId, params);
-            response.writeHead(result.code || HTTP_CODES.OK, {"Content-Type": "text/html"});
-            response.write(result.html);
-            response.end();
-            endTimer({outcome: "success"});
             return;
         }
 
