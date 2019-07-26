@@ -219,7 +219,7 @@ commands.getlink = new Command({
             };
         }
 
-        // Convert the room 'status' into a scalar 'status'
+        // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();
         if (status.match(/^ready/)) {
             // OK
@@ -287,7 +287,7 @@ commands.link = new Command({
             });
         }
         const room = await main.actionLink(opts);
-        // Convert the room 'status' into a scalar 'status'
+        // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();
         if (status === "ready") {
             // OK
