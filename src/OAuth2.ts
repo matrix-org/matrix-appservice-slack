@@ -33,9 +33,6 @@ const REQUIRED_SCOPES = [
     "files:write:user",
     "chat:write:bot",
     "users:read",
-];
-
-const BOT_SCOPES = [
     "bot",
 ];
 
@@ -72,10 +69,6 @@ export class OAuth2 {
     public makeAuthorizeURL(room: string|BridgedRoom, state: string): string {
         const redirectUri = this.makeRedirectURL(room);
         let scopes = Array.from(REQUIRED_SCOPES);
-        // XXX: Why do we do this?
-        if (typeof room === "string") {
-            scopes = scopes.concat(BOT_SCOPES);
-        }
 
         const qs = querystring.stringify({
             client_id: this.clientId,
