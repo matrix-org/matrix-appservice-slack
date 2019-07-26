@@ -46,7 +46,8 @@
     "prefer-template": [
       true,
       "allow-single-concat"
-    ]
+    ],
+    "interface-name": false
   },
   "overrides": [
     {

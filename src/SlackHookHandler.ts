@@ -258,26 +258,26 @@ export class SlackHookHandler extends BaseSlackHandler {
         );
 
         try {
-            const result = await oauth2.exchangeCodeForToken(
+            const { response, access_scopes } = await oauth2.exchangeCodeForToken(
                 params.code as string,
                 roomOrToken,
             );
             log.debug("Got a full OAuth2 token");
             if (room) { // Legacy webhook
-                room.updateAccessToken(result.access_token, new Set(result.access_scopes));
+                room.updateAccessToken(response.access_token, new Set(access_scopes));
                 this.main.putRoomToStore(room);
             } else if (user) { // New event api
                 await this.main.setUserAccessToken(
                     user,
-                    result.team_id,
+                    response.team_id,
                     result.user_id,
-                    result.access_token,
+                    response.access_token,
                 );
                 this.main.updateTeamBotStore(
-                    result.team_id,
-                    result.team_name,
-                    result.bot.bot_user_id,
-                    result.bot.bot_access_token,
+                    response.team_id,
+                    response.team_name,
+                    response.bot!.bot_user_id,
+                    response.bot!.bot_access_token,
                 );
             }
         } catch (err) {
