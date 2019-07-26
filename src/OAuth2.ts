@@ -92,6 +92,7 @@ export class OAuth2 {
         const redirectUri = this.makeRedirectURL(room);
         this.main.incRemoteCallCounter("oauth.access");
         const response: OAuthAccessResponse = await rp({
+            uri: "https://slack.com/api/oauth.access",
             json: true,
             qs: {
                 client_id: this.clientId,
@@ -99,7 +100,6 @@ export class OAuth2 {
                 code,
                 redirect_uri: redirectUri,
             },
-            uri: "https://slack.com/api/oauth.access",
         });
         if (response.ok) {
             return {

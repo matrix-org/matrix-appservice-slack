@@ -140,7 +140,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      *
      * Sends a message to Matrix if it understands enough of the message to do so.
      * Attempts to make the message as native-matrix feeling as it can.
-     * @param ISlackEventParamsMessage The slack message event to handle
+     * @param ISlackEventParamsMessage The slack message event to handle.
      */
     private async handleMessageEvent(params: ISlackEventParamsMessage) {
         const room = this.main.getRoomBySlackChannelId(params.event.channel) as BridgedRoom;

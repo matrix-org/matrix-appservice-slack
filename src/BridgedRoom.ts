@@ -551,11 +551,11 @@ export class BridgedRoom {
         if (!this.slackBotToken) { return; }
 
         const response = await rp({
+            uri: "https://slack.com/api/team.info",
             json: true,
             qs: {
                 token: this.slackBotToken,
             },
-            uri: "https://slack.com/api/team.info",
         });
         if (!response.team) { return; }
 
@@ -567,11 +567,11 @@ export class BridgedRoom {
         if (!this.slackBotToken) { return; }
 
         const testRes = await rp({
+            uri: "https://slack.com/api/auth.test",
             json: true,
             qs: {
                 token: this.slackBotToken,
             },
-            uri: "https://slack.com/api/auth.test",
         });
 
         log.debug("auth.test res:", testRes);
@@ -579,12 +579,12 @@ export class BridgedRoom {
         this.setValue("slackUserId", testRes.user_id);
 
         const usersRes = await rp({
+            uri: "https://slack.com/api/users.info",
             json: true,
             qs: {
                 token: this.slackBotToken,
                 user: testRes.user_id,
             },
-            uri: "https://slack.com/api/users.info",
         });
         if (!usersRes.user || !usersRes.user.profile) { return; }
         this.setValue("slackBotId", usersRes.user.profile.bot_id);

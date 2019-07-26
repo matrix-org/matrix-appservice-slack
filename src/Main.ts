@@ -749,12 +749,12 @@ export class Main {
             room.SlackBotToken = teamToken;
             this.incRemoteCallCounter("channels.info");
             const response = await rp({
+                url: "https://slack.com/api/channels.info",
                 json: true,
                 qs: {
                     channel: opts.slack_channel_id,
                     token: teamToken,
                 },
-                url: "https://slack.com/api/channels.info",
             });
 
             if (!response.ok) {

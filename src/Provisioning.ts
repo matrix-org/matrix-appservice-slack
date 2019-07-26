@@ -150,6 +150,7 @@ commands.channels = new Command({
             throw new Error("No team token for this team_id");
         }
         const response = await rp({
+            url: "https://slack.com/api/conversations.list",
             json: true,
             qs: {
                 exclude_archived: true,
@@ -157,7 +158,6 @@ commands.channels = new Command({
                 token: team.bot_token,
                 types: "public_channel",
             },
-            url: "https://slack.com/api/conversations.list",
         });
         if (!response.ok) {
             log.error(`Failed trying to fetch channels for ${teamId}.`, response);

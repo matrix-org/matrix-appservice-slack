@@ -140,12 +140,12 @@ export class SlackGhost {
 
         this.main.incRemoteCallCounter("bots.info");
         return await rp({
+            uri: "https://slack.com/api/bots.info",
             json: true,
             qs: {
                 bot,
                 token,
             },
-            uri: "https://slack.com/api/bots.info",
         });
     }
 
@@ -185,12 +185,12 @@ export class SlackGhost {
 
         this.main.incRemoteCallCounter("users.info");
         this.userInfoLoading = rp({
+            uri: "https://slack.com/api/users.info",
             json: true,
             qs: {
                 token: slackAccessToken,
                 user: slackUserId,
             },
-            uri: "https://slack.com/api/users.info",
         }) as rp.RequestPromise<{user?: ISlackUser}>;
         const response = await this.userInfoLoading!;
         if (!response.user || !response.user.profile) {

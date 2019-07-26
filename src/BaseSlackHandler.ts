@@ -220,13 +220,13 @@ export abstract class BaseSlackHandler {
 
         this.main.incRemoteCallCounter("files.sharedPublicURL");
         const response = await rp({
+            uri: "https://slack.com/api/files.sharedPublicURL",
+            method: "POST",
             form: {
                 file: file.id,
                 token,
             },
             json: true,
-            method: "POST",
-            uri: "https://slack.com/api/files.sharedPublicURL",
         });
         if (!response || !response.file || !response.file.permalink_public) {
             log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
