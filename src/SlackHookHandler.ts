@@ -99,6 +99,9 @@ export class SlackHookHandler extends BaseSlackHandler {
      *
      * Sends a message to Matrix if it understands enough of the message to do so.
      * Attempts to make the message as native-matrix feeling as it can.
+     * @param method The HTTP method for the incoming request
+     * @param url The HTTP url for the incoming request
+     * @param params Parameters given in either the body or query string.
      */
     private async handle(method: string, url: string, params: {[key: string]: string|string[]},
                          response: ServerResponse) {
