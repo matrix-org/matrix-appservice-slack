@@ -125,15 +125,15 @@ export abstract class BaseSlackHandler {
         return id;
     }
 
-    public async doChannelUserReplacements(msg: ISlackMessage, text: string, token: string) {
-        text = (await this.replaceChannelIdsWithNames(msg, text, token))!;
+    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, token: string) {
+        if (text === undefined) {
+            return;
+        }
+        text = await this.replaceChannelIdsWithNames(msg, text, token);
         return await this.replaceUserIdsWithNames(msg, text, token);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string|undefined, token: string) {
-        if (text === undefined) {
-            return text;
-        }
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, token: string) {
         const testForName = text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
         let matches = 0;
@@ -172,11 +172,7 @@ export abstract class BaseSlackHandler {
         return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, text: string|undefined, token: string) {
-        if (text === undefined) {
-            return text;
-        }
-
+    public async replaceUserIdsWithNames(message: ISlackMessage, text: string, token: string) {
         let match = USER_ID_REGEX.exec(text);
         while (match !== null && match[0]) {
             // foreach userId, pull out the ID
