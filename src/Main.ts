@@ -97,7 +97,6 @@ export class Main {
 
     private slackHookHandler: SlackHookHandler;
 
-    // Metrics 
     // tslint:disable-next-line: no-any
     private metrics: PrometheusMetrics;
 
