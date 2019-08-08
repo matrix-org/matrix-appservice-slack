@@ -360,8 +360,9 @@ export class BridgedRoom {
         );
 
         // re-write the message so the matrixToSlack converter works as expected.
-        const newMessage = JSON.parse(JSON.stringify(message));
+        let newMessage = JSON.parse(JSON.stringify(message));
         newMessage.content = message.content["m.new_content"];
+        newMessage = this.stripMatrixReplyFallback(newMessage);
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
@@ -613,25 +614,12 @@ export class BridgedRoom {
                 subtype === "file_comment" ? message.file : undefined);
         }
 
-        if (message.thread_ts !== undefined) {
-            const eventStore = this.main.eventStore;
-            // Get parent event
-            const parentEvent = await eventStore.getEntryByRemoteId(this.SlackChannelId, message.thread_ts);
-            let replyToTS = "";
-            // Add this event to the list of events in this thread
-            if (parentEvent._extras.slackThreadMessages === undefined) {
-                parentEvent._extras.slackThreadMessages = [];
-            }
-            replyToTS = parentEvent._extras.slackThreadMessages.slice(-1)[0] || message.thread_ts;
-            parentEvent._extras.slackThreadMessages.push(message.ts);
-            await eventStore.upsertEvent(parentEvent);
-
-            // Get event to reply to
-            const replyToEvent = await eventStore.getEntryByRemoteId(this.SlackChannelId, replyToTS);
-            const mInReplyTo = {"m.in_reply_to": {event_id: replyToEvent.eventId}};
-
-            const extraContent = {"m.relates_to": mInReplyTo};
-            return ghost.sendText(this.MatrixRoomId, message.text!, this.SlackChannelId!, eventTS, extraContent);
+        if (message.thread_ts !== undefined && message.text) {
+            let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
+            replyMEvent = this.stripMatrixReplyFallback(replyMEvent);
+            return await ghost.sendWithReply(
+                this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
+            );
         }
 
         // If we are only handling text, send the text.
@@ -665,18 +653,40 @@ export class BridgedRoom {
             const before = substitutions.htmlEscape(edits.before);
             const after  = substitutions.htmlEscape(edits.after);
 
-            const formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font>` +
-            `${after} =&gt; ${before} <font color="green"> ${curr} </font> ${after}`;
-
+            let formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font> ${after} =&gt; ${before}` +
+            `<font color="green"> ${curr} </font> ${after}`;
             const prevEvent = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message!.ts);
+
+            // If this edit is in a thread we need to inject the reply fallback, or
+            // non-reply supporting clients will no longer show it as a reply.
+            let body = ghost.prepareBody(outtext);
+
+            let newBody = ghost.prepareBody(newMessageRich);
+            let newFormattedBody = ghost.prepareFormattedBody(newMessageRich);
+            if (message.message && message.message.thread_ts !== undefined) {
+                let replyEvent = await this.getReplyEvent(
+                    this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
+                );
+                replyEvent = this.stripMatrixReplyFallback(replyEvent);
+
+                const bodyFallback = ghost.getFallbackText(replyEvent);
+                const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
+
+                body = `${bodyFallback}\n\n${body}`;
+                formatted = formattedFallback + formatted;
+
+                newBody = bodyFallback + newBody;
+                newFormattedBody = formattedFallback + newFormattedBody;
+            }
+
             const matrixContent = {
-                "body": ghost.prepareBody(outtext),
+                body,
                 "format": "org.matrix.custom.html",
                 "formatted_body": formatted,
                 "m.new_content": {
-                    body: ghost.prepareBody(newMessageRich),
+                    body: newBody,
                     format: "org.matrix.custom.html",
-                    formatted_body: ghost.prepareFormattedBody(newMessageRich),
+                    formatted_body: newFormattedBody,
                     msgtype: "m.text",
                 },
                 "m.relates_to": {
@@ -766,9 +776,26 @@ export class BridgedRoom {
             log.warn(`Ignoring message with subtype: ${subtype}`);
         }
     }
+
+    private async getReplyEvent(roomID: string, message: ISlackMessageEvent, slackRoomID: string) {
+        // Get parent event
+        const eventStore = this.main.eventStore;
+        const parentEvent = await eventStore.getEntryByRemoteId(slackRoomID, message.thread_ts);
+        let replyToTS = "";
+        // Add this event to the list of events in this thread
+        if (parentEvent._extras.slackThreadMessages === undefined) {
+            parentEvent._extras.slackThreadMessages = [];
+        }
+        replyToTS = parentEvent._extras.slackThreadMessages.slice(-1)[0] || message.thread_ts;
+        parentEvent._extras.slackThreadMessages.push(message.ts);
+        await eventStore.upsertEvent(parentEvent);
+
+        // Get event to reply to
+        const replyToEvent = await eventStore.getEntryByRemoteId(slackRoomID, replyToTS);
+        const intent = this.main.botIntent;
+        return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
+    }
 }
-
-
 
 /**
  * Converts a slack image attachment to a matrix image event.

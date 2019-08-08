@@ -45,6 +45,15 @@ interface ISlackGhostEntry {
     avatar_url?: string;
 }
 
+interface IMatrixReplyEvent {
+    sender: string;
+    event_id: string;
+    content: {
+        body: string;
+        formatted_body?: string;
+    };
+}
+
 export class SlackGhost {
 
     public get aTime() {
@@ -301,6 +310,26 @@ export class SlackGhost {
         return matrixEvent;
     }
 
+    public async sendWithReply(roomId: string, text: string, slackRoomId: string,
+                               slackEventTs: string, replyEvent: IMatrixReplyEvent) {
+        const fallbackHtml = this.getFallbackHtml(roomId, replyEvent);
+        const fallbackText = this.getFallbackText(replyEvent);
+
+        const content = {
+            "m.relates_to": {
+                "m.in_reply_to": {
+                    event_id: replyEvent.event_id,
+                },
+            },
+            "msgtype": "m.text", // for those who just want to send the reply as-is
+            "body": `${fallbackText}\n\n${this.prepareBody(text)}`,
+            "format": "org.matrix.custom.html",
+            "formatted_body": fallbackHtml + this.prepareFormattedBody(text),
+        };
+
+        return await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
+    }
+
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
     : Promise<string> {
         try {
@@ -331,5 +360,23 @@ export class SlackGhost {
 
     public bumpATime() {
         this.atime = Date.now() / 1000;
+    }
+
+    public getFallbackHtml(roomId: string, replyEvent: IMatrixReplyEvent) {
+        const originalBody = (replyEvent.content ? replyEvent.content.body : "") || "";
+        let originalHtml = (replyEvent.content ? replyEvent.content.formatted_body : "") || null;
+        if (originalHtml === null) {
+            originalHtml = originalBody;
+        }
+        return "<mx-reply><blockquote>"
+              + `<a href="https://matrix.to/#/${roomId}/${replyEvent.event_id}">In reply to</a>`
+              + `<a href="https://matrix.to/#/${replyEvent.sender}">${replyEvent.sender}</a>`
+              + `<br />${originalHtml}`
+              + "</blockquote></mx-reply>";
+    }
+
+    public getFallbackText(replyEvent: IMatrixReplyEvent) {
+        const originalBody = (replyEvent.content ? replyEvent.content.body : "") || "";
+        return `> <${replyEvent.sender}> ${originalBody.split("\n").join("\n> ")}`;
     }
 }

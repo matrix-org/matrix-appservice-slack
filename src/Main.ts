@@ -36,10 +36,11 @@ const log = Logging.get("Main");
 const RECENT_EVENTID_SIZE = 20;
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
-
 export interface ISlackTeam {
     domain: string;
 }
+
+interface MetricsLabels { [labelName: string]: string; }
 
 export class Main {
 
@@ -92,11 +93,13 @@ export class Main {
     // So we can't create the StateLookup instance yet
     private stateStorage: StateLookup|null = null;
 
-    private teamDatastore: any|null = null;
+    private teamDatastore: Datastore|null = null;
 
     private slackHookHandler: SlackHookHandler;
 
-    private metrics: any;
+    // Metrics 
+    // tslint:disable-next-line: no-any
+    private metrics: PrometheusMetrics;
 
     private adminCommands = new AdminCommands(this);
 
@@ -212,7 +215,7 @@ export class Main {
         });
     }
 
-    public incCounter(name: string, labels: any = {}) {
+    public incCounter(name: string, labels: MetricsLabels = {}) {
         if (!this.metrics) { return; }
         this.metrics.incCounter(name, labels);
     }
@@ -222,7 +225,7 @@ export class Main {
         this.metrics.incCounter("remote_api_calls", {method: type});
     }
 
-    public startTimer(name: string, labels: any = {}) {
+    public startTimer(name: string, labels: MetricsLabels = {}) {
         if (!this.metrics) { return () => {}; }
         return this.metrics.startTimer(name, labels);
     }
@@ -636,7 +639,7 @@ export class Main {
             filename: path.join(this.config.dbdir || "", "teams.db"),
         });
         await new Promise((resolve, reject) => {
-            this.teamDatastore.loadDatabase((err) => {
+            this.teamDatastore!.loadDatabase((err) => {
             if (err) {
                 reject(err);
                 return;
@@ -830,7 +833,7 @@ export class Main {
     }
 
     public updateTeamBotStore(teamId: string, teamName: string, userId: string, botToken: string) {
-        this.teamDatastore.update({team_id: teamId}, {
+        this.teamDatastore!.update({team_id: teamId}, {
             bot_token: botToken,
             team_id: teamId,
             team_name: teamName,
@@ -841,7 +844,7 @@ export class Main {
 
     public async getTeamFromStore(teamId: string): Promise<any> {
         return new Promise((resolve, reject) => {
-            this.teamDatastore.findOne({team_id: teamId}, (err, doc) => {
+            this.teamDatastore!.findOne({team_id: teamId}, (err, doc) => {
                 if (err) {
                     reject(err);
                     return;

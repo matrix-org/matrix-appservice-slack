@@ -184,13 +184,18 @@ class Substitutions {
         const displaymap: IDisplayMap = {};
         const store = main.userStore;
         const users = await main.listGhostUsers(roomId);
-        const storeUsers: {display_name: string, id: string}[][] = await Promise.all(
+        let storeUsers: {display_name: string, id: string}[] = await Promise.all(
             users.map((id: string) => store.select({id})),
         );
+        storeUsers = storeUsers.filter((u) => u && u[0]);
         storeUsers.forEach((user) => {
-            if (user && user[0]) {
-                displaymap[user[0].display_name] = user[0].id.split("_")[2].split(":")[0];
+            // The format is @prefix%nospace%domain_userid:homeserver_domain
+            const localpart = user[0].id.split(":")[0].substr(main.userIdPrefix.length + 1);
+            const slackId = localpart.split("_")[1];
+            if (!slackId) {
+                return;
             }
+            displaymap[user[0].display_name] = slackId;
         });
         return displaymap;
     }

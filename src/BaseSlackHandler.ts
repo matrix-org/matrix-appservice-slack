@@ -70,6 +70,7 @@ export interface ISlackMessageEvent extends ISlackEvent {
         text: string;
         user: string;
         bot_id: string;
+        thread_ts?: string;
     };
     previous_message?: ISlackMessageEvent;
     file?: ISlackFile;

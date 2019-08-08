@@ -68,7 +68,7 @@ export class OAuth2 {
 
     public makeAuthorizeURL(room: string|BridgedRoom, state: string): string {
         const redirectUri = this.makeRedirectURL(room);
-        let scopes = Array.from(REQUIRED_SCOPES);
+        const scopes = Array.from(REQUIRED_SCOPES);
 
         const qs = querystring.stringify({
             client_id: this.clientId,
