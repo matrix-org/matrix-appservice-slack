@@ -42,8 +42,8 @@ export class AdminCommands {
     ];
     constructor(private main: Main) {
         this.yargs = yargs.parserConfiguration({})
-        .version(false)
-        .help(false); // We provide our own help, and version is not required.
+                                                .version(false)
+                                                .help(false); // We provide our own help, and version is not required.
 
         this.commands.forEach((cmd) => {
             this.yargs = this.yargs.command(cmd.command, cmd.description, ((yg) => {
