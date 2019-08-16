@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import * as rp from "request-promise-native";
-import { StoreEvent, Logging } from "matrix-appservice-bridge";
+import { StoredEvent, Logging } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
@@ -391,7 +391,7 @@ export class BridgedRoom {
             log.error("HTTP Error: ", res);
         } else {
             // Add this event to the event store
-            const storeEv = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+            const storeEv = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
             this.main.eventStore.upsertEvent(storeEv);
         }
         return res;
@@ -452,7 +452,7 @@ export class BridgedRoom {
             log.error("HTTP Error: ", res);
         } else {
             // Add this event to the event store
-            const event = new StoreEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+            const event = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
             this.main.eventStore.upsertEvent(event);
         }
         return res;
