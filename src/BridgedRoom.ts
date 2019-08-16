@@ -782,12 +782,16 @@ export class BridgedRoom {
         top most event in the reply chain, i.e. the one without a relates to.
     */
     private async findParentReply(message: any, depth: number = 0): Promise<string> {
+        const MAX_DEPTH = 10;
         // Extract the referenced event
         if (!message.content) { return message.event_id; }
         if (!message.content["m.relates_to"]) { return message.event_id; }
         if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
         const parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
         if (!parentEventId) { return message.event_id; }
+        if (depth > MAX_DEPTH) {
+            return parentEventId; // We have hit our depth limit, use this one.
+        }
 
         // Get the previous event
         const intent = this.main.botIntent;
