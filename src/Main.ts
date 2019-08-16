@@ -549,12 +549,24 @@ export class Main {
             try {
                 await room.onMatrixRedaction(ev);
             } catch (e) {
-                log.error("Failed procesing matrix message: ", e);
+                log.error("Failed procesing matrix redaction message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
             endTimer({outcome: "success"});
             return;
+        }
+
+        // Handle a m.reaction event
+        if (ev.type === "m.reaction") {
+            try {
+                await room.onMatrixReaction(ev);
+            } catch (e) {
+                log.error("Failed procesing reaction message: ", e);
+                endTimer({outcome: "fail"});
+                return;
+            }
+            endTimer({outcome: "success"});
         }
 
         // Handle a m.room.message event
