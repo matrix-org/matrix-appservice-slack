@@ -303,15 +303,13 @@ export class BridgedRoom {
         }
 
         const res = await rp(sendMessageParams);
-        if (!res || !res.ok) {
+        if (!res) {
             log.error("HTTP Error: ", res);
-        } else {
-            // TODO: Add this event to the event store
-            // Unfortunately reactions.add does not return the ts of the reactions event.
-            // So we can't store it in the event store
+            return;
         }
-        return res;
-
+        // TODO: Add this event to the event store
+        // Unfortunately reactions.add does not return the ts of the reactions event.
+        // So we can't store it in the event store
     }
 
     public async onMatrixRedaction(message: any) {
@@ -345,7 +343,7 @@ export class BridgedRoom {
         }
 
         const res = await rp(sendMessageParams);
-        if (!res || !res.ok) {
+        if (!res) {
             log.error("HTTP Error: ", res);
         }
         return res;
@@ -387,14 +385,13 @@ export class BridgedRoom {
 
         const res = await rp(sendMessageParams);
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
-        if (!res || !res.ok) {
+        if (!res) {
             log.error("HTTP Error: ", res);
-        } else {
-            // Add this event to the event store
-            const storeEv = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-            this.main.eventStore.upsertEvent(storeEv);
+            return;
         }
-        return res;
+        // Add this event to the event store
+        const storeEv = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+        this.main.eventStore.upsertEvent(storeEv);
     }
 
     public async onMatrixMessage(message: any) {
@@ -448,14 +445,13 @@ export class BridgedRoom {
         this.matrixATime = Date.now() / 1000;
         const res = await rp(sendMessageParams);
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
-        if (!res || !res.ok) {
+        if (!res) {
             log.error("HTTP Error: ", res);
-        } else {
-            // Add this event to the event store
-            const event = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-            this.main.eventStore.upsertEvent(event);
+            return;
         }
-        return res;
+        // Add this event to the event store
+        const event = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
+        this.main.eventStore.upsertEvent(event);
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
