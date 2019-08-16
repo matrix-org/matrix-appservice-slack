@@ -55,6 +55,11 @@ export interface ISlackEventMessageAttachment {
 }
 
 export interface ISlackMessageEvent extends ISlackEvent {
+    item?: {
+        type: string;
+        channel: string;
+        ts: string;
+    };
     subtype: string;
     user?: string;
     bot_id?: string;
