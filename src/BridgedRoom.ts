@@ -397,64 +397,11 @@ export class BridgedRoom {
         return res;
     }
 
-    /*
-      Strip out reply fallbacks. Borrowed from
-      https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
-    */
-    public async stripMatrixReplyFallback(event: any) {
-        let realHtml = event.content.formatted_body;
-        let realText = event.content.body;
-
-        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
-            const formattedBody = event.content.formatted_body;
-            if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
-                const parts = formattedBody.split("</mx-reply>");
-                realHtml = parts[1];
-
-                event.content.formatted_body = realHtml.trim();
-            }
-        }
-
-        let processedFallback = false;
-        const body = event.content.body || "";
-        for (const line of body.split("\n")) {
-            if (line.startsWith("> ") && !processedFallback) {
-                continue;
-            } else if (!processedFallback) {
-                realText = line;
-                processedFallback = true;
-            } else {
-                realText += line + "\n";
-            }
-        }
-
-        event.content.body = realText.trim();
-        return event;
-    }
-    /*
-    Given an event which is in reply to something else return the event ID of the
-    top most event in the reply chain, i.e. the one without a relates to.
-    */
-    public async findParentReply(message: any) {
-        // Extract the referenced event
-        if (!message.content) { return message.event_id; }
-        if (!message.content["m.relates_to"]) { return message.event_id; }
-        if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
-        const parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
-        if (!parentEventId) { return message.event_id; }
-
-        // Get the previous event
-        const intent = this.main.botIntent;
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
-
-        return this.findParentReply(nextEvent);
-    }
-
     public async onMatrixMessage(message: any) {
         if (!this.slackWebhookUri && !this.slackBotToken) { return; }
 
         const user = this.main.getOrCreateMatrixUser(message.user_id);
-        message = this.stripMatrixReplyFallback(message);
+        message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
@@ -794,6 +741,59 @@ export class BridgedRoom {
         const replyToEvent = await eventStore.getEntryByRemoteId(slackRoomID, replyToTS);
         const intent = this.main.botIntent;
         return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
+    }
+
+    /*
+        Strip out reply fallbacks. Borrowed from
+        https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
+    */
+    private async stripMatrixReplyFallback(event: any): Promise<any> {
+        let realHtml = event.content.formatted_body;
+        let realText = event.content.body;
+
+        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
+            const formattedBody = event.content.formatted_body;
+            if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
+                const parts = formattedBody.split("</mx-reply>");
+                realHtml = parts[1];
+                event.content.formatted_body = realHtml.trim();
+            }
+        }
+
+        let processedFallback = false;
+        const body = event.content.body || "";
+        for (const line of body.split("\n")) {
+            if (line.startsWith("> ") && !processedFallback) {
+                continue;
+            } else if (!processedFallback) {
+                realText = line;
+                processedFallback = true;
+            } else {
+                realText += line + "\n";
+            }
+        }
+
+        event.content.body = realText.trim();
+        return event;
+    }
+
+    /*
+        Given an event which is in reply to something else return the event ID of the
+        top most event in the reply chain, i.e. the one without a relates to.
+    */
+    private async findParentReply(message: any, depth: number = 0): Promise<string> {
+        // Extract the referenced event
+        if (!message.content) { return message.event_id; }
+        if (!message.content["m.relates_to"]) { return message.event_id; }
+        if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
+        const parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
+        if (!parentEventId) { return message.event_id; }
+
+        // Get the previous event
+        const intent = this.main.botIntent;
+        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+
+        return this.findParentReply(nextEvent, depth++);
     }
 }
 
