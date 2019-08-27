@@ -1,8 +1,8 @@
 # matrix-appservice-slack
 A Matrix &lt;--> Slack bridge
 
-This is currently a very barebones bridge, it just does basic text in
-pre-enumerated channels. It will become more exciting.
+This bridge allows you to connect Slack channels to Matrix rooms.
+
 
 Installation
 ------------
@@ -11,6 +11,7 @@ Installation
 $ git clone ...
 $ cd matrix-appservice-slack
 $ npm install
+$ npm run build
 ```
 
 
@@ -49,19 +50,19 @@ Setup
    on the same server you can use `localhost` as the `$HOST` name):
 
    ```sh
-   $ node app.js -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
+   $ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
    ```
 
 1. Start the actual application service. You can use forever
 
    ```sh
-   $ forever start app.js -c config.yaml -p $MATRIX_PORT
+   $ forever start ./lib/app.js -c config.yaml -p $MATRIX_PORT
    ```
 
    or node
 
    ```sh
-   $ node app.js -c config.yaml -p $MATRIX_PORT
+   $ npm start -- -c config.yaml -p $MATRIX_PORT
    ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to the homeserver.
