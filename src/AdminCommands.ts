@@ -22,7 +22,7 @@ import { BridgedRoom } from "./BridgedRoom";
 
 const log = Logging.get("AdminCommands");
 
-const RoomIdDef = {
+const RoomIdCommandOption = {
     alias: "R",
     demandOption: true,
     description: "Matrix Room ID",
@@ -157,7 +157,7 @@ export class AdminCommands {
                     alias: "I",
                     description: "Slack channel ID",
                 },
-                room: { ...RoomIdDef, demandOption: false },
+                room: { ...RoomIdCommandOption, demandOption: false },
             },
         );
     }
@@ -188,7 +188,7 @@ export class AdminCommands {
                     alias: "I",
                     description: "Slack channel ID",
                 },
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
                 slack_bot_token: {
                     alias: "t",
                     description: "Slack bot user token. Used with Slack bot user & Events api",
@@ -221,7 +221,7 @@ export class AdminCommands {
                 }
             },
             {
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
             },
         );
     }
@@ -235,7 +235,7 @@ export class AdminCommands {
                 respond("Joined");
             },
             {
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
             },
         );
     }
@@ -255,7 +255,7 @@ export class AdminCommands {
                 respond("Drained");
             },
             {
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
             },
         );
     }
