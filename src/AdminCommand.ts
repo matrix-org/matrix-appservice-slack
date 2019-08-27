@@ -18,7 +18,7 @@ import { Options } from "yargs";
 
 export type ResponseCallback = (response: string) => void;
 interface IHandlerArgs {
-    matched: (b: true) =>  void;
+    matched: () =>  void;
     completed: (err: Error|null) =>  void;
     respond: ResponseCallback;
     // yargs annoyingly puts the string parameters in with the more complex types
@@ -36,7 +36,7 @@ export class AdminCommand {
     }
 
     public async handler(argv: IHandlerArgs) {
-        argv.matched(true);
+        argv.matched();
         try {
             await this.cb(argv);
             argv.completed(null);
