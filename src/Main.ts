@@ -16,7 +16,7 @@ import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
-import { SlackRTMHandler } from "./SlackHandler";
+import { SlackRTMHandler } from "./SlackRTMHandler";
 
 const log = Logging.get("Main");
 
@@ -82,7 +82,7 @@ export class Main {
     private teamDatastore: any|null = null;
 
     private slackHookHandler?: SlackHookHandler;
-    private slackRtm: SlackRTMHandler;
+    private slackRtm?: SlackRTMHandler;
 
     private metrics: any;
 
@@ -96,6 +96,11 @@ export class Main {
                 main: this,
                 redirect_prefix: config.oauth2.redirect_prefix || config.inbound_uri_prefix,
             });
+        }
+
+        if (!config.enable_rtm || !config.slack_hook_port) {
+            throw Error("Neither enable_rtm nor slack_hook_port is defined in the config." +
+            "The bridge must define a listener in order to run");
         }
 
         const dbdir = config.dbdir || "";
@@ -121,8 +126,13 @@ export class Main {
             userStore: path.join(dbdir, "user-store.db"),
         });
 
-        //this.slackHookHandler = new SlackHookHandler(this);
-        this.slackRtm = new SlackRTMHandler(this);
+        if (config.enable_rtm) {
+            this.slackRtm = new SlackRTMHandler(this);
+        }
+
+        if (config.slack_hook_port) {
+            this.slackHookHandler = new SlackHookHandler(this);
+        }
 
         if (config.enable_metrics) {
             this.initialiseMetrics();
@@ -336,7 +346,7 @@ export class Main {
         throw Error("Failed to generate a unique inbound ID after 10 attempts");
     }
 
-    public addBridgedRoom(room: BridgedRoom) {
+    public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.push(room);
 
         if (room.SlackChannelId) {
@@ -354,8 +364,10 @@ export class Main {
                 this.roomsBySlackTeamId[room.SlackTeamId] = [ room ];
             }
 
-            if (room.SlackBotToken) {
-                this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
+            if (room.SlackBotToken && this.slackRtm) {
+                // This will start a new RTM client for the team, if the team
+                // doesn't currently have a client running.
+                await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
             }
         }
 
@@ -659,20 +671,20 @@ export class Main {
             matrix_id: {$exists: true},
         });
 
-        entries.forEach((entry) => {
+        await Promise.all(entries.map(async (entry) => {
             // These might be links for legacy-style BridgedRooms, or new-style
             // rooms
             // Only way to tell is via the form of the id
             const result = entry.id.match(/^INTEG-(.*)$/);
             if (result) {
                 const room = BridgedRoom.fromEntry(this, entry);
-                this.addBridgedRoom(room);
+                await this.addBridgedRoom(room);
                 this.roomsByMatrixRoomId[entry.matrix_id] = room;
                 this.stateStorage.trackRoom(entry.matrix_id);
             } else {
                 log.error("Ignoring LEGACY room link entry", entry);
             }
-        });
+        }));
 
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);
@@ -765,7 +777,7 @@ export class Main {
         }
 
         if (isNew) {
-            this.addBridgedRoom(room);
+            await this.addBridgedRoom(room);
         }
         if (room.isDirty) {
             this.putRoomToStore(room);
