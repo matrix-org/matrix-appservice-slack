@@ -6,7 +6,8 @@ WORKDIR /usr/src/app
 
 COPY . /usr/src/app
 
-RUN npm install --only=production
+# git is needed to install Half-Shot/slackdown
+RUN apk add git && npm install --only=production
 
 EXPOSE 9898
 EXPOSE 5858
