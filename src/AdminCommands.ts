@@ -1,16 +1,31 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import { Logging } from "matrix-appservice-bridge";
 import * as yargs from "yargs";
-
 import { AdminCommand, ResponseCallback } from "./AdminCommand";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 
 const log = Logging.get("AdminCommands");
 
-const RoomIdDef = {
+const RoomIdCommandOption = {
     alias: "R",
     demandOption: true,
-    description: "Matrix Room Id",
+    description: "Matrix Room ID",
 };
 
 export class AdminCommands {
@@ -26,9 +41,10 @@ export class AdminCommands {
             this.help,
     ];
     constructor(private main: Main) {
-        this.yargs = yargs.parserConfiguration({
+        this.yargs = yargs.parserConfiguration({})
+            .version(false)
+            .help(false); // We provide our own help, and version is not required.
 
-        }).version(false).help(false); // We provide our own help, and version is not required.
         this.commands.forEach((cmd) => {
             this.yargs = this.yargs.command(cmd.command, cmd.description, ((yg) => {
                 if (cmd.options) {
@@ -141,10 +157,7 @@ export class AdminCommands {
                     alias: "I",
                     description: "Slack channel ID",
                 },
-                room: {
-                    alias: "R",
-                    description: "Matrix room ID",
-                },
+                room: { ...RoomIdCommandOption, demandOption: false },
             },
         );
     }
@@ -175,7 +188,7 @@ export class AdminCommands {
                     alias: "I",
                     description: "Slack channel ID",
                 },
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
                 slack_bot_token: {
                     alias: "t",
                     description: "Slack bot user token. Used with Slack bot user & Events api",
@@ -208,7 +221,7 @@ export class AdminCommands {
                 }
             },
             {
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
             },
         );
     }
@@ -222,7 +235,7 @@ export class AdminCommands {
                 respond("Joined");
             },
             {
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
             },
         );
     }
@@ -242,7 +255,7 @@ export class AdminCommands {
                 respond("Drained");
             },
             {
-                room: RoomIdDef,
+                room: RoomIdCommandOption,
             },
         );
     }

@@ -1,14 +1,25 @@
-import { BaseSlackHandler, ISlackFile } from "./BaseSlackHandler";
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
 
 const log = Logging.get("SlackEventHandler");
-
-interface ISlackEvent {
-    type: string;
-    channel: string;
-}
 
 interface ISlackEventChannelRenamed extends ISlackEvent {
     // https://api.slack.com/events/channel_rename
@@ -20,33 +31,6 @@ interface ISlackEventChannelRenamed extends ISlackEvent {
 interface ISlackEventTeamDomainChanged extends ISlackEvent {
     url: string;
     domain: string;
-}
-
-interface ISlackEventMessageAttachment {
-    fallback: string;
-}
-
-interface ISlackEventMessageEvent extends ISlackEvent {
-    subtype: string;
-    user?: string;
-    bot_id?: string;
-    text?: string;
-    deleted_ts: number;
-    // For comments
-    comment?: {
-        user: string;
-    };
-    attachments?: ISlackEventMessageAttachment[];
-    // For message_changed
-    message?: {
-        text: string;
-        user: string;
-        bot_id: string;
-    };
-    previous_message?: {
-        text: string;
-    };
-    file?: ISlackFile;
 }
 
 const HTTP_OK = 200;
@@ -75,6 +59,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
     /**
      * Handles a slack event request.
+     * @param ISlackEventParams
      */
     public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback) {
         try {
@@ -91,7 +76,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                     case "message":
                     case "reaction_added":
                     case "reaction_removed":
-                        await this.handleMessageEvent(event as ISlackEventMessageEvent, teamId);
+                        await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
                         break;
                     case "channel_rename":
                         await this.handleChannelRenameEvent(event as ISlackEventChannelRenamed);
@@ -135,8 +120,9 @@ export class SlackEventHandler extends BaseSlackHandler {
      *
      * Sends a message to Matrix if it understands enough of the message to do so.
      * Attempts to make the message as native-matrix feeling as it can.
+     * @param ISlackEventParamsMessage The slack message event to handle.
      */
-    protected async handleMessageEvent(event: ISlackEventMessageEvent, teamId: string) {
+    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
         const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
@@ -159,7 +145,8 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         if (event.type === "reaction_added") {
             return room.onSlackReactionAdded(msg);
-        }  // TODO: We cannot remove reactions yet, see #154
+        }
+        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
         /* else if (params.event.type === "reaction_removed") {
             return room.onSlackReactionRemoved(msg);
         } */
@@ -169,7 +156,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(msg);
+            return room.onSlackMessage(event);
         }
 
         // Handle events with attachments like bot messages.
@@ -177,7 +164,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             for (const attachment of event.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-                return await room.onSlackMessage(msg);
+                return await room.onSlackMessage(event);
             }
             if (event.text === "") {
                 return;
@@ -192,7 +179,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user;
             msg.text = msg.message.text;
-            msg.previous_message.text = (await this.doChannelUserReplacements(msg, msg.previous_message.text, token))!;
+            msg.previous_message.text = (await this.doChannelUserReplacements(
+                msg, msg.previous_message!.text!, token)
+            )!;
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
@@ -215,24 +204,27 @@ export class SlackEventHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(msg);
+            return room.onSlackMessage(event);
         }
+
+        let content: Buffer|undefined;
 
         if (msg.subtype === "file_share" && msg.file) {
             // we need a user token to be able to enablePublicSharing
             if (room.SlackUserToken) {
                 // TODO check is_public when matrix supports authenticated media
                 // https://github.com/matrix-org/matrix-doc/issues/701
-                const file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
-                if (file) {
-                    msg.file = file;
-                    msg.file!._content = await this.fetchFileContent(msg.file!);
+                try {
+                    msg.file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
+                    content = await this.fetchFileContent(msg.file);
+                } catch {
+                    // Couldn't get a shareable URL for the file, oh well.
                 }
             }
         }
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-        return room.onSlackMessage(msg);
+        return room.onSlackMessage(event, content);
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {

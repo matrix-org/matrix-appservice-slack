@@ -1,3 +1,19 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import { Logging } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
@@ -5,8 +21,30 @@ import { ISlackFile } from "./BaseSlackHandler";
 
 const log = Logging.get("substitutions");
 
-export function onMissingEmoji(name) {
+/**
+ * Will return the emoji's name within ':'.
+ * @param name The emoji's name.
+ */
+export function getFallbackForMissingEmoji(name): string {
     return `:${name}:`;
+}
+
+interface IDisplayMap {
+    [name: string]: string;
+}
+
+interface IFirstWordMap {
+    [firstword: string]: [IDisplayMap];
+}
+
+export interface ISlackToMatrixResult {
+        link_names: number;  // This no longer works for nicks but is needed to make @channel work.
+        text: string;
+        username: string;
+        attachments: undefined|[{
+            fallback: string,
+            image_url: string,
+        }];
 }
 
 class Substitutions {
@@ -43,11 +81,14 @@ class Substitutions {
 
         // if we have a file, attempt to get the direct link to the file
         if (file && file.public_url_shared) {
-            const url = this.getSlackFileUrl(file);
-            body = url ? body.replace(file.permalink, url) : body;
+            const url = this.getSlackFileUrl({
+                permalink_public: file.permalink_public!,
+                url_private: file.url_private!,
+            });
+            body = url ? body.replace(file.permalink!, url) : body;
         }
 
-        body = emoji.emojify(body, onMissingEmoji);
+        body = emoji.emojify(body, getFallbackForMissingEmoji);
 
         return body;
     }
@@ -60,8 +101,8 @@ class Substitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-// tslint:disable-next-line: no-any
-    public async matrixToSlack(event: any, main: Main, teamId: string) {
+    // tslint:disable-next-line: no-any
+    public async matrixToSlack(event: any, main: Main, teamId: string): Promise<ISlackToMatrixResult> {
         let body = event.content.body;
         body = body.replace(/<((https?:\/\/)?[^>]+?)>/g, "$1");
 
@@ -102,11 +143,12 @@ class Substitutions {
         // meaning if we can we use the much simpler pill subs rather than this.
         const modifiedBody = await plainTextSlackMentions(main, body, event.room_id);
 
-// tslint:disable-next-line: no-any
-        const ret: any = {
+        // tslint:disable-next-line: no-any
+        const ret: ISlackToMatrixResult = {
             link_names: 1,  // This no longer works for nicks but is needed to make @channel work.
             text: modifiedBody,
             username: event.user_id,
+            attachments: undefined,
         };
         if (event.content.msgtype === "m.image" && event.content.url.indexOf("mxc://") === 0) {
             const url = main.getUrlForMxc(event.content.url);
@@ -123,29 +165,37 @@ class Substitutions {
         return ret;
     }
 
-    public htmlEscape(s: string) {
+    /**
+     * Replace &, < and > in a string with their HTML escaped counterparts.
+     */
+    public htmlEscape(s: string): string {
         return s.replace(/&/g, "&amp;")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;");
     }
 
     /**
-     * Get a mapping of the nicknames of all Slack Ghosts in the room to their slack user ids.
+     * Get a mapping of the nicknames of all Slack Ghosts in the room to their slack user IDs.
      *
      * @param {String} room_id The room id to make the maps for.
-     * @return {Promise} A mapping of display name to slack user id.
+     * @return {Promise<IDisplayMap>} A mapping of display name to slack user ID.
      */
-    public async getDisplayMap(main: Main, roomId: string) {
-        const displaymap: {[name: string]: string} = {};
+    public async getDisplayMap(main: Main, roomId: string): Promise<IDisplayMap> {
+        const displaymap: IDisplayMap = {};
         const store = main.userStore;
         const users = await main.listGhostUsers(roomId);
-        const storeUsers: {display_name: string, id: string}[][] = await Promise.all(
+        let storeUsers: {display_name: string, id: string}[] = await Promise.all(
             users.map((id: string) => store.select({id})),
         );
+        storeUsers = storeUsers.filter((u) => u && u[0]);
         storeUsers.forEach((user) => {
-            if (user && user[0]) {
-                displaymap[user[0].display_name] = user[0].id.split("_")[2].split(":")[0];
+            // The format is @prefix%nospace%domain_userid:homeserver_domain
+            const localpart = user[0].id.split(":")[0].substr(main.userIdPrefix.length + 1);
+            const slackId = localpart.split("_")[1];
+            if (!slackId) {
+                return;
             }
+            displaymap[user[0].display_name] = slackId;
         });
         return displaymap;
     }
@@ -153,19 +203,19 @@ class Substitutions {
     /**
      * Construct a mapping of the first words of all the display names to
      * an array of objects which map full display names to their slack
-     * user ids.
+     * user IDs.
      * i.e. {"bob": [{"bob": "U123123"}, {"bob smith": "U2891283"}]}
      *
-     * @param {Object} displaymap A mapping of display names to slack user ids.
-     * @return {Object} A mapping of first words of display names.
+     * @param {Object} displaymap A mapping of display names to slack user IDs.
+     * @return  A mapping of first words of display names.
      */
-    public makeFirstWordMap(displaymap) {
+    public makeFirstWordMap(displaymap: IDisplayMap): IFirstWordMap {
         const displaynames = Object.keys(displaymap);
-        const firstwords = {};
+        const firstwords: IFirstWordMap = {};
 
         for (const dispname of displaynames) {
             const firstword = dispname.split(" ")[0];
-            const amap = {};
+            const amap: IDisplayMap = {};
             amap[dispname] = displaymap[dispname];
             if (firstwords.hasOwnProperty(firstword)) {
                 firstwords[firstword].push(amap);
@@ -176,7 +226,7 @@ class Substitutions {
         return firstwords;
     }
 
-    public makeDiff(prev: string, curr: string) {
+    public makeDiff(prev: string, curr: string): { prev: string, curr: string, before: string, after: string} {
         let i;
         for (i = 0; i < curr.length && i < prev.length; i++) {
             if (curr.charAt(i) !== prev.charAt(i)) { break; }
@@ -220,17 +270,13 @@ class Substitutions {
         let after = firstWord(suffix);
         if (after !== suffix) { after = after + " ..."; }
 
-        // return {prev: prev,
-        //         curr: curr,
-        //         before: before,
-        //         after: after};
         return {prev, curr, before, after};
     }
 
     public getSlackFileUrl(file: {
         permalink_public: string,
         url_private: string,
-    }) {
+    }): string|undefined {
         const pubSecret = file.permalink_public.match(/https?:\/\/slack-files.com\/[^-]*-[^-]*-(.*)/);
         if (!pubSecret) {
             throw Error("Could not determine pub_secret");
@@ -250,10 +296,10 @@ export default substitutions;
  * Do string replacement on a message given the display map.
  *
  * @param {String} string The string to perform replacements on.
- * @param {Object} displaymap A mapping of display names to slack user ids.
+ * @param {IDisplayMap} displaymap A mapping of display names to slack user IDs.
  * @return {String} The string with replacements performed.
  */
-export function replacementFromDisplayMap(str: string, displaymap: {[matrixId: string]: string}) {
+export function replacementFromDisplayMap(str: string, displaymap: IDisplayMap): string {
     const firstwords = substitutions.makeFirstWordMap(displaymap);
 
     // Now parse the message to find the intersection of every word in the
@@ -306,12 +352,18 @@ function rcharAt(s: string, idx: number) {
     return s.charAt(s.length - 1 - idx);
 }
 
-function firstWord(s: string) {
+/**
+ * Gets the first word in a given string.
+ */
+function firstWord(s: string): string {
     const groups = s.match(/^\s*\S+/);
     return groups ? groups[0] : "";
 }
 
-function finalWord(s: string) {
+/**
+ * Gets the final word in a given string.
+ */
+function finalWord(s: string): string {
     const groups = s.match(/\S+\s*$/);
     return groups ? groups[0] : "";
 }

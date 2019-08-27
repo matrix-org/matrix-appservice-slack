@@ -1,3 +1,18 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 import { Bridge, PrometheusMetrics, StateLookup,
     Logging, Intent, MatrixUser as BridgeMatrixUser,
@@ -6,7 +21,6 @@ import * as Datastore from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import * as rp from "request-promise-native";
-
 import { IConfig } from "./IConfig";
 import { OAuth2 } from "./OAuth2";
 import { BridgedRoom } from "./BridgedRoom";
@@ -21,12 +35,15 @@ import { SlackRTMHandler } from "./SlackRTMHandler";
 const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
+export const METRIC_SENT_MESSAGES = "sent_messages";
 
 export interface ISlackTeam {
     id: string;
     domain: string;
     name: string;
 }
+
+interface MetricsLabels { [labelName: string]: string; }
 
 export class Main {
 
@@ -79,12 +96,13 @@ export class Main {
     // So we can't create the StateLookup instance yet
     private stateStorage: StateLookup|null = null;
 
-    private teamDatastore: any|null = null;
+    private teamDatastore: Datastore|null = null;
 
     private slackHookHandler?: SlackHookHandler;
     private slackRtm?: SlackRTMHandler;
 
-    private metrics: any;
+    // tslint:disable-next-line: no-any
+    private metrics: PrometheusMetrics;
 
     private adminCommands = new AdminCommands(this);
 
@@ -168,11 +186,8 @@ export class Main {
             };
 
             return {
-                matrixRoomConfigs:
-                    Object.keys(this.roomsByMatrixRoomId).length,
-                remoteRoomConfigs:
-                    Object.keys(this.roomsByInboundId).length,
-
+                matrixRoomConfigs: Object.keys(this.roomsByMatrixRoomId).length,
+                remoteRoomConfigs: Object.keys(this.roomsByInboundId).length,
                 // As a relaybot we don't create remote-side ghosts
                 remoteGhosts: 0,
 
@@ -192,7 +207,7 @@ export class Main {
         this.metrics.addCounter({
             help: "count of sent messages",
             labels: ["side"],
-            name: "sent_messages",
+            name: METRIC_SENT_MESSAGES,
         });
         this.metrics.addCounter({
             help: "Count of the number of remote API calls made",
@@ -211,7 +226,7 @@ export class Main {
         });
     }
 
-    public incCounter(name: string, labels: any = {}) {
+    public incCounter(name: string, labels: MetricsLabels = {}) {
         if (!this.metrics) { return; }
         this.metrics.incCounter(name, labels);
     }
@@ -221,7 +236,7 @@ export class Main {
         this.metrics.incCounter("remote_api_calls", {method: type});
     }
 
-    public startTimer(name: string, labels: any = {}) {
+    public startTimer(name: string, labels: MetricsLabels = {}) {
         if (!this.metrics) { return () => {}; }
         return this.metrics.startTimer(name, labels);
     }
@@ -466,7 +481,7 @@ export class Main {
         type: string,
         room_id: string,
         sender: string,
-// tslint:disable-next-line: no-any
+        // tslint:disable-next-line: no-any
         content: any,
     }) {
         // simple de-dup
@@ -553,12 +568,24 @@ export class Main {
             try {
                 await room.onMatrixRedaction(ev);
             } catch (e) {
-                log.error("Failed procesing matrix message: ", e);
+                log.error("Failed procesing matrix redaction message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
             endTimer({outcome: "success"});
             return;
+        }
+
+        // Handle a m.reaction event
+        if (ev.type === "m.reaction") {
+            try {
+                await room.onMatrixReaction(ev);
+            } catch (e) {
+                log.error("Failed procesing reaction message: ", e);
+                endTimer({outcome: "fail"});
+                return;
+            }
+            endTimer({outcome: "success"});
         }
 
         // Handle a m.room.message event
@@ -642,7 +669,7 @@ export class Main {
             filename: path.join(this.config.dbdir || "", "teams.db"),
         });
         await new Promise((resolve, reject) => {
-            this.teamDatastore.loadDatabase((err) => {
+            this.teamDatastore!.loadDatabase((err) => {
             if (err) {
                 reject(err);
                 return;
@@ -657,7 +684,10 @@ export class Main {
             log.error("Ignoring LEGACY room entry in room-store.db", entry);
         });
 
-        //await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
+        if (this.slackHookHandler) {
+            await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
+        }
+
         this.bridge.run(port, this.config);
         Provisioning.addAppServicePath(this.bridge, this);
 
@@ -755,12 +785,12 @@ export class Main {
             room.SlackBotToken = teamToken;
             this.incRemoteCallCounter("channels.info");
             const response = await rp({
+                url: "https://slack.com/api/channels.info",
                 json: true,
                 qs: {
                     channel: opts.slack_channel_id,
                     token: teamToken,
                 },
-                url: "https://slack.com/api/channels.info",
             });
 
             if (!response.ok) {
@@ -836,7 +866,7 @@ export class Main {
     }
 
     public updateTeamBotStore(teamId: string, teamName: string, userId: string, botToken: string) {
-        this.teamDatastore.update({team_id: teamId}, {
+        this.teamDatastore!.update({team_id: teamId}, {
             bot_token: botToken,
             team_id: teamId,
             team_name: teamName,
@@ -847,7 +877,7 @@ export class Main {
 
     public async getTeamFromStore(teamId: string): Promise<any> {
         return new Promise((resolve, reject) => {
-            this.teamDatastore.findOne({team_id: teamId}, (err, doc) => {
+            this.teamDatastore!.findOne({team_id: teamId}, (err, doc) => {
                 if (err) {
                     reject(err);
                     return;
@@ -865,5 +895,4 @@ export class Main {
         const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
         return accounts.find((acct) => acct.team_id === teamId);
     }
-// tslint:disable-next-line: max-file-line-count
 }

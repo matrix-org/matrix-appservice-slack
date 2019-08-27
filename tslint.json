@@ -2,21 +2,25 @@
   "extends": "tslint:recommended",
   "rules": {
     "ordered-imports": false,
-    "no-trailing-whitespace": "error",
+    "no-trailing-whitespace": {
+      "severity": "error"
+    },
     "max-classes-per-file": {
       "severity": "warning"
     },
-    "object-literal-sort-keys": "off",
+    "object-literal-sort-keys": false,
     "no-any": {
       "severity": "warning"
     },
     "arrow-return-shorthand": true,
-    "no-magic-numbers": [true, -1, 0, 1, 2, 1000],
     "prefer-for-of": true,
     "typedef": {
       "severity": "warning"
     },
-    "await-promise": [true, "RequestPromise"],
+    "await-promise": [
+      true,
+      "RequestPromise"
+    ],
     "curly": true,
     "no-empty": false,
     "no-invalid-this": true,
@@ -25,25 +29,34 @@
     },
     "no-unused-expression": true,
     "prefer-const": true,
-    "indent": [true, "spaces", 4],
-    "max-file-line-count": {
-      "severity": "warning",
-      "options": [500]
-    },
+    "indent": [
+      true,
+      "spaces",
+      4
+    ],
     "no-duplicate-imports": true,
-    "array-type": [true, "array"],
+    "array-type": [
+      true,
+      "array"
+    ],
     "promise-function-async": true,
     "no-bitwise": true,
     "no-debugger": true,
     "no-floating-promises": true,
-    "prefer-template": [true, "allow-single-concat"]
+    "prefer-template": [
+      true,
+      "allow-single-concat"
+    ],
+    "interface-name": false
   },
   "overrides": [
     {
-        "files": ["test_*.ts"],
-        "rules": {
-            "no-unused-expressions": "off"
-        }
+      "files": [
+        "test_*.ts"
+      ],
+      "rules": {
+        "no-unused-expressions": "off"
+      }
     }
-]
+  ]
 }

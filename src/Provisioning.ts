@@ -1,7 +1,22 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import { Logging, Bridge, MatrixUser } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import { Request, Response} from "express";
-
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
 
@@ -135,6 +150,7 @@ commands.channels = new Command({
             throw new Error("No team token for this team_id");
         }
         const response = await rp({
+            url: "https://slack.com/api/conversations.list",
             json: true,
             qs: {
                 exclude_archived: true,
@@ -142,7 +158,6 @@ commands.channels = new Command({
                 token: team.bot_token,
                 types: "public_channel",
             },
-            url: "https://slack.com/api/conversations.list",
         });
         if (!response.ok) {
             log.error(`Failed trying to fetch channels for ${teamId}.`, response);
@@ -204,7 +219,7 @@ commands.getlink = new Command({
             };
         }
 
-        // Convert the room 'status' into a scalar 'status'
+        // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();
         if (status.match(/^ready/)) {
             // OK
@@ -272,7 +287,7 @@ commands.link = new Command({
             });
         }
         const room = await main.actionLink(opts);
-        // Convert the room 'status' into a scalar 'status'
+        // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();
         if (status === "ready") {
             // OK
@@ -309,5 +324,4 @@ commands.unlink = new Command({
         await main.actionUnlink({matrix_room_id: matrixRoomId});
         res.json({});
     },
-// tslint:disable-next-line: max-file-line-count
 });

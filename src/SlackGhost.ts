@@ -1,13 +1,29 @@
-import { Main } from "./Main";
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { Logging, StoredEvent, Intent } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
+import { ISlackFile } from "./BaseSlackHandler";
 
 const log = Logging.get("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
-// tslint:disable-next-line: no-magic-numbers
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
 
 interface ISlackUser {
@@ -23,16 +39,19 @@ interface ISlackUser {
     };
 }
 
-interface ISlackFile {
-    title: string;
-    _content: string;
-    mimetype: string;
-}
-
 interface ISlackGhostEntry {
     id?: string;
     display_name?: string;
     avatar_url?: string;
+}
+
+interface IMatrixReplyEvent {
+    sender: string;
+    event_id: string;
+    content: {
+        body: string;
+        formatted_body?: string;
+    };
 }
 
 export class SlackGhost {
@@ -101,7 +120,6 @@ export class SlackGhost {
             displayName = await this.getBotName(message.bot_id, room.AccessToken!);
         } else if (message.user_id) {
             displayName = await this.getDisplayname(message.user_id, token);
-
         }
 
         if (!displayName || this.displayName === displayName) {
@@ -130,12 +148,12 @@ export class SlackGhost {
 
         this.main.incRemoteCallCounter("bots.info");
         return await rp({
+            uri: "https://slack.com/api/bots.info",
             json: true,
             qs: {
                 bot,
                 token,
             },
-            uri: "https://slack.com/api/bots.info",
         });
     }
 
@@ -175,12 +193,12 @@ export class SlackGhost {
 
         this.main.incRemoteCallCounter("users.info");
         this.userInfoLoading = rp({
+            uri: "https://slack.com/api/users.info",
             json: true,
             qs: {
                 token: slackAccessToken,
                 user: slackUserId,
             },
-            uri: "https://slack.com/api/users.info",
         }) as rp.RequestPromise<{user?: ISlackUser}>;
         const response = await this.userInfoLoading!;
         if (!response.user || !response.user.profile) {
@@ -225,17 +243,17 @@ export class SlackGhost {
             uri: avatarUrl,
         });
         const contentUri = await this.uploadContent({
-            _content: response.body,
             mimetype: response.headers["content-type"],
             title,
-        });
+        }, response.body);
         await this.intent.setAvatarUrl(contentUri);
         this.avatarUrl = avatarUrl;
         this.main.putUserToStore(this);
     }
 
     public prepareBody(body: string) {
-        // TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
+        // TODO: This is fixing plaintext mentions, but should be refactored.
+        // See https://github.com/matrix-org/matrix-appservice-slack/issues/110
         return body.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
     }
 
@@ -249,7 +267,8 @@ export class SlackGhost {
         // a variant of markdown that is in the realm of sanity. Currently text
         // will be slack's markdown until we've got a slack -> markdown parser.
 
-        // TODO: This is fixing plaintext mentions, but should be refactored. See issue #110
+        // TODO: This is fixing plaintext mentions, but should be refactored.
+        // https://github.com/matrix-org/matrix-appservice-slack/issues/110
         const body = text.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
         const content = {
             body,
@@ -263,7 +282,7 @@ export class SlackGhost {
 
     public async sendMessage(roomId: string, msg: {}, slackRoomID: string, slackEventTS: string) {
         const matrixEvent = await this.intent.sendMessage(roomId, msg);
-        this.main.incCounter("sent_messages", {side: "matrix"});
+        this.main.incCounter(METRIC_SENT_MESSAGES, {side: "matrix"});
 
         const event = new StoredEvent(roomId, matrixEvent.event_id, slackRoomID, slackEventTS);
         await this.main.eventStore.upsertEvent(event);
@@ -290,27 +309,47 @@ export class SlackGhost {
         return matrixEvent;
     }
 
-    public async uploadContentFromURI(file: ISlackFile, uri: string, slackAccessToken: string) {
+    public async sendWithReply(roomId: string, text: string, slackRoomId: string,
+                               slackEventTs: string, replyEvent: IMatrixReplyEvent) {
+        const fallbackHtml = this.getFallbackHtml(roomId, replyEvent);
+        const fallbackText = this.getFallbackText(replyEvent);
+
+        const content = {
+            "m.relates_to": {
+                "m.in_reply_to": {
+                    event_id: replyEvent.event_id,
+                },
+            },
+            "msgtype": "m.text", // for those who just want to send the reply as-is
+            "body": `${fallbackText}\n\n${this.prepareBody(text)}`,
+            "format": "org.matrix.custom.html",
+            "formatted_body": fallbackHtml + this.prepareFormattedBody(text),
+        };
+
+        return await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
+    }
+
+    public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
+    : Promise<string> {
         try {
-            const buffer = await rp({
+            const response = await rp({
                 encoding: null, // Because we expect a binary
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
                 uri,
             });
-            file._content = buffer;
-            return await this.uploadContent(file);
+            return await this.uploadContent(file, response.body as Buffer);
         } catch (reason) {
             log.error("Failed to upload content:\n%s", reason);
             throw reason;
         }
     }
 
-    public async uploadContent(file: ISlackFile) {
+    public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
         const response = await this.intent.getClient().uploadContent({
             name: file.title,
-            stream: new Buffer(file._content, "binary"),
+            stream: buffer,
             type: file.mimetype,
         });
         const content_uri = JSON.parse(response).content_uri;
@@ -320,5 +359,23 @@ export class SlackGhost {
 
     public bumpATime() {
         this.atime = Date.now() / 1000;
+    }
+
+    public getFallbackHtml(roomId: string, replyEvent: IMatrixReplyEvent) {
+        const originalBody = (replyEvent.content ? replyEvent.content.body : "") || "";
+        let originalHtml = (replyEvent.content ? replyEvent.content.formatted_body : "") || null;
+        if (originalHtml === null) {
+            originalHtml = originalBody;
+        }
+        return "<mx-reply><blockquote>"
+              + `<a href="https://matrix.to/#/${roomId}/${replyEvent.event_id}">In reply to</a>`
+              + `<a href="https://matrix.to/#/${replyEvent.sender}">${replyEvent.sender}</a>`
+              + `<br />${originalHtml}`
+              + "</blockquote></mx-reply>";
+    }
+
+    public getFallbackText(replyEvent: IMatrixReplyEvent) {
+        const originalBody = (replyEvent.content ? replyEvent.content.body : "") || "";
+        return `> <${replyEvent.sender}> ${originalBody.split("\n").join("\n> ")}`;
     }
 }

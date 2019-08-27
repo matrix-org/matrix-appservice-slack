@@ -1,6 +1,21 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import { Logging } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
-
 import { Main } from "./Main";
 import { SlackGhost } from "./SlackGhost";
 import { default as subs } from "./substitutions";
@@ -28,14 +43,64 @@ export interface ISlackMessage {
     text?: string;
 }
 
+export interface ISlackEvent {
+    type: string;
+    channel: string;
+    ts: string;
+}
+
+export interface ISlackEventMessageAttachment {
+    fallback: string;
+}
+
+export interface ISlackMessageEvent extends ISlackEvent {
+    item?: {
+        type: string;
+        channel: string;
+        ts: string;
+    };
+    subtype: string;
+    user?: string;
+    bot_id?: string;
+    text?: string;
+    deleted_ts: number;
+    // For comments
+    comment?: {
+        user: string;
+    };
+    attachments?: ISlackEventMessageAttachment[];
+    // For message_changed
+    message?: {
+        text: string;
+        user: string;
+        bot_id: string;
+        thread_ts?: string;
+    };
+    previous_message?: ISlackMessageEvent;
+    file?: ISlackFile;
+    files?: ISlackFile[];
+    /**
+     * PSA: `event_ts` refers to the time an event was acted upon,
+     * and `ts` is the events timestamp itself. Use `event_ts` over `ts`
+     * when handling.
+     */
+    event_ts?: string;
+    thread_ts?: string;
+}
+
 export interface ISlackFile {
-    permalink_public: string;
+    name?: string;
+    thumb_360?: string;
+    thumb_video?: string;
+    filetype?: string;
+    mode?: string;
+    title: string;
+    mimetype: string;
+    permalink_public?: string;
     id: string;
-    url_private: string;
-    public_url_shared: string;
-// tslint:disable-next-line: no-any
-    _content: any;
-    permalink: string;
+    url_private?: string;
+    public_url_shared?: string;
+    permalink?: string;
 }
 
 export abstract class BaseSlackHandler {
@@ -58,22 +123,21 @@ export abstract class BaseSlackHandler {
                 return response.channel.name;
             }
             log.info("channels.info returned no result for " + id);
-
         } catch (err) {
             log.error("Caught error handling channels.info:" + err);
         }
         return id;
     }
 
-    public async doChannelUserReplacements(msg: ISlackMessage, text: string, token: string) {
-        text = (await this.replaceChannelIdsWithNames(msg, text, token))!;
+    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, token: string) {
+        if (text === undefined) {
+            return;
+        }
+        text = await this.replaceChannelIdsWithNames(msg, text, token);
         return await this.replaceUserIdsWithNames(msg, text, token);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string|undefined, token: string) {
-        if (text === undefined) {
-            return text;
-        }
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, token: string) {
         const testForName = text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
         let matches = 0;
@@ -108,16 +172,11 @@ export abstract class BaseSlackHandler {
                 text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
             }
             iteration++;
-
         }
         return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, text: string|undefined, token: string) {
-        if (text === undefined) {
-            return text;
-        }
-
+    public async replaceUserIdsWithNames(message: ISlackMessage, text: string, token: string) {
         let match = USER_ID_REGEX.exec(text);
         while (match !== null && match[0]) {
             // foreach userId, pull out the ID
@@ -159,23 +218,24 @@ export abstract class BaseSlackHandler {
      * @param {Object} file A slack 'message.file' data object
      * @param {string} token A slack API token that has 'files:write:user' scope
      * @return {Promise<Object>} A Promise of the updated slack file data object
+     * @throws if the slack request fails or the response didn't contain `file.permalink_public`
      */
-    public async enablePublicSharing(file: ISlackFile, token: string) {
+    public async enablePublicSharing(file: ISlackFile, token: string): Promise<ISlackFile> {
         if (file.public_url_shared) { return file; }
 
         this.main.incRemoteCallCounter("files.sharedPublicURL");
         const response = await rp({
+            uri: "https://slack.com/api/files.sharedPublicURL",
+            method: "POST",
             form: {
                 file: file.id,
                 token,
             },
             json: true,
-            method: "POST",
-            uri: "https://slack.com/api/files.sharedPublicURL",
         });
         if (!response || !response.file || !response.file.permalink_public) {
             log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
-            return;
+            throw Error("files.sharedPublicURL didn't return a shareable url");
         }
         return response.file;
     }
@@ -186,21 +246,23 @@ export abstract class BaseSlackHandler {
      * @param {Object} file A slack 'message.file' data object
      * @return {Promise<string>} A Promise of file contents
      */
-    public async fetchFileContent(file: ISlackFile) {
-        if (!file) { return; }
-
-        const url = subs.getSlackFileUrl(file) || file.permalink_public;
+    public async fetchFileContent(file: ISlackFile): Promise<Buffer> {
+        const url = subs.getSlackFileUrl({
+            permalink_public: file.permalink_public!,
+            url_private: file.url_private!,
+        }) || file.permalink_public;
         if (!url) {
             throw new Error("File doesn't have any URLs we can use.");
         }
 
         const response = await rp({
+            // This causes response.body to be a buffer.
             encoding: null,
             resolveWithFullResponse: true,
             uri: url,
         });
 
-        const content = response.body;
+        const content = response.body as Buffer;
         log.debug(`Successfully fetched file ${file.id}  content (${content.length} bytes)`);
         return content;
     }

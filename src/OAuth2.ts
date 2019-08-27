@@ -1,8 +1,23 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 import * as querystring from "querystring";
 import * as rp from "request-promise-native";
 import * as uuid from "uuid/v4";
 import { Logging } from "matrix-appservice-bridge";
-
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
@@ -18,11 +33,23 @@ const REQUIRED_SCOPES = [
     "files:write:user",
     "chat:write:bot",
     "users:read",
-];
-
-const BOT_SCOPES = [
     "bot",
 ];
+
+// https://api.slack.com/methods/oauth.access
+interface OAuthAccessResponse {
+    ok: boolean;
+    access_token: string;
+    scope: string;
+    team_name: string;
+    team_id: string;
+    bot?: {
+        bot_user_id: string;
+        bot_access_token: string;
+    };
+    user_id: string;
+    error?: string;
+}
 
 export class OAuth2 {
     private readonly main: Main;
@@ -39,13 +66,9 @@ export class OAuth2 {
         this.redirectPrefix = opts.redirect_prefix;
     }
 
-    public makeAuthorizeURL(room: string|BridgedRoom, state: string) {
+    public makeAuthorizeURL(room: string|BridgedRoom, state: string): string {
         const redirectUri = this.makeRedirectURL(room);
-        let scopes = Array.from(REQUIRED_SCOPES);
-        // XXX: Why do we do this?
-        if (typeof room === "string") {
-            scopes = scopes.concat(BOT_SCOPES);
-        }
+        const scopes = Array.from(REQUIRED_SCOPES);
 
         const qs = querystring.stringify({
             client_id: this.clientId,
@@ -57,10 +80,12 @@ export class OAuth2 {
         return "https://slack.com/oauth/authorize?" + qs;
     }
 
-    public async exchangeCodeForToken(code: string, room: string|BridgedRoom) {
+    public async exchangeCodeForToken(code: string, room: string|BridgedRoom)
+    : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
         const redirectUri = this.makeRedirectURL(room);
         this.main.incRemoteCallCounter("oauth.access");
-        const response = await rp({
+        const response: OAuthAccessResponse = await rp({
+            uri: "https://slack.com/api/oauth.access",
             json: true,
             qs: {
                 client_id: this.clientId,
@@ -68,11 +93,12 @@ export class OAuth2 {
                 code,
                 redirect_uri: redirectUri,
             },
-            uri: "https://slack.com/api/oauth.access",
         });
         if (response.ok) {
-            response.access_scopes = response.scope.split(/,/);
-            return response;
+            return {
+                response,
+                access_scopes: response.scope.split(/,/),
+            };
         }
         log.error("oauth.access failed: ", response);
         throw new Error(`OAuth2 process failed: '${response.error}'`);
@@ -84,7 +110,7 @@ export class OAuth2 {
     // Slack send that token to us.
     // We store the user token in the user's
 
-    public getPreauthToken(userId: string) {
+    public getPreauthToken(userId: string): string {
         // NOTE: We use 32 because we need to use it into SlackEventHandler which
         // expects inbound roomIds to be 32 chars.
         const token = uuid().substr(0, INTERNAL_ID_LEN);
@@ -92,7 +118,7 @@ export class OAuth2 {
         return token;
     }
 
-    public getUserIdForPreauthToken(token: string, pop = true) {
+    public getUserIdForPreauthToken(token: string, pop = true): string|null {
         const v =  this.userTokensWaiting.get(token);
         if (v && pop) {
             this.userTokensWaiting.delete(token);
@@ -100,7 +126,7 @@ export class OAuth2 {
         return v || null;
     }
 
-    private makeRedirectURL(roomOrString: string| BridgedRoom) {
+    private makeRedirectURL(roomOrString: string| BridgedRoom): string {
         if (typeof roomOrString !== "string") {
             roomOrString = roomOrString.InboundId;
         }
