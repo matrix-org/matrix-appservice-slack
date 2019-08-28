@@ -185,7 +185,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackReactionRemoved(msg);
         } */
 
-        if (!token) {
+        if (!room.SlackClient) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
@@ -197,7 +197,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (params.event.type === "message" && params.event.attachments) {
             for (const attachment of params.event.attachments) {
                 msg.text = attachment.fallback;
-                msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
+                msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
                 return await room.onSlackMessage(msg);
             }
             if (params.event.text === "") {
@@ -214,7 +214,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             msg.user_id = msg.message.user;
             msg.text = msg.message.text;
             msg.previous_message.text = (await this.doChannelUserReplacements(
-                msg, msg.previous_message!.text!, token)
+                msg, msg.previous_message!.text!, room.SlackClient)
             )!;
 
             // Check if the edit was sent by a bot
@@ -233,7 +233,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
         }
 
-        if (!token) {
+        if (!room.SlackClient) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
@@ -245,11 +245,11 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         if (msg.subtype === "file_share" && msg.file) {
             // we need a user token to be able to enablePublicSharing
-            if (room.SlackUserToken) {
+            if (room.SlackClient) {
                 // TODO check is_public when matrix supports authenticated media
                 // https://github.com/matrix-org/matrix-doc/issues/701
                 try {
-                    msg.file = await this.enablePublicSharing(msg.file, room.SlackUserToken);
+                    msg.file = await this.enablePublicSharing(msg.file, room.SlackClient);
                     content = await this.fetchFileContent(msg.file);
                 } catch {
                     // Couldn't get a shareable URL for the file, oh well.
@@ -257,7 +257,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
         }
 
-        msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
+        msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
         return room.onSlackMessage(msg, content);
     }
 }

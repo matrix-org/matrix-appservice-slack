@@ -16,30 +16,17 @@ limitations under the License.
 
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { Logging, StoredEvent, Intent } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
+import * as rp from "request-promise-native";
 import { BridgedRoom } from "./BridgedRoom";
-import { ISlackFile } from "./BaseSlackHandler";
+import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
-import { BotsInfoResponse } from "./SlackResponses";
+import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 
 const log = Logging.get("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
-
-interface ISlackUser {
-    profile?: {
-        display_name?: string;
-        real_name?: string;
-        image_original?: string;
-        image_1024?: string;
-        image_512?: string;
-        image_192?: string;
-        image_72?: string;
-        image_48?: string;
-    };
-}
 
 interface ISlackGhostEntry {
     id?: string;
@@ -73,7 +60,7 @@ export class SlackGhost {
     }
     private atime?: number;
     private userInfoCache?: ISlackUser;
-    private userInfoLoading?: rp.RequestPromise<{user?: ISlackUser}>;
+    private userInfoLoading?: Promise<UsersInfoResponse>;
     constructor(
         private main: Main,
         private userId?: string,
@@ -102,8 +89,8 @@ export class SlackGhost {
         ]);
     }
 
-    public async getDisplayname(slackUserId: string, slackAccessToken: string) {
-        const user = await this.lookupUserInfo(slackUserId, slackAccessToken);
+    public async getDisplayname(slackUserId: string, client: WebClient) {
+        const user = await this.lookupUserInfo(slackUserId, client);
         if (user && user.profile) {
             return user.profile.display_name || user.profile.real_name;
         }
@@ -111,17 +98,16 @@ export class SlackGhost {
 
     public async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
                                    room: BridgedRoom) {
-        const token = room.AccessToken;
-        if (!token) {
+        if (!room.SlackClient) {
             return;
         }
 
         let displayName = message.username || message.user_name;
 
         if (message.bot_id) {
-            displayName = await this.getBotName(message.bot_id, room.AccessToken!);
+            displayName = await this.getBotName(message.bot_id, room.SlackClient);
         } else if (message.user_id) {
-            displayName = await this.getDisplayname(message.user_id, token);
+            displayName = await this.getDisplayname(message.user_id, room.SlackClient);
         }
 
         if (!displayName || this.displayName === displayName) {
@@ -133,8 +119,8 @@ export class SlackGhost {
         return this.main.putUserToStore(this);
     }
 
-    public async lookupAvatarUrl(slackUserId: string, slackAccessToken: string) {
-        const user = await this.lookupUserInfo(slackUserId, slackAccessToken);
+    public async lookupAvatarUrl(slackUserId: string, client: WebClient) {
+        const user = await this.lookupUserInfo(slackUserId, client);
         if (!user || !user.profile) { return; }
         const profile = user.profile;
 
@@ -165,7 +151,7 @@ export class SlackGhost {
             icons.image_192 || icons.image_72 || icons.image_48;
     }
 
-    public async lookupUserInfo(slackUserId: string, slackAccessToken: string) {
+    public async lookupUserInfo(slackUserId: string, client: WebClient) {
         if (this.userInfoCache) {
             log.debug("Using cached userInfo for", slackUserId);
             return this.userInfoCache;
@@ -179,15 +165,7 @@ export class SlackGhost {
         }
         log.debug("Using fresh userInfo for", slackUserId);
 
-        this.main.incRemoteCallCounter("users.info");
-        this.userInfoLoading = rp({
-            uri: "https://slack.com/api/users.info",
-            json: true,
-            qs: {
-                token: slackAccessToken,
-                user: slackUserId,
-            },
-        }) as rp.RequestPromise<{user?: ISlackUser}>;
+        this.userInfoLoading = client.users.info({user: slackUserId}) as Promise<UsersInfoResponse>;
         const response = await this.userInfoLoading!;
         if (!response.user || !response.user.profile) {
             log.error("Failed to get user profile", response);
