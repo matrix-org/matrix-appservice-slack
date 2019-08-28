@@ -120,7 +120,6 @@ export class SlackGhost {
             displayName = await this.getBotName(message.bot_id, room.AccessToken!);
         } else if (message.user_id) {
             displayName = await this.getDisplayname(message.user_id, token);
-
         }
 
         if (!displayName || this.displayName === displayName) {

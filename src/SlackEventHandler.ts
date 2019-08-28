@@ -147,7 +147,17 @@ export class SlackEventHandler extends BaseSlackHandler {
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
     private async handleMessageEvent(params: ISlackEventParamsMessage) {
-        const room = this.main.getRoomBySlackChannelId(params.event.channel) as BridgedRoom;
+        // Reactions use an item key for storing the message and channel, because
+        // slack *loves* consistency.
+        let channelId: string;
+        if (params.event.channel) {
+            channelId = params.event.channel;
+        } else if (params.event.item) {
+            channelId = params.event.item.channel;
+        } else {
+            throw Error("Channel not given in event, we possibly cannot handle this event.");
+        }
+        const room = this.main.getRoomBySlackChannelId(channelId) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
         if (params.event.subtype === "bot_message" &&

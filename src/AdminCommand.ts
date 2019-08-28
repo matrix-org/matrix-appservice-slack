@@ -18,7 +18,7 @@ import { Options } from "yargs";
 
 export type ResponseCallback = (response: string) => void;
 interface IHandlerArgs {
-    matched: (b: true) =>  void;
+    matched: () =>  void;
     completed: (err: Error|null) =>  void;
     respond: ResponseCallback;
     // yargs annoyingly puts the string parameters in with the more complex types
@@ -36,7 +36,7 @@ export class AdminCommand {
     }
 
     public async handler(argv: IHandlerArgs) {
-        argv.matched(true);
+        argv.matched();
         try {
             await this.cb(argv);
             argv.completed(null);
@@ -50,7 +50,7 @@ export class AdminCommand {
         const commandString = Object.keys(opts).sort((a, b) => {
             const x = opts[a].demandOption;
             const y = opts[b].demandOption;
-            return (x === y) ? 0 : x ? -1 : 1;
+            return (x === y) ? 0 : (x ? -1 : 1);
         }).map((key, i) => {
             const opt = opts[key];
             let strOpt = key;
@@ -73,7 +73,7 @@ export class AdminCommand {
         Object.keys(opts).sort((a, b) => {
             const x = opts[a].demandOption;
             const y = opts[b].demandOption;
-            return (x === y) ? 0 : x ? -1 : 1;
+            return (x === y) ? 0 : (x ? -1 : 1);
         }).forEach((key) => {
             const opt = opts[key];
             const positional = this.command.includes(` ${key}`) || this.command.includes(` [${key}]`);
