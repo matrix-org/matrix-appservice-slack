@@ -33,6 +33,12 @@ interface ISlackEventTeamDomainChanged extends ISlackEvent {
     domain: string;
 }
 
+interface ISlackEventReaction extends ISlackEvent {
+    // https://api.slack.com/events/reaction_added
+    reaction: string;
+    item: ISlackMessage;
+}
+
 const HTTP_OK = 200;
 
 export type EventHandlerCallback = (status: number, body?: string, headers?: {[header: string]: string}) => void;
@@ -78,7 +84,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                         break;
                     case "reaction_added":
                     case "reaction_removed":
-                        await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
+                        await this.handleReaction(event as ISlackEventReaction, teamId);
                         break;
                     case "channel_rename":
                         await this.handleChannelRenameEvent(event as ISlackEventChannelRenamed);
@@ -95,6 +101,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                         err = "unknown_event";
                 }
             } catch (ex) {
+                log.warn("Didn't handle event:", ex);
                 err = ex;
             }
 
@@ -119,7 +126,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             log.error("SlackEventHandler.handle failed:", e);
         }
     }
-
     /**
      * Attempts to handle the `message` event.
      *
@@ -148,33 +154,25 @@ export class SlackEventHandler extends BaseSlackHandler {
             user_id: event.user || event.bot_id,
         });
 
-        if (event.type === "reaction_added") {
-            return room.onSlackReactionAdded(msg);
-        }
-        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
-        /* else if (params.event.type === "reaction_removed") {
-            return room.onSlackReactionRemoved(msg);
-        } */
-
         if (!token) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(event);
+            return room.onSlackMessage(msg, teamId);
         }
 
         // Handle events with attachments like bot messages.
-        if (event.type === "message" && event.attachments) {
-            for (const attachment of event.attachments) {
+        if (msg.type === "message" && msg.attachments) {
+            for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-                return await room.onSlackMessage(event);
+                return await room.onSlackMessage(msg, teamId);
             }
-            if (event.text === "") {
+            if (msg.text === "") {
                 return;
             }
-            msg.text = event.text;
+            msg.text = msg.text;
         }
 
         // In this method we must standardise the message object so that
@@ -230,6 +228,29 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
         return room.onSlackMessage(msg, teamId, content);
+    }
+
+    private async handleReaction(event: ISlackEventReaction, teamId: string) {
+        // Reactions store the channel in the item
+        const channel = event.item.channel;
+        const room = this.main.getRoomBySlackChannelId(channel) as BridgedRoom;
+        if (!room) { throw new Error("unknown_channel"); }
+
+        const msg = Object.assign({}, event, {
+            channel_id: channel,
+            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_id: teamId,
+            user_id: event.user || event.bot_id,
+        });
+
+        if (event.type === "reaction_added") {
+            return room.onSlackReactionAdded(msg, teamId);
+        }
+
+        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
+        /* else if (params.event.type === "reaction_removed") {
+            return room.onSlackReactionRemoved(msg);
+        } */
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {
