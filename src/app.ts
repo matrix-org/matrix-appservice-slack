@@ -39,7 +39,7 @@ const cli = new Cli({
         new Main(config).run(port).then(() => {
             log.info("Matrix-side listening on port", port);
         }).catch((ex) => {
-            log.get("Failed to start:", ex);
+            log.error("Failed to start:", ex);
             process.exit(1);
         });
     },

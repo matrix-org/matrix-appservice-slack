@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
@@ -74,6 +74,8 @@ export class SlackEventHandler extends BaseSlackHandler {
             try {
                 switch (event.type) {
                     case "message":
+                        await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
+                        break;
                     case "reaction_added":
                     case "reaction_removed":
                         await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
@@ -207,7 +209,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(event);
+            return room.onSlackMessage(event, teamId);
         }
 
         let content: Buffer|undefined;
@@ -227,7 +229,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-        return room.onSlackMessage(event, content);
+        return room.onSlackMessage(msg, teamId, content);
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {

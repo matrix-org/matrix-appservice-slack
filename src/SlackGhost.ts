@@ -89,8 +89,8 @@ export class SlackGhost {
         };
     }
 
-    public async update(message: {user_id?: string}, room: BridgedRoom) {
-        log.info("Updating user information for " + message.user_id);
+    public async update(message: {user_id?: string, user?: string}, room: BridgedRoom) {
+        log.info("Updating user information for " + (message.user_id || message.user));
         return Promise.all([
             this.updateDisplayname(message, room).catch((e) => {
                 log.error("Failed to update ghost displayname:", e);
@@ -355,7 +355,7 @@ export class SlackGhost {
                 },
                 uri,
             });
-            return await this.uploadContent(file, response.body as Buffer);
+            return await this.uploadContent(file, response as Buffer);
         } catch (reason) {
             log.error("Failed to upload content:\n%s", reason);
             throw reason;
@@ -363,14 +363,14 @@ export class SlackGhost {
     }
 
     public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
-        const response = await this.intent.getClient().uploadContent({
+        const contentUri = await this.intent.getClient().uploadContent(buffer, {
             name: file.title,
-            stream: buffer,
             type: file.mimetype,
+            rawResponse: false,
+            onlyContentUri: true,
         });
-        const content_uri = JSON.parse(response).content_uri;
-        log.debug("Media uploaded to " + content_uri);
-        return content_uri;
+        log.debug("Media uploaded to " + contentUri);
+        return contentUri;
     }
 
     public bumpATime() {

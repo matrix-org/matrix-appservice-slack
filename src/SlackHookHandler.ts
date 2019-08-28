@@ -220,6 +220,8 @@ export class SlackHookHandler extends BaseSlackHandler {
         // tells us.
         const channelName = `${params.team_domain}.#${params.channel_name}`;
 
+        const teamId = params.team_id as string;
+
         room.SlackChannelName = channelName;
         if (room.isDirty) {
             this.main.putRoomToStore(room);
@@ -247,7 +249,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 
             if (params.text) {
                 // Converting params to an object here, as we assume that params is the right shape.
-                return room.onSlackMessage(params as unknown as ISlackMessageEvent);
+                return room.onSlackMessage(params as unknown as ISlackMessageEvent, teamId);
             }
             return;
         }
@@ -264,7 +266,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // them by now
         PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
         lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, token);
-        return room.onSlackMessage(lookupRes.message, lookupRes.content);
+        return room.onSlackMessage(lookupRes.message, teamId, lookupRes.content);
     }
 
     private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {

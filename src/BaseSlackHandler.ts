@@ -41,12 +41,15 @@ export const HTTP_CODES = {
 export interface ISlackMessage {
     channel: string;
     text?: string;
+    ts: string;
 }
 
 export interface ISlackEvent {
     type: string;
     channel: string;
     ts: string;
+    user?: string;
+    bot_id?: string;
 }
 
 export interface ISlackEventMessageAttachment {
@@ -59,8 +62,7 @@ export interface ISlackMessageEvent extends ISlackEvent {
         channel: string;
         ts: string;
     };
-    subtype: string;
-    user?: string;
+    subtype?: string;
     bot_id?: string;
     text?: string;
     deleted_ts: number;

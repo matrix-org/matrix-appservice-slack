@@ -20,7 +20,7 @@ import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
-import { ISlackMessageEvent } from "./BaseSlackHandler";
+import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 
 const log = Logging.get("BridgedRoom");
 
@@ -303,7 +303,7 @@ export class BridgedRoom {
         }
 
         const res = await rp(sendMessageParams);
-        if (!res) {
+        if (!res || !res.ok) {
             log.error("HTTP Error: ", res);
             return;
         }
@@ -454,9 +454,9 @@ export class BridgedRoom {
         this.main.eventStore.upsertEvent(event);
     }
 
-    public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
+    public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {
         try {
-            const ghost = await this.main.getGhostForSlackMessage(message);
+            const ghost = await this.main.getGhostForSlackMessage(message, teamId);
             await ghost.update(message, this);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             return await this.handleSlackMessage(message, ghost, content);
@@ -467,11 +467,11 @@ export class BridgedRoom {
 
     }
 
-    public async onSlackReactionAdded(message: any) {
+    public async onSlackReactionAdded(message: any, teamId: string) {
         if (message.user_id === this.slackUserId) {
             return;
         }
-        const ghost = await this.main.getGhostForSlackMessage(message);
+        const ghost = await this.main.getGhostForSlackMessage(message, teamId);
         await ghost.update(message, this);
 
         const reaction = `:${message.reaction}:`;
@@ -571,8 +571,8 @@ export class BridgedRoom {
             );
         }
 
-        // If we are only handling text, send the text.
-        if ([undefined, "bot_message", "file_comment"].includes(subtype)) {
+        // If we are only handling text, send the text. File messages are handled in a seperate block.
+        if (["bot_message", "file_comment", undefined].includes(subtype) && message.files === undefined) {
             return ghost.sendText(this.matrixRoomId, message.text!, channelId, eventTS);
         } else if (subtype === "me_message") {
             return ghost.sendMessage(this.matrixRoomId, {
@@ -645,7 +645,7 @@ export class BridgedRoom {
                 "msgtype": "m.text",
             };
             return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
-        } else if (message.files) {
+        } else if (message.files) { // A message without a subtype can contain files.
             for (const file of message.files) {
                 if (!file.url_private) {
                     // Cannot do anything with this.

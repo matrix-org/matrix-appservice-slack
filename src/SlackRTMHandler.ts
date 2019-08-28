@@ -10,7 +10,10 @@ import { Logging } from "matrix-appservice-bridge";
 const log = Logging.get("SlackRTMHandler");
 
 const LOG_TEAM_LEN = 12;
-
+/**
+ * This handler connects to Slack using the RTM API (events API, but websockets).
+ * It reuses the SlackEventHandler to handle events.
+ */
 export class SlackRTMHandler extends SlackEventHandler {
     private rtmClients: Map<string, RTMClient>; // team -> client
     constructor(main: Main) {
@@ -29,7 +32,10 @@ export class SlackRTMHandler extends SlackEventHandler {
             logger: {
                 setLevel: () => {},
                 setName: () => {}, // We handle both of these ourselves.
-                ...connLog,
+                debug: connLog.debug.bind(connLog),
+                warn: connLog.warn.bind(connLog),
+                info: connLog.info.bind(connLog),
+                error: connLog.error.bind(connLog),
             },
         });
 
@@ -39,7 +45,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         });
 
         // For each event that SlackEventHandler supports, register
-        // a listener. 
+        // a listener.
         SlackEventHandler.SUPPORTED_EVENTS.forEach((eventName) => {
             rtm.on(eventName, async (event) => {
                 try {

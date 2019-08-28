@@ -116,7 +116,7 @@ export class Main {
             });
         }
 
-        if (!config.enable_rtm || !config.slack_hook_port) {
+        if (!config.enable_rtm && !config.slack_hook_port) {
             throw Error("Neither enable_rtm nor slack_hook_port is defined in the config." +
             "The bridge must define a listener in order to run");
         }
@@ -256,20 +256,24 @@ export class Main {
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: any) {
+    public async getTeamDomainForMessage(message: any, teamId?: string) {
         if (message.team_domain) {
             return message.team_domain;
         }
 
-        if (!message.team_id) {
-            throw new Error("Cannot determine team, no id given.");
+        if (!teamId) {
+            if (message.team_id) {
+                teamId = message.team_id;
+            } else {
+                throw new Error("Cannot determine team, no id given.");
+            }
         }
 
-        if (this.teams.has(message.team_id)) {
-            return this.teams.get(message.team_id)!.domain;
+        if (this.teams.has(teamId!)) {
+            return this.teams.get(teamId!)!.domain;
         }
 
-        const room = this.getRoomBySlackChannelId(message.channel);
+        const room = this.getRoomBySlackChannelId(message.channel || message.channel_id);
 
         if (!room) {
             log.error("Couldn't find channel in order to get team domain");
@@ -286,11 +290,11 @@ export class Main {
         this.incRemoteCallCounter("team.info");
         const response = await rp(channelsInfoApiParams);
         if (!response.ok) {
-            log.error(`Trying to fetch the ${message.team_id} team.`, response);
+            log.error(`Trying to fetch the ${teamId} team.`, response);
             return;
         }
         log.info("Got new team:", response);
-        this.teams.set(message.team_id, response.team);
+        this.teams.set(teamId!, response.team);
         return response.team.domain;
     }
 
@@ -299,14 +303,14 @@ export class Main {
         return `@${localpart}:${this.config.homeserver.server_name}`;
     }
 
-    public async getGhostForSlackMessage(message: any) {
+    public async getGhostForSlackMessage(message: any, teamId: string): Promise<SlackGhost> {
         // Slack ghost IDs need to be constructed from user IDs, not usernames,
         // because users can change their names
         // TODO if the team_domain is changed, we will recreate all users.
         // TODO(paul): Steal MatrixIdTemplate from matrix-appservice-gitter
 
         // team_domain is gone, so we have to actually get the domain from a friendly object.
-        const teamDomain = (await this.getTeamDomainForMessage(message)).toLowerCase();
+        const teamDomain = (await this.getTeamDomainForMessage(message, teamId)).toLowerCase();
         const userId = this.getUserId(
             message.user_id.toUpperCase(),
             teamDomain,
@@ -320,7 +324,7 @@ export class Main {
         const intent = this.bridge.getIntent(userId);
         const entries = await this.userStore.select({id: userId});
 
-        let ghost;
+        let ghost: SlackGhost;
         if (entries.length) {
             log.debug("Getting existing ghost for", userId);
             ghost = SlackGhost.fromEntry(this, entries[0], intent);
