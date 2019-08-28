@@ -15,12 +15,13 @@ limitations under the License.
 */
 
 import * as querystring from "querystring";
-import * as rp from "request-promise-native";
 import * as uuid from "uuid/v4";
 import { Logging } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
+import { WebClient } from "@slack/web-api";
+import { OAuthAccessResponse } from "./SlackResponses";
 
 const log = Logging.get("OAuth2");
 
@@ -36,27 +37,13 @@ const REQUIRED_SCOPES = [
     "bot",
 ];
 
-// https://api.slack.com/methods/oauth.access
-interface OAuthAccessResponse {
-    ok: boolean;
-    access_token: string;
-    scope: string;
-    team_name: string;
-    team_id: string;
-    bot?: {
-        bot_user_id: string;
-        bot_access_token: string;
-    };
-    user_id: string;
-    error?: string;
-}
-
 export class OAuth2 {
     private readonly main: Main;
     private readonly userTokensWaiting: Map<string, string>;
     private readonly clientId: string;
     private readonly clientSecret: string;
     private readonly redirectPrefix: string;
+    private readonly client: WebClient;
 
     constructor(opts: {main: Main, client_id: string, client_secret: string, redirect_prefix: string}) {
         this.main = opts.main;
@@ -64,6 +51,7 @@ export class OAuth2 {
         this.clientId = opts.client_id;
         this.clientSecret = opts.client_secret;
         this.redirectPrefix = opts.redirect_prefix;
+        this.client = new WebClient();
     }
 
     public makeAuthorizeURL(room: string|BridgedRoom, state: string): string {
@@ -84,16 +72,12 @@ export class OAuth2 {
     : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
         const redirectUri = this.makeRedirectURL(room);
         this.main.incRemoteCallCounter("oauth.access");
-        const response: OAuthAccessResponse = await rp({
-            uri: "https://slack.com/api/oauth.access",
-            json: true,
-            qs: {
-                client_id: this.clientId,
-                client_secret: this.clientSecret,
-                code,
-                redirect_uri: redirectUri,
-            },
-        });
+        const response = (await this.client.oauth.access({
+            client_id: this.clientId,
+            client_secret: this.clientSecret,
+            code,
+            redirect_uri: redirectUri,
+        })) as OAuthAccessResponse;
         if (response.ok) {
             return {
                 response,

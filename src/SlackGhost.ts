@@ -20,6 +20,8 @@ import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
 import { ISlackFile } from "./BaseSlackHandler";
+import { WebClient } from "@slack/web-api";
+import { BotsInfoResponse } from "./SlackResponses";
 
 const log = Logging.get("SlackGhost");
 
@@ -143,32 +145,18 @@ export class SlackGhost {
             profile.image_72 || profile.image_48;
     }
 
-    public async getBotInfo(bot: string, token: string) {
-        if (!token) { return; }
-
-        this.main.incRemoteCallCounter("bots.info");
-        return await rp({
-            uri: "https://slack.com/api/bots.info",
-            json: true,
-            qs: {
-                bot,
-                token,
-            },
-        });
-    }
-
-    public async getBotName(botId: string, token: string) {
-        const response = await this.getBotInfo(botId, token);
-        if (!response.bot || !response.bot.name) {
+    public async getBotName(botId: string, client: WebClient) {
+        const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
+        if (!response.ok || !response.bot.name) {
             log.error("Failed to get bot name", response);
             return;
         }
         return response.bot.name;
     }
 
-    public async getBotAvatarUrl(botId: string, token: string) {
-        const response = await this.getBotInfo(botId, token);
-        if (!response.bot || !response.bot.icons.image_72) {
+    public async getBotAvatarUrl(botId: string, client: WebClient) {
+        const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
+        if (!response.ok || !response.bot.icons.image_72) {
             log.error("Failed to get bot name", response);
             return;
         }
@@ -212,16 +200,14 @@ export class SlackGhost {
     }
 
     public async updateAvatar(message: {bot_id?: string, user_id?: string}, room: BridgedRoom) {
-        const token = room.AccessToken;
-        if (!token) {
+        if (!room.SlackClient) {
             return;
         }
-
         let avatarUrl;
         if (message.bot_id) {
-            avatarUrl = await this.getBotAvatarUrl(message.bot_id, token);
+            avatarUrl = await this.getBotAvatarUrl(message.bot_id, room.SlackClient);
         } else if (message.user_id) {
-            avatarUrl = await this.lookupAvatarUrl(message.user_id, token);
+            avatarUrl = await this.lookupAvatarUrl(message.user_id, room.SlackClient);
         } else {
             return;
         }

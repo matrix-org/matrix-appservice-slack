@@ -19,6 +19,8 @@ import * as rp from "request-promise-native";
 import { Main } from "./Main";
 import { SlackGhost } from "./SlackGhost";
 import { default as subs } from "./substitutions";
+import { WebClient } from "@slack/web-api";
+import { FilesSharedPublicURLResponse, ConversationsInfoResponse } from "./SlackResponses";
 
 const log = Logging.get("BaseSlackHandler");
 
@@ -107,38 +109,29 @@ export interface ISlackFile {
 export abstract class BaseSlackHandler {
     constructor(protected main: Main) { }
 
-    public async getSlackRoomNameFromID(id: string, token: string) {
-        const channelsInfoApiParams = {
-            json: true,
-            qs: {
-                channel: id,
-                token,
-            },
-            uri: "https://slack.com/api/conversations.info",
-        };
-        this.main.incRemoteCallCounter("conversations.info");
+    public async getSlackRoomNameFromID(channel: string, client: WebClient) {
         try {
-            const response = await rp(channelsInfoApiParams);
+            const response = (await client.conversations.info({ channel })) as ConversationsInfoResponse;
             if (response && response.channel && response.channel.name) {
-                log.info(`conversations.info: ${id} mapped to ${response.channel.name}`);
+                log.info(`conversations.info: ${channel} mapped to ${response.channel.name}`);
                 return response.channel.name;
             }
-            log.info("conversations.info returned no result for " + id);
+            log.info("conversations.info returned no result for " + channel);
         } catch (err) {
             log.error("Caught error handling conversations.info:" + err);
         }
-        return id;
+        return channel;
     }
 
-    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, token: string) {
+    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, webClient: WebClient) {
         if (text === undefined) {
             return;
         }
-        text = await this.replaceChannelIdsWithNames(msg, text, token);
-        return await this.replaceUserIdsWithNames(msg, text, token);
+        text = await this.replaceChannelIdsWithNames(msg, text, webClient);
+        return await this.replaceUserIdsWithNames(msg, text);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, token: string) {
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, client: WebClient) {
         const testForName = text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
         let matches = 0;
@@ -169,7 +162,7 @@ export abstract class BaseSlackHandler {
 
             // If we can't match the room then we just put the slack name
             if (room === undefined) {
-                const name = await this.getSlackRoomNameFromID(id, token);
+                const name = await this.getSlackRoomNameFromID(id, client);
                 text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
             }
             iteration++;
@@ -177,7 +170,7 @@ export abstract class BaseSlackHandler {
         return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, text: string, token: string) {
+    public async replaceUserIdsWithNames(message: ISlackMessage, text: string) {
         let match = USER_ID_REGEX.exec(text);
         while (match !== null && match[0]) {
             // foreach userId, pull out the ID
@@ -221,19 +214,10 @@ export abstract class BaseSlackHandler {
      * @return {Promise<Object>} A Promise of the updated slack file data object
      * @throws if the slack request fails or the response didn't contain `file.permalink_public`
      */
-    public async enablePublicSharing(file: ISlackFile, token: string): Promise<ISlackFile> {
+    public async enablePublicSharing(file: ISlackFile, webClient: WebClient): Promise<ISlackFile> {
         if (file.public_url_shared) { return file; }
 
-        this.main.incRemoteCallCounter("files.sharedPublicURL");
-        const response = await rp({
-            uri: "https://slack.com/api/files.sharedPublicURL",
-            method: "POST",
-            form: {
-                file: file.id,
-                token,
-            },
-            json: true,
-        });
+        const response = (await webClient.files.sharedPublicURL({ file: file.id })) as FilesSharedPublicURLResponse;
         if (!response || !response.file || !response.file.permalink_public) {
             log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
             throw Error("files.sharedPublicURL didn't return a shareable url");
