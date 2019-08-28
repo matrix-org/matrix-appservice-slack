@@ -72,6 +72,7 @@ export class SlackGhost {
     private atime?: number;
     private userInfoCache?: ISlackUser;
     private userInfoLoading?: rp.RequestPromise<{user?: ISlackUser}>;
+    private typingInRooms: Set<string> = new Set();
     constructor(
         private main: Main,
         private userId?: string,
@@ -327,6 +328,21 @@ export class SlackGhost {
         };
 
         return await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
+    }
+
+    public async sendTyping(roomId: string): Promise<void> {
+        // This lasts for 20000 - See http://matrix-org.github.io/matrix-js-sdk/1.2.0/client.js.html#line2031
+        this.typingInRooms.add(roomId);
+        await this.intent.sendTyping(roomId, true);
+    }
+
+    public async cancelTyping(roomId: string): Promise<void> {
+        if (this.typingInRooms.has(roomId)) {
+            // We aren't checking for timeouts here, but typing
+            // calls aren't expensive if they no-op.
+            this.typingInRooms.delete(roomId);
+            await this.intent.sendTyping(roomId, false);
+        }
     }
 
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)

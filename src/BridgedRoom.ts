@@ -458,6 +458,7 @@ export class BridgedRoom {
         try {
             const ghost = await this.main.getGhostForSlackMessage(message);
             await ghost.update(message, this);
+            await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             return await this.handleSlackMessage(message, ghost, content);
         } catch (err) {
             log.error("Failed to process event");
@@ -481,6 +482,11 @@ export class BridgedRoom {
 
         return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
                                   message.item.channel, message.event_ts);
+    }
+
+    public async onSlackTyping(event: ISlackEvent, teamId: string) {
+        const ghost = await this.main.getGhostForSlackMessage(event, teamId);
+        await ghost.sendTyping(this.MatrixRoomId);
     }
 
     public async leaveGhosts(ghosts: string[]) {

@@ -44,7 +44,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * to events in order to handle them.
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
-    "team_domain_change", "channel_rename"];
+    "team_domain_change", "channel_rename", "user_typing"];
     constructor(main: Main) {
         super(main);
     }
@@ -83,6 +83,9 @@ export class SlackEventHandler extends BaseSlackHandler {
                         break;
                     case "team_domain_change":
                         await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChanged, teamId);
+                        break;
+                    case "user_typing":
+                        await this.handleTyping(event, teamId);
                         break;
                     // XXX: Unused?
                     case "file_comment_added":
@@ -247,4 +250,17 @@ export class SlackEventHandler extends BaseSlackHandler {
             this.main.putRoomToStore(room);
         }
     }
+
+    private async handleTyping(event: ISlackEvent, teamId: string) {
+        const room = this.main.getRoomBySlackChannelId(event.channel);
+        if (!room) { throw new Error("unknown_channel"); }
+        const typingEvent = Object.assign({}, event, {
+            channel_id: event.channel,
+            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_id: teamId,
+            user_id: event.user || event.bot_id,
+        });
+        await room.onSlackTyping(typingEvent, teamId);
+    }
+
 }
