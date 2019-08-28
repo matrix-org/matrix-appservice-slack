@@ -35,7 +35,7 @@ const PRESERVE_KEYS = [
 ];
 
 export class SlackHookHandler extends BaseSlackHandler {
-    private eventHandler: SlackEventHandler;
+    public readonly eventHandler: SlackEventHandler;
     constructor(main: Main) {
         super(main);
         this.eventHandler = new SlackEventHandler(main);

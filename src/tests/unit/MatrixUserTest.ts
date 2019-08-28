@@ -16,8 +16,8 @@ limitations under the License.
 
 // tslint:disable: no-unused-expression
 
-import { MatrixUser } from "../MatrixUser";
-import { Main } from "../Main";
+import { MatrixUser } from "../../MatrixUser";
+import { Main } from "../../Main";
 import { expect } from "chai";
 
 describe("MatrixUser", () => {

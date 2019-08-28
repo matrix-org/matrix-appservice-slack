@@ -16,7 +16,7 @@ limitations under the License.
 
 // tslint:disable: no-unused-expression
 
-import { default as subsitutions, replacementFromDisplayMap } from "../substitutions";
+import { default as subsitutions, replacementFromDisplayMap } from "../../substitutions";
 import { expect } from "chai";
 
 const displayMap = {

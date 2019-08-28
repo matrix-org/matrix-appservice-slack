@@ -16,7 +16,7 @@ limitations under the License.
 
 // tslint:disable: no-unused-expression no-any
 
-import { BridgedRoom } from "../BridgedRoom";
+import { BridgedRoom } from "../../BridgedRoom";
 
 describe("BridgedRoom", () => {
     it("constructs", () => {
