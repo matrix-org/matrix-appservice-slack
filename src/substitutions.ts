@@ -38,7 +38,7 @@ interface IFirstWordMap {
 }
 
 export interface ISlackToMatrixResult {
-        link_names: number;  // This no longer works for nicks but is needed to make @channel work.
+        link_names: boolean;  // This no longer works for nicks but is needed to make @channel work.
         text: string;
         username: string;
         attachments: undefined|[{
@@ -145,7 +145,7 @@ class Substitutions {
 
         // tslint:disable-next-line: no-any
         const ret: ISlackToMatrixResult = {
-            link_names: 1,  // This no longer works for nicks but is needed to make @channel work.
+            link_names: true,  // This no longer works for nicks but is needed to make @channel work.
             text: modifiedBody,
             username: event.user_id,
             attachments: undefined,
