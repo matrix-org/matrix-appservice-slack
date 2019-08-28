@@ -106,6 +106,21 @@ export interface ISlackFile {
     permalink?: string;
 }
 
+export interface ISlackUser {
+    id: string;
+    profile?: {
+        display_name?: string;
+        real_name?: string;
+        image_original?: string;
+        image_1024?: string;
+        image_512?: string;
+        image_192?: string;
+        image_72?: string;
+        image_48?: string;
+        bot_id?: string;
+    };
+}
+
 export abstract class BaseSlackHandler {
     constructor(protected main: Main) { }
 
@@ -123,15 +138,15 @@ export abstract class BaseSlackHandler {
         return channel;
     }
 
-    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, webClient: WebClient) {
+    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, slackClient: WebClient) {
         if (text === undefined) {
             return;
         }
-        text = await this.replaceChannelIdsWithNames(msg, text, webClient);
+        text = await this.replaceChannelIdsWithNames(msg, text, slackClient);
         return await this.replaceUserIdsWithNames(msg, text);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, client: WebClient) {
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, slackClient: WebClient) {
         const testForName = text.match(CHANNEL_ID_REGEX);
         let iteration = 0;
         let matches = 0;
@@ -162,7 +177,7 @@ export abstract class BaseSlackHandler {
 
             // If we can't match the room then we just put the slack name
             if (room === undefined) {
-                const name = await this.getSlackRoomNameFromID(id, client);
+                const name = await this.getSlackRoomNameFromID(id, slackClient);
                 text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
             }
             iteration++;
@@ -190,7 +205,7 @@ export abstract class BaseSlackHandler {
                 // if the user is not in the store then we look up the displayname
                 const nullGhost = new SlackGhost(this.main);
                 const room = this.main.getRoomBySlackChannelId(message.channel);
-                displayName = await nullGhost.getDisplayname(id, room!.AccessToken!) || id;
+                displayName = await nullGhost.getDisplayname(id, room!.SlackClient!) || id;
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
                 text = text.replace(USER_ID_REGEX_FIRST, displayName);
             } else {
@@ -214,10 +229,10 @@ export abstract class BaseSlackHandler {
      * @return {Promise<Object>} A Promise of the updated slack file data object
      * @throws if the slack request fails or the response didn't contain `file.permalink_public`
      */
-    public async enablePublicSharing(file: ISlackFile, webClient: WebClient): Promise<ISlackFile> {
+    public async enablePublicSharing(file: ISlackFile, slackClient: WebClient): Promise<ISlackFile> {
         if (file.public_url_shared) { return file; }
 
-        const response = (await webClient.files.sharedPublicURL({ file: file.id })) as FilesSharedPublicURLResponse;
+        const response = (await slackClient.files.sharedPublicURL({ file: file.id })) as FilesSharedPublicURLResponse;
         if (!response || !response.file || !response.file.permalink_public) {
             log.warn("Could not find sharedPublicURL: " + JSON.stringify(response));
             throw Error("files.sharedPublicURL didn't return a shareable url");

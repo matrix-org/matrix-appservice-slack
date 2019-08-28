@@ -217,7 +217,11 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
 
         const text = params.text as string;
-        const lookupRes = await this.lookupMessage(params.channel_id as string, params.timestamp as string, room.SlackClient);
+        const lookupRes = await this.lookupMessage(
+            params.channel_id as string,
+            params.timestamp as string,
+            room.SlackClient,
+        );
 
         if (!lookupRes.message) {
             // Converting params to an object here, as we assume that params is the right shape.

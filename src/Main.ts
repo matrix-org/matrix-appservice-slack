@@ -154,12 +154,12 @@ export class Main {
         if (this.teamClients.has(teamId)) {
             return this.teamClients.get(teamId)!;
         }
-        return (await this.createTeamClient(token)).webClient;
+        return (await this.createTeamClient(token)).slackClient;
     }
- 
+
     public async createTeamClient(token: string) {
         const opts = this.config.slack_client_opts;
-        const webClient = new WebClient(token, {
+        const slackClient = new WebClient(token, {
             ...opts,
             logger: {
                 setLevel: () => {}, // We don't care about these.
@@ -175,14 +175,14 @@ export class Main {
                 warn: webLog.warn.bind(webLog),
                 info: webLog.info.bind(webLog),
                 error: webLog.error.bind(webLog),
-            }
+            },
         });
-        const teamInfo = (await webClient.team.info()) as TeamInfoResponse;
+        const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
         if (!teamInfo.ok) {
             throw Error("Could not create team client: " + teamInfo.error);
         }
-        this.teamClients.set(teamInfo.team.id, webClient);
-        return { webClient, team: teamInfo.team };
+        this.teamClients.set(teamInfo.team.id, slackClient);
+        return { slackClient, team: teamInfo.team };
     }
 
     public getTeamClient(teamId: string): WebClient|undefined {
@@ -722,7 +722,8 @@ export class Main {
             const result = entry.id.match(/^INTEG-(.*)$/);
             if (result) {
                 const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-                const cli = hasToken ? await this.createOrGetTeamClient(entry.remote.slack_team_id, entry.remote.slack_bot_token): undefined;
+                const cli = !hasToken ? undefined : await this.createOrGetTeamClient(
+                    entry.remote.slack_team_id, entry.remote.slack_bot_token);
                 const room = BridgedRoom.fromEntry(this, entry, cli);
                 this.addBridgedRoom(room);
                 this.roomsByMatrixRoomId[entry.matrix_id] = room;

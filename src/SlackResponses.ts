@@ -1,5 +1,5 @@
 import { WebAPICallResult } from "@slack/web-api";
-import { ISlackFile } from "./BaseSlackHandler";
+import { ISlackFile, ISlackUser, ISlackMessageEvent } from "./BaseSlackHandler";
 
 /**
  * Taken from https://api.slack.com/methods/team.info
@@ -37,14 +37,7 @@ export interface AuthTestResponse extends WebAPICallResult {
  * Taken from https://api.slack.com/methods/users.info
  */
 export interface UsersInfoResponse extends WebAPICallResult {
-    user: {
-        id: string;
-        name: string;
-        team_id: string;
-        profile: {
-            bot_id?: string;
-        }
-    };
+    user?: ISlackUser;
 }
 
 /**
@@ -97,14 +90,7 @@ export interface BotsInfoResponse extends WebAPICallResult {
  * Taken from https://api.slack.com/methods/conversations.history
  */
 export interface ConversationsHistoryResponse extends WebAPICallResult {
-    messages: {
-      type: string;
-      subtype?: string;
-      file?: ISlackFile;
-      user: string;
-      text: string;
-      ts: string;
-    }[];
+    messages: ISlackMessageEvent[];
 }
 
 /**

@@ -136,7 +136,6 @@ commands.channels = new Command({
     async func(main, req, res, userId, teamId) {
         const store = main.userStore;
         log.debug(`${userId} requested their teams`);
-        main.incRemoteCallCounter("conversations.list");
         const matrixUser = await store.getMatrixUser(userId);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
