@@ -114,18 +114,18 @@ export abstract class BaseSlackHandler {
                 channel: id,
                 token,
             },
-            uri: "https://slack.com/api/channels.info",
+            uri: "https://slack.com/api/conversations.info",
         };
-        this.main.incRemoteCallCounter("channels.info");
+        this.main.incRemoteCallCounter("conversations.info");
         try {
             const response = await rp(channelsInfoApiParams);
             if (response && response.channel && response.channel.name) {
-                log.info(`channels.info: ${id} mapped to ${response.channel.name}`);
+                log.info(`conversations.info: ${id} mapped to ${response.channel.name}`);
                 return response.channel.name;
             }
-            log.info("channels.info returned no result for " + id);
+            log.info("conversations.info returned no result for " + id);
         } catch (err) {
-            log.error("Caught error handling channels.info:" + err);
+            log.error("Caught error handling conversations.info:" + err);
         }
         return id;
     }

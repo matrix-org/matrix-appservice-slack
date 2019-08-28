@@ -758,9 +758,9 @@ export class Main {
 
         if (teamToken) {
             room.SlackBotToken = teamToken;
-            this.incRemoteCallCounter("channels.info");
+            this.incRemoteCallCounter("conversations.info");
             const response = await rp({
-                url: "https://slack.com/api/channels.info",
+                url: "https://slack.com/api/conversations.info",
                 json: true,
                 qs: {
                     channel: opts.slack_channel_id,
@@ -769,7 +769,7 @@ export class Main {
             });
 
             if (!response.ok) {
-                log.error(`channels.info for ${opts.slack_channel_id} errored:`, response);
+                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, response);
                 throw Error("Failed to get channel info");
             }
 
