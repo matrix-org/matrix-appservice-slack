@@ -20,7 +20,7 @@ import { Bridge, PrometheusMetrics, StateLookup,
 import * as Datastore from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
-import * as rp from "request-promise-native";
+import { WebClient } from "@slack/web-api";
 import { IConfig } from "./IConfig";
 import { OAuth2 } from "./OAuth2";
 import { BridgedRoom } from "./BridgedRoom";
@@ -30,8 +30,10 @@ import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
+import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
 
 const log = Logging.get("Main");
+const webLog = Logging.get(`slack-api`);
 
 const RECENT_EVENTID_SIZE = 20;
 export const METRIC_SENT_MESSAGES = "sent_messages";
@@ -102,6 +104,8 @@ export class Main {
 
     private adminCommands = new AdminCommands(this);
 
+    private teamClients: Map<string, WebClient> = new Map();
+
     constructor(public readonly config: IConfig) {
         if (config.oauth2) {
             this.oauth2 = new OAuth2({
@@ -144,6 +148,45 @@ export class Main {
 
     public getIntent(userId: string) {
         return this.bridge.getIntent(userId);
+    }
+
+    public async createOrGetTeamClient(teamId: string, token: string): Promise<WebClient> {
+        if (this.teamClients.has(teamId)) {
+            return this.teamClients.get(teamId)!;
+        }
+        return (await this.createTeamClient(token)).webClient;
+    }
+ 
+    public async createTeamClient(token: string) {
+        const opts = this.config.slack_client_opts;
+        const webClient = new WebClient(token, {
+            ...opts,
+            logger: {
+                setLevel: () => {}, // We don't care about these.
+                setName: () => {},
+                debug: (msg: any[]) => {
+                    // non-ideal way to detect calls to slack.
+                    webLog.debug.bind(webLog);
+                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg[0]);
+                    if (match && match[1]) {
+                        this.incRemoteCallCounter(match[1]);
+                    }
+                },
+                warn: webLog.warn.bind(webLog),
+                info: webLog.info.bind(webLog),
+                error: webLog.error.bind(webLog),
+            }
+        });
+        const teamInfo = (await webClient.team.info()) as TeamInfoResponse;
+        if (!teamInfo.ok) {
+            throw Error("Could not create team client: " + teamInfo.error);
+        }
+        this.teamClients.set(teamInfo.team.id, webClient);
+        return { webClient, team: teamInfo.team };
+    }
+
+    public getTeamClient(teamId: string): WebClient|undefined {
+        return this.teamClients.get(teamId);
     }
 
     public initialiseMetrics() {
@@ -261,15 +304,11 @@ export class Main {
             return;
         }
 
-        const channelsInfoApiParams = {
-            json: true,
-            qs: {
-                token: room.AccessToken,
-            },
-            uri: "https://slack.com/api/team.info",
-        };
-        this.incRemoteCallCounter("team.info");
-        const response = await rp(channelsInfoApiParams);
+        const cli = this.getTeamClient(message.team_id);
+        if (!cli) {
+            throw Error("No client for team");
+        }
+        const response = (await cli.team.info()) as TeamInfoResponse;
         if (!response.ok) {
             log.error(`Trying to fetch the ${message.team_id} team.`, response);
             return;
@@ -676,20 +715,22 @@ export class Main {
             matrix_id: {$exists: true},
         });
 
-        entries.forEach((entry) => {
+        await Promise.all(entries.map(async (entry) => {
             // These might be links for legacy-style BridgedRooms, or new-style
             // rooms
             // Only way to tell is via the form of the id
             const result = entry.id.match(/^INTEG-(.*)$/);
             if (result) {
-                const room = BridgedRoom.fromEntry(this, entry);
+                const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
+                const cli = hasToken ? await this.createOrGetTeamClient(entry.remote.slack_team_id, entry.remote.slack_bot_token): undefined;
+                const room = BridgedRoom.fromEntry(this, entry, cli);
                 this.addBridgedRoom(room);
                 this.roomsByMatrixRoomId[entry.matrix_id] = room;
                 this.stateStorage.trackRoom(entry.matrix_id);
             } else {
                 log.error("Ignoring LEGACY room link entry", entry);
             }
-        });
+        }));
 
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);
@@ -756,28 +797,28 @@ export class Main {
             teamToken = (await this.getTeamFromStore(opts.team_id)).bot_token;
         }
 
+        const cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+
         if (teamToken) {
             room.SlackBotToken = teamToken;
-            this.incRemoteCallCounter("conversations.info");
-            const response = await rp({
-                url: "https://slack.com/api/conversations.info",
-                json: true,
-                qs: {
-                    channel: opts.slack_channel_id,
-                    token: teamToken,
-                },
+            // Join the channel. If the bot is already joined then this will no-op.
+            const joinRes = await cli.conversations.join({
+                channel: opts.slack_channel_id!,
             });
+            if (!joinRes.ok) {
+                throw Error("Bot could not join channel");
+            }
+            const infoRes = (await cli.conversations.info()) as ConversationsInfoResponse;
 
-            if (!response.ok) {
-                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, response);
+            if (!infoRes.ok) {
+                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes);
                 throw Error("Failed to get channel info");
             }
 
-            room.SlackChannelName = response.channel.name;
+            room.SlackChannelName = infoRes.channel.name;
             await Promise.all([
                 room.refreshTeamInfo(),
                 room.refreshUserInfo(),
-                response,
             ]);
         }
 
