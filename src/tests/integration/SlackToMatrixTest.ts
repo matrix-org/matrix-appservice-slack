@@ -15,28 +15,15 @@ limitations under the License.
 */
 
 import { SlackHookHandler } from "../../SlackHookHandler";
-import { Main } from "../../Main";
 import { FakeMain } from "../utils/fakeMain";
-import { ServerResponse } from "http";
+import { Main } from "../../Main";
 import { expect } from "chai";
 import { SlackEventHandler } from "../../SlackEventHandler";
 
 // tslint:disable: no-unused-expression no-any
 
-class FakeResponder {
-    public head?: {code: number, status: string};
-    public hasEnded: boolean = false;
-
-    public writeHead(code: number, status: string) {
-        this.head = {code, status};
-    }
-
-    public end() {
-        this.hasEnded = true;
-    }
-}
 function constructHarness() {
-    const main = new FakeMain() ;
+    const main = new FakeMain();
     const hooks = new SlackHookHandler(main as unknown as Main);
     return { eventHandler: hooks.eventHandler, main };
 }
@@ -50,19 +37,14 @@ describe("SlackToMatrix", () => {
     });
 
     it("will drop slack events that have an unknown type", async () => {
-        const responder = new FakeResponder();
         await harness.eventHandler.handle({
-            team_id: "12345",
-            name: "",
-            type: "unknown type",
-            event: {
-                type: "faketype",
-                channel: "fakechannel",
-                ts: "12345",
-            },
-        }, responder as unknown as ServerResponse);
-        expect(responder.hasEnded).to.be.true;
-        expect(responder.head).to.deep.equal({code: 200, status: "OK"});
+            type: "faketype",
+            channel: "fakechannel",
+            ts: "12345",
+        }, "12345", (status: number, body?: string) => {
+            expect(status).to.equal(200);
+            expect(body).to.equal("OK");
+        });
         expect(harness.main.timerFinished.remote_request_seconds).to.be.equal("dropped");
     });
 });
