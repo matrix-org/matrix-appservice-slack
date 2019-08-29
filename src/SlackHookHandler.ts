@@ -34,6 +34,20 @@ const PRESERVE_KEYS = [
     "user_name", "user_id",
 ];
 
+export interface ISlackEventPayload {
+    // https://api.slack.com/types/event
+    token: string;
+    team_id: string;
+    api_app_id: string;
+    event?: unknown;
+    type: "event_callback"|"url_verification";
+    event_id: string;
+    event_time: string;
+    authed_users: string;
+    // https://api.slack.com/events/url_verification
+    challenge?: string;
+}
+
 export class SlackHookHandler extends BaseSlackHandler {
     public readonly eventHandler: SlackEventHandler;
     constructor(main: Main) {
@@ -73,10 +87,31 @@ export class SlackHookHandler extends BaseSlackHandler {
             const isEvent = req.headers["content-type"] === "application/json" && req.method === "POST";
             try {
                 if (isEvent) {
-                    const params = JSON.parse(body);
-                    this.eventHandler.handle(params, res).catch((ex) => {
-                        log.error("Failed to handle event", ex);
-                    });
+                    const eventsResponse = (resStatus, resBody, resHeaders) => {
+                        if (resHeaders) {
+                            res.writeHead(resStatus, resHeaders);
+                        } else {
+                            res.writeHead(resStatus);
+                        }
+                        if (resBody) {
+                            res.write(resBody);
+                        }
+                        res.end();
+                    };
+                    const eventPayload = JSON.parse(body) as ISlackEventPayload;
+                    if (eventPayload.type === "url_verification") {
+                        this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
+                    } else if (eventPayload.type === "event_callback") {
+                        this.eventHandler.handle(
+                            // The event can take many forms.
+                            // tslint:disable-next-line: no-any
+                            eventPayload.event as any,
+                            eventPayload.team_id,
+                            eventsResponse,
+                        ).catch((ex) => {
+                            log.error("Failed to handle event", ex);
+                        });
+                    }
                 } else {
                     const params = qs.parse(body);
                     this.handle(req.method!, req.url!, params, res).catch((ex) => {
@@ -185,6 +220,8 @@ export class SlackHookHandler extends BaseSlackHandler {
         // tells us.
         const channelName = `${params.team_domain}.#${params.channel_name}`;
 
+        const teamId = params.team_id as string;
+
         room.SlackChannelName = channelName;
         if (room.isDirty) {
             this.main.putRoomToStore(room);
@@ -212,7 +249,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 
             if (params.text) {
                 // Converting params to an object here, as we assume that params is the right shape.
-                return room.onSlackMessage(params as unknown as ISlackMessageEvent);
+                return room.onSlackMessage(params as unknown as ISlackMessageEvent, teamId);
             }
             return;
         }
@@ -229,7 +266,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // them by now
         PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
         lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, token);
-        return room.onSlackMessage(lookupRes.message, lookupRes.content);
+        return room.onSlackMessage(lookupRes.message, teamId, lookupRes.content);
     }
 
     private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {

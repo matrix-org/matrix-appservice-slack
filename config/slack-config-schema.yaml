@@ -1,5 +1,5 @@
 type: object
-required: ["homeserver", "slack_hook_port", "inbound_uri_prefix", "bot_username", "username_prefix"]
+required: ["homeserver", "inbound_uri_prefix", "bot_username", "username_prefix"]
 properties:
   dbdir:
     type: string

@@ -30,6 +30,7 @@ import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
+import { SlackRTMHandler } from "./SlackRTMHandler";
 
 const log = Logging.get("Main");
 
@@ -37,7 +38,9 @@ const RECENT_EVENTID_SIZE = 20;
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
 export interface ISlackTeam {
+    id: string;
     domain: string;
+    name: string;
 }
 
 interface MetricsLabels { [labelName: string]: string; }
@@ -95,7 +98,8 @@ export class Main {
 
     private teamDatastore: Datastore|null = null;
 
-    private slackHookHandler: SlackHookHandler;
+    private slackHookHandler?: SlackHookHandler;
+    private slackRtm?: SlackRTMHandler;
 
     // tslint:disable-next-line: no-any
     private metrics: PrometheusMetrics;
@@ -110,6 +114,11 @@ export class Main {
                 main: this,
                 redirect_prefix: config.oauth2.redirect_prefix || config.inbound_uri_prefix,
             });
+        }
+
+        if (!config.enable_rtm && !config.slack_hook_port) {
+            throw Error("Neither enable_rtm nor slack_hook_port is defined in the config." +
+            "The bridge must define a listener in order to run");
         }
 
         const dbdir = config.dbdir || "";
@@ -135,7 +144,13 @@ export class Main {
             userStore: path.join(dbdir, "user-store.db"),
         });
 
-        this.slackHookHandler = new SlackHookHandler(this);
+        if (config.enable_rtm) {
+            this.slackRtm = new SlackRTMHandler(this);
+        }
+
+        if (config.slack_hook_port) {
+            this.slackHookHandler = new SlackHookHandler(this);
+        }
 
         if (config.enable_metrics) {
             this.initialiseMetrics();
@@ -241,20 +256,24 @@ export class Main {
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: any) {
+    public async getTeamDomainForMessage(message: any, teamId?: string) {
         if (message.team_domain) {
             return message.team_domain;
         }
 
-        if (!message.team_id) {
-            throw new Error("Cannot determine team, no id given.");
+        if (!teamId) {
+            if (message.team_id) {
+                teamId = message.team_id;
+            } else {
+                throw new Error("Cannot determine team, no id given.");
+            }
         }
 
-        if (this.teams.has(message.team_id)) {
-            return this.teams.get(message.team_id)!.domain;
+        if (this.teams.has(teamId!)) {
+            return this.teams.get(teamId!)!.domain;
         }
 
-        const room = this.getRoomBySlackChannelId(message.channel);
+        const room = this.getRoomBySlackChannelId(message.channel || message.channel_id);
 
         if (!room) {
             log.error("Couldn't find channel in order to get team domain");
@@ -271,11 +290,11 @@ export class Main {
         this.incRemoteCallCounter("team.info");
         const response = await rp(channelsInfoApiParams);
         if (!response.ok) {
-            log.error(`Trying to fetch the ${message.team_id} team.`, response);
+            log.error(`Trying to fetch the ${teamId} team.`, response);
             return;
         }
         log.info("Got new team:", response);
-        this.teams.set(message.team_id, response.team);
+        this.teams.set(teamId!, response.team);
         return response.team.domain;
     }
 
@@ -284,14 +303,14 @@ export class Main {
         return `@${localpart}:${this.config.homeserver.server_name}`;
     }
 
-    public async getGhostForSlackMessage(message: any) {
+    public async getGhostForSlackMessage(message: any, teamId: string): Promise<SlackGhost> {
         // Slack ghost IDs need to be constructed from user IDs, not usernames,
         // because users can change their names
         // TODO if the team_domain is changed, we will recreate all users.
         // TODO(paul): Steal MatrixIdTemplate from matrix-appservice-gitter
 
         // team_domain is gone, so we have to actually get the domain from a friendly object.
-        const teamDomain = (await this.getTeamDomainForMessage(message)).toLowerCase();
+        const teamDomain = (await this.getTeamDomainForMessage(message, teamId)).toLowerCase();
         const userId = this.getUserId(
             message.user_id.toUpperCase(),
             teamDomain,
@@ -305,7 +324,7 @@ export class Main {
         const intent = this.bridge.getIntent(userId);
         const entries = await this.userStore.select({id: userId});
 
-        let ghost;
+        let ghost: SlackGhost;
         if (entries.length) {
             log.debug("Getting existing ghost for", userId);
             ghost = SlackGhost.fromEntry(this, entries[0], intent);
@@ -346,7 +365,7 @@ export class Main {
         throw Error("Failed to generate a unique inbound ID after 10 attempts");
     }
 
-    public addBridgedRoom(room: BridgedRoom) {
+    public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.push(room);
 
         if (room.SlackChannelId) {
@@ -363,7 +382,14 @@ export class Main {
             } else {
                 this.roomsBySlackTeamId[room.SlackTeamId] = [ room ];
             }
+
+            if (room.SlackBotToken && this.slackRtm) {
+                // This will start a new RTM client for the team, if the team
+                // doesn't currently have a client running.
+                await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
+            }
         }
+
     }
 
     public removeBridgedRoom(room: BridgedRoom) {
@@ -662,7 +688,10 @@ export class Main {
             log.error("Ignoring LEGACY room entry in room-store.db", entry);
         });
 
-        await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
+        if (this.slackHookHandler) {
+            await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
+        }
+
         this.bridge.run(port, this.config);
         Provisioning.addAppServicePath(this.bridge, this);
 
@@ -676,20 +705,20 @@ export class Main {
             matrix_id: {$exists: true},
         });
 
-        entries.forEach((entry) => {
+        await Promise.all(entries.map(async (entry) => {
             // These might be links for legacy-style BridgedRooms, or new-style
             // rooms
             // Only way to tell is via the form of the id
             const result = entry.id.match(/^INTEG-(.*)$/);
             if (result) {
                 const room = BridgedRoom.fromEntry(this, entry);
-                this.addBridgedRoom(room);
+                await this.addBridgedRoom(room);
                 this.roomsByMatrixRoomId[entry.matrix_id] = room;
                 this.stateStorage.trackRoom(entry.matrix_id);
             } else {
                 log.error("Ignoring LEGACY room link entry", entry);
             }
-        });
+        }));
 
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);
@@ -782,7 +811,7 @@ export class Main {
         }
 
         if (isNew) {
-            this.addBridgedRoom(room);
+            await this.addBridgedRoom(room);
         }
         if (room.isDirty) {
             this.putRoomToStore(room);

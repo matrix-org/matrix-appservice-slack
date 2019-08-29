@@ -14,74 +14,86 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
-import { ServerResponse } from "http";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
 
 const log = Logging.get("SlackEventHandler");
 
-interface ISlackEventParams {
-    team_id: string;
-    event: ISlackEvent;
+interface ISlackEventChannelRenamed extends ISlackEvent {
+    // https://api.slack.com/events/channel_rename
+    id: string;
     name: string;
-    type: string;
+    created: number;
 }
 
-interface ISlackEventParamsVerification extends ISlackEventParams {
-    type: "url_verification";
-    challenge: string;
+interface ISlackEventTeamDomainChanged extends ISlackEvent {
+    url: string;
+    domain: string;
 }
 
-interface ISlackEventParamsMessage extends ISlackEventParams {
-    event: ISlackMessageEvent;
+interface ISlackEventReaction extends ISlackEvent {
+    // https://api.slack.com/events/reaction_added
+    reaction: string;
+    item: ISlackMessage;
 }
 
 const HTTP_OK = 200;
 
+export type EventHandlerCallback = (status: number, body?: string, headers?: {[header: string]: string}) => void;
+
 export class SlackEventHandler extends BaseSlackHandler {
+    /**
+     * SUPPORTED_EVENTS corresponds to the types of events
+     * handled in `handle`. This is useful if you need to subscribe
+     * to events in order to handle them.
+     */
+    protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
+    "team_domain_change", "channel_rename", "user_typing"];
     constructor(main: Main) {
         super(main);
+    }
+
+    public onVerifyUrl(challenge: string, response: EventHandlerCallback) {
+        response(
+            HTTP_OK,
+            JSON.stringify({challenge}),
+            {"Content-Type": "application/json"},
+        );
     }
 
     /**
      * Handles a slack event request.
      * @param ISlackEventParams
      */
-    public async handle(params: ISlackEventParams, response: ServerResponse) {
+    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback) {
         try {
-            log.debug("Received slack event:", params);
+            log.debug("Received slack event:", event, teamId);
 
             const endTimer = this.main.startTimer("remote_request_seconds");
-
-            // respond to event url challenges
-            if (params.type === "url_verification") {
-                const challengeParams = params as ISlackEventParamsVerification;
-                response.writeHead(HTTP_OK, {"Content-Type": "application/json"});
-                response.write(JSON.stringify({challenge: challengeParams.challenge}));
-                response.end();
-                return;
-            } else {
-                // See https://api.slack.com/events-api#responding_to_events
-                // We must respond within 3 seconds or it will be sent again!
-                response.writeHead(HTTP_OK, "OK");
-                response.end();
-            }
+            // See https://api.slack.com/events-api#responding_to_events
+            // We must respond within 3 seconds or it will be sent again!
+            response(HTTP_OK, "OK");
 
             let err: string|null = null;
             try {
-                switch (params.event.type) {
+                switch (event.type) {
                     case "message":
+                        await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
+                        break;
                     case "reaction_added":
                     case "reaction_removed":
-                        await this.handleMessageEvent(params as ISlackEventParamsMessage);
+                        await this.handleReaction(event as ISlackEventReaction, teamId);
                         break;
                     case "channel_rename":
-                        await this.handleChannelRenameEvent(params);
+                        await this.handleChannelRenameEvent(event as ISlackEventChannelRenamed);
                         break;
                     case "team_domain_change":
-                        await this.handleDomainChangeEvent(params);
+                        await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChanged, teamId);
+                        break;
+                    case "user_typing":
+                        await this.handleTyping(event, teamId);
                         break;
                     // XXX: Unused?
                     case "file_comment_added":
@@ -89,11 +101,12 @@ export class SlackEventHandler extends BaseSlackHandler {
                         err = "unknown_event";
                 }
             } catch (ex) {
+                log.warn("Didn't handle event:", ex);
                 err = ex;
             }
 
             if (err === "unknown_channel") {
-                const chanIdMix = `${params.event.channel} (${params.team_id})`;
+                const chanIdMix = `${event.channel} (${teamId})`;
                 log.warn(`Ignoring message from unrecognised slack channel id: ${chanIdMix}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
@@ -113,32 +126,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             log.error("SlackEventHandler.handle failed:", e);
         }
     }
-
-    private async handleDomainChangeEvent(params: ISlackEventParams) {
-        this.main.getRoomsBySlackTeamId(params.team_id).forEach((room: BridgedRoom) => {
-            room.SlackTeamDomain = params.event.domain!;
-            if (room.isDirty) {
-                this.main.putRoomToStore(room);
-            }
-        });
-    }
-
-    private async handleChannelRenameEvent(params: ISlackEventParams) {
-        // See https://api.slack.com/events/channel_rename
-        const channelUpdate = params.event.channel as unknown as {
-            id: string,
-            name: string,
-        };
-        const room = this.main.getRoomBySlackChannelId(channelUpdate.id);
-        if (!room) { throw new Error("unknown_channel"); }
-
-        const channelName = `${room.SlackTeamDomain}.#${channelUpdate.id}`;
-        room.SlackChannelName = channelName;
-        if (room.isDirty) {
-            this.main.putRoomToStore(room);
-        }
-    }
-
     /**
      * Attempts to handle the `message` event.
      *
@@ -146,22 +133,12 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Attempts to make the message as native-matrix feeling as it can.
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
-    private async handleMessageEvent(params: ISlackEventParamsMessage) {
-        // Reactions use an item key for storing the message and channel, because
-        // slack *loves* consistency.
-        let channelId: string;
-        if (params.event.channel) {
-            channelId = params.event.channel;
-        } else if (params.event.item) {
-            channelId = params.event.item.channel;
-        } else {
-            throw Error("Channel not given in event, we possibly cannot handle this event.");
-        }
-        const room = this.main.getRoomBySlackChannelId(channelId) as BridgedRoom;
+    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
+        const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
-        if (params.event.subtype === "bot_message" &&
-            (!room.SlackBotId || params.event.bot_id === room.SlackBotId)) {
+        if (event.subtype === "bot_message" &&
+            (!room.SlackBotId || event.bot_id === room.SlackBotId)) {
             return;
         }
 
@@ -170,40 +147,32 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         const token = room.AccessToken;
 
-        const msg = Object.assign({}, params.event, {
-            channel_id: params.event.channel,
+        const msg = Object.assign({}, event, {
+            channel_id: event.channel,
             team_domain: room.SlackTeamDomain || room.SlackTeamId,
-            team_id: params.team_id,
-            user_id: params.event.user || params.event.bot_id,
+            team_id: teamId,
+            user_id: event.user || event.bot_id,
         });
-
-        if (params.event.type === "reaction_added") {
-            return room.onSlackReactionAdded(msg);
-        }
-        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
-        /* else if (params.event.type === "reaction_removed") {
-            return room.onSlackReactionRemoved(msg);
-        } */
 
         if (!token) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(msg);
+            return room.onSlackMessage(msg, teamId);
         }
 
         // Handle events with attachments like bot messages.
-        if (params.event.type === "message" && params.event.attachments) {
-            for (const attachment of params.event.attachments) {
+        if (msg.type === "message" && msg.attachments) {
+            for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-                return await room.onSlackMessage(msg);
+                return await room.onSlackMessage(msg, teamId);
             }
-            if (params.event.text === "") {
+            if (msg.text === "") {
                 return;
             }
-            msg.text = params.event.text;
+            msg.text = msg.text;
         }
 
         // In this method we must standardise the message object so that
@@ -238,7 +207,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(msg);
+            return room.onSlackMessage(event, teamId);
         }
 
         let content: Buffer|undefined;
@@ -258,6 +227,63 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, token);
-        return room.onSlackMessage(msg, content);
+        return room.onSlackMessage(msg, teamId, content);
     }
+
+    private async handleReaction(event: ISlackEventReaction, teamId: string) {
+        // Reactions store the channel in the item
+        const channel = event.item.channel;
+        const room = this.main.getRoomBySlackChannelId(channel) as BridgedRoom;
+        if (!room) { throw new Error("unknown_channel"); }
+
+        const msg = Object.assign({}, event, {
+            channel_id: channel,
+            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_id: teamId,
+            user_id: event.user || event.bot_id,
+        });
+
+        if (event.type === "reaction_added") {
+            return room.onSlackReactionAdded(msg, teamId);
+        }
+
+        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
+        /* else if (params.event.type === "reaction_removed") {
+            return room.onSlackReactionRemoved(msg);
+        } */
+    }
+
+    private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {
+        this.main.getRoomsBySlackTeamId(teamId).forEach((room: BridgedRoom) => {
+            room.SlackTeamDomain = event.domain;
+            if (room.isDirty) {
+                this.main.putRoomToStore(room);
+            }
+        });
+    }
+
+    private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
+        // TODO test me. and do we even need this? doesn't appear to be used anymore
+        const room = this.main.getRoomBySlackChannelId(event.id);
+        if (!room) { throw new Error("unknown_channel"); }
+
+        const channelName = `${room.SlackTeamDomain}.#${event.name}`;
+        room.SlackChannelName = channelName;
+        if (room.isDirty) {
+            this.main.putRoomToStore(room);
+        }
+    }
+
+    private async handleTyping(event: ISlackEvent, teamId: string) {
+        const room = this.main.getRoomBySlackChannelId(event.channel);
+        if (!room) { throw new Error("unknown_channel"); }
+        const typingEvent = Object.assign({}, event, {
+            channel_id: event.channel,
+            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_id: teamId,
+            user_id: event.user || event.bot_id,
+        });
+        await room.onSlackTyping(typingEvent, teamId);
+    }
+
 }

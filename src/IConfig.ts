@@ -19,12 +19,9 @@ limitations under the License.
 type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 
 export interface IConfig {
-    slack_hook_port: number;
     inbound_uri_prefix: string;
     bot_username: string;
     username_prefix: string;
-
-    slack_master_token?: string;
 
     matrix_admin_room?: string;
 
@@ -52,8 +49,11 @@ export interface IConfig {
         redirect_prefix?: string;
     };
 
+    enable_rtm: boolean;
+
+    slack_hook_port?: number;
+
     enable_metrics: boolean;
 
     dbdir: string;
-
 }
