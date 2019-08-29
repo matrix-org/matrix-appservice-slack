@@ -19,6 +19,7 @@ import * as rp from "request-promise-native";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
+import { ConversationsListResponse } from "./SlackResponses";
 
 const log = Logging.get("Provisioning");
 
@@ -135,7 +136,6 @@ commands.channels = new Command({
     async func(main, req, res, userId, teamId) {
         const store = main.userStore;
         log.debug(`${userId} requested their teams`);
-        main.incRemoteCallCounter("conversations.list");
         const matrixUser = await store.getMatrixUser(userId);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
@@ -149,16 +149,12 @@ commands.channels = new Command({
         if (team === null) {
             throw new Error("No team token for this team_id");
         }
-        const response = await rp({
-            url: "https://slack.com/api/conversations.list",
-            json: true,
-            qs: {
-                exclude_archived: true,
-                limit: 100,
-                token: team.bot_token,
-                types: "public_channel",
-            },
-        });
+        const cli = await main.createOrGetTeamClient(teamId, team.bot_token);
+        const response = (await cli.conversations.list({
+            exclude_archived: true,
+            limit: 100, // TODO: Pagination
+            types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
+        })) as ConversationsListResponse;
         if (!response.ok) {
             log.error(`Failed trying to fetch channels for ${teamId}.`, response);
             res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
@@ -166,6 +162,7 @@ commands.channels = new Command({
         }
         res.json({
             channels: response.channels.map((chan) => ({
+                // We deliberately filter out extra information about a channel here
                 id: chan.id,
                 name: chan.name,
                 purpose: chan.purpose,

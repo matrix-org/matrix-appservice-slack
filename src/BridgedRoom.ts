@@ -21,6 +21,8 @@ import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
+import { WebClient, WebAPICallResult } from "@slack/web-api";
+import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 
 const log = Logging.get("BridgedRoom");
 
@@ -133,7 +135,11 @@ export class BridgedRoom {
         return this.matrixATime;
     }
 
-    public static fromEntry(main: Main, entry: any) {
+    public get SlackClient() {
+        return this.botClient;
+    }
+
+    public static fromEntry(main: Main, entry: any, botClient?: WebClient) {
         return new BridgedRoom(main, {
             access_scopes: entry.remote.access_scopes,
             access_token: entry.remote.access_token,
@@ -148,7 +154,7 @@ export class BridgedRoom {
             slack_user_id: entry.remote.slack_user_id,
             slack_user_token: entry.remote.slack_user_token,
             slack_webhook_uri: entry.remote.webhook_uri,
-        });
+        }, botClient);
     }
 
     private matrixRoomId: string;
@@ -175,7 +181,7 @@ export class BridgedRoom {
      */
     private dirty: boolean;
 
-    constructor(private main: Main, opts: IBridgedRoomOpts) {
+    constructor(private main: Main, opts: IBridgedRoomOpts, private botClient?: WebClient) {
 
         if (!opts.inbound_id) {
             throw new Error("BridgedRoom requires an inbound ID");
@@ -254,7 +260,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixReaction(message: any) {
-        if (!this.SlackBotToken) { return; }
+        if (!this.botClient) { return; }
 
         const relatesTo = message.content["m.relates_to"];
         const eventStore = this.main.eventStore;
@@ -281,29 +287,14 @@ export class BridgedRoom {
 
         // TODO: This only works once from matrix as we are sending the event as the
         // bot user.
-        const body = {
+        const res = await this.botClient.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
             timestamp: event.remoteEventId,
-        };
+        });
 
-        const sendMessageParams = {
-            body,
-            headers: {},
-            json: true,
-            method: "POST",
-            uri: "https://slack.com/api/reactions.add",
-        };
-
-        if (this.slackBotToken) {
-            sendMessageParams.headers = {
-                Authorization: "Bearer " + this.slackBotToken,
-            };
-        }
-
-        const res = await rp(sendMessageParams);
-        if (!res || !res.ok) {
+        if (!res.ok) {
             log.error("HTTP Error: ", res);
             return;
         }
@@ -313,7 +304,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixRedaction(message: any) {
-        if (!this.slackBotToken) { return; }
+        if (!this.botClient) { return; }
         const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.redacts);
 
         // If we don't get an event then exit
@@ -322,27 +313,12 @@ export class BridgedRoom {
             return;
         }
 
-        const body = {
+        const res = await this.botClient.chat.delete({
             as_user: false,
-            channel: this.slackChannelId,
+            channel: this.slackChannelId!,
             ts: event.remoteEventId,
-        };
+        });
 
-        const sendMessageParams = {
-            body,
-            headers: {},
-            json: true,
-            method: "POST",
-            uri: "https://slack.com/api/chat.delete",
-        };
-
-        if (this.slackBotToken) {
-            sendMessageParams.headers = {
-                Authorization: `Bearer ${this.slackBotToken}`,
-            };
-        }
-
-        const res = await rp(sendMessageParams);
         if (!res) {
             log.error("HTTP Error: ", res);
         }
@@ -350,7 +326,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        if (!this.slackWebhookUri && !this.slackBotToken) { return; }
+        if (!this.botClient) { return; }
 
         const event = await this.main.eventStore.getEntryByMatrixId(
             message.content["m.relates_to"].event_id,
@@ -364,26 +340,13 @@ export class BridgedRoom {
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
-        const sendMessageParams = {
-            body: {
-                ts: event.remoteEventId,
-                as_user: false,
-                channel: this.slackChannelId,
-                ...body,
-            },
-            headers: {},
-            json: true,
-            method: "POST",
-            uri: "https://slack.com/api/chat.update",
-        };
+        const res = await this.botClient.chat.update({
+            ts: event.remoteEventId,
+            as_user: false,
+            channel: this.slackChannelId!,
+            ...body,
+        });
 
-        if (this.slackBotToken) {
-            sendMessageParams.headers = {
-                Authorization: `Bearer ${this.slackBotToken}`,
-            };
-        }
-
-        const res = await rp(sendMessageParams);
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         if (!res) {
             log.error("HTTP Error: ", res);
@@ -395,60 +358,55 @@ export class BridgedRoom {
     }
 
     public async onMatrixMessage(message: any) {
-        if (!this.slackWebhookUri && !this.slackBotToken) { return; }
+        if (!this.slackWebhookUri && !this.botClient) { return; }
 
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
+            username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
         };
-        const uri = (this.slackBotToken) ? "https://slack.com/api/chat.postMessage" : this.slackWebhookUri;
-
-        const sendMessageParams = {
-            body,
-            headers: {},
-            json: true,
-            method: "POST",
-            uri: uri!,
-        };
-
-        if (this.slackBotToken) {
-            sendMessageParams.headers = {
-                Authorization: `Bearer ${this.slackBotToken}`,
-            };
-            // See https://api.slack.com/methods/chat.postMessage#authorship
-            // Setting as_user to false means "When the as_user parameter is set to
-            // false, messages are posted as "bot_messages", with message authorship
-            // attributed to the user name"
-            sendMessageParams.body.as_user = false;
-            sendMessageParams.body.channel = this.slackChannelId;
-        }
-
-        sendMessageParams.body.username = user.getDisplaynameForRoom(message.room_id)
-                                          || sendMessageParams.body.username;
 
         const reply = await this.findParentReply(message);
         if (reply !== message.event_id) {
             // We have a reply
             const parentStoredEvent = await this.main.eventStore.getEntryByMatrixId(message.room_id, reply);
-            sendMessageParams.body.thread_ts = parentStoredEvent.remoteEventId;
+            body.thread_ts = parentStoredEvent.remoteEventId;
         }
 
         const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
 
         if (avatarUrl && avatarUrl.indexOf("mxc://") === 0) {
-            sendMessageParams.body.icon_url = this.main.getUrlForMxc(avatarUrl);
+            body.icon_url = this.main.getUrlForMxc(avatarUrl);
         }
 
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
-        const res = await rp(sendMessageParams);
+        let res: WebAPICallResult;
+        if (this.botClient) {
+            res = await this.botClient.chat.postMessage({
+                ...body,
+                as_user: false,
+                channel: this.slackChannelId!,
+            });
+        } else {
+            const sendMessageParams = {
+                body,
+                headers: {},
+                json: true,
+                method: "POST",
+                uri: this.slackWebhookUri!,
+            };
+            res = await rp(sendMessageParams);
+        }
+
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
-        if (!res) {
+        if (!res.ok) {
             log.error("HTTP Error: ", res);
             return;
         }
+
         // Add this event to the event store
         const event = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
         this.main.eventStore.upsertEvent(event);
@@ -498,15 +456,9 @@ export class BridgedRoom {
     }
 
     public async refreshTeamInfo() {
-        if (!this.slackBotToken) { return; }
+        if (!this.botClient) { return; }
 
-        const response = await rp({
-            uri: "https://slack.com/api/team.info",
-            json: true,
-            qs: {
-                token: this.slackBotToken,
-            },
-        });
+        const response = (await this.botClient.team.info()) as TeamInfoResponse;
         if (!response.team) { return; }
 
         this.setValue("SlackTeamDomain", response.team.domain);
@@ -514,28 +466,15 @@ export class BridgedRoom {
     }
 
     public async refreshUserInfo() {
-        if (!this.slackBotToken) { return; }
+        if (!this.botClient) { return; }
 
-        const testRes = await rp({
-            uri: "https://slack.com/api/auth.test",
-            json: true,
-            qs: {
-                token: this.slackBotToken,
-            },
-        });
+        const testRes = (await this.botClient.auth.test()) as AuthTestResponse;
 
         log.debug("auth.test res:", testRes);
         if (!testRes.user_id) { return; }
         this.setValue("slackUserId", testRes.user_id);
 
-        const usersRes = await rp({
-            uri: "https://slack.com/api/users.info",
-            json: true,
-            qs: {
-                token: this.slackBotToken,
-                user: testRes.user_id,
-            },
-        });
+        const usersRes = (await this.botClient.users.info({ user: testRes.user_id })) as UsersInfoResponse;
         if (!usersRes.user || !usersRes.user.profile) { return; }
         this.setValue("slackBotId", usersRes.user.profile.bot_id);
     }

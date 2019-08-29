@@ -27,6 +27,7 @@
   "homepage": "https://github.com/matrix-org/matrix-appservice-slack#readme",
   "dependencies": {
     "@slack/rtm-api": "^5.0.1",
+    "@slack/web-api": "^5.1.0",
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
     "chai": "^4.2.0",
     "chalk": "^2.4.1",

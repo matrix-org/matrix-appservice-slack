@@ -18,13 +18,14 @@ import * as fs from "fs";
 import { createServer as httpCreate, RequestListener,
     Server, IncomingMessage, ServerResponse } from "http";
 import { createServer as httpsCreate } from "https";
-import * as rp from "request-promise-native";
 import * as qs from "querystring";
 import { Logging } from "matrix-appservice-bridge";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { BaseSlackHandler, HTTP_CODES, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
+import { WebClient } from "@slack/web-api";
+import { ConversationsHistoryResponse } from "./SlackResponses";
 
 const log = Logging.get("SlackHookHandler");
 
@@ -239,9 +240,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
-        const token = room.AccessToken;
-
-        if (!token) {
+        if (!room.SlackClient) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
@@ -255,7 +254,11 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
 
         const text = params.text as string;
-        const lookupRes = await this.lookupMessage(params.channel_id as string, params.timestamp as string, token);
+        const lookupRes = await this.lookupMessage(
+            params.channel_id as string,
+            params.timestamp as string,
+            room.SlackClient,
+        );
 
         if (!lookupRes.message) {
             // Converting params to an object here, as we assume that params is the right shape.
@@ -265,7 +268,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // Restore the original parameters, because we've forgotten a lot of
         // them by now
         PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
-        lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, token);
+        lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, room.SlackClient);
         return room.onSlackMessage(lookupRes.message, teamId, lookupRes.content);
     }
 
@@ -350,26 +353,19 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param {string} timestamp Timestamp when message was received, in seconds
      *     formatted as a float.
      */
-    private async lookupMessage(channelID: string, timestamp: string, token: string): Promise<{
+    private async lookupMessage(channelID: string, timestamp: string, client: WebClient): Promise<{
         // tslint:disable-next-line: no-any
         message: ISlackMessageEvent, content: Buffer|undefined}> {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.
-        const params = {
-            form : {
-                channel: channelID,
-                inclusive: "1",
-                latest: timestamp,
-                oldest: timestamp,
-                token,
-            },
-            json: true,
-            method: "POST",
-            uri: "https://slack.com/api/channels.history",
-        };
-        this.main.incRemoteCallCounter("channels.history");
-        const response = await rp(params);
-        if (!response || !response.messages || response.messages.length === 0) {
+        const response = (await client.conversations.history({
+            channel: channelID,
+            inclusive: true,
+            latest: timestamp,
+            oldest: timestamp,
+        })) as ConversationsHistoryResponse;
+
+        if (!response.ok || !response.messages || response.messages.length === 0) {
             log.warn("Could not find history: " + response);
             throw Error("Could not find history");
         }
@@ -388,8 +384,8 @@ export class SlackHookHandler extends BaseSlackHandler {
 
         if (message.subtype === "file_share") {
             try {
-                message.file = await this.enablePublicSharing(message.file, token);
-                const content = await this.fetchFileContent(message.file);
+                message.file = await this.enablePublicSharing(message.file!, client);
+                const content = await this.fetchFileContent(message.file!);
                 return { message, content };
             } catch (err) {
                 log.error("Failed to get file content: ", err);
