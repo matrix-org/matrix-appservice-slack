@@ -17,7 +17,6 @@ limitations under the License.
 import { Logging } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import { Main } from "./Main";
-import { SlackGhost } from "./SlackGhost";
 import { default as subs } from "./substitutions";
 import { WebClient } from "@slack/web-api";
 import { FilesSharedPublicURLResponse, ConversationsInfoResponse } from "./SlackResponses";
@@ -204,9 +203,7 @@ export abstract class BaseSlackHandler {
             if (users === undefined || !users.length) {
                 log.warn("Mentioned user not in store. Looking up display name from slack.");
                 // if the user is not in the store then we look up the displayname
-                const nullGhost = new SlackGhost(this.main);
-                const room = this.main.getRoomBySlackChannelId(message.channel);
-                displayName = await nullGhost.getDisplayname(id, room!.SlackClient!) || id;
+                displayName = await this.main.getNullGhostDisplayName(message.channel, id);
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
                 text = text.replace(USER_ID_REGEX_FIRST, displayName);
             } else {

@@ -941,4 +941,13 @@ export class Main {
         const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
         return accounts.find((acct) => acct.team_id === teamId);
     }
+
+    public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
+        const nullGhost = new SlackGhost(this);
+        const room = this.getRoomBySlackChannelId(channel);
+        if (!room || !room.SlackClient) {
+            return userId;
+        }
+        return (await nullGhost.getDisplayname(userId, room!.SlackClient!)) || userId;
+    }
 }
