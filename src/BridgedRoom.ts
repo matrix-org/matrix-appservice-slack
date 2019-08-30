@@ -15,14 +15,15 @@ limitations under the License.
 */
 
 import * as rp from "request-promise-native";
-import { StoredEvent, Logging } from "matrix-appservice-bridge";
+import { Logging } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient, WebAPICallResult } from "@slack/web-api";
-import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
+import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse, ChatPostMessageResponse } from "./SlackResponses";
+import { RoomEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
@@ -139,9 +140,10 @@ export class BridgedRoom {
         return this.botClient;
     }
 
-    public static fromEntry(main: Main, entry: any, botClient?: WebClient) {
+    public static fromEntry(main: Main, entry: RoomEntry, botClient?: WebClient) {
+        const accessScopes: Set<string> = new Set(entry.remote.access_scopes);
         return new BridgedRoom(main, {
-            access_scopes: entry.remote.access_scopes,
+            access_scopes: accessScopes,
             access_token: entry.remote.access_token,
             inbound_id: entry.remote_id,
             matrix_room_id: entry.matrix_id,
@@ -263,8 +265,8 @@ export class BridgedRoom {
         if (!this.botClient) { return; }
 
         const relatesTo = message.content["m.relates_to"];
-        const eventStore = this.main.eventStore;
-        const event = await eventStore.getEntryByMatrixId(message.room_id, relatesTo.event_id);
+        const eventStore = this.main.datastore;
+        const event = await eventStore.getEventByMatrixId(message.room_id, relatesTo.event_id);
 
         // If we don't get an event then exit
         if (event === null) {
@@ -291,7 +293,7 @@ export class BridgedRoom {
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
-            timestamp: event.remoteEventId,
+            timestamp: event.slackTs,
         });
 
         if (!res.ok) {
@@ -305,7 +307,7 @@ export class BridgedRoom {
 
     public async onMatrixRedaction(message: any) {
         if (!this.botClient) { return; }
-        const event = await this.main.eventStore.getEntryByMatrixId(message.room_id, message.redacts);
+        const event = await this.main.datastore.getEventByMatrixId(message.room_id, message.redacts);
 
         // If we don't get an event then exit
         if (event === null) {
@@ -316,7 +318,7 @@ export class BridgedRoom {
         const res = await this.botClient.chat.delete({
             as_user: false,
             channel: this.slackChannelId!,
-            ts: event.remoteEventId,
+            ts: event.slackTs,
         });
 
         if (!res) {
@@ -328,10 +330,14 @@ export class BridgedRoom {
     public async onMatrixEdit(message: any) {
         if (!this.botClient) { return; }
 
-        const event = await this.main.eventStore.getEntryByMatrixId(
+        const event = await this.main.datastore.getEventByMatrixId(
             message.content["m.relates_to"].event_id,
             message.room_id,
         );
+
+        if (event === null) {
+            return;
+        }
 
         // re-write the message so the matrixToSlack converter works as expected.
         let newMessage = JSON.parse(JSON.stringify(message));
@@ -340,12 +346,12 @@ export class BridgedRoom {
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
-        const res = await this.botClient.chat.update({
-            ts: event.remoteEventId,
+        const res = (await this.botClient.chat.update({
+            ts: event.slackTs,
             as_user: false,
             channel: this.slackChannelId!,
             ...body,
-        });
+        })) as ChatUpdateResponse;
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         if (!res) {
@@ -353,8 +359,12 @@ export class BridgedRoom {
             return;
         }
         // Add this event to the event store
-        const storeEv = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-        this.main.eventStore.upsertEvent(storeEv);
+        await this.main.datastore.upsertEvent(
+            message.room_id,
+            message.event_id,
+            this.slackChannelId!,
+            res.ts,
+        );
     }
 
     public async onMatrixMessage(message: any) {
@@ -371,8 +381,10 @@ export class BridgedRoom {
         const reply = await this.findParentReply(message);
         if (reply !== message.event_id) {
             // We have a reply
-            const parentStoredEvent = await this.main.eventStore.getEntryByMatrixId(message.room_id, reply);
-            body.thread_ts = parentStoredEvent.remoteEventId;
+            const parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
+            if (parentStoredEvent) {
+                body.thread_ts = parentStoredEvent.slackTs;
+            }
         }
 
         const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
@@ -383,14 +395,7 @@ export class BridgedRoom {
 
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
-        let res: WebAPICallResult;
-        if (this.botClient) {
-            res = await this.botClient.chat.postMessage({
-                ...body,
-                as_user: false,
-                channel: this.slackChannelId!,
-            });
-        } else {
+        if (!this.botClient) {
             const sendMessageParams = {
                 body,
                 headers: {},
@@ -398,18 +403,33 @@ export class BridgedRoom {
                 method: "POST",
                 uri: this.slackWebhookUri!,
             };
-            res = await rp(sendMessageParams);
+            const webhookRes = await rp(sendMessageParams);
+            if (webhookRes !== "ok") {
+                log.error("HTTP Error: ", webhookRes);
+            }
+            // Webhooks don't give us any ID, so we can't store this.
+            return;
         }
+        const res = (await this.botClient.chat.postMessage({
+            ...body,
+            as_user: false,
+            channel: this.slackChannelId!,
+        })) as ChatPostMessageResponse;
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
+
         if (!res.ok) {
             log.error("HTTP Error: ", res);
             return;
         }
 
         // Add this event to the event store
-        const event = new StoredEvent(message.room_id, message.event_id, this.slackChannelId, res.ts);
-        this.main.eventStore.upsertEvent(event);
+        await this.main.datastore.upsertEvent(
+            message.room_id,
+            message.event_id,
+            this.slackChannelId!,
+            res.ts,
+        );
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {
@@ -435,8 +455,11 @@ export class BridgedRoom {
         const reaction = `:${message.reaction}:`;
         const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
 
-        const eventStore = this.main.eventStore;
-        const event = await eventStore.getEntryByRemoteId(message.item.channel, message.item.ts);
+        const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
+
+        if (event === null) {
+            return;
+        }
 
         return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
                                   message.item.channel, message.event_ts);
@@ -504,10 +527,12 @@ export class BridgedRoom {
 
         if (message.thread_ts !== undefined && message.text) {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
-            replyMEvent = this.stripMatrixReplyFallback(replyMEvent);
-            return await ghost.sendWithReply(
-                this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
-            );
+            if (replyMEvent) {
+                replyMEvent = this.stripMatrixReplyFallback(replyMEvent);
+                return await ghost.sendWithReply(
+                    this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
+                );
+            }
         }
 
         // If we are only handling text, send the text. File messages are handled in a seperate block.
@@ -543,7 +568,7 @@ export class BridgedRoom {
 
             let formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font> ${after} =&gt; ${before}` +
             `<font color="green"> ${curr} </font> ${after}`;
-            const prevEvent = await this.main.eventStore.getEntryByRemoteId(channelId, message.previous_message!.ts);
+            const prevEvent = await this.main.datastore.getEventBySlackId(channelId, message.previous_message!.ts);
 
             // If this edit is in a thread we need to inject the reply fallback, or
             // non-reply supporting clients will no longer show it as a reply.
@@ -556,15 +581,14 @@ export class BridgedRoom {
                     this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
                 );
                 replyEvent = this.stripMatrixReplyFallback(replyEvent);
-
-                const bodyFallback = ghost.getFallbackText(replyEvent);
-                const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
-
-                body = `${bodyFallback}\n\n${body}`;
-                formatted = formattedFallback + formatted;
-
-                newBody = bodyFallback + newBody;
-                newFormattedBody = formattedFallback + newFormattedBody;
+                if (replyEvent) {
+                    const bodyFallback = ghost.getFallbackText(replyEvent);
+                    const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
+                    body = `${bodyFallback}\n\n${body}`;
+                    formatted = formattedFallback + formatted;
+                    newBody = bodyFallback + newBody;
+                    newFormattedBody = formattedFallback + newFormattedBody;
+                }
             }
 
             const matrixContent = {
@@ -578,7 +602,7 @@ export class BridgedRoom {
                     msgtype: "m.text",
                 },
                 "m.relates_to": {
-                    event_id: prevEvent.eventId,
+                    event_id: prevEvent ? prevEvent.eventId : undefined,
                     rel_type: "m.replace",
                 },
                 "msgtype": "m.text",
@@ -667,19 +691,25 @@ export class BridgedRoom {
 
     private async getReplyEvent(roomID: string, message: ISlackMessageEvent, slackRoomID: string) {
         // Get parent event
-        const eventStore = this.main.eventStore;
-        const parentEvent = await eventStore.getEntryByRemoteId(slackRoomID, message.thread_ts);
+        const dataStore = this.main.datastore;
+        const parentEvent = await dataStore.getEventBySlackId(slackRoomID, message.thread_ts!);
+        if (parentEvent === null) {
+            return null;
+        }
         let replyToTS = "";
         // Add this event to the list of events in this thread
         if (parentEvent._extras.slackThreadMessages === undefined) {
             parentEvent._extras.slackThreadMessages = [];
         }
-        replyToTS = parentEvent._extras.slackThreadMessages.slice(-1)[0] || message.thread_ts;
+        replyToTS = parentEvent._extras.slackThreadMessages.slice(-1)[0] || message.thread_ts!;
         parentEvent._extras.slackThreadMessages.push(message.ts);
-        await eventStore.upsertEvent(parentEvent);
+        await dataStore.upsertEvent(parentEvent);
 
         // Get event to reply to
-        const replyToEvent = await eventStore.getEntryByRemoteId(slackRoomID, replyToTS);
+        const replyToEvent = await dataStore.getEventBySlackId(slackRoomID, replyToTS);
+        if (replyToEvent === null) {
+            return null;
+        }
         const intent = this.main.botIntent;
         return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
     }

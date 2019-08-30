@@ -99,3 +99,20 @@ export interface ConversationsHistoryResponse extends WebAPICallResult {
 export interface FilesSharedPublicURLResponse extends WebAPICallResult {
     file: ISlackFile;
 }
+
+/**
+ * Taken from https://api.slack.com/methods/chat.update
+ */
+export interface ChatUpdateResponse extends WebAPICallResult {
+    ts: string;
+    channel: string;
+    text: string;
+}
+
+/**
+ * Taken from https://api.slack.com/methods/chat.postMessage
+ */
+export interface ChatPostMessageResponse extends WebAPICallResult {
+    ts: string;
+    channel: string;
+}
