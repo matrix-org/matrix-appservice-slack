@@ -15,9 +15,9 @@ limitations under the License.
 */
 
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
-import { Logging, StoredEvent, Intent } from "matrix-appservice-bridge";
-import * as Slackdown from "Slackdown";
+import { Logging, Intent } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
+import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
@@ -117,7 +117,7 @@ export class SlackGhost {
 
         await this.intent.setDisplayName(displayName);
         this.displayName = displayName;
-        return this.main.putUserToStore(this);
+        return this.main.datastore.upsertUser(this);
     }
 
     public async lookupAvatarUrl(slackUserId: string, client: WebClient) {
@@ -213,7 +213,7 @@ export class SlackGhost {
         }, response.body);
         await this.intent.setAvatarUrl(contentUri);
         this.avatarUrl = avatarUrl;
-        this.main.putUserToStore(this);
+        await this.main.datastore.upsertUser(this);
     }
 
     public prepareBody(body: string) {
@@ -245,12 +245,16 @@ export class SlackGhost {
         return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: {}, slackRoomID: string, slackEventTS: string) {
+    public async sendMessage(roomId: string, msg: {}, slackRoomId: string, slackEventTs: string) {
         const matrixEvent = await this.intent.sendMessage(roomId, msg);
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "matrix"});
 
-        const event = new StoredEvent(roomId, matrixEvent.event_id, slackRoomID, slackEventTS);
-        await this.main.eventStore.upsertEvent(event);
+        await this.main.datastore.upsertEvent(
+            roomId,
+            matrixEvent.event_id,
+            slackRoomId,
+            slackEventTs,
+        );
 
         return matrixEvent;
     }
@@ -268,8 +272,7 @@ export class SlackGhost {
         const matrixEvent = await this.intent.sendEvent(roomId, "m.reaction", content);
 
         // Add this event to the eventStore
-        const event = new StoredEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
-        this.main.eventStore.upsertEvent(event);
+        await this.main.datastore.upsertEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
 
         return matrixEvent;
     }

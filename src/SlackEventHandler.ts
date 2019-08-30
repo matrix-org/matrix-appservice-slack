@@ -126,6 +126,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             log.error("SlackEventHandler.handle failed:", e);
         }
     }
+
     /**
      * Attempts to handle the `message` event.
      *
@@ -204,10 +205,11 @@ export class SlackEventHandler extends BaseSlackHandler {
                 }
             }
         } else if (msg.subtype === "message_deleted") {
-            const store = this.main.eventStore;
-            const originalEvent = await store.getEntryByRemoteId(msg.channel, msg.deleted_ts);
-            const botClient = this.main.botIntent.getClient();
-            return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+            const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
+            if (originalEvent) {
+                const botClient = this.main.botIntent.getClient();
+                return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+            }
         }
 
         if (!room.SlackClient) {
@@ -262,12 +264,12 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {
-        this.main.getRoomsBySlackTeamId(teamId).forEach((room: BridgedRoom) => {
+        await Promise.all(this.main.getRoomsBySlackTeamId(teamId).map(async (room: BridgedRoom) => {
             room.SlackTeamDomain = event.domain;
             if (room.isDirty) {
-                this.main.putRoomToStore(room);
+                await this.main.datastore.upsertRoom(room);
             }
-        });
+        }));
     }
 
     private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
@@ -278,7 +280,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         const channelName = `${room.SlackTeamDomain}.#${event.name}`;
         room.SlackChannelName = channelName;
         if (room.isDirty) {
-            this.main.putRoomToStore(room);
+            await this.main.datastore.upsertRoom(room);
         }
     }
 

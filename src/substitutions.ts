@@ -18,6 +18,7 @@ import { Logging } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
+import { UserEntry } from "./datastore/Models";
 
 const log = Logging.get("substitutions");
 
@@ -182,15 +183,14 @@ class Substitutions {
      */
     public async getDisplayMap(main: Main, roomId: string): Promise<IDisplayMap> {
         const displaymap: IDisplayMap = {};
-        const store = main.userStore;
-        const users = await main.listGhostUsers(roomId);
-        let storeUsers: {display_name: string, id: string}[] = await Promise.all(
-            users.map((id: string) => store.select({id})),
-        );
-        storeUsers = storeUsers.filter((u) => u && u[0]);
-        storeUsers.forEach((user) => {
+        const ghostUsers = await main.listGhostUsers(roomId);
+        const storeUsers = (await Promise.all(
+            ghostUsers.map((id: string) => main.datastore.getUser(id),
+        )));
+        const users = storeUsers.filter((u) => u !== null) as UserEntry[];
+        users.forEach((user) => {
             // The format is @prefix%nospace%domain_userid:homeserver_domain
-            const localpart = user[0].id.split(":")[0].substr(main.userIdPrefix.length + 1);
+            const localpart = user.id.split(":")[0].substr(main.userIdPrefix.length + 1);
             const slackId = localpart.split("_")[1];
             if (!slackId) {
                 return;

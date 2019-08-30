@@ -66,7 +66,7 @@ export interface ISlackMessageEvent extends ISlackEvent {
     subtype?: string;
     bot_id?: string;
     text?: string;
-    deleted_ts: number;
+    deleted_ts: string;
     // For comments
     comment?: {
         user: string;
@@ -197,17 +197,16 @@ export abstract class BaseSlackHandler {
             let displayName = "";
             const userId = this.main.getUserId(id, teamDomain);
 
-            const store = this.main.userStore;
-            const users = await store.select({id: userId});
+            const users = await this.main.datastore.getUser(userId);
 
-            if (users === undefined || !users.length) {
+            if (!users) {
                 log.warn("Mentioned user not in store. Looking up display name from slack.");
                 // if the user is not in the store then we look up the displayname
                 displayName = await this.main.getNullGhostDisplayName(message.channel, id);
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
                 text = text.replace(USER_ID_REGEX_FIRST, displayName);
             } else {
-                displayName = users[0].display_name || userId;
+                displayName = users.display_name || userId;
                 text = text.replace(
                     USER_ID_REGEX_FIRST,
                     `<https://matrix.to/#/${userId}|${displayName}>`,

@@ -225,7 +225,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 
         room.SlackChannelName = channelName;
         if (room.isDirty) {
-            this.main.putRoomToStore(room);
+            await this.main.datastore.upsertRoom(room);
         }
 
         // TODO(paul): This will reject every bot-posted message, both our own
@@ -308,7 +308,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.debug("Got a full OAuth2 token");
             if (room) { // Legacy webhook
                 room.updateAccessToken(response.access_token, new Set(access_scopes));
-                this.main.putRoomToStore(room);
+                await this.main.datastore.upsertRoom(room);
             } else if (user) { // New event api
                 await this.main.setUserAccessToken(
                     user,
@@ -316,7 +316,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                     response.user_id,
                     response.access_token,
                 );
-                this.main.updateTeamBotStore(
+                this.main.datastore.upsertTeam(
                     response.team_id,
                     response.team_name,
                     response.bot!.bot_user_id,
