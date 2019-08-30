@@ -110,6 +110,9 @@ export class Main {
 
     private teamClients: Map<string, WebClient> = new Map();
 
+    // track which teams are using the rtm client.
+    private rtmTeams: Set<string> = new Set();
+
     constructor(public readonly config: IConfig) {
         if (config.oauth2) {
             this.oauth2 = new OAuth2({
@@ -159,6 +162,10 @@ export class Main {
         if (config.enable_metrics) {
             this.initialiseMetrics();
         }
+    }
+
+    public teamIsUsingRtm(teamId: string): boolean {
+        return this.rtmTeams.has(teamId);
     }
 
     public getIntent(userId: string) {

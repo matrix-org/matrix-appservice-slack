@@ -102,7 +102,10 @@ export class SlackHookHandler extends BaseSlackHandler {
                     const eventPayload = JSON.parse(body) as ISlackEventPayload;
                     if (eventPayload.type === "url_verification") {
                         this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
-                    } else if (eventPayload.type === "event_callback") {
+                        // if RTM is enabled, don't handle this event. We should have assigned a RTM client to the team.
+                    } else if (eventPayload.type === "event_callback" &&
+                               this.main.teamIsUsingRtm(eventPayload.team_id)
+                    ) {
                         this.eventHandler.handle(
                             // The event can take many forms.
                             // tslint:disable-next-line: no-any
