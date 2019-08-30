@@ -1,3 +1,18 @@
+/*
+Copyright 2019 The Matrix.org Foundation C.I.C.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 import { Datastore } from "../../datastore/Models";
 import { MatrixUser } from "matrix-appservice-bridge";
 import { expect } from "chai";
@@ -5,6 +20,7 @@ import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
 // tslint:disable: no-unused-expression no-any
+
 export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void) => {
     describe("users", () => {
         it("should return null if a matrix user is not found", async () => {
@@ -240,7 +256,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 user_id: "team_user_id",
             });
         });
-    
+
         it("should insert, upsert and retrieve a team", async () => {
             await ds().upsertTeam("54321team", "some_bot_token", "a_team_name", "team_user_id");
             await ds().upsertTeam("54321team", "another_bot_token", "new_team_name", "foo_user_id");
@@ -253,4 +269,4 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             });
         });
     });
-}
+};
