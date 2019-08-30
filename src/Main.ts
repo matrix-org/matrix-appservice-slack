@@ -16,8 +16,8 @@ limitations under the License.
 
 import { Bridge, PrometheusMetrics, StateLookup,
     Logging, Intent, MatrixUser as BridgeMatrixUser,
-    EventStore, RoomStore, UserStore, Request } from "matrix-appservice-bridge";
-import * as Datastore from "nedb";
+    Request } from "matrix-appservice-bridge";
+import * as NedbDs from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
@@ -32,6 +32,9 @@ import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
+
+import { Datastore } from "./datastore/Models";
+import { NedbDatastore } from "./datastore/NedbDatastore";
 
 const log = Logging.get("Main");
 const webLog = Logging.get(`slack-api`);
@@ -49,18 +52,6 @@ interface MetricsLabels { [labelName: string]: string; }
 
 export class Main {
 
-    public get eventStore(): EventStore {
-        return this.bridge.getEventStore();
-    }
-
-    public get roomStore(): RoomStore {
-        return this.bridge.getRoomStore();
-    }
-
-    public get userStore(): UserStore {
-        return this.bridge.getUserStore();
-    }
-
     public get botIntent(): Intent {
         return this.bridge.getIntent();
     }
@@ -76,7 +67,10 @@ export class Main {
     public get botUserId(): string {
         return this.bridge.getBot().userId();
     }
+
     public readonly oauth2: OAuth2|null = null;
+
+    public datastore!: Datastore;
 
     private teams: Map<string, ISlackTeam> = new Map();
 
@@ -97,8 +91,6 @@ export class Main {
     // TODO(paul): ugh. this.getBotIntent() doesn't work before .run time
     // So we can't create the StateLookup instance yet
     private stateStorage: StateLookup|null = null;
-
-    private teamDatastore: Datastore|null = null;
 
     private slackHookHandler?: SlackHookHandler;
     private slackRtm?: SlackRTMHandler;
@@ -284,16 +276,6 @@ export class Main {
         return this.metrics.startTimer(name, labels);
     }
 
-    public putRoomToStore(room: BridgedRoom) {
-        const entry = room.toEntry();
-        return this.roomStore.upsert({id: entry.id}, entry);
-    }
-
-    public putUserToStore(user: SlackGhost) {
-        const entry = user.toEntry();
-        return this.userStore.upsert({id: entry.id}, entry);
-    }
-
     public getUrlForMxc(mxcUrl: string) {
         const hs = this.config.homeserver;
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
@@ -361,12 +343,12 @@ export class Main {
         }
 
         const intent = this.bridge.getIntent(userId);
-        const entries = await this.userStore.select({id: userId});
+        const entry = await this.datastore.getUser(userId);
 
         let ghost: SlackGhost;
-        if (entries.length) {
+        if (entry) {
             log.debug("Getting existing ghost for", userId);
-            ghost = SlackGhost.fromEntry(this, entries[0], intent);
+            ghost = SlackGhost.fromEntry(this, entry, intent);
         } else {
             log.debug("Creating new ghost for", userId);
             ghost = new SlackGhost(
@@ -376,7 +358,7 @@ export class Main {
                 undefined,
                 intent,
             );
-            this.putUserToStore(ghost);
+            await this.datastore.upsertUser(ghost);
         }
 
         this.ghostsByUserId[userId] = ghost;
@@ -705,27 +687,30 @@ export class Main {
 
     public async run(port: number) {
         log.info("Loading databases");
+        // if (this.config.db) {
+        //     this.datastore = new PgDatastore();
+        // } else {
         await this.bridge.loadDatabases();
         log.info("Loading teams.db");
-        this.teamDatastore = new Datastore({
+        const teamDatastore = new NedbDs({
             autoload: true,
             filename: path.join(this.config.dbdir || "", "teams.db"),
         });
         await new Promise((resolve, reject) => {
-            this.teamDatastore!.loadDatabase((err) => {
+            teamDatastore.loadDatabase((err) => {
             if (err) {
                 reject(err);
                 return;
             }
             resolve();
         }); });
-
-        // Legacy-style BridgedRoom instances
-        (await this.roomStore.select({
-            matrix_id: {$exists: false},
-        })).forEach((entry) => {
-            log.error("Ignoring LEGACY room entry in room-store.db", entry);
-        });
+        this.datastore = new NedbDatastore(
+            this.bridge.getUserStore(),
+            this.bridge.getRoomStore(),
+            this.bridge.getEventStore(),
+            teamDatastore,
+        );
+        // }
 
         if (this.slackHookHandler) {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
@@ -740,26 +725,16 @@ export class Main {
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
 
-        const entries = await this.roomStore.select({
-            matrix_id: {$exists: true},
-        });
+        const entries = await this.datastore.getAllRooms();
 
         await Promise.all(entries.map(async (entry) => {
-            // These might be links for legacy-style BridgedRooms, or new-style
-            // rooms
-            // Only way to tell is via the form of the id
-            const result = entry.id.match(/^INTEG-(.*)$/);
-            if (result) {
-                const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-                const cli = !hasToken ? undefined : await this.createOrGetTeamClient(
-                    entry.remote.slack_team_id, entry.remote.slack_bot_token);
-                const room = BridgedRoom.fromEntry(this, entry, cli);
-                await this.addBridgedRoom(room);
-                this.roomsByMatrixRoomId[entry.matrix_id] = room;
-                this.stateStorage.trackRoom(entry.matrix_id);
-            } else {
-                log.error("Ignoring LEGACY room link entry", entry);
-            }
+            const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
+            const cli = !hasToken ? undefined : await this.createOrGetTeamClient(
+                entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+            const room = BridgedRoom.fromEntry(this, entry, cli);
+            await this.addBridgedRoom(room);
+            this.roomsByMatrixRoomId[entry.matrix_id] = room;
+            this.stateStorage.trackRoom(entry.matrix_id);
         }));
 
         if (this.metrics) {
@@ -824,7 +799,7 @@ export class Main {
         let teamToken = opts.slack_bot_token;
 
         if (opts.team_id) {
-            teamToken = (await this.getTeamFromStore(opts.team_id)).bot_token;
+            teamToken = (await this.datastore.getTeam(opts.team_id)).bot_token;
         }
 
         const cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
@@ -856,7 +831,7 @@ export class Main {
             await this.addBridgedRoom(room);
         }
         if (room.isDirty) {
-            this.putRoomToStore(room);
+            await this.datastore.upsertRoom(room);
         }
 
         return room;
@@ -876,7 +851,7 @@ export class Main {
 
         const id = room.toEntry().id;
         await this.drainAndLeaveMatrixRoom(opts.matrix_room_id);
-        await this.roomStore.delete({id});
+        await this.datastore.deleteRoom(id);
     }
 
     public async checkLinkPermission(matrixRoomId: string, userId: string) {
@@ -898,8 +873,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string) {
-        const store = this.userStore;
-        let matrixUser = await store.getMatrixUser(userId);
+        let matrixUser = await this.datastore.getMatrixUser(userId);
         matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
         accounts[slackId] = {
@@ -907,34 +881,12 @@ export class Main {
             team_id: teamId,
         };
         matrixUser.set("accounts", accounts);
-        await store.setMatrixUser(matrixUser);
+        await this.datastore.storeMatrixUser(matrixUser);
         log.info(`Set new access token for ${userId} (team: ${teamId})`);
     }
 
-    public updateTeamBotStore(teamId: string, teamName: string, userId: string, botToken: string) {
-        this.teamDatastore!.update({team_id: teamId}, {
-            bot_token: botToken,
-            team_id: teamId,
-            team_name: teamName,
-            user_id: userId,
-        }, {upsert: true});
-        log.info(`Setting details for team ${teamId} ${teamName}`);
-    }
-
-    public async getTeamFromStore(teamId: string): Promise<any> {
-        return new Promise((resolve, reject) => {
-            this.teamDatastore!.findOne({team_id: teamId}, (err, doc) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(doc);
-            });
-        });
-    }
-
     public async matrixUserInSlackTeam(teamId: string, userId: string) {
-        const matrixUser = await this.userStore.getMatrixUser(userId);
+        const matrixUser = await this.datastore.getMatrixUser(userId);
         if (matrixUser === null) {
             return false;
         }
