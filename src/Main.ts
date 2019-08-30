@@ -17,7 +17,6 @@ limitations under the License.
 import { Bridge, PrometheusMetrics, StateLookup,
     Logging, Intent, MatrixUser as BridgeMatrixUser,
     Request } from "matrix-appservice-bridge";
-import * as NedbDs from "nedb";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
@@ -35,6 +34,7 @@ import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
 
 import { Datastore } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
+import { PgDatastore } from "./datastore/postgres/PgDatastore";
 
 const log = Logging.get("Main");
 const webLog = Logging.get(`slack-api`);
@@ -687,30 +687,34 @@ export class Main {
 
     public async run(port: number) {
         log.info("Loading databases");
-        // if (this.config.db) {
-        //     this.datastore = new PgDatastore();
-        // } else {
-        await this.bridge.loadDatabases();
-        log.info("Loading teams.db");
-        const teamDatastore = new NedbDs({
-            autoload: true,
-            filename: path.join(this.config.dbdir || "", "teams.db"),
-        });
-        await new Promise((resolve, reject) => {
-            teamDatastore.loadDatabase((err) => {
-            if (err) {
-                reject(err);
-                return;
+        if (this.config.db) {
+            if (this.config.db.engine.toLowerCase() !== "postgres") {
+                throw Error("Unknown engine for database. Please use 'postgres'");
             }
-            resolve();
-        }); });
-        this.datastore = new NedbDatastore(
-            this.bridge.getUserStore(),
-            this.bridge.getRoomStore(),
-            this.bridge.getEventStore(),
-            teamDatastore,
-        );
-        // }
+            this.datastore = new PgDatastore(this.config.db.connectionString);
+        } else {
+            await this.bridge.loadDatabases();
+            log.info("Loading teams.db");
+            const NedbDs = require("nedb");
+            const teamDatastore = new NedbDs({
+                autoload: true,
+                filename: path.join(this.config.dbdir || "", "teams.db"),
+            });
+            await new Promise((resolve, reject) => {
+                teamDatastore.loadDatabase((err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            }); });
+            this.datastore = new NedbDatastore(
+                this.bridge.getUserStore(),
+                this.bridge.getRoomStore(),
+                this.bridge.getEventStore(),
+                teamDatastore,
+            );
+        }
 
         if (this.slackHookHandler) {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);

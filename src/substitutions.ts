@@ -195,7 +195,7 @@ class Substitutions {
             if (!slackId) {
                 return;
             }
-            displaymap[user[0].display_name] = slackId;
+            displaymap[user.display_name] = slackId;
         });
         return displaymap;
     }
