@@ -25,6 +25,8 @@ export class NedbDatastore implements Datastore {
         if (!users || users.length === 0) {
             return null;
         }
+        // We do not use the _id for anything.
+        delete users[0]._id;
         return users[0];
     }
 
@@ -49,6 +51,7 @@ export class NedbDatastore implements Datastore {
         return (await this.roomStore.select({
             matrix_id: {$exists: true},
         })).filter((entry) => {
+            delete entry._id;
             // These might be links for legacy-style BridgedRooms, or new-style rooms
             // Only way to tell is via the form of the id
             return entry.id.match(/^INTEG-(.*)$/);
@@ -58,7 +61,7 @@ export class NedbDatastore implements Datastore {
     public async upsertEvent(roomIdOrEntry: string|EventEntry,
                              eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<void> {
         let storeEv: StoredEvent;
-        if (roomIdOrEntry instanceof String) {
+        if (typeof(roomIdOrEntry) === "string") {
             storeEv = new StoredEvent(
                 roomIdOrEntry,
                 eventId,
@@ -79,12 +82,32 @@ export class NedbDatastore implements Datastore {
         await this.eventStore.upsertEvent(storeEv);
     }
 
-    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry> {
-        return (await this.eventStore.getEntryByMatrixId(roomId, eventId)) || null;
+    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
+        const storedEvent = await this.eventStore.getEntryByMatrixId(roomId, eventId);
+        if (!storedEvent) {
+            return null;
+        }
+        return {
+            eventId: storedEvent.eventId,
+            roomId: storedEvent.roomId,
+            slackChannelId: storedEvent.remoteRoomId,
+            slackTs: storedEvent.remoteEventId,
+            _extras: storedEvent._extras,
+        };
     }
 
-    public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry> {
-        return (await this.eventStore.getEntryByRemoteId(channelId, ts)) || null;
+    public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null> {
+        const storedEvent = await this.eventStore.getEntryByRemoteId(channelId, ts);
+        if (!storedEvent) {
+            return null;
+        }
+        return {
+            eventId: storedEvent.eventId,
+            roomId: storedEvent.roomId,
+            slackChannelId: storedEvent.remoteRoomId,
+            slackTs: storedEvent.remoteEventId,
+            _extras: storedEvent._extras,
+        };
     }
 
     public async upsertTeam(teamId: string, botToken: string, teamName: string, userId: string) {
@@ -98,12 +121,16 @@ export class NedbDatastore implements Datastore {
 
     public async getTeam(teamId: string): Promise<TeamEntry> {
         return new Promise((resolve, reject) => {
-            this.teamStore.findOne({team_id: teamId}, (err: Error|null, doc: TeamEntry) => {
+            // These are technically schemaless
+            // tslint:disable-next-line: no-any
+            this.teamStore.findOne({team_id: teamId}, (err: Error|null, doc: any) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                resolve(doc);
+                // We don't use this.
+                delete doc._id;
+                resolve(doc as TeamEntry);
             });
         });
     }
