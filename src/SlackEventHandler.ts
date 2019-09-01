@@ -155,9 +155,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             user_id: event.user || event.bot_id,
         });
 
-        if (event.type === "reaction_added") {
-            return room.onSlackReactionAdded(msg, teamId);
-        }
         // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
         /* else if (params.event.type === "reaction_removed") {
             return room.onSlackReactionRemoved(msg);
@@ -171,8 +168,13 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackMessage(msg, teamId);
         }
 
+        // Handle topics
+        if (msg.subtype === "channel_topic" || msg.subtype === "group_topic") {
+            return room.onSlackTopicUpdate(msg, teamId);
+        }
+
         // Handle events with attachments like bot messages.
-        if (msg.type === "message" && msg.attachments) {
+        if (msg.attachments) {
             for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
