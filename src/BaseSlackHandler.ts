@@ -91,6 +91,10 @@ export interface ISlackMessageEvent extends ISlackEvent {
     thread_ts?: string;
 }
 
+export interface ISlackMessageTopic extends ISlackMessageEvent {
+    topic: string;
+}
+
 export interface ISlackFile {
     name?: string;
     thumb_360?: string;

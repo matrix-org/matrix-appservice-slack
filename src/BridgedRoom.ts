@@ -20,7 +20,7 @@ import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
-import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
+import { ISlackMessageEvent, ISlackEvent, ISlackMessageTopic } from "./BaseSlackHandler";
 import { WebClient, WebAPICallResult } from "@slack/web-api";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse, ChatPostMessageResponse } from "./SlackResponses";
 import { RoomEntry } from "./datastore/Models";
@@ -442,7 +442,17 @@ export class BridgedRoom {
             log.error("Failed to process event");
             log.error(err);
         }
+    }
 
+    public async onSlackTopic(message: ISlackMessageTopic, teamId: string) {
+        const newTopic = message.topic;
+        try {
+            const ghost = await this.main.getGhostForSlackMessage(message, teamId);
+            await ghost.setRoomTopic(this.MatrixRoomId, newTopic);
+        } catch (ex) {
+            // Should this fail for some reason, try again as the bridge bot.
+            await this.main.botIntent.setRoomTopic(this.MatrixRoomId, newTopic);
+        }
     }
 
     public async onSlackReactionAdded(message: any, teamId: string) {
