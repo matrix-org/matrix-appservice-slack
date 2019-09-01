@@ -120,13 +120,12 @@ commands.logout = new Command({
             });
             return;
         }
-        const store = main.userStore;
-        let matrixUser = await store.getMatrixUser(userId);
+        let matrixUser = await main.datastore.getMatrixUser(userId);
         matrixUser = matrixUser ? matrixUser : new MatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
         delete accounts[slackId];
         matrixUser.set("accounts", accounts);
-        store.setMatrixUser(matrixUser);
+        await main.datastore.storeMatrixUser(matrixUser);
         log.info(`Removed account ${slackId} from ${slackId}`);
     },
 });
@@ -134,9 +133,8 @@ commands.logout = new Command({
 commands.channels = new Command({
     params: ["user_id", "team_id"],
     async func(main, req, res, userId, teamId) {
-        const store = main.userStore;
         log.debug(`${userId} requested their teams`);
-        const matrixUser = await store.getMatrixUser(userId);
+        const matrixUser = await main.datastore.getMatrixUser(userId);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
                 acct.team_id === teamId,
@@ -145,7 +143,7 @@ commands.channels = new Command({
             res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
             throw undefined;
         }
-        const team = await main.getTeamFromStore(teamId);
+        const team = await main.datastore.getTeam(teamId);
         if (team === null) {
             throw new Error("No team token for this team_id");
         }
@@ -176,8 +174,7 @@ commands.teams = new Command({
     params: ["user_id"],
     async func(main, req, res, userId) {
         log.debug(`${userId} requested their teams`);
-        const store = main.userStore;
-        const matrixUser = await store.getMatrixUser(userId);
+        const matrixUser = await main.datastore.getMatrixUser(userId);
         if (matrixUser === null) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
             return;
@@ -185,7 +182,7 @@ commands.teams = new Command({
         const accounts = matrixUser.get("accounts");
         const results = await Promise.all(Object.keys(accounts).map(async (slackId) => {
             const account = accounts[slackId];
-            return main.getTeamFromStore(account.team_id).then(
+            return main.datastore.getTeam(account.team_id).then(
                 (team) => ({team, slack_id: slackId}),
             );
         }));

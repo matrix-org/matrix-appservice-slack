@@ -54,5 +54,11 @@ export interface IConfig {
     slack_hook_port?: number;
     slack_client_opts?: WebClientOptions;
     enable_metrics: boolean;
+
+    db?: {
+        engine: string;
+        connectionString: string;
+    };
+
     dbdir: string;
 }

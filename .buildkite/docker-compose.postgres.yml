@@ -1,0 +1,20 @@
+
+version: '3.1'
+
+services:
+  postgres:
+    image: postgres:11
+    environment:
+      POSTGRES_PASSWORD: postgres
+
+  testenv:
+    image: node:12
+    depends_on:
+      - postgres
+    environment:
+      SLACKBRIDGE_TEST_PGDB: "slackintegtest"
+      SLACKBRIDGE_TEST_PGURL: "postgresql://postgres:postgres@postgres"
+    working_dir: /app
+    volumes:
+      - ..:/app
+    command: "bash -c 'npm install && npm run build && npm run test:postgres'"

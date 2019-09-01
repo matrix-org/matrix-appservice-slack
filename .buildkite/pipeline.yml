@@ -7,7 +7,7 @@ steps:
       - docker#v3.0.1:
           image: "node:12"
 
-  - label: ":jasmine: Tests Node 10"
+  - label: ":nodejs: 10 :mocha: Unit/Integration Test"
     command:
       - "npm install"
       - "npm run build"
@@ -16,7 +16,7 @@ steps:
       - docker#v3.0.1:
           image: "node:10"
 
-  - label: ":jasmine: Tests Node 12"
+  - label: ":nodejs: 12 :mocha: Unit/Integration Test"
     command:
       - "npm install"
       - "npm run build"
@@ -25,6 +25,12 @@ steps:
       - docker#v3.0.1:
           image: "node:12"
 
+  - label: ":nodejs: 12 :postgres: 11 :mocha: Postgres Test "
+    plugins:
+      - docker-compose#v2.1.0:
+          run: testenv
+          config:
+            - .buildkite/docker-compose.postgres.yml
   # No coverage yet
   # - label: ":nyc: Coverage"
   #   command:
