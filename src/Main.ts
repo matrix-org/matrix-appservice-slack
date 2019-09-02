@@ -142,7 +142,7 @@ export class Main {
             domain: config.homeserver.server_name,
             eventStore: path.join(dbdir, "event-store.db"),
             homeserverUrl: config.homeserver.url,
-            registration: registration,
+            registration,
             roomStore: path.join(dbdir, "room-store.db"),
             userStore: path.join(dbdir, "user-store.db"),
         });
