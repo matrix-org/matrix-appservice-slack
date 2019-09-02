@@ -20,7 +20,7 @@ type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";
 
 export interface IConfig {
-    inbound_uri_prefix: string;
+    inbound_uri_prefix?: string;
     bot_username: string;
     username_prefix: string;
 
