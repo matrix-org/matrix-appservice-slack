@@ -108,7 +108,6 @@ async function main() {
         log.info(`Migrated matrix user ${mxUser.getId()} (${i + 1}/${allMatrixUsers.length})`);
     });
 
-
     try {
         await Promise.all(
             roomMigrations.concat(
