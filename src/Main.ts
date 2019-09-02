@@ -576,7 +576,8 @@ export class Main {
             return;
         }
 
-        if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room) {
+        if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room &&
+            ev.type === "m.room.message") {
             try {
                 await this.onMatrixAdminMessage(ev);
             } catch (e) {
