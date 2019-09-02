@@ -104,7 +104,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                         this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
                         // if RTM is enabled, don't handle this event. We should have assigned a RTM client to the team.
                     } else if (eventPayload.type === "event_callback" &&
-                               this.main.teamIsUsingRtm(eventPayload.team_id)
+                               !this.main.teamIsUsingRtm(eventPayload.team_id)
                     ) {
                         this.eventHandler.handle(
                             // The event can take many forms.
