@@ -135,10 +135,14 @@ export class AdminCommands {
                 respond("Bridged Room:");
                 respond("  Status: " + bridgedRoom.getStatus());
                 respond("  Slack Name: " + bridgedRoom.SlackChannelName || "PENDING");
-                respond("  Webhook URI: " + bridgedRoom.SlackWebhookUri);
+                respond("  Slack Team: " + bridgedRoom.SlackTeamId || "PENDING");
+                if (bridgedRoom.SlackWebhookUri) {
+                    respond("  Webhook URI: " + bridgedRoom.SlackWebhookUri);
+                }
                 respond("  Inbound ID: " + bridgedRoom.InboundId);
                 respond("  Inbound URL: " + this.main.getInboundUrlForRoom(bridgedRoom));
                 respond("  Matrix room ID: " + bridgedRoom.MatrixRoomId);
+                respond("  Using RTM: " + this.main.teamIsUsingRtm(bridgedRoom.SlackTeamId!));
 
                 if (this.main.oauth2) {
                     const authUrl = this.main.oauth2.makeAuthorizeURL(
@@ -178,9 +182,16 @@ export class AdminCommands {
                     respond("Room is now " + r.getStatus());
                     if (r.SlackWebhookUri) {
                         respond("Inbound URL is " + this.main.getInboundUrlForRoom(r));
+                    } else {
+                        respond("Remember to invite the slack bot to the slack channel.");
                     }
                 } catch (ex) {
-                    respond("Cannot link - " + ex );
+                    log.warn("Failed to link channel", ex);
+                    if ((ex as Error).message === "Failed to get channel info") {
+                        respond("Cannot link - Bot doesn't have visibility on channel. Is it invited on slack?");
+                    } else {
+                        respond("Cannot link - " + ex);
+                    }
                 }
             },
             {

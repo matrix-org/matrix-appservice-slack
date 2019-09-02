@@ -478,6 +478,10 @@ export class BridgedRoom {
         await Promise.all(promises);
     }
 
+    public setBotClient(slackClient: WebClient) {
+        this.botClient = slackClient;
+    }
+
     public async refreshTeamInfo() {
         if (!this.botClient) { return; }
 
