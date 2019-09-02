@@ -15,7 +15,7 @@ const LOG_TEAM_LEN = 12;
  * It reuses the SlackEventHandler to handle events.
  */
 export class SlackRTMHandler extends SlackEventHandler {
-    private rtmClients: Map<string, RTMClient>; // team -> client
+    private rtmClients: Map<string, Promise<RTMClient>>; // team -> client
     constructor(main: Main) {
         super(main);
         this.rtmClients = new Map();
@@ -24,8 +24,17 @@ export class SlackRTMHandler extends SlackEventHandler {
     public async startTeamClientIfNotStarted(expectedTeam: string, botToken: string) {
         if (this.rtmClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
-            return;
+            try {
+                await this.rtmClients.get(expectedTeam);
+                return;
+            } catch (ex) {
+                log.warn("Failed to create RTM client");
+            }
         }
+        this.rtmClients.set(expectedTeam, this.startTeamClient(expectedTeam, botToken));
+    }
+
+    private async startTeamClient(expectedTeam: string, botToken: string) {
         const connLog = Logging.get(`RTM-${expectedTeam.substr(0, LOG_TEAM_LEN)}`);
         const rtm = new RTMClient(botToken, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
@@ -61,12 +70,13 @@ export class SlackRTMHandler extends SlackEventHandler {
         });
 
         try {
-            const { _self, team } = await rtm.start();
+            const { team } = await rtm.start();
             const teamInfo = team as ISlackTeam;
-            this.rtmClients.set(teamInfo.id , rtm);
             log.info("Connected RTM client for ", teamInfo);
         } catch (ex) {
             log.error("Failed to connect RTM client for ", expectedTeam);
+            throw ex;
         }
+        return rtm;
     }
 }
