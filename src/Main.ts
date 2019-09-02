@@ -105,7 +105,7 @@ export class Main {
     // track which teams are using the rtm client.
     private rtmTeams: Set<string> = new Set();
 
-    constructor(public readonly config: IConfig) {
+    constructor(public readonly config: IConfig, registration) {
         if (config.oauth2) {
             if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
                 throw Error("Either inbound_uri_prefix or oauth2.redirect_prefix must be defined for oauth2 support");
@@ -142,7 +142,7 @@ export class Main {
             domain: config.homeserver.server_name,
             eventStore: path.join(dbdir, "event-store.db"),
             homeserverUrl: config.homeserver.url,
-            registration: "slack-registration.yaml",
+            registration: registration,
             roomStore: path.join(dbdir, "room-store.db"),
             userStore: path.join(dbdir, "user-store.db"),
         });
