@@ -45,6 +45,11 @@ export class NedbDatastore implements Datastore {
         return users[0];
     }
 
+    public async getAllUsers(): Promise<UserEntry[]> {
+        const users: UserEntry[] = await this.userStore.select({});
+        return users;
+    }
+
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         return (await this.userStore.getMatrixUser(userId)) || null;
     }
@@ -125,6 +130,10 @@ export class NedbDatastore implements Datastore {
         };
     }
 
+    public async getAllEvents(): Promise<EventEntry[]> {
+        return this.eventStore.select({});
+    }
+
     public async upsertTeam(teamId: string, botToken: string, teamName: string, userId: string) {
         return this.teamStore.update({team_id: teamId}, {
             bot_token: botToken,
@@ -146,6 +155,24 @@ export class NedbDatastore implements Datastore {
                 // We don't use this.
                 delete doc._id;
                 resolve(doc as TeamEntry);
+            });
+        });
+    }
+
+    public async getAllTeams(): Promise<TeamEntry[]> {
+        return new Promise((resolve, reject) => {
+            // These are technically schemaless
+            // tslint:disable-next-line: no-any
+            this.teamStore.find({}, (err: Error|null, docs: any[]) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(docs.map((doc) => {
+                    // We don't use this.
+                    delete doc._id;
+                    return doc as TeamEntry;
+                }));
             });
         });
     }
