@@ -403,6 +403,10 @@ export class Main {
         if (room.InboundId) {
             this.roomsByInboundId[room.InboundId] = room;
         }
+        if (!room.SlackTeamId && room.SlackBotToken) {
+            await room.refreshTeamInfo();
+            await room.refreshUserInfo();
+        }
 
         if (room.SlackTeamId) {
             if (this.roomsBySlackTeamId[room.SlackTeamId]) {
@@ -415,6 +419,7 @@ export class Main {
                 // This will start a new RTM client for the team, if the team
                 // doesn't currently have a client running.
                 await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
+                this.rtmTeams.add(room.SlackTeamId);
             }
         }
 
@@ -460,8 +465,8 @@ export class Main {
         return this.roomsByInboundId[inboundId];
     }
 
-    public getInboundUrlForRoom(room) {
-        return this.config.inbound_uri_prefix + room.getInboundId();
+    public getInboundUrlForRoom(room: BridgedRoom) {
+        return this.config.inbound_uri_prefix + room.InboundId;
     }
 
     public getStoredEvent(roomId: string, eventType: string, stateKey?: string) {
@@ -808,29 +813,40 @@ export class Main {
             room.SlackUserToken = opts.slack_user_token;
         }
 
+        if (!room.SlackChannelId && !room.SlackWebhookUri) {
+            throw Error("Missing webhook_id OR channel_id");
+        }
+
         let teamToken = opts.slack_bot_token;
 
         if (opts.team_id) {
             teamToken = (await this.datastore.getTeam(opts.team_id)).bot_token;
         }
 
-        const cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+        let cli: WebClient|undefined;
 
-        if (teamToken) {
+        if (opts.team_id || teamToken) {
+            cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+        }
+
+        if (cli && opts.slack_channel_id) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
-            const infoRes = (await cli.conversations.info()) as ConversationsInfoResponse;
+            const infoRes = (await cli.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
             if (!infoRes.ok) {
                 log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes);
                 throw Error("Failed to get channel info");
             }
+            room.setBotClient(cli);
             room.SlackBotToken = teamToken;
-
             room.SlackChannelName = infoRes.channel.name;
             await Promise.all([
                 room.refreshTeamInfo(),
                 room.refreshUserInfo(),
             ]);
+        } else if (teamToken) {
+            // No channel id given, but we have a token so store it.
+            room.SlackBotToken = teamToken;
         }
 
         if (isNew) {
