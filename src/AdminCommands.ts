@@ -135,10 +135,14 @@ export class AdminCommands {
                 respond("Bridged Room:");
                 respond("  Status: " + bridgedRoom.getStatus());
                 respond("  Slack Name: " + bridgedRoom.SlackChannelName || "PENDING");
-                respond("  Webhook URI: " + bridgedRoom.SlackWebhookUri);
+                respond("  Slack Team: " + bridgedRoom.SlackTeamId || "PENDING");
+                if (bridgedRoom.SlackWebhookUri) {
+                    respond("  Webhook URI: " + bridgedRoom.SlackWebhookUri);
+                }
                 respond("  Inbound ID: " + bridgedRoom.InboundId);
                 respond("  Inbound URL: " + this.main.getInboundUrlForRoom(bridgedRoom));
                 respond("  Matrix room ID: " + bridgedRoom.MatrixRoomId);
+                respond("  Using RTM: " + this.main.teamIsUsingRtm(bridgedRoom.SlackTeamId!));
 
                 if (this.main.oauth2) {
                     const authUrl = this.main.oauth2.makeAuthorizeURL(
