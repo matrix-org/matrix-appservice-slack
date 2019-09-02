@@ -379,9 +379,10 @@ export class BridgedRoom {
         };
 
         const reply = await this.findParentReply(message);
+        let parentStoredEvent;
         if (reply !== message.event_id) {
             // We have a reply
-            const parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
+            parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
             if (parentStoredEvent) {
                 body.thread_ts = parentStoredEvent.slackTs;
             }
@@ -430,6 +431,17 @@ export class BridgedRoom {
             this.slackChannelId!,
             res.ts,
         );
+
+        // If this message is in a slack thread we need to append this message to the end of the thread list.
+        if (parentStoredEvent) {
+            if (parentStoredEvent._extras.slackThreadMessages === undefined) {
+                parentStoredEvent._extras.slackThreadMessages = [];
+            }
+            parentStoredEvent._extras.slackThreadMessages.push(res.ts);
+            await this.main.datastore.upsertEvent(parentStoredEvent);
+        }
+
+
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {
