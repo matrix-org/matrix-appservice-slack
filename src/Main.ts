@@ -105,7 +105,7 @@ export class Main {
     // track which teams are using the rtm client.
     private rtmTeams: Set<string> = new Set();
 
-    constructor(public readonly config: IConfig, registration) {
+    constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
             if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
                 throw Error("Either inbound_uri_prefix or oauth2.redirect_prefix must be defined for oauth2 support");
