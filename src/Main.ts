@@ -107,16 +107,20 @@ export class Main {
 
     constructor(public readonly config: IConfig) {
         if (config.oauth2) {
+            if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
+                throw Error("Either inbound_uri_prefix or oauth2.redirect_prefix must be defined for oauth2 support");
+            }
+            const redirectPrefix = config.oauth2.redirect_prefix || config.inbound_uri_prefix;
             this.oauth2 = new OAuth2({
                 client_id: config.oauth2.client_id,
                 client_secret: config.oauth2.client_secret,
                 main: this,
-                redirect_prefix: config.oauth2.redirect_prefix || config.inbound_uri_prefix,
+                redirect_prefix: redirectPrefix!,
             });
         }
 
-        if (!config.enable_rtm && !config.slack_hook_port) {
-            throw Error("Neither enable_rtm nor slack_hook_port is defined in the config." +
+        if (!config.enable_rtm && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
+            throw Error("Neither enable_rtm nor slack_hook_port|inbound_uri_prefix is defined in the config." +
             "The bridge must define a listener in order to run");
         }
 
