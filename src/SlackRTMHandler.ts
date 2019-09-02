@@ -31,7 +31,9 @@ export class SlackRTMHandler extends SlackEventHandler {
                 log.warn("Failed to create RTM client");
             }
         }
-        this.rtmClients.set(expectedTeam, this.startTeamClient(expectedTeam, botToken));
+        const promise = this.startTeamClient(expectedTeam, botToken);
+        this.rtmClients.set(expectedTeam, promise);
+        await promise;
     }
 
     private async startTeamClient(expectedTeam: string, botToken: string) {
