@@ -45,9 +45,16 @@ export class NedbDatastore implements Datastore {
         return users[0];
     }
 
-    public async getAllUsers(): Promise<UserEntry[]> {
-        const users: UserEntry[] = await this.userStore.select({});
-        return users;
+    public async getAllUsers(matrixUsers: boolean): Promise<UserEntry[]> {
+        return (await this.userStore.select({})).map((u) => {
+            delete u._id;
+            return u;
+        }).filter((u) => {
+            if (matrixUsers) {
+                return u.type === "matrix";
+            }
+            return u.type !== "matrix";
+        });
     }
 
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
@@ -102,11 +109,7 @@ export class NedbDatastore implements Datastore {
         await this.eventStore.upsertEvent(storeEv);
     }
 
-    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
-        const storedEvent = await this.eventStore.getEntryByMatrixId(roomId, eventId);
-        if (!storedEvent) {
-            return null;
-        }
+    private storedEventToEventEntry(storedEvent: StoredEvent): EventEntry {
         return {
             eventId: storedEvent.eventId,
             roomId: storedEvent.roomId,
@@ -114,6 +117,14 @@ export class NedbDatastore implements Datastore {
             slackTs: storedEvent.remoteEventId,
             _extras: storedEvent._extras,
         };
+    }
+
+    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
+        const storedEvent = await this.eventStore.getEntryByMatrixId(roomId, eventId);
+        if (!storedEvent) {
+            return null;
+        }
+        return this.storedEventToEventEntry(storedEvent);
     }
 
     public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null> {
@@ -121,17 +132,19 @@ export class NedbDatastore implements Datastore {
         if (!storedEvent) {
             return null;
         }
-        return {
-            eventId: storedEvent.eventId,
-            roomId: storedEvent.roomId,
-            slackChannelId: storedEvent.remoteRoomId,
-            slackTs: storedEvent.remoteEventId,
-            _extras: storedEvent._extras,
-        };
+        return this.storedEventToEventEntry(storedEvent);
     }
 
     public async getAllEvents(): Promise<EventEntry[]> {
-        return this.eventStore.select({});
+        return (await this.eventStore.select({})).map((doc) => {
+            return {
+                eventId: doc.matrix.eventId,
+                roomId: doc.matrix.roomId,
+                slackChannelId: doc.remote.roomId,
+                slackTs: doc.remote.eventId,
+                _extras: doc.extras,
+            };
+        });
     }
 
     public async upsertTeam(teamId: string, botToken: string, teamName: string, userId: string) {
