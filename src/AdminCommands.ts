@@ -178,9 +178,16 @@ export class AdminCommands {
                     respond("Room is now " + r.getStatus());
                     if (r.SlackWebhookUri) {
                         respond("Inbound URL is " + this.main.getInboundUrlForRoom(r));
+                    } else {
+                        respond("Remember to invite the slack bot to the slack channel.");
                     }
                 } catch (ex) {
-                    respond("Cannot link - " + ex );
+                    log.warn("Failed to link channel", ex);
+                    if ((ex as Error).message === "Failed to get channel info") {
+                        respond("Cannot link - Bot doesn't have visibility on channel. Is it invited on slack?");
+                    } else {
+                        respond("Cannot link - " + ex);
+                    }
                 }
             },
             {

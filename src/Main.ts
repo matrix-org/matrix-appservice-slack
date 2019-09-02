@@ -816,20 +816,14 @@ export class Main {
         const cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
 
         if (teamToken) {
-            room.SlackBotToken = teamToken;
-            // Join the channel. If the bot is already joined then this will no-op.
-            const joinRes = await cli.conversations.join({
-                channel: opts.slack_channel_id!,
-            });
-            if (!joinRes.ok) {
-                throw Error("Bot could not join channel");
-            }
-            const infoRes = (await cli.conversations.info()) as ConversationsInfoResponse;
+            // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
+            const infoRes = (await cli.conversations.info()) as ConversationsInfoResponse;
             if (!infoRes.ok) {
                 log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes);
                 throw Error("Failed to get channel info");
             }
+            room.SlackBotToken = teamToken;
 
             room.SlackChannelName = infoRes.channel.name;
             await Promise.all([
