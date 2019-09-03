@@ -368,8 +368,9 @@ export class BridgedRoom {
     }
 
     public async onMatrixMessage(message: any) {
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.slackTeamId!, message.user_id);
         if (!this.slackWebhookUri && !this.botClient) { return; }
-
+        const slackClient = puppetedClient || this.botClient;
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
@@ -396,7 +397,7 @@ export class BridgedRoom {
 
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
-        if (!this.botClient) {
+        if (!slackClient) {
             const sendMessageParams = {
                 body,
                 headers: {},
@@ -411,7 +412,7 @@ export class BridgedRoom {
             // Webhooks don't give us any ID, so we can't store this.
             return;
         }
-        const res = (await this.botClient.chat.postMessage({
+        const res = (await slackClient.chat.postMessage({
             ...body,
             as_user: false,
             channel: this.slackChannelId!,
@@ -440,8 +441,6 @@ export class BridgedRoom {
             parentStoredEvent._extras.slackThreadMessages.push(res.ts);
             await this.main.datastore.upsertEvent(parentStoredEvent);
         }
-
-
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {
