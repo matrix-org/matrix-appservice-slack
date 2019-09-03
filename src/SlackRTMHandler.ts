@@ -1,7 +1,3 @@
-/**
- * This class handles events coming in from slack.
- */
-
 import { RTMClient, LogLevel } from "@slack/rtm-api";
 import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
