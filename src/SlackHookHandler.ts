@@ -104,7 +104,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                         this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
                         // If RTM is enabled for this team, do not handle the event.
                         // Slack will push us events for all connected teams to our bots,
-                        // but this will cause duplicates if the team is ALSO using RTM since.
+                        // but this will cause duplicates if the team is ALSO using RTM.
                     } else if (eventPayload.type === "event_callback" &&
                                !this.main.teamIsUsingRtm(eventPayload.team_id)
                     ) {
