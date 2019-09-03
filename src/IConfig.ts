@@ -50,7 +50,11 @@ export interface IConfig {
         redirect_prefix?: string;
     };
 
-    enable_rtm: boolean;
+    rtm?: {
+        enable: boolean;
+        log_level?: string;
+    };
+
     slack_hook_port?: number;
     slack_client_opts?: WebClientOptions;
     enable_metrics: boolean;

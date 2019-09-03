@@ -37,16 +37,18 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     private async startTeamClient(expectedTeam: string, botToken: string) {
+        const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
         const connLog = Logging.get(`RTM-${expectedTeam.substr(0, LOG_TEAM_LEN)}`);
+        const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm!.log_level || "silent");
         const rtm = new RTMClient(botToken, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
                 setLevel: () => {},
                 setName: () => {}, // We handle both of these ourselves.
-                debug: connLog.debug.bind(connLog),
-                warn: connLog.warn.bind(connLog),
-                info: connLog.info.bind(connLog),
-                error: connLog.error.bind(connLog),
+                debug: logLevel <= 0 ? connLog.debug.bind(connLog) : () => {},
+                warn: logLevel <= 1 ? connLog.warn.bind(connLog) : () => {},
+                info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
+                error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
             },
         });
 

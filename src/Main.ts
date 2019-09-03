@@ -119,8 +119,8 @@ export class Main {
             });
         }
 
-        if (!config.enable_rtm && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
-            throw Error("Neither enable_rtm nor slack_hook_port|inbound_uri_prefix is defined in the config." +
+        if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
+            throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
             "The bridge must define a listener in order to run");
         }
 
@@ -147,7 +147,8 @@ export class Main {
             userStore: path.join(dbdir, "user-store.db"),
         });
 
-        if (config.enable_rtm) {
+        if (config.rtm && config.rtm.enable) {
+            log.info("Enabled RTM");
             this.slackRtm = new SlackRTMHandler(this);
         }
 
