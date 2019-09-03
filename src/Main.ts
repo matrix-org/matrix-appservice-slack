@@ -35,9 +35,9 @@ import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
 import { Datastore } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
+import { SlackClientFactory } from "./SlackClientFactory";
 
 const log = Logging.get("Main");
-const webLog = Logging.get(`slack-api`);
 
 const RECENT_EVENTID_SIZE = 20;
 export const METRIC_SENT_MESSAGES = "sent_messages";
@@ -66,6 +66,10 @@ export class Main {
 
     public get botUserId(): string {
         return this.bridge.getBot().userId();
+    }
+
+    public get clientFactory(): SlackClientFactory {
+        return this.clientfactory;
     }
 
     public readonly oauth2: OAuth2|null = null;
@@ -99,9 +103,7 @@ export class Main {
     private metrics: PrometheusMetrics;
 
     private adminCommands = new AdminCommands(this);
-
-    private teamClients: Map<string, WebClient> = new Map();
-
+    private clientfactory!: SlackClientFactory;
     // track which teams are using the rtm client.
     private rtmTeams: Set<string> = new Set();
 
@@ -167,45 +169,6 @@ export class Main {
 
     public getIntent(userId: string) {
         return this.bridge.getIntent(userId);
-    }
-
-    public async createOrGetTeamClient(teamId: string, token: string): Promise<WebClient> {
-        if (this.teamClients.has(teamId)) {
-            return this.teamClients.get(teamId)!;
-        }
-        return (await this.createTeamClient(token)).slackClient;
-    }
-
-    public async createTeamClient(token: string) {
-        const opts = this.config.slack_client_opts;
-        const slackClient = new WebClient(token, {
-            ...opts,
-            logger: {
-                setLevel: () => {}, // We don't care about these.
-                setName: () => {},
-                debug: (msg: any[]) => {
-                    // non-ideal way to detect calls to slack.
-                    webLog.debug.bind(webLog);
-                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg[0]);
-                    if (match && match[1]) {
-                        this.incRemoteCallCounter(match[1]);
-                    }
-                },
-                warn: webLog.warn.bind(webLog),
-                info: webLog.info.bind(webLog),
-                error: webLog.error.bind(webLog),
-            },
-        });
-        const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
-        if (!teamInfo.ok) {
-            throw Error("Could not create team client: " + teamInfo.error);
-        }
-        this.teamClients.set(teamInfo.team.id, slackClient);
-        return { slackClient, team: teamInfo.team };
-    }
-
-    public getTeamClient(teamId: string): WebClient|undefined {
-        return this.teamClients.get(teamId);
     }
 
     public initialiseMetrics() {
@@ -317,7 +280,7 @@ export class Main {
             return;
         }
 
-        const cli = this.getTeamClient(message.team_id);
+        const cli = this.clientFactory.getTeamClient(message.team_id);
         if (!cli) {
             throw Error("No client for team");
         }
@@ -736,6 +699,10 @@ export class Main {
             );
         }
 
+        this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
+            this.incRemoteCallCounter(method);
+        });
+
         if (this.slackHookHandler) {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
         }
@@ -756,7 +723,7 @@ export class Main {
             let cli: WebClient|undefined;
             try {
                 if (hasToken) {
-                    cli = await this.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                    cli = await this.clientFactory.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
                 }
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
@@ -841,7 +808,7 @@ export class Main {
         let cli: WebClient|undefined;
 
         if (opts.team_id || teamToken) {
-            cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+            cli = await this.clientFactory.createOrGetTeamClient(opts.team_id!, teamToken!);
         }
 
         if (cli && opts.slack_channel_id) {
@@ -919,6 +886,8 @@ export class Main {
         };
         matrixUser.set("accounts", accounts);
         await this.datastore.storeMatrixUser(matrixUser);
+        // Store it here too for puppeting.
+        await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
         log.info(`Set new access token for ${userId} (team: ${teamId})`);
     }
 
