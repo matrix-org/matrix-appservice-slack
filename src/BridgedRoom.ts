@@ -379,10 +379,10 @@ export class BridgedRoom {
         };
 
         const reply = await this.findParentReply(message);
-        let parentStoredEvent: EventEntry;
+        let parentStoredEvent: EventEntry | null = null;
         if (reply !== message.event_id) {
-            // We have a reply
             parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
+            // We have a reply
             if (parentStoredEvent) {
                 body.thread_ts = parentStoredEvent.slackTs;
             }
