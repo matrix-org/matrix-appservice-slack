@@ -119,8 +119,8 @@ export class Main {
             });
         }
 
-        if (!config.enable_rtm && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
-            throw Error("Neither enable_rtm nor slack_hook_port|inbound_uri_prefix is defined in the config." +
+        if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
+            throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
             "The bridge must define a listener in order to run");
         }
 
@@ -142,12 +142,13 @@ export class Main {
             domain: config.homeserver.server_name,
             eventStore: path.join(dbdir, "event-store.db"),
             homeserverUrl: config.homeserver.url,
-            registration: registration,
+            registration,
             roomStore: path.join(dbdir, "room-store.db"),
             userStore: path.join(dbdir, "user-store.db"),
         });
 
-        if (config.enable_rtm) {
+        if (config.rtm && config.rtm.enable) {
+            log.info("Enabled RTM");
             this.slackRtm = new SlackRTMHandler(this);
         }
 
@@ -399,6 +400,8 @@ export class Main {
 
     public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.push(room);
+
+        this.roomsByMatrixRoomId[room.MatrixRoomId] = room;
 
         if (room.SlackChannelId) {
             this.roomsBySlackChannelId[room.SlackChannelId] = room;
@@ -750,11 +753,19 @@ export class Main {
 
         await Promise.all(entries.map(async (entry) => {
             const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-            const cli = !hasToken ? undefined : await this.createOrGetTeamClient(
-                entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+            let cli: WebClient|undefined;
+            try {
+                if (hasToken) {
+                    cli = await this.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                }
+            } catch (ex) {
+                log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
+            }
+            if (!cli && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
+                log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
+            }
             const room = BridgedRoom.fromEntry(this, entry, cli);
             await this.addBridgedRoom(room);
-            this.roomsByMatrixRoomId[entry.matrix_id] = room;
             this.stateStorage.trackRoom(entry.matrix_id);
         }));
 

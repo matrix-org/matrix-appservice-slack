@@ -1,7 +1,3 @@
-/**
- * This class handles events coming in from slack.
- */
-
 import { RTMClient, LogLevel } from "@slack/rtm-api";
 import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
@@ -15,7 +11,7 @@ const LOG_TEAM_LEN = 12;
  * It reuses the SlackEventHandler to handle events.
  */
 export class SlackRTMHandler extends SlackEventHandler {
-    private rtmClients: Map<string, RTMClient>; // team -> client
+    private rtmClients: Map<string, Promise<RTMClient>>; // team -> client
     constructor(main: Main) {
         super(main);
         this.rtmClients = new Map();
@@ -24,18 +20,31 @@ export class SlackRTMHandler extends SlackEventHandler {
     public async startTeamClientIfNotStarted(expectedTeam: string, botToken: string) {
         if (this.rtmClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
-            return;
+            try {
+                await this.rtmClients.get(expectedTeam);
+                return;
+            } catch (ex) {
+                log.warn("Failed to create RTM client");
+            }
         }
+        const promise = this.startTeamClient(expectedTeam, botToken);
+        this.rtmClients.set(expectedTeam, promise);
+        await promise;
+    }
+
+    private async startTeamClient(expectedTeam: string, botToken: string) {
+        const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
         const connLog = Logging.get(`RTM-${expectedTeam.substr(0, LOG_TEAM_LEN)}`);
+        const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm!.log_level || "silent");
         const rtm = new RTMClient(botToken, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
                 setLevel: () => {},
                 setName: () => {}, // We handle both of these ourselves.
-                debug: connLog.debug.bind(connLog),
-                warn: connLog.warn.bind(connLog),
-                info: connLog.info.bind(connLog),
-                error: connLog.error.bind(connLog),
+                debug: logLevel <= 0 ? connLog.debug.bind(connLog) : () => {},
+                warn: logLevel <= 1 ? connLog.warn.bind(connLog) : () => {},
+                info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
+                error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
             },
         });
 
@@ -61,12 +70,13 @@ export class SlackRTMHandler extends SlackEventHandler {
         });
 
         try {
-            const { _self, team } = await rtm.start();
+            const { team } = await rtm.start();
             const teamInfo = team as ISlackTeam;
-            this.rtmClients.set(teamInfo.id , rtm);
             log.info("Connected RTM client for ", teamInfo);
         } catch (ex) {
             log.error("Failed to connect RTM client for ", expectedTeam);
+            throw ex;
         }
+        return rtm;
     }
 }
