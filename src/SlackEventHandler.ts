@@ -210,7 +210,12 @@ export class SlackEventHandler extends BaseSlackHandler {
                 const botClient = this.main.botIntent.getClient();
                 return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
             }
+        } else if (msg.subtype === "message_replied") {
+            // Slack sends us one of these as well as a normal message event
+            // when using RTM, so we ignore it.
+            return;
         }
+
 
         if (!room.SlackClient) {
             // If we can't look up more details about the message

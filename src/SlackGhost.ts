@@ -293,7 +293,6 @@ export class SlackGhost {
             "format": "org.matrix.custom.html",
             "formatted_body": fallbackHtml + this.prepareFormattedBody(text),
         };
-
         return await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
     }
 

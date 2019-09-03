@@ -23,7 +23,7 @@ import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient, WebAPICallResult } from "@slack/web-api";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse, ChatPostMessageResponse } from "./SlackResponses";
-import { RoomEntry } from "./datastore/Models";
+import { RoomEntry, EventEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
@@ -379,7 +379,7 @@ export class BridgedRoom {
         };
 
         const reply = await this.findParentReply(message);
-        let parentStoredEvent;
+        let parentStoredEvent: EventEntry;
         if (reply !== message.event_id) {
             // We have a reply
             parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
@@ -544,7 +544,7 @@ export class BridgedRoom {
         if (message.thread_ts !== undefined && message.text) {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
             if (replyMEvent) {
-                replyMEvent = this.stripMatrixReplyFallback(replyMEvent);
+                replyMEvent = await this.stripMatrixReplyFallback(replyMEvent);
                 return await ghost.sendWithReply(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
