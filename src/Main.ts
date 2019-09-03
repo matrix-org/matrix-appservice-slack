@@ -753,11 +753,11 @@ export class Main {
 
         await Promise.all(entries.map(async (entry) => {
             const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-
             let cli: WebClient|undefined;
             try {
-                cli = !hasToken ? undefined : await this.createOrGetTeamClient(
-                    entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                if (hasToken) {
+                    cli = await this.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                }
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
             }
