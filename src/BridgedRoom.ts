@@ -331,18 +331,18 @@ export class BridgedRoom {
         if (!this.botClient) { return; }
 
         const event = await this.main.datastore.getEventByMatrixId(
-            message.content["m.relates_to"].event_id,
             message.room_id,
+            message.content["m.relates_to"].event_id,
         );
 
-        if (event === null) {
+        if (!event) {
+            log.debug("Skipping matrix edit because couldn't find event in datastore");
             return;
         }
-
         // re-write the message so the matrixToSlack converter works as expected.
         let newMessage = JSON.parse(JSON.stringify(message));
         newMessage.content = message.content["m.new_content"];
-        newMessage = this.stripMatrixReplyFallback(newMessage);
+        newMessage = await this.stripMatrixReplyFallback(newMessage);
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
