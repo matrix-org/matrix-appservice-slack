@@ -637,7 +637,7 @@ export class Main {
         if (ev.type === "m.room.message" || ev.content) {
             if (ev.content["m.relates_to"] !== undefined) {
                 const relatesTo = ev.content["m.relates_to"];
-                if (relatesTo.rel_type === "m.replace" && !relatesTo.event_id) {
+                if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
                     // We have an edit.
                     try {
                         await room.onMatrixEdit(ev);
