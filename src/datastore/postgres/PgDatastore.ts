@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 1;
+    public static readonly LATEST_SCHEMA = 2;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -188,6 +188,23 @@ export class PgDatastore implements Datastore {
             bot_token: doc.token,
             user_id: doc.bot_id,
         } as TeamEntry;
+    }
+
+    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
+        await this.postgresDb.none("INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
+                                        "ON CONFLICT ON CONSTRAINT cons_events_unique DO UPDATE SET token = ${token}", {
+            teamId,
+            slackUser,
+            matrixId,
+            token,
+        });
+    }
+
+    public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string> {
+        throw new Error("Method not implemented.");
+    }
+    public async getPuppetTokenByMatrixId(matrixId: string): Promise<string> {
+        throw new Error("Method not implemented.");
     }
 
     private async updateSchemaVersion(version: number) {

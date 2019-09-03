@@ -149,4 +149,15 @@ export class NedbDatastore implements Datastore {
             });
         });
     }
+
+    public async setPuppetToken(): Promise<void> {
+        // Puppeting not supported by NeDB yet - noop
+        return;
+    }
+    public async getPuppetTokenBySlackId(): Promise<string|null> {
+        return null;
+    }
+    public async getPuppetTokenByMatrixId(matrixId: string): Promise<string|null> {
+        return null;
+    }
 }

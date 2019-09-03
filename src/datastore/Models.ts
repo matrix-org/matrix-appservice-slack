@@ -80,4 +80,8 @@ export interface Datastore {
 
     upsertTeam(teamId: string, botToken: string, teamName: string, botId: string);
     getTeam(teamId: string): Promise<TeamEntry>;
+
+    setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
+    getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null>;
+    getPuppetTokenByMatrixId(matrixId: string): Promise<string|null>;
 }

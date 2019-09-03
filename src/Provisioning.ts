@@ -147,7 +147,7 @@ commands.channels = new Command({
         if (team === null) {
             throw new Error("No team token for this team_id");
         }
-        const cli = await main.createOrGetTeamClient(teamId, team.bot_token);
+        const cli = await main.clientFactory.createOrGetTeamClient(teamId, team.bot_token);
         const response = (await cli.conversations.list({
             exclude_archived: true,
             limit: 100, // TODO: Pagination
