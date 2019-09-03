@@ -400,6 +400,8 @@ export class Main {
     public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.push(room);
 
+        this.roomsByMatrixRoomId[room.MatrixRoomId] = room;
+
         if (room.SlackChannelId) {
             this.roomsBySlackChannelId[room.SlackChannelId] = room;
         }
@@ -750,11 +752,16 @@ export class Main {
 
         await Promise.all(entries.map(async (entry) => {
             const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-            const cli = !hasToken ? undefined : await this.createOrGetTeamClient(
-                entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+
+            let cli: WebClient|undefined;
+            try {
+                cli = !hasToken ? undefined : await this.createOrGetTeamClient(
+                    entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+            } catch (ex) {
+                log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
+            }
             const room = BridgedRoom.fromEntry(this, entry, cli);
             await this.addBridgedRoom(room);
-            this.roomsByMatrixRoomId[entry.matrix_id] = room;
             this.stateStorage.trackRoom(entry.matrix_id);
         }));
 
