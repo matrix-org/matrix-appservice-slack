@@ -761,6 +761,9 @@ export class Main {
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
             }
+            if (!cli && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
+                log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
+            }
             const room = BridgedRoom.fromEntry(this, entry, cli);
             await this.addBridgedRoom(room);
             this.stateStorage.trackRoom(entry.matrix_id);
