@@ -32,7 +32,7 @@ export interface IConfig {
         media_url?: string;
     };
 
-    tls: {
+    tls?: {
         key_file: string;
         crt_file: string;
     };
