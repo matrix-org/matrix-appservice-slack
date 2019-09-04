@@ -93,12 +93,6 @@ export class SlackHookHandler extends BaseSlackHandler {
         req.on("end", () => {
             log.debug(`${req.method} ${req.url} bodyLen=${body.length}`);
 
-            if (req.url === "/health") {
-                res.writeHead(201, "OK");
-                res.end();
-                return;
-            }
-
             // if isEvent === true, this was an event emitted from the slack Event API
             // https://api.slack.com/events-api
             const isEvent = req.headers["content-type"] === "application/json" && req.method === "POST";
