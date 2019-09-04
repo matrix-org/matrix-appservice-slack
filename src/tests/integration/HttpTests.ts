@@ -13,22 +13,42 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { SlackHookHandler } from "../../SlackHookHandler";
-import { FakeMain } from "../utils/fakeMain";
 import { Main } from "../../Main";
 import { expect } from "chai";
 import * as request from "request-promise-native";
 import { Response } from "request";
 
+import { AppServiceRegistration } from "matrix-appservice";
+
 // tslint:disable: no-unused-expression no-any
 
 function constructHarness() {
-    const main = new FakeMain();
-    const hooks = new SlackHookHandler(main as unknown as Main);
-    return { hooks, main };
+    const reg = new AppServiceRegistration("foobar");
+    reg.setHomeserverToken(AppServiceRegistration.generateToken());
+    reg.setAppServiceToken(AppServiceRegistration.generateToken());
+    reg.setSenderLocalpart("test_bot");
+    reg.setId("foobar");
+    const main = new Main({
+        bot_username: "test_bot",
+        matrix_admin_room: "foobar",
+        username_prefix: "test_",
+        homeserver: {
+            url: "foobar",
+            server_name: "foobar",
+        },
+        enable_metrics: false,
+        dbdir: "/tmp",
+        logging: {
+            console: "info",
+        },
+        rtm: {
+            enable: true,
+        },
+    }, reg);
+    return { main };
 }
 
-let harness: { hooks: SlackHookHandler, main: FakeMain };
+let harness: { main: Main };
 
 describe("HttpTests", () => {
 
@@ -37,7 +57,7 @@ describe("HttpTests", () => {
     });
 
     it("will respond 201 to a health check", async () => {
-        await harness.hooks.startAndListen(57000);
+        await harness.main.run(57000);
         const res = await request.get("http://localhost:57000/health", {
             resolveWithFullResponse: true,
         }) as Response;
@@ -45,7 +65,7 @@ describe("HttpTests", () => {
         expect(res.body).to.be.empty;
     });
 
-    afterEach(async () => {
-        await harness.hooks.close();
-    });
+    // TODO: Currently, this will hang after completing as we cannot tell the bridge
+    // to stop! Running --exit on the mocha process works good enough for now.
+
 });

@@ -39,9 +39,9 @@ export interface IConfig {
 
     logging: {
         console: LogEnum;
-        fileDatePattern: string;
-        timestampFormat: string;
-        files: {[filename: string]: LogEnum}
+        fileDatePattern?: string;
+        timestampFormat?: string;
+        files?: {[filename: string]: LogEnum}
     };
 
     oauth2?: {
