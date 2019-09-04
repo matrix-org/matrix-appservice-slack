@@ -92,8 +92,8 @@ commands.getbotid = new Command({
 });
 
 commands.authlog = new Command({
-    params: ["user_id"],
-    func(main, req, res, userId) {
+    params: ["user_id", "puppeting"],
+    func(main, req, res, userId, puppeting) {
         if (!main.oauth2) {
             res.status(HTTP_CODES.CLIENT_ERROR).json({
                 error: "OAuth2 not configured on this bridge",
@@ -104,6 +104,7 @@ commands.authlog = new Command({
         const authUri = main.oauth2.makeAuthorizeURL(
             token,
             token,
+            puppeting === "true",
         );
         res.json({
             auth_uri: authUri,

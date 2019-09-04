@@ -38,6 +38,7 @@ export class AdminCommands {
             this.join,
             this.leave,
             this.stalerooms,
+            this.doOauth,
             this.help,
     ];
     constructor(private main: Main) {
@@ -284,6 +285,36 @@ export class AdminCommands {
                     }
                     respond(id);
                 });
+            },
+        );
+    }
+
+    public get doOauth() {
+        return new AdminCommand(
+            "oauth userId puppet",
+            "generate an oauth url to bind your account with",
+            async ({userId, puppet, respond}) => {
+                if (!this.main.oauth2) {
+                    respond("Oauth is not configured on this bridge");
+                    return;
+                }
+                const token = this.main.oauth2.getPreauthToken(userId as string);
+                const authUri = this.main.oauth2.makeAuthorizeURL(
+                    token,
+                    token,
+                    puppet as boolean,
+                );
+                respond(authUri);
+            },
+            {
+                userId: {
+                    type: "string",
+                    description: "The userId to bind to the oauth token",
+                },
+                puppet: {
+                    type: "boolean",
+                    description: "Does the user need puppeting permissions",
+                },
             },
         );
     }
