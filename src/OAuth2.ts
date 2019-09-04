@@ -37,6 +37,13 @@ const REQUIRED_SCOPES = [
     "bot",
 ];
 
+const PUPPET_SCOPES = [ // See https://stackoverflow.com/a/28234443
+    "identify",
+    "read",
+    "post",
+    "client",
+];
+
 export class OAuth2 {
     private readonly main: Main;
     private readonly userTokensWaiting: Map<string, string>;
@@ -54,9 +61,9 @@ export class OAuth2 {
         this.client = new WebClient();
     }
 
-    public makeAuthorizeURL(room: string|BridgedRoom, state: string): string {
+    public makeAuthorizeURL(room: string|BridgedRoom, state: string, isPuppeting: boolean = false): string {
         const redirectUri = this.makeRedirectURL(room);
-        const scopes = Array.from(REQUIRED_SCOPES);
+        const scopes = isPuppeting ? REQUIRED_SCOPES : PUPPET_SCOPES;
 
         const qs = querystring.stringify({
             client_id: this.clientId,

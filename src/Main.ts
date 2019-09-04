@@ -275,9 +275,8 @@ export class Main {
 
         const room = this.getRoomBySlackChannelId(message.channel || message.channel_id);
 
-        if (!room) {
-            log.error("Couldn't find channel in order to get team domain");
-            return;
+        if (room && room.SlackTeamDomain) {
+            return room.SlackTeamDomain;
         }
 
         const cli = this.clientFactory.getTeamClient(message.team_id);
@@ -307,8 +306,12 @@ export class Main {
 
         // team_domain is gone, so we have to actually get the domain from a friendly object.
         const teamDomain = (await this.getTeamDomainForMessage(message, teamId)).toLowerCase();
+        return this.getGhostForSlack(message.user_id, teamDomain);
+    }
+
+    public async getGhostForSlack(slackUserId: string, teamDomain: string): Promise<SlackGhost> {
         const userId = this.getUserId(
-            message.user_id.toUpperCase(),
+            slackUserId.toUpperCase(),
             teamDomain,
         );
 
@@ -373,7 +376,7 @@ export class Main {
         if (room.InboundId) {
             this.roomsByInboundId[room.InboundId] = room;
         }
-        if (!room.SlackTeamId && room.SlackBotToken) {
+        if ((!room.SlackTeamId || !room.SlackBotId) && room.SlackBotToken) {
             await room.refreshTeamInfo();
             await room.refreshUserInfo();
         }
@@ -675,6 +678,7 @@ export class Main {
                 throw Error("Unknown engine for database. Please use 'postgres'");
             }
             this.datastore = new PgDatastore(this.config.db.connectionString);
+            await (this.datastore as PgDatastore).ensureSchema();
         } else {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
@@ -702,6 +706,18 @@ export class Main {
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
             this.incRemoteCallCounter(method);
         });
+        let puppetsWaiting: Promise<unknown> = Promise.resolve();
+        if (this.slackRtm) {
+            const puppetEntries = await this.datastore.getPuppetedUsers();
+            puppetsWaiting = Promise.all(puppetEntries.map(async (entry) => {
+                try {
+                    return this.slackRtm!.startUserClient(entry);
+                } catch (ex) {
+                    log.info("Failed to start puppet client");
+                }
+            }));
+        }
+
 
         if (this.slackHookHandler) {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
@@ -724,6 +740,8 @@ export class Main {
             try {
                 if (hasToken) {
                     cli = await this.clientFactory.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                } else if (entry.remote.puppet_owner) {
+                    cli = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
                 }
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
@@ -733,7 +751,10 @@ export class Main {
             }
             const room = BridgedRoom.fromEntry(this, entry, cli);
             await this.addBridgedRoom(room);
-            this.stateStorage.trackRoom(entry.matrix_id);
+            if (!room.IsPrivate) {
+                // Only public rooms can be tracked.
+                this.stateStorage.trackRoom(entry.matrix_id);
+            }
         }));
 
         if (this.metrics) {
@@ -742,6 +763,7 @@ export class Main {
             // startup
             this.metrics.refresh();
         }
+        await puppetsWaiting;
         log.info("Bridge initialised.");
     }
 
@@ -775,6 +797,7 @@ export class Main {
             room = new BridgedRoom(this, {
                 inbound_id: inboundId,
                 matrix_room_id: matrixRoomId,
+                is_private: false,
             });
             isNew = true;
             this.roomsByMatrixRoomId[matrixRoomId] = room;
