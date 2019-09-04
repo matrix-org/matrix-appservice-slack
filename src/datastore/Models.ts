@@ -22,17 +22,20 @@ export interface RoomEntry {
     matrix_id: string;
     remote_id: string;
     remote: {
-        slack_team_id?: string;
-        slack_bot_token?: string;
-        access_scopes: string[];
-        access_token: string;
         slack_bot_id: string;
-        id: string;
-        name: string;
+        slack_bot_token?: string;
+        slack_team_id?: string;
         slack_team_domain: string;
         slack_user_id: string;
         slack_user_token: string;
+        slack_type?: string;
+        access_scopes: string[];
+        access_token: string;
+        id: string;
+        name: string;
         webhook_uri: string;
+        slack_private?: boolean;
+        puppet_owner?: string;
     };
 }
 
@@ -63,6 +66,13 @@ export interface TeamEntry {
     user_id: string;
 }
 
+export interface PuppetEntry {
+    matrixId: string;
+    teamId: string;
+    slackId: string;
+    token: string;
+}
+
 export interface Datastore {
     upsertUser(user: SlackGhost): Promise<void>;
     getUser(id: string): Promise<UserEntry|null>;
@@ -83,5 +93,6 @@ export interface Datastore {
 
     setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
     getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null>;
-    getPuppetTokenByMatrixId(matrixId: string): Promise<string|null>;
+    getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string|null>;
+    getPuppetedUsers(): Promise<PuppetEntry[]>;
 }

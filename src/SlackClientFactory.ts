@@ -58,12 +58,12 @@ export class SlackClientFactory {
         return this.teamClients.get(teamId);
     }
 
-    public async getClientForUser(teamId: string, slackUser: string): Promise<WebClient|undefined> {
-        const key = `${teamId}:${slackUser}`;
+    public async getClientForUser(teamId: string, matrixUser: string): Promise<WebClient|undefined> {
+        const key = `${teamId}:${matrixUser}`;
         if (this.puppets.has(key)) {
             return this.puppets.get(key);
         }
-        const token = await this.datastore.getPuppetTokenBySlackId(teamId, slackUser);
+        const token = await this.datastore.getPuppetTokenByMatrixId(teamId, matrixUser);
         if (!token) {
             return;
         }

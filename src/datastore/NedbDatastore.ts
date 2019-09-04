@@ -154,10 +154,16 @@ export class NedbDatastore implements Datastore {
         // Puppeting not supported by NeDB yet - noop
         return;
     }
+
     public async getPuppetTokenBySlackId(): Promise<string|null> {
         return null;
     }
-    public async getPuppetTokenByMatrixId(matrixId: string): Promise<string|null> {
+
+    public async getPuppetTokenByMatrixId(): Promise<string|null> {
         return null;
+    }
+
+    public async getPuppetedUsers(): Promise<[]> {
+        return [];
     }
 }

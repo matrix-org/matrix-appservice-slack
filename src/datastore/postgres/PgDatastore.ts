@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, UserEntry, EventEntry, EventEntryExtra } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -192,7 +192,7 @@ export class PgDatastore implements Datastore {
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
         await this.postgresDb.none("INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
-                                        "ON CONFLICT ON CONSTRAINT cons_events_unique DO UPDATE SET token = ${token}", {
+                                        "ON CONFLICT ON CONSTRAINT cons_puppets_uniq DO UPDATE SET token = ${token}", {
             teamId,
             slackUser,
             matrixId,
@@ -200,11 +200,25 @@ export class PgDatastore implements Datastore {
         });
     }
 
-    public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string> {
-        throw new Error("Method not implemented.");
+    public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null> {
+        const res = await this.postgresDb.oneOrNone("SELECT token FROM puppets WHERE slackteam = ${teamId} " +
+                                                    "AND slackuser = ${slackId}", { teamId, slackId });
+        return res ? res.token : null;
     }
-    public async getPuppetTokenByMatrixId(matrixId: string): Promise<string> {
-        throw new Error("Method not implemented.");
+
+    public async getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string> {
+        const res = await this.postgresDb.oneOrNone("SELECT token FROM puppets WHERE slackteam = ${teamId} " +
+                                                    "AND matrixuser = ${matrixId}", { teamId, matrixId });
+        return res ? res.token : null;
+    }
+
+    public async getPuppetedUsers(): Promise<PuppetEntry[]> {
+        return (await this.postgresDb.many("SELECT * FROM puppets")).map((u) => ({
+            matrixId: u.matrixuser,
+            teamId: u.slackteam,
+            slackId: u.slackuser,
+            token: u.token,
+        }));
     }
 
     private async updateSchemaVersion(version: number) {
