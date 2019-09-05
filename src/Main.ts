@@ -35,6 +35,7 @@ import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
 import { Datastore } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
+import { Response } from "express";
 
 const log = Logging.get("Main");
 const webLog = Logging.get(`slack-api`);
@@ -741,6 +742,13 @@ export class Main {
         }
 
         this.bridge.run(port, this.config);
+
+        this.bridge.addAppServicePath({
+            handler: this.onHealth.bind(this.bridge),
+            method: "GET",
+            path: "/health",
+        });
+
         Provisioning.addAppServicePath(this.bridge, this);
 
         // TODO(paul): see above; we had to defer this until now
@@ -938,5 +946,9 @@ export class Main {
             return userId;
         }
         return (await nullGhost.getDisplayname(userId, room!.SlackClient!)) || userId;
+    }
+
+    private onHealth(_, res: Response) {
+        res.status(201).send("");
     }
 }
