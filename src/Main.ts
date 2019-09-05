@@ -30,7 +30,7 @@ import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
+import { TeamInfoResponse, ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
 
 import { Datastore } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
@@ -343,6 +343,16 @@ export class Main {
         return ghost;
     }
 
+    public async getExistingSlackGhost(userId: string): Promise<SlackGhost|null> {
+        const entry = await this.datastore.getUser(userId);
+        log.debug("Getting existing ghost for", userId);
+        if (!entry) {
+            return null;
+        }
+        const intent = this.bridge.getIntent(userId);
+        return SlackGhost.fromEntry(this, entry, intent);
+    }
+
     public getOrCreateMatrixUser(id: string) {
         let u = this.matrixUsersById[id];
         if (u) {
@@ -531,11 +541,17 @@ export class Main {
 
         if (ev.type === "m.room.member"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && ev.sender !== myUserId) {
+            && ev.sender !== myUserId
+            && ev.content.is_direct) {
 
             log.info(`${ev.state_key} got invite for ${ev.room_id} but we can't do DMs, warning room.`);
-            // await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
-            endTimer({outcome: "success"});
+            try {
+                await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
+                endTimer({outcome: "success"});
+            } catch (e) {
+                log.error("Failed to handle DM invite: ", e);
+                endTimer({outcome: "fail"});
+            }
             return;
         }
 
@@ -618,33 +634,71 @@ export class Main {
         }
     }
 
-    // public async handleDmInvite(stateKey: string, sender: string, roomId: string) {
-    //     const intent = this.getIntent(stateKey);
-    //     await intent.join(roomId);
-    //     if (!this.slackRtm) {
-    //         await intent.send(roomId, "m.room.message", {
-    //             body: "The slack bridge doesn't support private messaging.",
-    //             msgtype: "m.notice",
-    //         });
-    //         await intent.leave();
-    //         return;
-    //     }
-    //     const rtmClient = this.slackRtm!.getUserClient(parts.domain, sender);
-    //     const slackClient = await this.clientFactory.getClientForUser(parts.domain, sender);
-    //     if (!rtmClient || !slackClient) {
-    //         await intent.send(roomId, "m.room.message", {
-    //             body: "Your user has not enabled puppeting.",
-    //             msgtype: "m.notice",
-    //         });
-    //         await intent.leave();
-    //         return;
-    //     }
-    //     slackClient.conversations.open({users: })
-    //     // We can now PM them.
+    public async handleDmInvite(recipient: string, sender: string, roomId: string) {
+        const intent = this.getIntent(recipient);
+        await intent.join(roomId);
+        if (!this.slackRtm) {
+            await intent.send(roomId, "m.room.message", {
+                body: "The slack bridge doesn't support private messaging.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
 
-    //     const client = this.slackRtm
-    //     throw new Error("Method not implemented.");
-    // }
+        const slackGhost = await this.getExistingSlackGhost(recipient);
+        if (!slackGhost || !slackGhost.teamId) {
+            // TODO: Create users dynamically who have never spoken.
+            await intent.send(roomId, "m.room.message", {
+                body: "This user does not exist or has not used the bridge yet.",
+                msgtype: "m.notice",
+            });
+            await intent.leave(roomId);
+            return;
+        }
+        const teamId = slackGhost.teamId;
+        const rtmClient = this.slackRtm!.getUserClient(teamId, sender);
+        const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
+        if (!rtmClient || !slackClient) {
+            await intent.send(roomId, "m.room.message", {
+                body: "You has not enabled puppeting for this Slack workspace. You must do that to speak to members.",
+                msgtype: "m.notice",
+            });
+            await intent.leave(roomId);
+            return;
+        }
+        const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
+        if (openResponse.already_open) {
+            // Check to see if we have a room for this channel already.
+            const existing = this.roomsBySlackChannelId[openResponse.channel.id];
+            if (existing) {
+                await this.datastore.deleteRoom(existing.InboundId);
+                await intent.send(roomId, "m.room.message", {
+                    body: "You already have a conversation open with this person, leaving that room.",
+                    msgtype: "m.notice",
+                });
+                await intent.leave(existing.MatrixRoomId);
+            }
+        }
+        const puppetIdent = (await slackClient.auth.test()) as AuthTestResponse;
+        const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
+        // The convo may be open, but we do not have a channel for it. Create the channel.
+        const room = new BridgedRoom(this, {
+            inbound_id: openResponse.channel.id,
+            matrix_room_id: roomId,
+            slack_user_id: puppetIdent.user_id,
+            slack_team_id: puppetIdent.team_id,
+            slack_team_domain: teamInfo.team.domain,
+            slack_channel_id: openResponse.channel.id,
+            slack_channel_name: undefined,
+            puppet_owner: sender,
+            is_private: true,
+        }, slackClient);
+        room.updateUsingChannelInfo(openResponse);
+        await this.addBridgedRoom(room);
+        await this.datastore.upsertRoom(room);
+        await slackGhost.intent.joinRoom(roomId);
+    }
 
     public async onMatrixAdminMessage(ev) {
         const cmd = ev.content.body;
@@ -735,7 +789,6 @@ export class Main {
                 }
             }));
         }
-
 
         if (this.slackHookHandler) {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);

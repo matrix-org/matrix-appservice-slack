@@ -61,8 +61,8 @@ export class SlackGhost {
     private userInfoLoading?: Promise<UsersInfoResponse>;
     constructor(
         private main: Main,
-        private slackId: string,
-        private teamId: string,
+        public readonly slackId: string,
+        public readonly teamId: string,
         public readonly userId: string,
         public readonly intent?: Intent,
         private displayName?: string,
