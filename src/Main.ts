@@ -298,14 +298,6 @@ export class Main {
         return `@${localpart}:${this.config.homeserver.server_name}`;
     }
 
-    public getPartsFromUserId(userId: string) {
-        const mxUser = new BridgeMatrixUser(userId);
-        let localpart = mxUser.localpart;
-        localpart = localpart.substr(this.userIdPrefix.length);
-        const parts = localpart.split("_");
-        return { domain: parts[0], slackId: parts[1] };
-    }
-
     public async getGhostForSlackMessage(message: any, teamId: string): Promise<SlackGhost> {
         // Slack ghost IDs need to be constructed from user IDs, not usernames,
         // because users can change their names
@@ -314,10 +306,10 @@ export class Main {
 
         // team_domain is gone, so we have to actually get the domain from a friendly object.
         const teamDomain = (await this.getTeamDomainForMessage(message, teamId)).toLowerCase();
-        return this.getGhostForSlack(message.user_id, teamDomain);
+        return this.getGhostForSlack(message.user_id, teamDomain, teamId);
     }
 
-    public async getGhostForSlack(slackUserId: string, teamDomain: string): Promise<SlackGhost> {
+    public async getGhostForSlack(slackUserId: string, teamDomain: string, teamId: string): Promise<SlackGhost> {
         const userId = this.getUserId(
             slackUserId.toUpperCase(),
             teamDomain,
@@ -340,8 +332,8 @@ export class Main {
             ghost = new SlackGhost(
                 this,
                 userId,
-                undefined,
-                undefined,
+                teamId,
+                userId,
                 intent,
             );
             await this.datastore.upsertUser(ghost);
@@ -542,7 +534,7 @@ export class Main {
             && ev.sender !== myUserId) {
 
             log.info(`${ev.state_key} got invite for ${ev.room_id} but we can't do DMs, warning room.`);
-            await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
+            // await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
             endTimer({outcome: "success"});
             return;
         }
@@ -626,34 +618,33 @@ export class Main {
         }
     }
 
-    public async handleDmInvite(stateKey: string, sender: string, roomId: string) {
-        const intent = this.getIntent(stateKey);
-        await intent.join(roomId);
-        if (!this.slackRtm) {
-            await intent.send(roomId, "m.room.message", {
-                body: "The slack bridge doesn't support private messaging.",
-                msgtype: "m.notice",
-            });
-            await intent.leave();
-            return;
-        }
-        const parts = this.getPartsFromUserId(stateKey);
-        const rtmClient = this.slackRtm!.getUserClient(parts.domain, sender);
-        const slackClient = await this.clientFactory.getClientForUser(parts.domain, sender);
-        if (!rtmClient || !slackClient) {
-            await intent.send(roomId, "m.room.message", {
-                body: "Your user has not enabled puppeting.",
-                msgtype: "m.notice",
-            });
-            await intent.leave();
-            return;
-        }
-        slackClient.conversations.open({users: })
-        // We can now PM them.
+    // public async handleDmInvite(stateKey: string, sender: string, roomId: string) {
+    //     const intent = this.getIntent(stateKey);
+    //     await intent.join(roomId);
+    //     if (!this.slackRtm) {
+    //         await intent.send(roomId, "m.room.message", {
+    //             body: "The slack bridge doesn't support private messaging.",
+    //             msgtype: "m.notice",
+    //         });
+    //         await intent.leave();
+    //         return;
+    //     }
+    //     const rtmClient = this.slackRtm!.getUserClient(parts.domain, sender);
+    //     const slackClient = await this.clientFactory.getClientForUser(parts.domain, sender);
+    //     if (!rtmClient || !slackClient) {
+    //         await intent.send(roomId, "m.room.message", {
+    //             body: "Your user has not enabled puppeting.",
+    //             msgtype: "m.notice",
+    //         });
+    //         await intent.leave();
+    //         return;
+    //     }
+    //     slackClient.conversations.open({users: })
+    //     // We can now PM them.
 
-        const client = this.slackRtm
-        throw new Error("Method not implemented.");
-    }
+    //     const client = this.slackRtm
+    //     throw new Error("Method not implemented.");
+    // }
 
     public async onMatrixAdminMessage(ev) {
         const cmd = ev.content.body;
@@ -951,11 +942,11 @@ export class Main {
     }
 
     public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
-        const nullGhost = new SlackGhost(this);
         const room = this.getRoomBySlackChannelId(channel);
+        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId);
         if (!room || !room.SlackClient) {
             return userId;
         }
-        return (await nullGhost.getDisplayname(userId, room!.SlackClient!)) || userId;
+        return (await nullGhost.getDisplayname(room!.SlackClient!)) || userId;
     }
 }

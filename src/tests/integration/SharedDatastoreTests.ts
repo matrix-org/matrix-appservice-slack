@@ -34,6 +34,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                     display_name: "A displayname",
                     avatar_url: "Some avatar",
                     id: "someid1",
+                    slack_id: "foobar",
+                    team_id: "barbaz",
                 }, null),
             );
             const userEntry = await ds().getUser("someid1");
@@ -41,23 +43,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 display_name: "A displayname",
                 avatar_url: "Some avatar",
                 id: "someid1",
-            });
-        });
-
-        it("should be able to upsert a slack user", async () => {
-            const user = SlackGhost.fromEntry(null as any, {
-                display_name: "A displayname",
-                avatar_url: "Some avatar",
-                id: "someid2",
-            }, null);
-            await ds().upsertUser(user);
-            (user as any).displayName = "A changed displayname";
-            await ds().upsertUser(user);
-            const userEntry = await ds().getUser("someid2");
-            expect(userEntry).to.deep.equal({
-                display_name: "A changed displayname",
-                avatar_url: "Some avatar",
-                id: "someid2",
+                slack_id: "foobar",
+                team_id: "barbaz",
             });
         });
 
@@ -66,6 +53,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 display_name: "A displayname",
                 avatar_url: "Some avatar",
                 id: "someid3",
+                slack_id: "foobar",
+                team_id: "barbaz",
             }, null);
             await ds().upsertUser(user);
             (user as any).displayName = "A changed displayname";
@@ -75,6 +64,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 display_name: "A changed displayname",
                 avatar_url: "Some avatar",
                 id: "someid3",
+                slack_id: "foobar",
+                team_id: "barbaz",
             });
         });
 

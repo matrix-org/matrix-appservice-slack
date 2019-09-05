@@ -41,10 +41,10 @@ export interface RoomEntry {
 
 export interface UserEntry {
     id: string;
-    matrix_id: string;
     display_name: string;
-    get: (key: string) => string;
-    set: (key: string, value: string) => void;
+    avatar_url: string;
+    slack_id: string;
+    team_id: string;
 }
 
 export interface EventEntry {

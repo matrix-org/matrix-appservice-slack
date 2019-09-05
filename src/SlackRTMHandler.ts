@@ -133,8 +133,10 @@ export class SlackRTMHandler extends SlackEventHandler {
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
         log.debug("Received slack user event:", puppet.matrixId, event);
         const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
-        // tslint:disable-next-line: no-any
-        const ghosts = await Promise.all(channelMembersRes.members.map((id) => this.main.getGhostForSlack(id, (event as any).team_domain)));
+        const ghosts = await Promise.all(channelMembersRes.members.map(
+            // tslint:disable-next-line: no-any
+            (id) => this.main.getGhostForSlack(id, (event as any).team_domain, puppet.teamId)),
+        );
         const ghost = await this.main.getGhostForSlackMessage(event, puppet.teamId);
         let room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
         if (!room && chanInfo.channel.is_im) {
