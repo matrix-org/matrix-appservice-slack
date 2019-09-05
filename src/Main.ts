@@ -184,6 +184,7 @@ export class Main {
             logger: {
                 setLevel: () => {}, // We don't care about these.
                 setName: () => {},
+                // tslint:disable-next-line: no-any
                 debug: (msg: any[]) => {
                     // non-ideal way to detect calls to slack.
                     webLog.debug.bind(webLog);

@@ -34,7 +34,7 @@ export class FakeMain {
             return new BridgedRoom(this as unknown as Main, {
                 matrix_room_id: "!somefake:room",
                 inbound_id: "someid",
-            } as any);
+            });
         }
     }
 
