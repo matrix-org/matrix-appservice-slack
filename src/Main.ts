@@ -158,7 +158,6 @@ export class Main {
             ...bridgeStores,
         });
 
-
         if (!usingNeDB) {
             // If these are undefined in the constructor, default names
             // are used. We want to override those names so these stores

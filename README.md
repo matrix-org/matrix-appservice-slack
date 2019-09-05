@@ -3,7 +3,6 @@ A Matrix &lt;--> Slack bridge
 
 This bridge allows you to connect Slack channels to Matrix rooms.
 
-
 Installation
 ------------
 
@@ -13,7 +12,6 @@ $ cd matrix-appservice-slack
 $ npm install
 $ npm run build
 ```
-
 
 Setup
 -----
@@ -45,6 +43,8 @@ Setup
 
    matrix_admin_room: "the ID of the room created in step 1."
    ```
+
+1. See [datastores](docs/datastores.md) on how to setup a database with the bridge.
 
 1. Generate the appservice registration file (if the application service runs
    on the same server you can use `localhost` as the `$HOST` name):
