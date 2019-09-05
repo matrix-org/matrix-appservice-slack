@@ -638,7 +638,7 @@ export class Main {
         const intent = this.getIntent(recipient);
         await intent.join(roomId);
         if (!this.slackRtm) {
-            await intent.send(roomId, "m.room.message", {
+            await intent.sendEvent(roomId, "m.room.message", {
                 body: "The slack bridge doesn't support private messaging.",
                 msgtype: "m.notice",
             });
@@ -649,7 +649,7 @@ export class Main {
         const slackGhost = await this.getExistingSlackGhost(recipient);
         if (!slackGhost || !slackGhost.teamId) {
             // TODO: Create users dynamically who have never spoken.
-            await intent.send(roomId, "m.room.message", {
+            await intent.sendEvent(roomId, "m.room.message", {
                 body: "This user does not exist or has not used the bridge yet.",
                 msgtype: "m.notice",
             });
@@ -660,7 +660,7 @@ export class Main {
         const rtmClient = this.slackRtm!.getUserClient(teamId, sender);
         const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
         if (!rtmClient || !slackClient) {
-            await intent.send(roomId, "m.room.message", {
+            await intent.sendEvent(roomId, "m.room.message", {
                 body: "You has not enabled puppeting for this Slack workspace. You must do that to speak to members.",
                 msgtype: "m.notice",
             });
@@ -673,7 +673,7 @@ export class Main {
             const existing = this.roomsBySlackChannelId[openResponse.channel.id];
             if (existing) {
                 await this.datastore.deleteRoom(existing.InboundId);
-                await intent.send(roomId, "m.room.message", {
+                await intent.sendEvent(roomId, "m.room.message", {
                     body: "You already have a conversation open with this person, leaving that room.",
                     msgtype: "m.notice",
                 });
