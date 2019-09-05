@@ -639,7 +639,7 @@ export class Main {
         await intent.join(roomId);
         if (!this.slackRtm) {
             await intent.sendEvent(roomId, "m.room.message", {
-                body: "The slack bridge doesn't support private messaging.",
+                body: "This slack bridge instance doesn't support private messaging.",
                 msgtype: "m.notice",
             });
             await intent.leave();
@@ -650,7 +650,7 @@ export class Main {
         if (!slackGhost || !slackGhost.teamId) {
             // TODO: Create users dynamically who have never spoken.
             await intent.sendEvent(roomId, "m.room.message", {
-                body: "This user does not exist or has not used the bridge yet.",
+                body: "The user does not exist or has not used the bridge yet.",
                 msgtype: "m.notice",
             });
             await intent.leave(roomId);
@@ -661,7 +661,7 @@ export class Main {
         const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
         if (!rtmClient || !slackClient) {
             await intent.sendEvent(roomId, "m.room.message", {
-                body: "You has not enabled puppeting for this Slack workspace. You must do that to speak to members.",
+                body: "You have not enabled puppeting for this Slack workspace. You must do that to speak to members.",
                 msgtype: "m.notice",
             });
             await intent.leave(roomId);
@@ -674,7 +674,7 @@ export class Main {
             if (existing) {
                 await this.datastore.deleteRoom(existing.InboundId);
                 await intent.sendEvent(roomId, "m.room.message", {
-                    body: "You already have a conversation open with this person, leaving that room.",
+                    body: "You already have a conversation open with this person, leaving that room and reattaching here.",
                     msgtype: "m.notice",
                 });
                 await intent.leave(existing.MatrixRoomId);
@@ -970,7 +970,7 @@ export class Main {
         return userLevel >= requiresLevel;
     }
 
-    public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string) {
+    public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
         let matrixUser = await this.datastore.getMatrixUser(userId);
         matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
@@ -980,8 +980,16 @@ export class Main {
         };
         matrixUser.set("accounts", accounts);
         await this.datastore.storeMatrixUser(matrixUser);
-        // Store it here too for puppeting.
-        await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
+        if (puppeting) {
+            // Store it here too for puppeting.
+            await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
+            await this.slackRtm!.startUserClient({
+                teamId,
+                slackId,
+                matrixId: userId,
+                token: accessToken,
+            });
+        }
         log.info(`Set new access token for ${userId} (team: ${teamId})`);
     }
 

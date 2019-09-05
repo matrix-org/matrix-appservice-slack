@@ -322,6 +322,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                     response.team_id,
                     response.user_id,
                     response.access_token,
+                    response.bot === undefined,
                 );
                 if (response.bot) {
                     this.main.datastore.upsertTeam(
