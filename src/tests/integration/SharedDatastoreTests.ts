@@ -183,6 +183,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_user_id: "a_user_id",
                 slack_user_token: "a_user_token",
                 slack_webhook_uri: "a_webhook_uri",
+                puppet_owner: "foobar",
             }, {} as any);
             await ds().upsertRoom(room);
             const rooms = await ds().getAllRooms();
@@ -204,6 +205,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_user_id: "a_user_id",
                 slack_user_token: "a_user_token",
                 slack_webhook_uri: "a_webhook_uri",
+                puppet_owner: "foobar",
             }, {} as any);
             await ds().upsertRoom(room);
             room.SlackTeamDomain = "new_team_domain";
@@ -228,6 +230,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                     slack_user_id: "a_user_id",
                     slack_user_token: "a_user_token",
                     slack_webhook_uri: "a_webhook_uri",
+                    puppet_owner: undefined,
                 }, {} as any);
                 await ds().upsertRoom(room);
             }
