@@ -21,6 +21,23 @@ properties:
         type: string
       crt_file:
         type: string
+  rtm:
+    type: object
+    required: ["enable"]
+    properties:
+      enable:
+        type: boolean
+      logging:
+        type: "string"
+        enum: ["error", "warn", "info", "debug", "off"]
+  db:
+    type: object
+    required: ["engine", "connectionString"]
+    properties:
+      engine:
+        type: string
+      connectionString:
+        type: string
   slack_hook_port:
     type: integer
   inbound_uri_prefix:

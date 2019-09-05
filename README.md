@@ -14,7 +14,6 @@ $ npm install
 $ npm run build
 ```
 
-
 Setup
 -----
 

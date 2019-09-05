@@ -1,28 +1,67 @@
-
+# Port to listen on for incoming slack requests from webhooks and event API messages.
+# Both options are optional if using RTM, required otherwise.
 slack_hook_port: 9898
+# Prefix of incoming requests to strip when handing. This is NOT the bind host
 inbound_uri_prefix: "https://my.server.here:9898/"
 
-
-bot_username: "slackbot"
-username_prefix: "slack_"
-
-homeserver:
-  url: http://localhost:8008
-  server_name: my.server
-
-logging:
-  console: "info"
-  files:
-      - "./debug.log": "info"
-      - "./error.log": "error"
-
-# Optional
-dbdir: /path/to/data/storage/
-
-# Optional
-matrix_admin_room: "!aBcDeF:matrix.org"
-
+# TLS files to be used when handing slack requests
 # Optional
 tls:
   key_file: /path/to/tls.key
   crt_file: /path/to/tls.crt
+
+# Optional if slack_hook_port and inbound_uri_prefix are defined, required otherwise.
+rtm:
+  # Use the RTM API to listen for requests, which does not require
+  # the bridge to listen on a port. This should be on unless you have
+  # specific needs.
+  enable: true
+  logging: "silent" # Logging level specific to RTM traffic.
+
+# Allow users to add channels dynamically by using oauth, or puppet themselves.
+# Optional
+oauth2:
+  client_id: ""
+  client_secret: ""
+  # A prefix similar to inbound_uri_prefix for oauth2 requests. inbound_uri_prefix will be used if this is not set
+  # Optional
+  redirect_prefix: ""
+
+# The prefix to give slack users 
+username_prefix: "slack_" # Required
+
+homeserver: # Required
+  # The server_name of your homeserver
+  server_name: my.server
+  # The URL which the bridge can reach the homeserver on.
+  url: http://localhost:8008
+  # The URL which slack can reach media on.
+  media_url: "http://my.server.here"
+
+# Optional
+logging:
+  # Log level for console output
+  console: "info" # One of "debug", "info", "warning", "error", "silent"
+   # Files that the bridge may log into. The key is the minimum level to report.
+  files:
+      - "./debug.log": "info"
+        "./error.log": "error"
+
+# Settings for database connections.
+# Optional if using NeDB.
+db:
+  # Which database engine to use.
+  engine: "postgres" # Only postgres is supported at the moment.
+  connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge" # A postgres connection string
+
+# Specify the location of NeDB datastore files
+# This option is DEPRECATED in favor of using db. See docs/datastore.md
+dbdir: "."
+
+# Use a matrix room to issue commands to the bridge
+# Optional
+matrix_admin_room: "!aBcDeF:matrix.org"
+
+# Enable metrics reporting on http://0.0.0.0:bridgePort/metrics which can be scraped by prometheus
+# Optional
+enable_metrics: true
