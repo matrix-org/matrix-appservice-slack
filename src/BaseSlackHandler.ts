@@ -39,7 +39,7 @@ export const HTTP_CODES = {
     SERVER_ERROR: 500,
 };
 
-export interface ISlackMessage {
+export interface ISlackMessage extends ISlackEvent {
     channel: string;
     text?: string;
     ts: string;
@@ -124,6 +124,8 @@ export interface ISlackUser {
         bot_id?: string;
     };
 }
+
+export type SlackEventTypes = ISlackEvent|ISlackMessage|ISlackMessageTopic;
 
 export abstract class BaseSlackHandler {
     constructor(protected main: Main) { }

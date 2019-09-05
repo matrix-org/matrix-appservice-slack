@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackMessageTopic, SlackEventTypes } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
@@ -67,7 +67,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Handles a slack event request.
      * @param ISlackEventParams
      */
-    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback) {
+    public async handle(event: SlackEventTypes, teamId: string, response: EventHandlerCallback) {
         try {
             log.debug("Received slack event:", event, teamId);
 
@@ -170,7 +170,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         // Handle topics
         if (msg.subtype === "channel_topic" || msg.subtype === "group_topic") {
-            return room.onSlackTopicUpdate(msg, teamId);
+            return room.onSlackTopic(msg as unknown as ISlackMessageTopic, teamId);
         }
 
         // Handle events with attachments like bot messages.
