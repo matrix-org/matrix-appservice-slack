@@ -24,6 +24,11 @@ export class SlackRTMHandler extends SlackEventHandler {
         this.rtmUserClients = new Map();
     }
 
+    public async getUserClient(teamId: string, matrixId: string): Promise<RTMClient|undefined> {
+        const key = `${teamId}:${matrixId}`;
+        return this.rtmUserClients.get(key);
+    }
+
     public async startUserClient(puppetEntry: PuppetEntry) {
         const key = `${puppetEntry.teamId}:${puppetEntry.matrixId}`;
         if (this.rtmUserClients.has(key)) {

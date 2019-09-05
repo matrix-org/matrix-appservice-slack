@@ -298,6 +298,14 @@ export class Main {
         return `@${localpart}:${this.config.homeserver.server_name}`;
     }
 
+    public getPartsFromUserId(userId: string) {
+        const mxUser = new BridgeMatrixUser(userId);
+        let localpart = mxUser.localpart;
+        localpart = localpart.substr(this.userIdPrefix.length);
+        const parts = localpart.split("_");
+        return { domain: parts[0], slackId: parts[1] };
+    }
+
     public async getGhostForSlackMessage(message: any, teamId: string): Promise<SlackGhost> {
         // Slack ghost IDs need to be constructed from user IDs, not usernames,
         // because users can change their names
@@ -534,17 +542,7 @@ export class Main {
             && ev.sender !== myUserId) {
 
             log.info(`${ev.state_key} got invite for ${ev.room_id} but we can't do DMs, warning room.`);
-            const intent = this.getIntent(ev.state_key);
-            try {
-                await intent.join(ev.room_id);
-                await intent.sendEvent(ev.room_id, "m.room.message", {
-                    body: "The slack bridge doesn't support private messaging, or inviting to rooms.",
-                    msgtype: "m.notice",
-                });
-            } catch (err) {
-                log.error("Couldn't send warning to user(s) about not supporting PMs", err);
-            }
-            await intent.leave(ev.room_id);
+            await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
             endTimer({outcome: "success"});
             return;
         }
@@ -626,6 +624,35 @@ export class Main {
             endTimer({outcome: "success"});
             return;
         }
+    }
+
+    public async handleDmInvite(stateKey: string, sender: string, roomId: string) {
+        const intent = this.getIntent(stateKey);
+        await intent.join(roomId);
+        if (!this.slackRtm) {
+            await intent.send(roomId, "m.room.message", {
+                body: "The slack bridge doesn't support private messaging.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
+        const parts = this.getPartsFromUserId(stateKey);
+        const rtmClient = this.slackRtm!.getUserClient(parts.domain, sender);
+        const slackClient = await this.clientFactory.getClientForUser(parts.domain, sender);
+        if (!rtmClient || !slackClient) {
+            await intent.send(roomId, "m.room.message", {
+                body: "Your user has not enabled puppeting.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
+        slackClient.conversations.open({users: })
+        // We can now PM them.
+
+        const client = this.slackRtm
+        throw new Error("Method not implemented.");
     }
 
     public async onMatrixAdminMessage(ev) {
