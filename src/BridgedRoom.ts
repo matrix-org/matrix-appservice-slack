@@ -23,7 +23,7 @@ import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent, ISlackMessageTopic } from "./BaseSlackHandler";
 import { WebClient, WebAPICallResult } from "@slack/web-api";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse, ChatPostMessageResponse } from "./SlackResponses";
-import { RoomEntry } from "./datastore/Models";
+import { RoomEntry, EventEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
@@ -331,18 +331,18 @@ export class BridgedRoom {
         if (!this.botClient) { return; }
 
         const event = await this.main.datastore.getEventByMatrixId(
-            message.content["m.relates_to"].event_id,
             message.room_id,
+            message.content["m.relates_to"].event_id,
         );
 
-        if (event === null) {
+        if (!event) {
+            log.debug("Skipping matrix edit because couldn't find event in datastore");
             return;
         }
-
         // re-write the message so the matrixToSlack converter works as expected.
         let newMessage = JSON.parse(JSON.stringify(message));
         newMessage.content = message.content["m.new_content"];
-        newMessage = this.stripMatrixReplyFallback(newMessage);
+        newMessage = await this.stripMatrixReplyFallback(newMessage);
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
@@ -379,9 +379,10 @@ export class BridgedRoom {
         };
 
         const reply = await this.findParentReply(message);
+        let parentStoredEvent: EventEntry | null = null;
         if (reply !== message.event_id) {
+            parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
             // We have a reply
-            const parentStoredEvent = await this.main.datastore.getEventByMatrixId(message.room_id, reply);
             if (parentStoredEvent) {
                 body.thread_ts = parentStoredEvent.slackTs;
             }
@@ -430,6 +431,17 @@ export class BridgedRoom {
             this.slackChannelId!,
             res.ts,
         );
+
+        // If this message is in a slack thread we need to append this message to the end of the thread list.
+        if (parentStoredEvent) {
+            if (parentStoredEvent._extras.slackThreadMessages === undefined) {
+                parentStoredEvent._extras.slackThreadMessages = [];
+            }
+            parentStoredEvent._extras.slackThreadMessages.push(res.ts);
+            await this.main.datastore.upsertEvent(parentStoredEvent);
+        }
+
+
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {
@@ -488,6 +500,10 @@ export class BridgedRoom {
         await Promise.all(promises);
     }
 
+    public setBotClient(slackClient: WebClient) {
+        this.botClient = slackClient;
+    }
+
     public async refreshTeamInfo() {
         if (!this.botClient) { return; }
 
@@ -538,7 +554,7 @@ export class BridgedRoom {
         if (message.thread_ts !== undefined && message.text) {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
             if (replyMEvent) {
-                replyMEvent = this.stripMatrixReplyFallback(replyMEvent);
+                replyMEvent = await this.stripMatrixReplyFallback(replyMEvent);
                 return await ghost.sendWithReply(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );

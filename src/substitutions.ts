@@ -79,6 +79,8 @@ class Substitutions {
             body.replace(new RegExp(`/${pair.slack}/g`), pair.matrix);
         }
         body = body.replace("<!channel>", "@room");
+        body = body.replace("<!here>", "@room");
+        body = body.replace("<!everyone>", "@room");
 
         // if we have a file, attempt to get the direct link to the file
         if (file && file.public_url_shared) {

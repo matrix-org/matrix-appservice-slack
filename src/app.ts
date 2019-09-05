@@ -33,10 +33,10 @@ const cli = new Cli({
         reg.addRegexPattern("users", `@${config.username_prefix}.*`, true);
         callback(reg);
     },
-    run(port: number, config: IConfig) {
+    run(port: number, config: IConfig, registration: any) {
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
-        new Main(config).run(port).then(() => {
+        new Main(config, registration).run(port).then(() => {
             log.info("Matrix-side listening on port", port);
         }).catch((ex) => {
             log.error("Failed to start:", ex);

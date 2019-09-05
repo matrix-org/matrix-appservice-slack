@@ -1,6 +1,7 @@
 FROM node:current-alpine AS BUILD
 COPY . /tmp/src
 
+# git is needed to install Half-Shot/slackdown
 RUN apk add git
 RUN cd /tmp/src \
     && npm install \
@@ -13,11 +14,11 @@ VOLUME /data/ /config/
 COPY package.json /usr/src/app/
 COPY package-lock.json /usr/src/app/
 
+COPY --from=BUILD /tmp/src/config /usr/src/app/config
 COPY --from=BUILD /tmp/src/lib /usr/src/app/lib
 
 WORKDIR /usr/src/app
 
-# git is needed to install Half-Shot/slackdown
 RUN apk add git && npm install --only=production
 
 EXPOSE 9898

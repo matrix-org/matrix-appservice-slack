@@ -105,18 +105,22 @@ export class Main {
     // track which teams are using the rtm client.
     private rtmTeams: Set<string> = new Set();
 
-    constructor(public readonly config: IConfig) {
+    constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
+            if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
+                throw Error("Either inbound_uri_prefix or oauth2.redirect_prefix must be defined for oauth2 support");
+            }
+            const redirectPrefix = config.oauth2.redirect_prefix || config.inbound_uri_prefix;
             this.oauth2 = new OAuth2({
                 client_id: config.oauth2.client_id,
                 client_secret: config.oauth2.client_secret,
                 main: this,
-                redirect_prefix: config.oauth2.redirect_prefix || config.inbound_uri_prefix,
+                redirect_prefix: redirectPrefix!,
             });
         }
 
-        if (!config.enable_rtm && !config.slack_hook_port) {
-            throw Error("Neither enable_rtm nor slack_hook_port is defined in the config." +
+        if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
+            throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
             "The bridge must define a listener in order to run");
         }
 
@@ -138,12 +142,13 @@ export class Main {
             domain: config.homeserver.server_name,
             eventStore: path.join(dbdir, "event-store.db"),
             homeserverUrl: config.homeserver.url,
-            registration: "slack-registration.yaml",
+            registration,
             roomStore: path.join(dbdir, "room-store.db"),
             userStore: path.join(dbdir, "user-store.db"),
         });
 
-        if (config.enable_rtm) {
+        if (config.rtm && config.rtm.enable) {
+            log.info("Enabled RTM");
             this.slackRtm = new SlackRTMHandler(this);
         }
 
@@ -396,12 +401,18 @@ export class Main {
     public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.push(room);
 
+        this.roomsByMatrixRoomId[room.MatrixRoomId] = room;
+
         if (room.SlackChannelId) {
             this.roomsBySlackChannelId[room.SlackChannelId] = room;
         }
 
         if (room.InboundId) {
             this.roomsByInboundId[room.InboundId] = room;
+        }
+        if (!room.SlackTeamId && room.SlackBotToken) {
+            await room.refreshTeamInfo();
+            await room.refreshUserInfo();
         }
 
         if (room.SlackTeamId) {
@@ -415,6 +426,7 @@ export class Main {
                 // This will start a new RTM client for the team, if the team
                 // doesn't currently have a client running.
                 await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
+                this.rtmTeams.add(room.SlackTeamId);
             }
         }
 
@@ -460,8 +472,8 @@ export class Main {
         return this.roomsByInboundId[inboundId];
     }
 
-    public getInboundUrlForRoom(room) {
-        return this.config.inbound_uri_prefix + room.getInboundId();
+    public getInboundUrlForRoom(room: BridgedRoom) {
+        return this.config.inbound_uri_prefix + room.InboundId;
     }
 
     public getStoredEvent(roomId: string, eventType: string, stateKey?: string) {
@@ -576,7 +588,8 @@ export class Main {
             return;
         }
 
-        if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room) {
+        if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room &&
+            ev.type === "m.room.message") {
             try {
                 await this.onMatrixAdminMessage(ev);
             } catch (e) {
@@ -624,7 +637,7 @@ export class Main {
         if (ev.type === "m.room.message" || ev.content) {
             if (ev.content["m.relates_to"] !== undefined) {
                 const relatesTo = ev.content["m.relates_to"];
-                if (relatesTo.rel_type === "m.replace" && !relatesTo.event_id) {
+                if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
                     // We have an edit.
                     try {
                         await room.onMatrixEdit(ev);
@@ -740,11 +753,19 @@ export class Main {
 
         await Promise.all(entries.map(async (entry) => {
             const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-            const cli = !hasToken ? undefined : await this.createOrGetTeamClient(
-                entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+            let cli: WebClient|undefined;
+            try {
+                if (hasToken) {
+                    cli = await this.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                }
+            } catch (ex) {
+                log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
+            }
+            if (!cli && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
+                log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
+            }
             const room = BridgedRoom.fromEntry(this, entry, cli);
             await this.addBridgedRoom(room);
-            this.roomsByMatrixRoomId[entry.matrix_id] = room;
             this.stateStorage.trackRoom(entry.matrix_id);
         }));
 
@@ -807,35 +828,40 @@ export class Main {
             room.SlackUserToken = opts.slack_user_token;
         }
 
+        if (!room.SlackChannelId && !room.SlackWebhookUri) {
+            throw Error("Missing webhook_id OR channel_id");
+        }
+
         let teamToken = opts.slack_bot_token;
 
         if (opts.team_id) {
             teamToken = (await this.datastore.getTeam(opts.team_id)).bot_token;
         }
 
-        const cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+        let cli: WebClient|undefined;
 
-        if (teamToken) {
-            room.SlackBotToken = teamToken;
-            // Join the channel. If the bot is already joined then this will no-op.
-            const joinRes = await cli.conversations.join({
-                channel: opts.slack_channel_id!,
-            });
-            if (!joinRes.ok) {
-                throw Error("Bot could not join channel");
-            }
-            const infoRes = (await cli.conversations.info()) as ConversationsInfoResponse;
+        if (opts.team_id || teamToken) {
+            cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+        }
 
+        if (cli && opts.slack_channel_id) {
+            // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
+
+            const infoRes = (await cli.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
             if (!infoRes.ok) {
                 log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes);
                 throw Error("Failed to get channel info");
             }
-
+            room.setBotClient(cli);
+            room.SlackBotToken = teamToken;
             room.SlackChannelName = infoRes.channel.name;
             await Promise.all([
                 room.refreshTeamInfo(),
                 room.refreshUserInfo(),
             ]);
+        } else if (teamToken) {
+            // No channel id given, but we have a token so store it.
+            room.SlackBotToken = teamToken;
         }
 
         if (isNew) {

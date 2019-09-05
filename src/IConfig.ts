@@ -20,7 +20,7 @@ type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";
 
 export interface IConfig {
-    inbound_uri_prefix: string;
+    inbound_uri_prefix?: string;
     bot_username: string;
     username_prefix: string;
 
@@ -50,7 +50,11 @@ export interface IConfig {
         redirect_prefix?: string;
     };
 
-    enable_rtm: boolean;
+    rtm?: {
+        enable: boolean;
+        log_level?: string;
+    };
+
     slack_hook_port?: number;
     slack_client_opts?: WebClientOptions;
     enable_metrics: boolean;

@@ -1,5 +1,5 @@
 type: object
-required: ["homeserver", "inbound_uri_prefix", "bot_username", "username_prefix"]
+required: ["homeserver", "bot_username", "username_prefix"]
 properties:
   dbdir:
     type: string
