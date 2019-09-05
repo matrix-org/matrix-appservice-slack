@@ -26,6 +26,7 @@ import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
+import { promisify } from "util";
 
 const log = Logging.get("SlackHookHandler");
 
@@ -51,12 +52,13 @@ export interface ISlackEventPayload {
 
 export class SlackHookHandler extends BaseSlackHandler {
     public readonly eventHandler: SlackEventHandler;
+    private server?: Server;
     constructor(main: Main) {
         super(main);
         this.eventHandler = new SlackEventHandler(main);
     }
 
-    public async startAndListen(port: number, tlsConfig: {key_file: string, crt_file: string}) {
+    public async startAndListen(port: number, tlsConfig?: {key_file: string, crt_file: string}) {
         let createServer: (cb?: RequestListener) => Server = httpCreate;
         if (tlsConfig) {
             const tlsOptions = {
@@ -74,7 +76,14 @@ export class SlackHookHandler extends BaseSlackHandler {
                 srv.removeAllListeners("error");
                 resolve();
             });
+            this.server = srv;
         });
+    }
+
+    public async close() {
+        if (this.server) {
+            return promisify(this.server.close).bind(this.server)();
+        }
     }
 
     private onRequest(req: IncomingMessage, res: ServerResponse) {
@@ -83,6 +92,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         req.on("data", (chunk) => body += chunk);
         req.on("end", () => {
             log.debug(`${req.method} ${req.url} bodyLen=${body.length}`);
+
             // if isEvent === true, this was an event emitted from the slack Event API
             // https://api.slack.com/events-api
             const isEvent = req.headers["content-type"] === "application/json" && req.method === "POST";

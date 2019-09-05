@@ -42,7 +42,6 @@ export interface ConversationsOpenResponse extends ConversationsInfoResponse {
     };
 }
 
-
 /**
  * Taken from https://api.slack.com/methods/conversations.members
  */

@@ -36,6 +36,7 @@ import { Datastore } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
+import { Response } from "express";
 
 const log = Logging.get("Main");
 
@@ -609,7 +610,7 @@ export class Main {
         if (ev.type === "m.room.message" || ev.content) {
             if (ev.content["m.relates_to"] !== undefined) {
                 const relatesTo = ev.content["m.relates_to"];
-                if (relatesTo.rel_type === "m.replace" && !relatesTo.event_id) {
+                if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
                     // We have an edit.
                     try {
                         await room.onMatrixEdit(ev);
@@ -795,6 +796,13 @@ export class Main {
         }
 
         this.bridge.run(port, this.config);
+
+        this.bridge.addAppServicePath({
+            handler: this.onHealth.bind(this.bridge),
+            method: "GET",
+            path: "/health",
+        });
+
         Provisioning.addAppServicePath(this.bridge, this);
 
         // TODO(paul): see above; we had to defer this until now
@@ -1009,5 +1017,9 @@ export class Main {
             return userId;
         }
         return (await nullGhost.getDisplayname(room!.SlackClient!)) || userId;
+    }
+
+    private onHealth(_, res: Response) {
+        res.status(201).send("");
     }
 }
