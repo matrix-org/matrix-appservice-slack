@@ -146,14 +146,17 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
-        const token = room.AccessToken;
-
         const msg = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: room.SlackTeamDomain || room.SlackTeamId,
             team_id: teamId,
             user_id: event.user || event.bot_id,
         });
+
+        // Handle topics
+        if (msg.subtype === "channel_topic" || msg.subtype === "group_topic") {
+            return room.onSlackTopic(msg as unknown as ISlackMessageTopic, teamId);
+        }
 
         // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
         /* else if (params.event.type === "reaction_removed") {
@@ -166,11 +169,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
             return room.onSlackMessage(msg, teamId);
-        }
-
-        // Handle topics
-        if (msg.subtype === "channel_topic" || msg.subtype === "group_topic") {
-            return room.onSlackTopic(msg as unknown as ISlackMessageTopic, teamId);
         }
 
         // Handle events with attachments like bot messages.

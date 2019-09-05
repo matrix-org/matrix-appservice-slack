@@ -27,9 +27,8 @@ function constructHarness() {
     return { eventHandler: hooks.eventHandler, main };
 }
 
-let harness: { eventHandler: SlackEventHandler, main: FakeMain };
-
 describe("SlackToMatrix", () => {
+    let harness: { eventHandler: SlackEventHandler, main: FakeMain };
 
     beforeEach(() => {
         harness = constructHarness();
@@ -45,5 +44,39 @@ describe("SlackToMatrix", () => {
             expect(body).to.equal("OK");
         });
         expect(harness.main.timerFinished.remote_request_seconds).to.be.equal("dropped");
+    });
+    describe("topics", () => {
+        it("channel_topic subtype will be handled", async () => {
+            await harness.eventHandler.handle({
+                type: "message",
+                channel: "fakechannel",
+                ts: "12345",
+                subtype: "channel_topic",
+                topic: "This is a topic",
+                user: "Hello!",
+            }, "12345", (status: number, body?: string) => {
+                expect(status).to.equal(200);
+                expect(body).to.equal("OK");
+            });
+            expect(harness.main.counters.received_messages).to.equal(1);
+            expect(harness.main.timerFinished.remote_request_seconds).to.be.equal("success");
+            expect(harness.main.roomInfo["!somefake:room"].topic).to.be.equal("This is a topic");
+        });
+        it("group_topic subtype will be handled", async () => {
+            await harness.eventHandler.handle({
+                type: "message",
+                channel: "fakechannel",
+                ts: "12345",
+                subtype: "channel_topic",
+                topic: "This is a topic",
+                user: "Hello!",
+            }, "12345", (status: number, body?: string) => {
+                expect(status).to.equal(200);
+                expect(body).to.equal("OK");
+            });
+            expect(harness.main.counters.received_messages).to.equal(1);
+            expect(harness.main.timerFinished.remote_request_seconds).to.be.equal("success");
+            expect(harness.main.roomInfo["!somefake:room"].topic).to.be.equal("This is a topic");
+        });
     });
 });
