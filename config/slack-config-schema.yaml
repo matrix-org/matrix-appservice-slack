@@ -35,7 +35,8 @@ properties:
     required: ["engine", "connectionString"]
     properties:
       engine:
-        type: string
+        type: "string"
+        enum: ["postgres", "nedb"]
       connectionString:
         type: string
   slack_hook_port:

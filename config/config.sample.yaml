@@ -25,7 +25,7 @@ oauth2:
   client_secret: ""
   # A prefix similar to inbound_uri_prefix for oauth2 requests. inbound_uri_prefix will be used if this is not set
   # Optional
-  redirect_prefix: ""
+  redirect_prefix: "https://my.server.here:9898/mycustomoauthendpoint"
 
 # The prefix to give slack users 
 username_prefix: "slack_" # Required
@@ -48,10 +48,10 @@ logging:
         "./error.log": "error"
 
 # Settings for database connections.
-# Optional if using NeDB.
+# Optional if using "nedb", as it's the assumed default.
 db:
   # Which database engine to use.
-  engine: "postgres" # Only postgres is supported at the moment.
+  engine: "postgres" # "postgres" or "nedb". If using "nedb", do not define connectionString
   connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge" # A postgres connection string
 
 # Specify the location of NeDB datastore files

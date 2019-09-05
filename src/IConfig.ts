@@ -59,7 +59,7 @@ export interface IConfig {
     enable_metrics: boolean;
 
     db?: {
-        engine: string;
+        engine: "postgres"|"nedb";
         connectionString: string;
     };
 
