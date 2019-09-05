@@ -331,8 +331,8 @@ export class Main {
             log.debug("Creating new ghost for", userId);
             ghost = new SlackGhost(
                 this,
-                userId,
-                teamId,
+                slackUserId.toUpperCase(),
+                teamId.toUpperCase(),
                 userId,
                 intent,
             );
