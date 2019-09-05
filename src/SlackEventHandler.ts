@@ -218,7 +218,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             return;
         }
 
-
         if (!room.SlackClient) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,

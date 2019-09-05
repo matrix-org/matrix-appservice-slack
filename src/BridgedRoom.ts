@@ -441,7 +441,6 @@ export class BridgedRoom {
             await this.main.datastore.upsertEvent(parentStoredEvent);
         }
 
-
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {

@@ -32,16 +32,16 @@ export interface IConfig {
         media_url?: string;
     };
 
-    tls: {
+    tls?: {
         key_file: string;
         crt_file: string;
     };
 
     logging: {
         console: LogEnum;
-        fileDatePattern: string;
-        timestampFormat: string;
-        files: {[filename: string]: LogEnum}
+        fileDatePattern?: string;
+        timestampFormat?: string;
+        files?: {[filename: string]: LogEnum}
     };
 
     oauth2?: {
