@@ -200,6 +200,11 @@ export class PgDatastore implements Datastore {
         });
     }
 
+    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string) {
+        await this.postgresDb.none("DELETE FROM puppets WHERE slackteam = ${teamId} " +
+                                                    "AND matrixuser = ${matrixId}", { teamId, matrixId });
+    }
+
     public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null> {
         const res = await this.postgresDb.oneOrNone("SELECT token FROM puppets WHERE slackteam = ${teamId} " +
                                                     "AND slackuser = ${slackId}", { teamId, slackId });
@@ -212,8 +217,17 @@ export class PgDatastore implements Datastore {
         return res ? res.token : null;
     }
 
+    public async getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]> {
+        return (await this.postgresDb.manyOrNone("SELECT * FROM puppets WHERE matrixuser = ${userId}", { userId })).map((u) => ({
+            matrixId: u.matrixuser,
+            teamId: u.slackteam,
+            slackId: u.slackuser,
+            token: u.token,
+        }));
+    }
+
     public async getPuppetedUsers(): Promise<PuppetEntry[]> {
-        return (await this.postgresDb.many("SELECT * FROM puppets")).map((u) => ({
+        return (await this.postgresDb.manyOrNone("SELECT * FROM puppets")).map((u) => ({
             matrixId: u.matrixuser,
             teamId: u.slackteam,
             slackId: u.slackuser,

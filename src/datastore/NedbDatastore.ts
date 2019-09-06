@@ -19,7 +19,7 @@ import {
     MatrixUser,
     EventStore, RoomStore, UserStore,
     StoredEvent } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, TeamEntry, EventEntry, EventEntryExtra } from "./Models";
+import { Datastore, UserEntry, RoomEntry, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry } from "./Models";
 import * as NedbDb from "nedb";
 
 export class NedbDatastore implements Datastore {
@@ -155,12 +155,20 @@ export class NedbDatastore implements Datastore {
         return;
     }
 
+    public async removePuppetTokenByMatrixId() {
+        return;
+    }
+
     public async getPuppetTokenBySlackId(): Promise<string|null> {
         return null;
     }
 
     public async getPuppetTokenByMatrixId(): Promise<string|null> {
         return null;
+    }
+
+    public async getPuppetsByMatrixId(): Promise<PuppetEntry[]> {
+        return [];
     }
 
     public async getPuppetedUsers(): Promise<[]> {

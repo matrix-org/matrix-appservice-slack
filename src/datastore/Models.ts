@@ -94,5 +94,7 @@ export interface Datastore {
     setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
     getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null>;
     getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string|null>;
+    removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<void>;
+    getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]>;
     getPuppetedUsers(): Promise<PuppetEntry[]>;
 }
