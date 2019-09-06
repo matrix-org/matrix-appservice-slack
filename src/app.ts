@@ -33,7 +33,7 @@ const cli = new Cli({
         reg.addRegexPattern("users", `@${config.username_prefix}.*`, true);
         callback(reg);
     },
-    run(port: number, config: IConfig, registration: any) {
+    run(port: number, config: IConfig, registration: unknown) {
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
         new Main(config, registration).run(port).then(() => {

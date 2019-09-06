@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackMessageTopic, SlackEventTypes } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
@@ -67,7 +67,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Handles a slack event request.
      * @param ISlackEventParams
      */
-    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback) {
+    public async handle(event: SlackEventTypes, teamId: string, response: EventHandlerCallback) {
         try {
             log.debug("Received slack event:", event, teamId);
 
@@ -146,8 +146,6 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
-        const token = room.AccessToken;
-
         const msg = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: room.SlackTeamDomain || room.SlackTeamId,
@@ -155,9 +153,11 @@ export class SlackEventHandler extends BaseSlackHandler {
             user_id: event.user || event.bot_id,
         });
 
-        if (event.type === "reaction_added") {
-            return room.onSlackReactionAdded(msg, teamId);
+        // Handle topics
+        if (msg.subtype === "channel_topic" || msg.subtype === "group_topic") {
+            return room.onSlackTopic(msg as unknown as ISlackMessageTopic, teamId);
         }
+
         // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
         /* else if (params.event.type === "reaction_removed") {
             return room.onSlackReactionRemoved(msg);
@@ -172,7 +172,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
 
         // Handle events with attachments like bot messages.
-        if (msg.type === "message" && msg.attachments) {
+        if (msg.attachments) {
             for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);

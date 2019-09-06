@@ -311,6 +311,10 @@ export class SlackGhost {
         }
     }
 
+    public async setRoomTopic(roomId: string, newTopic: string) {
+        return this.intent.setRoomTopic(roomId, newTopic);
+    }
+
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
     : Promise<string> {
         try {
