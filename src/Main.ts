@@ -728,12 +728,10 @@ export class Main {
 
     public async run(port: number) {
         log.info("Loading databases");
-        if (this.config.db) {
-            if (this.config.db.engine.toLowerCase() !== "postgres") {
-                throw Error("Unknown engine for database. Please use 'postgres'");
-            }
-            this.datastore = new PgDatastore(this.config.db.connectionString);
-        } else {
+        const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
+        if (dbEngine === "postgres") {
+            this.datastore = new PgDatastore(this.config.db!.connectionString);
+        } else if (dbEngine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
             const NedbDs = require("nedb");
@@ -755,6 +753,8 @@ export class Main {
                 this.bridge.getEventStore(),
                 teamDatastore,
             );
+        } else {
+            throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
         }
 
         if (this.slackHookHandler) {

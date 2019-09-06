@@ -27,22 +27,8 @@ Setup
 
 1. Create a `config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml` you may wish to copy and
-   edit as appropriate.
+   edit as appropriate. The required and optional values are flagged in the config.
 
-   At minimum this needs to contain:
-
-   ```yaml
-   slack_hook_port: $SLACK_PORT
-   bot_username: "localpart for the bot's own user account"
-   username_prefix: "localpart prefix for generated ghost users"
-
-   homeserver:
-     url: "http URL pointing at the homeserver"
-     server_name: "domain part of the homeserver's name. Used for
-                   ghost username generation"
-
-   matrix_admin_room: "the ID of the room created in step 1."
-   ```
 
 1. See [datastores](docs/datastores.md) on how to setup a database with the bridge.
 
@@ -80,8 +66,8 @@ Setup
    connection to the bridge.
 
 1. Invite the bridge bot user into the admin room, so it can actually see and
-   respond to commands. The bot's user ID is formed from the `bot_username`
-   field of the config file, and the homeserver's domain name. For example:
+   respond to commands. The bot's user ID is formed from the `sender_localpart`
+   field of the registration file, and the homeserver's domain name. For example:
 
    ```
    /invite @slackbot:my.server.here
