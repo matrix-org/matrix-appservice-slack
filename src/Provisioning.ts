@@ -19,7 +19,7 @@ import * as rp from "request-promise-native";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
-import { ConversationsListResponse } from "./SlackResponses";
+import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
 
 const log = Logging.get("Provisioning");
 
@@ -91,7 +91,7 @@ commands.getbotid = new Command({
     },
 });
 
-commands.authlog = new Command({
+commands.authurl = new Command({
     params: ["user_id", "puppeting"],
     func(main, req, res, userId, puppeting) {
         if (!main.oauth2) {
@@ -196,6 +196,44 @@ commands.teams = new Command({
     },
 });
 
+commands.accounts = new Command({
+    params: ["user_id"],
+    async func(main, _, res, userId) {
+        log.debug(`${userId} requested their puppeted accounts`);
+        const accts = await main.datastore.getPuppetsByMatrixId(userId);
+        // tslint:disable-next-line: no-any
+        const accounts = await Promise.all(accts.map(async (acct: any) => {
+            delete acct.token;
+            const client = await main.clientFactory.getClientForUser(acct.teamId, acct.matrixId);
+            if (client) {
+                try {
+                    const identity = (await client.auth.test()) as AuthTestResponse;
+                    acct.identity = {
+                        team: identity.team,
+                        name: identity.user,
+                    };
+                } catch (ex) {
+                    return acct;
+                }
+            }
+            return acct;
+        }));
+        res.json({ accounts });
+    },
+});
+
+commands.removeaccount = new Command({
+    params: ["user_id", "team_id"],
+    async func(main, _, res, userId, teamId) {
+        log.debug(`${userId} is removing their account on ${teamId}`);
+        const client = await main.clientFactory.getClientForUser(teamId, userId);
+        if (client) {
+            await client.auth.revoke();
+        }
+        await main.datastore.removePuppetTokenByMatrixId(teamId, userId);
+        res.json({ });
+    },
+});
 commands.getlink = new Command({
     params: ["matrix_room_id", "user_id"],
     async func(main, req, res, matrixRoomId, userId) {
