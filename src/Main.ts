@@ -129,9 +129,10 @@ export class Main {
         const usingNeDB = config.db === undefined;
         if (usingNeDB) {
             const dbdir = config.dbdir || "";
+            const URL = "https://github.com/matrix-org/matrix-appservice-slack/blob/master/docs/datastores.md";
             log.warn("** NEDB IS END-OF-LIFE **");
-            log.warn("Starting with release 1.0, the nedb datastore is being discontinued in favour of " +
-                     "postgresql. Please see docs/datastores.md for more informmation.");
+            log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
+                     `postgresql. Please see ${URL} for more informmation.`);
             bridgeStores = {
                 eventStore: path.join(dbdir, "event-store.db"),
                 roomStore: path.join(dbdir, "room-store.db"),

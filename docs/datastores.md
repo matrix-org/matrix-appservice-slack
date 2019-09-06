@@ -2,7 +2,7 @@ Datastores
 ==========
 
 Version 1.0+ supports using Postgres as a storage backend instead of the
-legacy NeDB storage backend. 
+deprecated NeDB storage backend. 
 
 NeDB End-of-life
 --------
