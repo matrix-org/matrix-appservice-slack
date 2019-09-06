@@ -2,24 +2,20 @@ Datastores
 ==========
 
 Version 1.0+ supports using Postgres as a storage backend instead of the
-legacy NeDB storage backend. If you wish to take advantage of this, please
-read on.
+legacy NeDB storage backend. 
 
-NeDB EOL
+NeDB End-of-life
 --------
 
-NeDB is a library which is used to store json documents locally to disk to give the bridge some local persistent state.
-Until 1.0, it was the only way to store this information. 1.0 brings in support for PostgreSQL.
+NeDB is a library which is used to store json documents locally to disk to give the bridge some local persistent state. 
+All deployments of this bridge before `1.0` will have been using NeDB.
 
-After version `1.0`, NeDB will also be deprecated and shouldn't be used for new installations. NeDB is
-unmaintained[1] and doesn't scale well for the needs of this bridge. Changes such as **puppeting** will
-not be supported, but existing functionality will continue to be maintained until such a time that it
-is removed. 
+Starting with version `1.0`, NeDB will be deprecated and shouldn't be used for new installations. NeDB is
+[unmaintained](https://github.com/matrix-org/matrix-appservice-bridge/issues/77) and doesn't scale well for the
+needs of this bridge. Features such as puppeting will not be supported, but existing functionality will continue
+to be maintained until such a time that support for NeDB is removed. 
 
-Support for alternative datastores is something that may be included in the future, subject to demand.
-
-
-- [1] https://github.com/matrix-org/matrix-appservice-bridge/issues/77
+Version 1.0 of the bridge only supports postgres as an alternative datastore.
 
 Using postgresql
 ----------------
@@ -38,22 +34,24 @@ You should then update the config with details about the new database.
 ```yaml
 db:
    engine: "postgres"
-   connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge"
+   connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge?sslmode=require"
 ```
 
 (replacing pass with the password set above)
 
 Ensure that `dbdir` is not included in the config.
 
-Finally **if you are migrating from an existing NeDB install**, then you should run:
+Migrating from an existing NeDB installation
+--------------------------------------------
 
 ```bash
-npm run build # If you've not built the bridge already
-node lib/scripts/migrateToPostgres.js "db.connectionString" "dbdir"
+npm run build
+node lib/scripts/migrateToPostgres.js "connectionString" "dbdir"
 ```
 
-where you should replace `connectionString` with the value above, and `dbdir` *if* you stored
-your data files in a custom location.
+where you should replace `connectionString` with the value above (such as
+`postgresql://slackbridge_user:pass@localhost/slack_bridge?sslmode=require`), and `dbdir`
+*if* you stored your data files in a custom location.
 
 Once this process has completed and no errors have occured, you may begin using
 your brand new postgresql database.
