@@ -48,6 +48,7 @@
       "allow-single-concat"
     ],
     "interface-name": false,
+    "member-ordering": false,
     "max-line-length": {
       "options": {
         "limit": 150

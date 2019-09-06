@@ -125,7 +125,20 @@ export class Main {
             "The bridge must define a listener in order to run");
         }
 
-        const dbdir = config.dbdir || "";
+        let bridgeStores = {};
+        const usingNeDB = config.db === undefined;
+        if (usingNeDB) {
+            const dbdir = config.dbdir || "";
+            const URL = "https://github.com/matrix-org/matrix-appservice-slack/blob/master/docs/datastores.md";
+            log.warn("** NEDB IS END-OF-LIFE **");
+            log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
+                     `postgresql. Please see ${URL} for more informmation.`);
+            bridgeStores = {
+                eventStore: path.join(dbdir, "event-store.db"),
+                roomStore: path.join(dbdir, "room-store.db"),
+                userStore: path.join(dbdir, "user-store.db"),
+            };
+        }
 
         this.bridge = new Bridge({
             controller: {
@@ -141,12 +154,19 @@ export class Main {
                 onUserQuery: () => ({}), // auto-provision users with no additional data
             },
             domain: config.homeserver.server_name,
-            eventStore: path.join(dbdir, "event-store.db"),
             homeserverUrl: config.homeserver.url,
             registration,
-            roomStore: path.join(dbdir, "room-store.db"),
-            userStore: path.join(dbdir, "user-store.db"),
+            ...bridgeStores,
         });
+
+        if (!usingNeDB) {
+            // If these are undefined in the constructor, default names
+            // are used. We want to override those names so these stores
+            // will never be created.
+            this.bridge.opts.userStore = undefined;
+            this.bridge.opts.roomStore = undefined;
+            this.bridge.opts.eventStore = undefined;
+        }
 
         if (config.rtm && config.rtm.enable) {
             log.info("Enabled RTM");
