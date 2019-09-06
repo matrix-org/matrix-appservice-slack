@@ -37,7 +37,7 @@ db:
    connectionString: "postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge?sslmode=require"
 ```
 
-(replacing pass with the password set above)
+(replacing "somethingverysecret" with your own password)
 
 Ensure that `dbdir` is not included in the config.
 
