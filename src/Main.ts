@@ -103,9 +103,6 @@ export class Main {
 
     private teamClients: Map<string, WebClient> = new Map();
 
-    // track which teams are using the rtm client.
-    private rtmTeams: Set<string> = new Set();
-
     constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
             if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
@@ -163,7 +160,7 @@ export class Main {
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
-        return this.rtmTeams.has(teamId);
+        return (this.slackRtm !== undefined) && this.slackRtm.teamIsUsingRtm(teamId);
     }
 
     public getIntent(userId: string) {
@@ -427,7 +424,6 @@ export class Main {
                 // This will start a new RTM client for the team, if the team
                 // doesn't currently have a client running.
                 await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
-                this.rtmTeams.add(room.SlackTeamId);
             }
         }
 

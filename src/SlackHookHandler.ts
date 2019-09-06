@@ -116,7 +116,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                         // Slack will push us events for all connected teams to our bots,
                         // but this will cause duplicates if the team is ALSO using RTM.
                     } else if (eventPayload.type === "event_callback" &&
-                               !this.main.teamIsUsingRtm(eventPayload.team_id)
+                               !this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase())
                     ) {
                         this.eventHandler.handle(
                             // The event can take many forms.
