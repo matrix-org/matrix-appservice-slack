@@ -33,3 +33,5 @@ node_modules
 # typescript
 lib
 
+# snaps
+*.snap

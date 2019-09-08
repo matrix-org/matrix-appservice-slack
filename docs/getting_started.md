@@ -24,6 +24,27 @@ $ npm run build
 $ docker pull matrixdotorg/matrix-appservice-slack:latest
 ```
 
+### With snapcraft
+
+NOTE: Currently, the snap for this package is not published on the store.
+      You will need to build the snap package by running `snapcraft` in
+      the top level directory of the checked out source code, and install
+      with `--devmode`.
+
+```sh
+$ snap install --devmode <filename of built snap>.snap
+```
+
+Once this package is published in the snapcraft store, the package can simply
+be installed with
+
+```sh
+$ snap install matrix-appservice-slack
+```
+
+All configuration files must be stored in `/snap/matrix-appservice-slack/common`
+instead of the regular `/etc` directory.
+
 ## How it Works:
 
 The bridge listens to events using the Slack RTM API over websockets, and to
