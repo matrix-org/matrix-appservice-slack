@@ -151,7 +151,7 @@ export class NedbDatastore implements Datastore {
     }
 
     public async setPuppetToken(): Promise<void> {
-        // Puppeting not supported by NeDB yet - noop
+        // Puppeting not supported by NeDB - noop
         return;
     }
 

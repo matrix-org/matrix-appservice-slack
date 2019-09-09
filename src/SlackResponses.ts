@@ -19,10 +19,11 @@ export interface ConversationsInfoResponse extends WebAPICallResult {
     channel: {
         id: string;
         name: string;
-        is_im: boolean;
-        is_group: boolean;
-        is_channel: boolean;
-        is_private: boolean;
+        is_im?: boolean;
+        is_mpim?: boolean;
+        is_group?: boolean;
+        is_channel?: boolean;
+        is_private?: boolean;
     };
 }
 

@@ -650,6 +650,7 @@ export class Main {
         const slackGhost = await this.getExistingSlackGhost(recipient);
         if (!slackGhost || !slackGhost.teamId) {
             // TODO: Create users dynamically who have never spoken.
+            // https://github.com/matrix-org/matrix-appservice-slack/issues/211
             await intent.sendEvent(roomId, "m.room.message", {
                 body: "The user does not exist or has not used the bridge yet.",
                 msgtype: "m.notice",
@@ -786,7 +787,7 @@ export class Main {
                 try {
                     return this.slackRtm!.startUserClient(entry);
                 } catch (ex) {
-                    log.info("Failed to start puppet client");
+                    log.warn(`Failed to start puppet client for ${entry.matrixId}:`, ex);
                 }
             }));
         }

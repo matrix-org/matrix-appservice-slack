@@ -38,9 +38,6 @@ const REQUIRED_SCOPES = [
 ];
 
 const PUPPET_SCOPES = [ // See https://stackoverflow.com/a/28234443
-    "identify",
-    "read",
-    "post",
     "client",
 ];
 

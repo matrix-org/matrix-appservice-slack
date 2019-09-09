@@ -241,6 +241,8 @@ export class BridgedRoom {
             this.setValue("slackType", "channel");
         } else if (chan.is_group) {
             this.setValue("slackType", "group");
+        } else if (chan.is_mpim) {
+            this.setValue("slackType", "mpim");
         } else if (chan.is_im) {
             this.setValue("slackType", "im");
         } else {
