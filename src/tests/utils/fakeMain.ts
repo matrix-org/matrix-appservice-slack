@@ -16,4 +16,3 @@ class FakeClientFactory {
         return {};
     }
 }
-
