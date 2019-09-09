@@ -104,3 +104,18 @@ and have built the typescript. To ensure that it's all working, you can run
 You can follow the instructions in the [README](../README.md) to generate and update the registration file, as well as creating a testing Slack app and workspace. You should enable RTM support in the config, as Slack will not be able to push events to your local bridge.
 
 Make sure that you copy the generated registration file to `~/slack-bridge-env/synapse` and add an entry for it in the `homeserver.yaml` before starting the synapse container.
+
+## Making changes
+
+Whenever you want to make changes to the codebase, you must:
+
+```bash
+git fetch matrix-org
+git checkout matrix-org/develop
+git checkout -b yourfeaturname
+npm i
+```
+
+You should always work within the `src` directory. It is helpful to have a code editor setup with linting enabled so you can see mistakes as you work. Always remember to run `npm run build` before commiting or testing so that you know the latest changes work.  
+
+Before commiting your work, ensure that the tests pass locally with `npm test`. If you are making changes to packages, ensure that `package-lock.json` is included in the commit.
