@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, UserEntry, EventEntry, EventEntryExtra } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 1;
+    public static readonly LATEST_SCHEMA = 2;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -188,6 +188,58 @@ export class PgDatastore implements Datastore {
             bot_token: doc.token,
             user_id: doc.bot_id,
         } as TeamEntry;
+    }
+
+    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
+        await this.postgresDb.none("INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
+                                        "ON CONFLICT ON CONSTRAINT cons_puppets_uniq DO UPDATE SET token = ${token}", {
+            teamId,
+            slackUser,
+            matrixId,
+            token,
+        });
+    }
+
+    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string) {
+        await this.postgresDb.none("DELETE FROM puppets WHERE slackteam = ${teamId} " +
+                                                    "AND matrixuser = ${matrixId}", { teamId, matrixId });
+    }
+
+    public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null> {
+        const res = await this.postgresDb.oneOrNone("SELECT token FROM puppets WHERE slackteam = ${teamId} " +
+                                                    "AND slackuser = ${slackId}", { teamId, slackId });
+        return res ? res.token : null;
+    }
+
+    public async getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string> {
+        const res = await this.postgresDb.oneOrNone(
+            "SELECT token FROM puppets WHERE slackteam = ${teamId} AND matrixuser = ${matrixId}",
+            { teamId, matrixId },
+        );
+        return res ? res.token : null;
+    }
+
+    public async getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]> {
+        return (await this.postgresDb.manyOrNone(
+            "SELECT * FROM puppets WHERE matrixuser = ${userId}",
+            { userId },
+        )).map((u) => ({
+            matrixId: u.matrixuser,
+            teamId: u.slackteam,
+            slackId: u.slackuser,
+            token: u.token,
+        }));
+    }
+
+    public async getPuppetedUsers(): Promise<PuppetEntry[]> {
+        return (await this.postgresDb.manyOrNone(
+            "SELECT * FROM puppets")
+        ).map((u) => ({
+            matrixId: u.matrixuser,
+            teamId: u.slackteam,
+            slackId: u.slackuser,
+            token: u.token,
+        }));
     }
 
     private async updateSchemaVersion(version: number) {

@@ -30,15 +30,15 @@ import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { TeamInfoResponse, ConversationsInfoResponse } from "./SlackResponses";
+import { TeamInfoResponse, ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
 
 import { Datastore } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
+import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 
 const log = Logging.get("Main");
-const webLog = Logging.get(`slack-api`);
 
 const RECENT_EVENTID_SIZE = 20;
 export const METRIC_SENT_MESSAGES = "sent_messages";
@@ -67,6 +67,10 @@ export class Main {
 
     public get botUserId(): string {
         return this.bridge.getBot().userId();
+    }
+
+    public get clientFactory(): SlackClientFactory {
+        return this.clientfactory;
     }
 
     public readonly oauth2: OAuth2|null = null;
@@ -100,8 +104,7 @@ export class Main {
     private metrics: PrometheusMetrics;
 
     private adminCommands = new AdminCommands(this);
-
-    private teamClients: Map<string, WebClient> = new Map();
+    private clientfactory!: SlackClientFactory;
 
     constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
@@ -185,45 +188,6 @@ export class Main {
 
     public getIntent(userId: string) {
         return this.bridge.getIntent(userId);
-    }
-
-    public async createOrGetTeamClient(teamId: string, token: string): Promise<WebClient> {
-        if (this.teamClients.has(teamId)) {
-            return this.teamClients.get(teamId)!;
-        }
-        return (await this.createTeamClient(token)).slackClient;
-    }
-
-    public async createTeamClient(token: string) {
-        const opts = this.config.slack_client_opts;
-        const slackClient = new WebClient(token, {
-            ...opts,
-            logger: {
-                setLevel: () => {}, // We don't care about these.
-                setName: () => {},
-                debug: (msg: any[]) => {
-                    // non-ideal way to detect calls to slack.
-                    webLog.debug.bind(webLog);
-                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg[0]);
-                    if (match && match[1]) {
-                        this.incRemoteCallCounter(match[1]);
-                    }
-                },
-                warn: webLog.warn.bind(webLog),
-                info: webLog.info.bind(webLog),
-                error: webLog.error.bind(webLog),
-            },
-        });
-        const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
-        if (!teamInfo.ok) {
-            throw Error("Could not create team client: " + teamInfo.error);
-        }
-        this.teamClients.set(teamInfo.team.id, slackClient);
-        return { slackClient, team: teamInfo.team };
-    }
-
-    public getTeamClient(teamId: string): WebClient|undefined {
-        return this.teamClients.get(teamId);
     }
 
     public initialiseMetrics() {
@@ -330,12 +294,11 @@ export class Main {
 
         const room = this.getRoomBySlackChannelId(message.channel || message.channel_id);
 
-        if (!room) {
-            log.error("Couldn't find channel in order to get team domain");
-            return;
+        if (room && room.SlackTeamDomain) {
+            return room.SlackTeamDomain;
         }
 
-        const cli = this.getTeamClient(message.team_id);
+        const cli = this.clientFactory.getTeamClient(message.team_id);
         if (!cli) {
             throw Error("No client for team");
         }
@@ -362,8 +325,12 @@ export class Main {
 
         // team_domain is gone, so we have to actually get the domain from a friendly object.
         const teamDomain = (await this.getTeamDomainForMessage(message, teamId)).toLowerCase();
+        return this.getGhostForSlack(message.user_id, teamDomain, teamId);
+    }
+
+    public async getGhostForSlack(slackUserId: string, teamDomain: string, teamId: string): Promise<SlackGhost> {
         const userId = this.getUserId(
-            message.user_id.toUpperCase(),
+            slackUserId.toUpperCase(),
             teamDomain,
         );
 
@@ -383,9 +350,9 @@ export class Main {
             log.debug("Creating new ghost for", userId);
             ghost = new SlackGhost(
                 this,
+                slackUserId.toUpperCase(),
+                teamId.toUpperCase(),
                 userId,
-                undefined,
-                undefined,
                 intent,
             );
             await this.datastore.upsertUser(ghost);
@@ -393,6 +360,16 @@ export class Main {
 
         this.ghostsByUserId[userId] = ghost;
         return ghost;
+    }
+
+    public async getExistingSlackGhost(userId: string): Promise<SlackGhost|null> {
+        const entry = await this.datastore.getUser(userId);
+        log.debug("Getting existing ghost for", userId);
+        if (!entry) {
+            return null;
+        }
+        const intent = this.bridge.getIntent(userId);
+        return SlackGhost.fromEntry(this, entry, intent);
     }
 
     public getOrCreateMatrixUser(id: string) {
@@ -428,7 +405,7 @@ export class Main {
         if (room.InboundId) {
             this.roomsByInboundId[room.InboundId] = room;
         }
-        if (!room.SlackTeamId && room.SlackBotToken) {
+        if ((!room.SlackTeamId || !room.SlackBotId) && room.SlackBotToken) {
             await room.refreshTeamInfo();
             await room.refreshUserInfo();
         }
@@ -582,21 +559,17 @@ export class Main {
 
         if (ev.type === "m.room.member"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && ev.sender !== myUserId) {
+            && ev.sender !== myUserId
+            && ev.content.is_direct) {
 
             log.info(`${ev.state_key} got invite for ${ev.room_id} but we can't do DMs, warning room.`);
-            const intent = this.getIntent(ev.state_key);
             try {
-                await intent.join(ev.room_id);
-                await intent.sendEvent(ev.room_id, "m.room.message", {
-                    body: "The slack bridge doesn't support private messaging, or inviting to rooms.",
-                    msgtype: "m.notice",
-                });
-            } catch (err) {
-                log.error("Couldn't send warning to user(s) about not supporting PMs", err);
+                await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
+                endTimer({outcome: "success"});
+            } catch (e) {
+                log.error("Failed to handle DM invite: ", e);
+                endTimer({outcome: "fail"});
             }
-            await intent.leave(ev.room_id);
-            endTimer({outcome: "success"});
             return;
         }
 
@@ -679,6 +652,73 @@ export class Main {
         }
     }
 
+    public async handleDmInvite(recipient: string, sender: string, roomId: string) {
+        const intent = this.getIntent(recipient);
+        await intent.join(roomId);
+        if (!this.slackRtm) {
+            await intent.sendEvent(roomId, "m.room.message", {
+                body: "This slack bridge instance doesn't support private messaging.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
+
+        const slackGhost = await this.getExistingSlackGhost(recipient);
+        if (!slackGhost || !slackGhost.teamId) {
+            // TODO: Create users dynamically who have never spoken.
+            // https://github.com/matrix-org/matrix-appservice-slack/issues/211
+            await intent.sendEvent(roomId, "m.room.message", {
+                body: "The user does not exist or has not used the bridge yet.",
+                msgtype: "m.notice",
+            });
+            await intent.leave(roomId);
+            return;
+        }
+        const teamId = slackGhost.teamId;
+        const rtmClient = this.slackRtm!.getUserClient(teamId, sender);
+        const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
+        if (!rtmClient || !slackClient) {
+            await intent.sendEvent(roomId, "m.room.message", {
+                body: "You have not enabled puppeting for this Slack workspace. You must do that to speak to members.",
+                msgtype: "m.notice",
+            });
+            await intent.leave(roomId);
+            return;
+        }
+        const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
+        if (openResponse.already_open) {
+            // Check to see if we have a room for this channel already.
+            const existing = this.roomsBySlackChannelId[openResponse.channel.id];
+            if (existing) {
+                await this.datastore.deleteRoom(existing.InboundId);
+                await intent.sendEvent(roomId, "m.room.message", {
+                    body: "You already have a conversation open with this person, leaving that room and reattaching here.",
+                    msgtype: "m.notice",
+                });
+                await intent.leave(existing.MatrixRoomId);
+            }
+        }
+        const puppetIdent = (await slackClient.auth.test()) as AuthTestResponse;
+        const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
+        // The convo may be open, but we do not have a channel for it. Create the channel.
+        const room = new BridgedRoom(this, {
+            inbound_id: openResponse.channel.id,
+            matrix_room_id: roomId,
+            slack_user_id: puppetIdent.user_id,
+            slack_team_id: puppetIdent.team_id,
+            slack_team_domain: teamInfo.team.domain,
+            slack_channel_id: openResponse.channel.id,
+            slack_channel_name: undefined,
+            puppet_owner: sender,
+            is_private: true,
+        }, slackClient);
+        room.updateUsingChannelInfo(openResponse);
+        await this.addBridgedRoom(room);
+        await this.datastore.upsertRoom(room);
+        await slackGhost.intent.joinRoom(roomId);
+    }
+
     public async onMatrixAdminMessage(ev) {
         const cmd = ev.content.body;
 
@@ -726,7 +766,9 @@ export class Main {
         log.info("Loading databases");
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
-            this.datastore = new PgDatastore(this.config.db!.connectionString);
+            const postgresDb = new PgDatastore(this.config.db!.connectionString);
+            await postgresDb.ensureSchema();
+            this.datastore = postgresDb;
         } else if (dbEngine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
@@ -751,6 +793,21 @@ export class Main {
             );
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
+        }
+
+        this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
+            this.incRemoteCallCounter(method);
+        });
+        let puppetsWaiting: Promise<unknown> = Promise.resolve();
+        if (this.slackRtm) {
+            const puppetEntries = await this.datastore.getPuppetedUsers();
+            puppetsWaiting = Promise.all(puppetEntries.map(async (entry) => {
+                try {
+                    return this.slackRtm!.startUserClient(entry);
+                } catch (ex) {
+                    log.warn(`Failed to start puppet client for ${entry.matrixId}:`, ex);
+                }
+            }));
         }
 
         if (this.slackHookHandler) {
@@ -780,7 +837,9 @@ export class Main {
             let cli: WebClient|undefined;
             try {
                 if (hasToken) {
-                    cli = await this.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                    cli = await this.clientFactory.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
+                } else if (entry.remote.puppet_owner) {
+                    cli = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
                 }
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
@@ -790,7 +849,10 @@ export class Main {
             }
             const room = BridgedRoom.fromEntry(this, entry, cli);
             await this.addBridgedRoom(room);
-            this.stateStorage.trackRoom(entry.matrix_id);
+            if (!room.IsPrivate) {
+                // Only public rooms can be tracked.
+                this.stateStorage.trackRoom(entry.matrix_id);
+            }
         }));
 
         if (this.metrics) {
@@ -799,6 +861,7 @@ export class Main {
             // startup
             this.metrics.refresh();
         }
+        await puppetsWaiting;
         log.info("Bridge initialised.");
     }
 
@@ -832,6 +895,7 @@ export class Main {
             room = new BridgedRoom(this, {
                 inbound_id: inboundId,
                 matrix_room_id: matrixRoomId,
+                is_private: false,
             });
             isNew = true;
             this.roomsByMatrixRoomId[matrixRoomId] = room;
@@ -865,7 +929,7 @@ export class Main {
         let cli: WebClient|undefined;
 
         if (opts.team_id || teamToken) {
-            cli = await this.createOrGetTeamClient(opts.team_id!, teamToken!);
+            cli = await this.clientFactory.createOrGetTeamClient(opts.team_id!, teamToken!);
         }
 
         if (cli && opts.slack_channel_id) {
@@ -933,7 +997,7 @@ export class Main {
         return userLevel >= requiresLevel;
     }
 
-    public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string) {
+    public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
         let matrixUser = await this.datastore.getMatrixUser(userId);
         matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
@@ -943,6 +1007,16 @@ export class Main {
         };
         matrixUser.set("accounts", accounts);
         await this.datastore.storeMatrixUser(matrixUser);
+        if (puppeting) {
+            // Store it here too for puppeting.
+            await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
+            await this.slackRtm!.startUserClient({
+                teamId,
+                slackId,
+                matrixId: userId,
+                token: accessToken,
+            });
+        }
         log.info(`Set new access token for ${userId} (team: ${teamId})`);
     }
 
@@ -956,12 +1030,12 @@ export class Main {
     }
 
     public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
-        const nullGhost = new SlackGhost(this);
         const room = this.getRoomBySlackChannelId(channel);
+        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId);
         if (!room || !room.SlackClient) {
             return userId;
         }
-        return (await nullGhost.getDisplayname(userId, room!.SlackClient!)) || userId;
+        return (await nullGhost.getDisplayname(room!.SlackClient!)) || userId;
     }
 
     private onHealth(_, res: Response) {

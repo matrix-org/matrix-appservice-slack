@@ -19,7 +19,35 @@ export interface ConversationsInfoResponse extends WebAPICallResult {
     channel: {
         id: string;
         name: string;
+        is_im?: boolean;
+        is_mpim?: boolean;
+        is_group?: boolean;
+        is_channel?: boolean;
+        is_private?: boolean;
     };
+}
+
+/**
+ * Taken from https://api.slack.com/methods/conversations.info
+ */
+export interface ConversationsOpenResponse extends ConversationsInfoResponse {
+    no_op: boolean;
+    already_open: boolean;
+    channel: {
+        id: string;
+        name: string;
+        is_im: boolean;
+        is_group: boolean;
+        is_channel: boolean;
+        is_private: boolean;
+    };
+}
+
+/**
+ * Taken from https://api.slack.com/methods/conversations.members
+ */
+export interface ConversationsMembersResponse extends WebAPICallResult {
+    members: string[];
 }
 
 /**

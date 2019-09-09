@@ -18,6 +18,9 @@ import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
+import { ConversationsInfoResponse } from "./SlackResponses";
+import { WebClient } from "@slack/web-api";
+import { PuppetEntry } from "./datastore/Models";
 
 const log = Logging.get("SlackEventHandler");
 
@@ -138,8 +141,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
-        if (event.subtype === "bot_message" &&
-            (!room.SlackBotId || event.bot_id === room.SlackBotId)) {
+        if (event.bot_id && (!room.SlackBotId || event.bot_id === room.SlackBotId)) {
             return;
         }
 
@@ -168,7 +170,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(msg, teamId);
+            return room.onSlackMessage(msg);
         }
 
         // Handle events with attachments like bot messages.
@@ -176,7 +178,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
                 msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
-                return await room.onSlackMessage(msg, teamId);
+                return await room.onSlackMessage(msg);
             }
             if (msg.text === "") {
                 return;
@@ -221,7 +223,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
-            return room.onSlackMessage(event, teamId);
+            return room.onSlackMessage(event);
         }
 
         let content: Buffer|undefined;
@@ -241,7 +243,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
 
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
-        return room.onSlackMessage(msg, teamId, content);
+        return room.onSlackMessage(msg, content);
     }
 
     private async handleReaction(event: ISlackEventReaction, teamId: string) {

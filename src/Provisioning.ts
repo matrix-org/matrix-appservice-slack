@@ -19,7 +19,7 @@ import * as rp from "request-promise-native";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
-import { ConversationsListResponse } from "./SlackResponses";
+import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
 
 const log = Logging.get("Provisioning");
 
@@ -91,9 +91,9 @@ commands.getbotid = new Command({
     },
 });
 
-commands.authlog = new Command({
-    params: ["user_id"],
-    func(main, req, res, userId) {
+commands.authurl = new Command({
+    params: ["user_id", "puppeting"],
+    func(main, req, res, userId, puppeting) {
         if (!main.oauth2) {
             res.status(HTTP_CODES.CLIENT_ERROR).json({
                 error: "OAuth2 not configured on this bridge",
@@ -104,6 +104,7 @@ commands.authlog = new Command({
         const authUri = main.oauth2.makeAuthorizeURL(
             token,
             token,
+            puppeting === "true",
         );
         res.json({
             auth_uri: authUri,
@@ -147,7 +148,7 @@ commands.channels = new Command({
         if (team === null) {
             throw new Error("No team token for this team_id");
         }
-        const cli = await main.createOrGetTeamClient(teamId, team.bot_token);
+        const cli = await main.clientFactory.createOrGetTeamClient(teamId, team.bot_token);
         const response = (await cli.conversations.list({
             exclude_archived: true,
             limit: 100, // TODO: Pagination
@@ -195,6 +196,44 @@ commands.teams = new Command({
     },
 });
 
+commands.accounts = new Command({
+    params: ["user_id"],
+    async func(main, _, res, userId) {
+        log.debug(`${userId} requested their puppeted accounts`);
+        const accts = await main.datastore.getPuppetsByMatrixId(userId);
+        // tslint:disable-next-line: no-any
+        const accounts = await Promise.all(accts.map(async (acct: any) => {
+            delete acct.token;
+            const client = await main.clientFactory.getClientForUser(acct.teamId, acct.matrixId);
+            if (client) {
+                try {
+                    const identity = (await client.auth.test()) as AuthTestResponse;
+                    acct.identity = {
+                        team: identity.team,
+                        name: identity.user,
+                    };
+                } catch (ex) {
+                    return acct;
+                }
+            }
+            return acct;
+        }));
+        res.json({ accounts });
+    },
+});
+
+commands.removeaccount = new Command({
+    params: ["user_id", "team_id"],
+    async func(main, _, res, userId, teamId) {
+        log.debug(`${userId} is removing their account on ${teamId}`);
+        const client = await main.clientFactory.getClientForUser(teamId, userId);
+        if (client) {
+            await client.auth.revoke();
+        }
+        await main.datastore.removePuppetTokenByMatrixId(teamId, userId);
+        res.json({ });
+    },
+});
 commands.getlink = new Command({
     params: ["matrix_room_id", "user_id"],
     async func(main, req, res, matrixRoomId, userId) {

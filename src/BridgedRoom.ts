@@ -15,14 +15,15 @@ limitations under the License.
 */
 
 import * as rp from "request-promise-native";
-import { Logging } from "matrix-appservice-bridge";
+import { Logging, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
-import { WebClient, WebAPICallResult } from "@slack/web-api";
-import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse, ChatPostMessageResponse } from "./SlackResponses";
+import { WebClient } from "@slack/web-api";
+import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse,
+    ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
@@ -39,8 +40,11 @@ interface IBridgedRoomOpts {
     slack_team_id?: string;
     slack_user_id?: string;
     slack_bot_id?: string;
+    slack_type?: string;
     access_token?: string;
     access_scopes?: Set<string>;
+    is_private?: boolean;
+    puppet_owner?: string;
 }
 
 interface ISlackChatMessagePayload extends ISlackToMatrixResult {
@@ -51,7 +55,6 @@ interface ISlackChatMessagePayload extends ISlackToMatrixResult {
 }
 
 export class BridgedRoom {
-
     public get isDirty() {
         return this.dirty;
     }
@@ -140,6 +143,14 @@ export class BridgedRoom {
         return this.botClient;
     }
 
+    public get IsPrivate() {
+        return this.isPrivate;
+    }
+
+    public get SlackType() {
+        return this.slackType;
+    }
+
     public static fromEntry(main: Main, entry: RoomEntry, botClient?: WebClient) {
         const accessScopes: Set<string> = new Set(entry.remote.access_scopes);
         return new BridgedRoom(main, {
@@ -156,6 +167,9 @@ export class BridgedRoom {
             slack_user_id: entry.remote.slack_user_id,
             slack_user_token: entry.remote.slack_user_token,
             slack_webhook_uri: entry.remote.webhook_uri,
+            puppet_owner: entry.remote.puppet_owner,
+            is_private: entry.remote.slack_private,
+            slack_type: entry.remote.slack_type,
         }, botClient);
     }
 
@@ -170,6 +184,9 @@ export class BridgedRoom {
     private slackTeamId?: string;
     private slackBotId?: string;
     private accessToken?: string;
+    private slackType?: string;
+    private isPrivate?: boolean;
+    private puppetOwner?: string;
 
     private slackUserId?: string;
     private accessScopes?: Set<string>;
@@ -177,6 +194,7 @@ export class BridgedRoom {
     // last activity time in epoch seconds
     private slackATime?: number;
     private matrixATime?: number;
+    private intent: Intent;
 
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
@@ -206,8 +224,30 @@ export class BridgedRoom {
         this.slackBotId =  opts.slack_bot_id;
         this.accessToken = opts.access_token;
         this.accessScopes = opts.access_scopes;
+        this.slackType = opts.slack_type || "channel";
+        if (opts.is_private === undefined) {
+            opts.is_private = false;
+        }
+        this.isPrivate = opts.is_private;
+        this.puppetOwner = opts.puppet_owner;
 
         this.dirty = true;
+    }
+
+    public updateUsingChannelInfo(channelInfo: ConversationsInfoResponse) {
+        const chan = channelInfo.channel;
+        this.setValue("isPrivate", chan.is_private);
+        if (chan.is_channel) {
+            this.setValue("slackType", "channel");
+        } else if (chan.is_group) {
+            this.setValue("slackType", "group");
+        } else if (chan.is_mpim) {
+            this.setValue("slackType", "mpim");
+        } else if (chan.is_im) {
+            this.setValue("slackType", "im");
+        } else {
+            this.setValue("slackType", "unknown");
+        }
     }
 
     public getStatus() {
@@ -238,22 +278,25 @@ export class BridgedRoom {
      * Returns data to write to the RoomStore
      * As a side-effect will also clear the isDirty() flag
      */
-    public toEntry() {
+    public toEntry(): RoomEntry {
         const entry = {
             id: `INTEG-${this.inboundId}`,
             matrix_id: this.matrixRoomId,
             remote: {
                 access_scopes: this.accessScopes ? [...this.accessScopes] : [],
-                access_token: this.accessToken,
-                id: this.slackChannelId,
-                name: this.slackChannelName,
-                slack_bot_id: this.slackBotId,
-                slack_bot_token: this.slackBotToken,
-                slack_team_domain: this.slackTeamDomain,
-                slack_team_id: this.slackTeamId,
-                slack_user_id: this.slackUserId,
-                slack_user_token: this.slackUserToken,
-                webhook_uri: this.slackWebhookUri,
+                access_token: this.accessToken!,
+                id: this.slackChannelId!,
+                name: this.slackChannelName!,
+                slack_bot_id: this.slackBotId!,
+                slack_bot_token: this.slackBotToken!,
+                slack_team_domain: this.slackTeamDomain!,
+                slack_team_id: this.slackTeamId!,
+                slack_user_id: this.slackUserId!,
+                slack_user_token: this.slackUserToken!,
+                slack_type: this.slackType!,
+                slack_private: this.isPrivate!,
+                webhook_uri: this.slackWebhookUri!,
+                puppet_owner: this.puppetOwner!,
             },
             remote_id: this.inboundId,
         };
@@ -368,13 +411,15 @@ export class BridgedRoom {
     }
 
     public async onMatrixMessage(message: any) {
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
         if (!this.slackWebhookUri && !this.botClient) { return; }
-
+        const slackClient = puppetedClient || this.botClient;
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
+            as_user: false,
             username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
         };
 
@@ -396,9 +441,10 @@ export class BridgedRoom {
 
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
-        if (!this.botClient) {
+        if (!slackClient) {
             const sendMessageParams = {
                 body,
+                as_user: undefined,
                 headers: {},
                 json: true,
                 method: "POST",
@@ -411,9 +457,12 @@ export class BridgedRoom {
             // Webhooks don't give us any ID, so we can't store this.
             return;
         }
-        const res = (await this.botClient.chat.postMessage({
+        if (puppetedClient) {
+            body.as_user = true;
+            delete body.username;
+        }
+        const res = (await slackClient.chat.postMessage({
             ...body,
-            as_user: false,
             channel: this.slackChannelId!,
         })) as ChatPostMessageResponse;
 
@@ -440,12 +489,11 @@ export class BridgedRoom {
             parentStoredEvent._extras.slackThreadMessages.push(res.ts);
             await this.main.datastore.upsertEvent(parentStoredEvent);
         }
-
     }
 
-    public async onSlackMessage(message: ISlackMessageEvent, teamId: string, content?: Buffer) {
+    public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
         try {
-            const ghost = await this.main.getGhostForSlackMessage(message, teamId);
+            const ghost = await this.main.getGhostForSlackMessage(message, this.slackTeamId!);
             await ghost.update(message, this);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             return await this.handleSlackMessage(message, ghost, content);
@@ -508,7 +556,6 @@ export class BridgedRoom {
 
         const testRes = (await this.botClient.auth.test()) as AuthTestResponse;
 
-        log.debug("auth.test res:", testRes);
         if (!testRes.user_id) { return; }
         this.setValue("slackUserId", testRes.user_id);
 
@@ -516,7 +563,7 @@ export class BridgedRoom {
         if (!usersRes.user || !usersRes.user.profile) { return; }
         this.setValue("slackBotId", usersRes.user.profile.bot_id);
     }
-    private setValue(key: string, value: any) {
+    private setValue<T>(key: string, value: T) {
         const sneakyThis = this as any;
         if (sneakyThis[key] === value) {
             return;
@@ -725,7 +772,7 @@ export class BridgedRoom {
         if (replyToEvent === null) {
             return null;
         }
-        const intent = this.main.botIntent;
+        const intent = await this.getIntentForRoom(roomID);
         return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
     }
 
@@ -779,11 +826,23 @@ export class BridgedRoom {
             return parentEventId; // We have hit our depth limit, use this one.
         }
 
-        // Get the previous event
-        const intent = this.main.botIntent;
+        const intent = await this.getIntentForRoom(message.room_id);
         const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
+    }
+
+    private async getIntentForRoom(roomID: string) {
+        if (this.intent) {
+            return this.intent;
+        }
+        // Ensure we get the right user.
+        if (!this.IsPrivate) {
+            this.intent = this.main.botIntent; // Non-private channels should have the bot inside.
+        }
+        const firstGhost = (await this.main.listGhostUsers(roomID))[0];
+        this.intent =  this.main.getIntent(firstGhost);
+        return this.intent;
     }
 }
 

@@ -263,7 +263,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 
             if (params.text) {
                 // Converting params to an object here, as we assume that params is the right shape.
-                return room.onSlackMessage(params as unknown as ISlackMessageEvent, teamId);
+                return room.onSlackMessage(params as unknown as ISlackMessageEvent);
             }
             return;
         }
@@ -284,7 +284,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // them by now
         PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
         lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, room.SlackClient);
-        return room.onSlackMessage(lookupRes.message, teamId, lookupRes.content);
+        return room.onSlackMessage(lookupRes.message, lookupRes.content);
     }
 
     private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {
@@ -325,18 +325,23 @@ export class SlackHookHandler extends BaseSlackHandler {
                 room.updateAccessToken(response.access_token, new Set(access_scopes));
                 await this.main.datastore.upsertRoom(room);
             } else if (user) { // New event api
+                // We always get a user access token, but if we set certain
+                // fancy scopes we might not get a bot one.
                 await this.main.setUserAccessToken(
                     user,
                     response.team_id,
                     response.user_id,
                     response.access_token,
+                    response.bot === undefined,
                 );
-                this.main.datastore.upsertTeam(
-                    response.team_id,
-                    response.team_name,
-                    response.bot!.bot_user_id,
-                    response.bot!.bot_access_token,
-                );
+                if (response.bot) {
+                    this.main.datastore.upsertTeam(
+                        response.team_id,
+                        response.team_name,
+                        response.bot!.bot_user_id,
+                        response.bot!.bot_access_token,
+                    );
+                }
             }
         } catch (err) {
             log.error("Error during handling of an oauth token:", err);
