@@ -29,7 +29,7 @@ const cli = new Cli({
         reg.setId(AppServiceRegistration.generateToken());
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
-        reg.setSenderLocalpart(config.bot_username);
+        reg.setSenderLocalpart("slackbot");
         reg.addRegexPattern("users", `@${config.username_prefix}.*`, true);
         callback(reg);
     },

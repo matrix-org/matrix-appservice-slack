@@ -62,6 +62,10 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.debug(`Started RTM client for user ${key}`, team);
     }
 
+    public teamIsUsingRtm(teamId: string): boolean {
+        return this.rtmTeamClients.has(teamId.toUpperCase());
+    }
+
     public async startTeamClientIfNotStarted(expectedTeam: string, botToken: string) {
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
@@ -73,7 +77,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             }
         }
         const promise = this.startTeamClient(expectedTeam, botToken);
-        this.rtmTeamClients.set(expectedTeam, promise);
+        this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
         await promise;
     }
 

@@ -45,6 +45,18 @@ export class NedbDatastore implements Datastore {
         return users[0];
     }
 
+    public async getAllUsers(matrixUsers: boolean): Promise<UserEntry[]> {
+        return (await this.userStore.select({})).map((u) => {
+            delete u._id;
+            return u;
+        }).filter((u) => {
+            if (matrixUsers) {
+                return u.type === "matrix";
+            }
+            return u.type !== "matrix";
+        });
+    }
+
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         return (await this.userStore.getMatrixUser(userId)) || null;
     }
@@ -97,11 +109,7 @@ export class NedbDatastore implements Datastore {
         await this.eventStore.upsertEvent(storeEv);
     }
 
-    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
-        const storedEvent = await this.eventStore.getEntryByMatrixId(roomId, eventId);
-        if (!storedEvent) {
-            return null;
-        }
+    private storedEventToEventEntry(storedEvent: StoredEvent): EventEntry {
         return {
             eventId: storedEvent.eventId,
             roomId: storedEvent.roomId,
@@ -111,18 +119,32 @@ export class NedbDatastore implements Datastore {
         };
     }
 
+    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
+        const storedEvent = await this.eventStore.getEntryByMatrixId(roomId, eventId);
+        if (!storedEvent) {
+            return null;
+        }
+        return this.storedEventToEventEntry(storedEvent);
+    }
+
     public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null> {
         const storedEvent = await this.eventStore.getEntryByRemoteId(channelId, ts);
         if (!storedEvent) {
             return null;
         }
-        return {
-            eventId: storedEvent.eventId,
-            roomId: storedEvent.roomId,
-            slackChannelId: storedEvent.remoteRoomId,
-            slackTs: storedEvent.remoteEventId,
-            _extras: storedEvent._extras,
-        };
+        return this.storedEventToEventEntry(storedEvent);
+    }
+
+    public async getAllEvents(): Promise<EventEntry[]> {
+        return (await this.eventStore.select({})).map((doc) => {
+            return {
+                eventId: doc.matrix.eventId,
+                roomId: doc.matrix.roomId,
+                slackChannelId: doc.remote.roomId,
+                slackTs: doc.remote.eventId,
+                _extras: doc.extras,
+            };
+        });
     }
 
     public async upsertTeam(teamId: string, botToken: string, teamName: string, userId: string) {
@@ -146,6 +168,24 @@ export class NedbDatastore implements Datastore {
                 // We don't use this.
                 delete doc._id;
                 resolve(doc as TeamEntry);
+            });
+        });
+    }
+
+    public async getAllTeams(): Promise<TeamEntry[]> {
+        return new Promise((resolve, reject) => {
+            // These are technically schemaless
+            // tslint:disable-next-line: no-any
+            this.teamStore.find({}, (err: Error|null, docs: any[]) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(docs.map((doc) => {
+                    // We don't use this.
+                    delete doc._id;
+                    return doc as TeamEntry;
+                }));
             });
         });
     }

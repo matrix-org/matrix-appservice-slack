@@ -29,7 +29,6 @@ function constructHarness() {
     reg.setSenderLocalpart("test_bot");
     reg.setId("foobar");
     const main = new Main({
-        bot_username: "test_bot",
         matrix_admin_room: "foobar",
         username_prefix: "test_",
         homeserver: {

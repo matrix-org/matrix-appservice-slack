@@ -21,7 +21,6 @@ import { WebClientOptions } from "@slack/web-api";
 
 export interface IConfig {
     inbound_uri_prefix?: string;
-    bot_username: string;
     username_prefix: string;
 
     matrix_admin_room?: string;
@@ -60,7 +59,7 @@ export interface IConfig {
     enable_metrics: boolean;
 
     db?: {
-        engine: string;
+        engine: "postgres"|"nedb";
         connectionString: string;
     };
 

@@ -105,8 +105,6 @@ export class Main {
 
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
-    // track which teams are using the rtm client.
-    private rtmTeams: Set<string> = new Set();
 
     constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
@@ -127,7 +125,20 @@ export class Main {
             "The bridge must define a listener in order to run");
         }
 
-        const dbdir = config.dbdir || "";
+        let bridgeStores = {};
+        const usingNeDB = config.db === undefined;
+        if (usingNeDB) {
+            const dbdir = config.dbdir || "";
+            const URL = "https://github.com/matrix-org/matrix-appservice-slack/blob/master/docs/datastores.md";
+            log.warn("** NEDB IS END-OF-LIFE **");
+            log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
+                     `postgresql. Please see ${URL} for more informmation.`);
+            bridgeStores = {
+                eventStore: path.join(dbdir, "event-store.db"),
+                roomStore: path.join(dbdir, "room-store.db"),
+                userStore: path.join(dbdir, "user-store.db"),
+            };
+        }
 
         this.bridge = new Bridge({
             controller: {
@@ -143,12 +154,19 @@ export class Main {
                 onUserQuery: () => ({}), // auto-provision users with no additional data
             },
             domain: config.homeserver.server_name,
-            eventStore: path.join(dbdir, "event-store.db"),
             homeserverUrl: config.homeserver.url,
             registration,
-            roomStore: path.join(dbdir, "room-store.db"),
-            userStore: path.join(dbdir, "user-store.db"),
+            ...bridgeStores,
         });
+
+        if (!usingNeDB) {
+            // If these are undefined in the constructor, default names
+            // are used. We want to override those names so these stores
+            // will never be created.
+            this.bridge.opts.userStore = undefined;
+            this.bridge.opts.roomStore = undefined;
+            this.bridge.opts.eventStore = undefined;
+        }
 
         if (config.rtm && config.rtm.enable) {
             log.info("Enabled RTM");
@@ -165,7 +183,7 @@ export class Main {
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
-        return this.rtmTeams.has(teamId);
+        return (this.slackRtm !== undefined) && this.slackRtm.teamIsUsingRtm(teamId);
     }
 
     public getIntent(userId: string) {
@@ -403,7 +421,6 @@ export class Main {
                 // This will start a new RTM client for the team, if the team
                 // doesn't currently have a client running.
                 await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
-                this.rtmTeams.add(room.SlackTeamId);
             }
         }
 
@@ -747,13 +764,12 @@ export class Main {
 
     public async run(port: number) {
         log.info("Loading databases");
-        if (this.config.db) {
-            if (this.config.db.engine.toLowerCase() !== "postgres") {
-                throw Error("Unknown engine for database. Please use 'postgres'");
-            }
-            this.datastore = new PgDatastore(this.config.db.connectionString);
-            await (this.datastore as PgDatastore).ensureSchema();
-        } else {
+        const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
+        if (dbEngine === "postgres") {
+            const postgresDb = new PgDatastore(this.config.db!.connectionString);
+            await postgresDb.ensureSchema();
+            this.datastore = postgresDb;
+        } else if (dbEngine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
             const NedbDs = require("nedb");
@@ -775,6 +791,8 @@ export class Main {
                 this.bridge.getEventStore(),
                 teamDatastore,
             );
+        } else {
+            throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
         }
 
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
