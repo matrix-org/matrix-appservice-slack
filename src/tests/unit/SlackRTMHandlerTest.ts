@@ -21,16 +21,49 @@ import { Main } from "../../Main";
 import { expect } from "chai";
 import { SlackRTMHandler } from "../../SlackRTMHandler";
 import { FakeMain } from "../utils/fakeMain";
+import { EventEmitter } from "events";
 
 function createHandler() {
     const fakeMain = new FakeMain();
-    return new SlackRTMHandler(fakeMain as unknown as Main);
+    const handler: any = new SlackRTMHandler(fakeMain as unknown as Main);
+    handler.createRtmClient = () => {
+        const rtm: any = new EventEmitter();
+        rtm.start = () => ({});
+        handler._rtmClient = rtm;
+        return rtm;
+    };
+    return { handler };
 }
 
 describe("SlackRTMHandler", () => {
     // https://github.com/matrix-org/matrix-appservice-slack/issues/212
-    it("should not race messages from RTM clients", () => {
-        const handler = createHandler();
-        handler.startUserClient()
+    it("should not race messages from RTM clients", async () => {
+        const { handler } = createHandler();
+        await handler.startUserClient({
+            matrixId: "@foo:bar",
+            slackId: "ABC123UF",
+            teamId: "TE4M",
+            token: "foobartoken",
+        });
+        const client = handler._rtmClient;
+        const messages = ["Test 1", "Test 2", "Test 3", "Test 4", "Test 5"];
+        let wasCalled = 0;
+        const allDone = new Promise((resolve, reject) => {
+            handler.handleRtmMessage = async (a,b,c,e) => {
+                wasCalled++;
+                if (wasCalled === 5) {
+                    resolve();
+                }
+                expect(e.text).to.equal(messages.shift());
+                return new Promise((to) => setTimeout(to, 50));
+            };
+        });
+
+        client.emit("message", {channel: "fooo", text: "Test 1"});
+        client.emit("message", {channel: "fooo", text: "Test 2"});
+        client.emit("message", {channel: "fooo", text: "Test 3"});
+        client.emit("message", {channel: "fooo", text: "Test 4"});
+        client.emit("message", {channel: "fooo", text: "Test 5"});
+        await allDone;
     });
 });

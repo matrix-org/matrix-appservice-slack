@@ -50,20 +50,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             if (this.messageQueueBySlackId.has(messageQueueKey)) {
                 await this.messageQueueBySlackId.get(messageQueueKey);
             }
-            const messagePromise = (async () => {
-                const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
-                // is_private is unreliably set.
-                chanInfo.channel.is_private = chanInfo.channel.is_im || chanInfo.channel.is_group;
-                if (chanInfo.channel.is_channel || !chanInfo.channel.is_private) {
-                    // Never forward messages on from the users workspace if it's public
-                }
-                // Sneaky hack to set the domain on messages.
-                e.team_id = teamInfo.id;
-                e.team_domain = teamInfo.domain;
-                e.user_id = e.user;
-
-                const messageF = this.handleUserMessage(chanInfo, e, slackClient, puppetEntry);
-            })();
+            const messagePromise = this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e);
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
             await messagePromise;
         });
@@ -72,6 +59,22 @@ export class SlackRTMHandler extends SlackEventHandler {
         teamInfo = team as ISlackTeam;
 
         log.debug(`Started RTM client for user ${key}`, team);
+    }
+
+    // tslint:disable-next-line: no-any
+    private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
+        const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
+        // is_private is unreliably set.
+        chanInfo.channel.is_private = chanInfo.channel.is_im || chanInfo.channel.is_group;
+        if (chanInfo.channel.is_channel || !chanInfo.channel.is_private) {
+            // Never forward messages on from the users workspace if it's public
+        }
+        // Sneaky hack to set the domain on messages.
+        e.team_id = teamInfo.id;
+        e.team_domain = teamInfo.domain;
+        e.user_id = e.user;
+
+        return this.handleUserMessage(chanInfo, e, slackClient, puppetEntry);
     }
 
     public teamIsUsingRtm(teamId: string): boolean {

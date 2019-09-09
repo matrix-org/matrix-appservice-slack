@@ -1,6 +1,8 @@
 export class FakeMain {
     public readonly timerFinished: {[eventName: string]: string } = {};
 
+    public clientFactory: FakeClientFactory = new FakeClientFactory();
+
     public startTimer(eventName: string) {
         this.timerFinished[eventName] = "notfinished";
         return (reason: {outcome: string}) => {
@@ -8,3 +10,10 @@ export class FakeMain {
         };
     }
 }
+
+class FakeClientFactory {
+    public async getClientForUser(teamId: string, matrixId: string) {
+        return {};
+    }
+}
+
