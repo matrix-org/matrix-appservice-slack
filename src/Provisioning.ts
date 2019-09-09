@@ -226,10 +226,12 @@ commands.removeaccount = new Command({
     params: ["user_id", "team_id"],
     async func(main, _, res, userId, teamId) {
         log.debug(`${userId} is removing their account on ${teamId}`);
-        const client = await main.clientFactory.getClientForUser(teamId, userId);
-        if (client) {
-            await client.auth.revoke();
-        }
+        // XXX: Revoking the token seems to revoke the bot's token too, which is
+        //      obviously unwanted behaviour.
+        // const client = await main.clientFactory.getClientForUser(teamId, userId);
+        // if (client) {
+        //     await client.auth.revoke();
+        // }
         await main.datastore.removePuppetTokenByMatrixId(teamId, userId);
         res.json({ });
     },
