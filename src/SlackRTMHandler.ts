@@ -18,10 +18,12 @@ const LOG_TEAM_LEN = 12;
 export class SlackRTMHandler extends SlackEventHandler {
     private rtmTeamClients: Map<string, Promise<RTMClient>>; // team -> client
     private rtmUserClients: Map<string, RTMClient>; // team:mxid -> client
+    private messageQueueBySlackId: Map<string, Promise<void>>; // teamid+channelid -> promise
     constructor(main: Main) {
         super(main);
         this.rtmTeamClients = new Map();
         this.rtmUserClients = new Map();
+        this.messageQueueBySlackId = new Map();
     }
 
     public async getUserClient(teamId: string, matrixId: string): Promise<RTMClient|undefined> {
@@ -43,17 +45,27 @@ export class SlackRTMHandler extends SlackEventHandler {
         }
         let teamInfo: ISlackTeam;
         rtm.on("message", async (e) => {
-            const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
-            // is_private is unreliably set.
-            chanInfo.channel.is_private = chanInfo.channel.is_im || chanInfo.channel.is_group;
-            if (chanInfo.channel.is_channel || !chanInfo.channel.is_private) {
-                // Never forward messages on from the users workspace if it's public
+            const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
+            // This is used to ensure that we do not race messages for a single channel.
+            if (this.messageQueueBySlackId.has(messageQueueKey)) {
+                await this.messageQueueBySlackId.get(messageQueueKey);
             }
-            // Sneaky hack to set the domain on messages.
-            e.team_id = teamInfo.id;
-            e.team_domain = teamInfo.domain;
-            e.user_id = e.user;
-            await this.handleUserMessage(chanInfo, e, slackClient, puppetEntry);
+            const messagePromise = (async () => {
+                const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
+                // is_private is unreliably set.
+                chanInfo.channel.is_private = chanInfo.channel.is_im || chanInfo.channel.is_group;
+                if (chanInfo.channel.is_channel || !chanInfo.channel.is_private) {
+                    // Never forward messages on from the users workspace if it's public
+                }
+                // Sneaky hack to set the domain on messages.
+                e.team_id = teamInfo.id;
+                e.team_domain = teamInfo.domain;
+                e.user_id = e.user;
+
+                const messageF = this.handleUserMessage(chanInfo, e, slackClient, puppetEntry);
+            })();
+            this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
+            await messagePromise;
         });
         this.rtmUserClients.set(key, rtm);
         const { team } = await rtm.start();
