@@ -30,7 +30,7 @@ import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { TeamInfoResponse, ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
 
 import { Datastore, TeamEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
@@ -66,7 +66,7 @@ export class Main {
     }
 
     public get botUserId(): string {
-        return this.bridge.getBot().userId();
+        return this.bridge.getBot().getUserId();
     }
 
     public get clientFactory(): SlackClientFactory {
@@ -155,6 +155,7 @@ export class Main {
             homeserverUrl: config.homeserver.url,
             registration,
             ...bridgeStores,
+            disableContext: true,
         });
 
         if (!usingNeDB) {
@@ -899,6 +900,7 @@ export class Main {
                 log.info(`Found ${teamId} for token`);
             } catch (ex) {
                 log.error("Failed to action link because the token couldn't used:", ex);
+                throw Error("Token did not work, unable to get team");
             }
         }
 
@@ -930,6 +932,7 @@ export class Main {
             room = new BridgedRoom(this, {
                 inbound_id: inboundId,
                 matrix_room_id: matrixRoomId,
+                slack_team_id: teamId,
                 is_private: false,
             }, teamEntry || undefined, slackClient);
             isNew = true;
@@ -968,6 +971,10 @@ export class Main {
         }
         if (room.isDirty) {
             await this.datastore.upsertRoom(room);
+        }
+
+        if (this.slackRtm && !room.SlackWebhookUri) {
+            await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId!);
         }
 
         return room;
