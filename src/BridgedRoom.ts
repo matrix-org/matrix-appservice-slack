@@ -24,7 +24,7 @@ import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse,
     ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
-import { RoomEntry, EventEntry } from "./datastore/Models";
+import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
@@ -34,15 +34,8 @@ interface IBridgedRoomOpts {
     slack_channel_name?: string;
     slack_channel_id?: string;
     slack_webhook_uri?: string;
-    slack_bot_token?: string;
-    slack_user_token?: string;
-    slack_team_domain?: string;
     slack_team_id?: string;
-    slack_user_id?: string;
-    slack_bot_id?: string;
     slack_type?: string;
-    access_token?: string;
-    access_scopes?: Set<string>;
     is_private?: boolean;
     puppet_owner?: string;
 }
@@ -91,44 +84,12 @@ export class BridgedRoom {
         this.setValue("slackWebhookUri", value);
     }
 
-    public get AccessToken() {
-        return this.accessToken || this.slackBotToken;
-    }
-
-    public get SlackBotToken() {
-        return this.slackBotToken;
-    }
-
-    public set SlackBotToken(value) {
-        this.setValue("slackBotToken", value);
-    }
-
     public get MatrixRoomId() {
         return this.matrixRoomId;
     }
 
-    public get SlackTeamDomain() {
-        return this.slackTeamDomain;
-    }
-
-    public set SlackTeamDomain(value) {
-        this.setValue("slackTeamDomain", value);
-    }
-
     public get SlackTeamId() {
         return this.slackTeamId;
-    }
-
-    public get SlackBotId() {
-        return this.slackBotId;
-    }
-
-    public get SlackUserToken() {
-        return this.slackUserToken;
-    }
-
-    public set SlackUserToken(value) {
-        this.setValue("slackUserToken", value);
     }
 
     public get RemoteATime() {
@@ -151,26 +112,18 @@ export class BridgedRoom {
         return this.slackType;
     }
 
-    public static fromEntry(main: Main, entry: RoomEntry, botClient?: WebClient) {
-        const accessScopes: Set<string> = new Set(entry.remote.access_scopes);
+    public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient) {
         return new BridgedRoom(main, {
-            access_scopes: accessScopes,
-            access_token: entry.remote.access_token,
             inbound_id: entry.remote_id,
             matrix_room_id: entry.matrix_id,
-            slack_bot_id: entry.remote.slack_bot_id,
-            slack_bot_token: entry.remote.slack_bot_token,
             slack_channel_id: entry.remote.id,
             slack_channel_name: entry.remote.name,
-            slack_team_domain: entry.remote.slack_team_domain,
             slack_team_id: entry.remote.slack_team_id,
-            slack_user_id: entry.remote.slack_user_id,
-            slack_user_token: entry.remote.slack_user_token,
             slack_webhook_uri: entry.remote.webhook_uri,
             puppet_owner: entry.remote.puppet_owner,
             is_private: entry.remote.slack_private,
             slack_type: entry.remote.slack_type,
-        }, botClient);
+        }, team, botClient);
     }
 
     private matrixRoomId: string;
@@ -178,18 +131,10 @@ export class BridgedRoom {
     private slackChannelName?: string;
     private slackChannelId?: string;
     private slackWebhookUri?: string;
-    private slackBotToken?: string;
-    private slackUserToken?: string;
-    private slackTeamDomain?: string;
     private slackTeamId?: string;
-    private slackBotId?: string;
-    private accessToken?: string;
     private slackType?: string;
     private isPrivate?: boolean;
     private puppetOwner?: string;
-
-    private slackUserId?: string;
-    private accessScopes?: Set<string>;
 
     // last activity time in epoch seconds
     private slackATime?: number;
@@ -201,7 +146,7 @@ export class BridgedRoom {
      */
     private dirty: boolean;
 
-    constructor(private main: Main, opts: IBridgedRoomOpts, private botClient?: WebClient) {
+    constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
 
         if (!opts.inbound_id) {
             throw new Error("BridgedRoom requires an inbound ID");
@@ -210,20 +155,12 @@ export class BridgedRoom {
             throw new Error("BridgedRoom requires an Matrix Room ID");
         }
 
-        // NOTE: Wow f**k me that's a lot of opts.
         this.matrixRoomId = opts.matrix_room_id;
         this.inboundId = opts.inbound_id;
         this.slackChannelName = opts.slack_channel_name;
         this.slackChannelId = opts.slack_channel_id;
         this.slackWebhookUri = opts.slack_webhook_uri;
-        this.slackBotToken = opts.slack_bot_token;
-        this.slackUserToken = opts.slack_user_token;
-        this.slackTeamDomain = opts.slack_team_domain;
         this.slackTeamId = opts.slack_team_id;
-        this.slackUserId = opts.slack_user_id;
-        this.slackBotId =  opts.slack_bot_id;
-        this.accessToken = opts.access_token;
-        this.accessScopes = opts.access_scopes;
         this.slackType = opts.slack_type || "channel";
         if (opts.is_private === undefined) {
             opts.is_private = false;
@@ -251,29 +188,18 @@ export class BridgedRoom {
     }
 
     public getStatus() {
-        if (!this.slackWebhookUri && !this.slackBotToken) {
+        if (!this.slackWebhookUri && !this.botClient) {
             return "pending-params";
         }
         if (!this.slackChannelName) {
             return "pending-name";
         }
-        if (!this.accessToken && !this.slackBotToken) {
+        if (!this.botClient) {
             return "ready-no-token";
         }
         return "ready";
     }
 
-    public updateAccessToken(token: string, scopes: Set<string>) {
-        log.info("updateAccessToken ->", token, scopes);
-        const sameScopes = this.accessScopes && [
-            ...this.accessScopes!].sort().join(",") === [...scopes].sort().join(",");
-        if (this.accessToken === token && sameScopes) {
-            return;
-        }
-        this.accessToken = token;
-        this.accessScopes = scopes;
-        this.dirty = true;
-    }
     /**
      * Returns data to write to the RoomStore
      * As a side-effect will also clear the isDirty() flag
@@ -283,16 +209,9 @@ export class BridgedRoom {
             id: `INTEG-${this.inboundId}`,
             matrix_id: this.matrixRoomId,
             remote: {
-                access_scopes: this.accessScopes ? [...this.accessScopes] : [],
-                access_token: this.accessToken!,
                 id: this.slackChannelId!,
                 name: this.slackChannelName!,
-                slack_bot_id: this.slackBotId!,
-                slack_bot_token: this.slackBotToken!,
-                slack_team_domain: this.slackTeamDomain!,
                 slack_team_id: this.slackTeamId!,
-                slack_user_id: this.slackUserId!,
-                slack_user_token: this.slackUserToken!,
                 slack_type: this.slackType!,
                 slack_private: this.isPrivate!,
                 webhook_uri: this.slackWebhookUri!,
@@ -501,11 +420,10 @@ export class BridgedRoom {
             log.error("Failed to process event");
             log.error(err);
         }
-
     }
 
     public async onSlackReactionAdded(message: any, teamId: string) {
-        if (message.user_id === this.slackUserId) {
+        if (message.user_id === this.team!.user_id) {
             return;
         }
         const ghost = await this.main.getGhostForSlackMessage(message, teamId);
@@ -541,28 +459,6 @@ export class BridgedRoom {
         this.botClient = slackClient;
     }
 
-    public async refreshTeamInfo() {
-        if (!this.botClient) { return; }
-
-        const response = (await this.botClient.team.info()) as TeamInfoResponse;
-        if (!response.team) { return; }
-
-        this.setValue("SlackTeamDomain", response.team.domain);
-        this.setValue("slackTeamId", response.team.id);
-    }
-
-    public async refreshUserInfo() {
-        if (!this.botClient) { return; }
-
-        const testRes = (await this.botClient.auth.test()) as AuthTestResponse;
-
-        if (!testRes.user_id) { return; }
-        this.setValue("slackUserId", testRes.user_id);
-
-        const usersRes = (await this.botClient.users.info({ user: testRes.user_id })) as UsersInfoResponse;
-        if (!usersRes.user || !usersRes.user.profile) { return; }
-        this.setValue("slackBotId", usersRes.user.profile.bot_id);
-    }
     private setValue<T>(key: string, value: T) {
         const sneakyThis = this as any;
         if (sneakyThis[key] === value) {
@@ -681,7 +577,7 @@ export class BridgedRoom {
                     try {
                         htmlString = await rp({
                             headers: {
-                                Authorization: `Bearer ${this.slackBotToken}`,
+                                Authorization: `Bearer ${this.SlackClient!.token}`,
                             },
                             uri: file.url_private!,
                         });
@@ -726,11 +622,11 @@ export class BridgedRoom {
                                 title: `${file.name}_thumb.${file.filetype}`,
                             },
                             thumbUri,
-                            this.slackBotToken!,
+                            this.SlackClient!.token!,
                         );
                     }
                     const fileContentUri = await ghost.uploadContentFromURI(
-                        file, file.url_private, this.slackBotToken!);
+                        file, file.url_private, this.SlackClient!.token!);
                     const thumbnailContentUri = await thumbnailPromise;
                     await ghost.sendMessage(
                         this.matrixRoomId,
