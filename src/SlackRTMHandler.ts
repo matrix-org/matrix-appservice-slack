@@ -81,7 +81,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         return this.rtmTeamClients.has(teamId.toUpperCase());
     }
 
-    public async startTeamClientIfNotStarted(expectedTeam: string, botToken: string) {
+    public async startTeamClientIfNotStarted(expectedTeam: string) {
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
             try {
@@ -91,7 +91,8 @@ export class SlackRTMHandler extends SlackEventHandler {
                 log.warn("Failed to create RTM client");
             }
         }
-        const promise = this.startTeamClient(expectedTeam, botToken);
+        const team = (await this.main.datastore.getTeam(expectedTeam))!;
+        const promise = this.startTeamClient(expectedTeam, team.bot_token);
         this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
         await promise;
     }
