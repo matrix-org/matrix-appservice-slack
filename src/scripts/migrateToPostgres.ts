@@ -90,8 +90,8 @@ async function main() {
     });
 
     const teamMigrations = allTeams.map(async (team, i) => {
-        await pgres.upsertTeam(team.team_id, team.bot_token, team.team_name, team.user_id);
-        log.info(`Migrated team ${team.team_id} ${team.team_name} (${i + 1}/${allTeams.length})`);
+        await pgres.upsertTeam(team);
+        log.info(`Migrated team ${team.id} ${team.name} (${i + 1}/${allTeams.length})`);
     });
 
     const slackUserMigrations = allSlackUsers.map(async (user, i) => {

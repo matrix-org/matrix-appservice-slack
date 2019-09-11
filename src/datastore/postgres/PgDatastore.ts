@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 2;
+    public static readonly LATEST_SCHEMA = 3;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -166,28 +166,43 @@ export class PgDatastore implements Datastore {
         });
     }
 
-    public async upsertTeam(teamId: string, botToken: string, teamName: string, botId: string) {
-        log.debug(`upsertTeam: ${teamId} ${teamName}`);
+    public async upsertTeam(entry: TeamEntry) {
+        log.debug(`upsertTeam: ${entry.id} ${entry.name}`);
         await this.postgresDb.oneOrNone("INSERT INTO teams VALUES (${teamId}, ${teamName}, ${botToken}, ${botId})" +
-                                        "ON CONFLICT (id) DO UPDATE SET name = ${teamName}, token = ${botToken}, bot_id = ${botId}", {
-            teamId,
-            teamName,
-            botToken,
-            botId,
-        });
+            "ON CONFLICT (id) DO UPDATE SET name = ${name}, token = ${bot_token}, bot_id = ${user_id}, domain = ${domain}" +
+            ", scopes = ${scopes}, status = ${status}",
+            entry,
+        );
     }
 
-    public async getTeam(teamId: string): Promise<TeamEntry> {
+    public async getTeam(teamId: string): Promise<TeamEntry|null> {
         const doc = await this.postgresDb.oneOrNone("SELECT * FROM teams WHERE id = ${teamId}", { teamId });
         if (doc === null) {
-            throw Error("Team not found");
+            return null;
         }
         return {
-            team_id: doc.id,
-            team_name: doc.name,
+            id: doc.id,
+            name: doc.name,
             bot_token: doc.token,
             user_id: doc.bot_id,
+            domain: doc.domain,
+            scopes: doc.scopes,
+            status: doc.status,
         } as TeamEntry;
+    }
+
+    public async getAllTeams(): Promise<TeamEntry[]> {
+        return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map((doc) => {
+            return {
+                id: doc.id,
+                name: doc.name,
+                bot_token: doc.token,
+                user_id: doc.bot_id,
+                domain: doc.domain,
+                scopes: doc.scopes,
+                status: doc.status,
+            } as TeamEntry;
+        });
     }
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {

@@ -22,15 +22,8 @@ export interface RoomEntry {
     matrix_id: string;
     remote_id: string;
     remote: {
-        slack_bot_id: string;
-        slack_bot_token?: string;
         slack_team_id?: string;
-        slack_team_domain: string;
-        slack_user_id: string;
-        slack_user_token: string;
         slack_type?: string;
-        access_scopes: string[];
-        access_token: string;
         id: string;
         name: string;
         webhook_uri: string;
@@ -59,11 +52,16 @@ export interface EventEntryExtra {
     slackThreadMessages?: string[];
 }
 
+export type TeamStatus = "ok"|"archived"|"bad_auth";
+
 export interface TeamEntry {
-    team_id: string;
+    id: string;
     bot_token: string;
-    team_name: string;
+    name: string;
     user_id: string;
+    domain: string;
+    scopes: string;
+    status: TeamStatus;
 }
 
 export interface PuppetEntry {
@@ -88,8 +86,9 @@ export interface Datastore {
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;
     getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null>;
 
-    upsertTeam(teamId: string, botToken: string, teamName: string, botId: string);
-    getTeam(teamId: string): Promise<TeamEntry>;
+    upsertTeam(entry: TeamEntry);
+    getTeam(teamId: string): Promise<TeamEntry|null>;
+    getAllTeams(): Promise<TeamEntry[]>;
 
     setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
     getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null>;
