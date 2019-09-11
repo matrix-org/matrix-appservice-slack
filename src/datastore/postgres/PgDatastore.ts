@@ -168,7 +168,7 @@ export class PgDatastore implements Datastore {
 
     public async upsertTeam(entry: TeamEntry) {
         log.debug(`upsertTeam: ${entry.id} ${entry.name}`);
-        await this.postgresDb.oneOrNone("INSERT INTO teams VALUES (${teamId}, ${teamName}, ${botToken}, ${botId})" +
+        await this.postgresDb.oneOrNone("INSERT INTO teams VALUES (${id}, ${name}, ${bot_token}, ${user_id}, ${status}, ${domain}, ${scopes})" +
             "ON CONFLICT (id) DO UPDATE SET name = ${name}, token = ${bot_token}, bot_id = ${user_id}, domain = ${domain}" +
             ", scopes = ${scopes}, status = ${status}",
             entry,
