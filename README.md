@@ -3,6 +3,14 @@ A Matrix &lt;--> Slack bridge
 
 This bridge allows you to connect Slack channels to Matrix rooms.
 
+Development
+-----------
+
+[![#slack:half-shot.uk](https://img.shields.io/matrix/slack:half-shot.uk.svg?server_fqdn=matrix.half-shot.uk&label=%23slack:half-shot.uk&logo=matrix)](https://matrix.to/#/#slack:half-shot.uk)
+
+If you want to help out, please give our helpful [Development Guide](./docs/development_guide.md)
+a read. It covers all you need to know to get hacking on the bridge.
+
 Installation
 ------------
 
