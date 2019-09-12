@@ -379,7 +379,8 @@ export class Main {
 
         this.roomsByMatrixRoomId[room.MatrixRoomId] = room;
 
-        if (room.InboundId) {
+        // This is only used for webhook matching.
+        if (room.InboundId && room.SlackWebhookUri) {
             this.roomsByInboundId[room.InboundId] = room;
         }
 
