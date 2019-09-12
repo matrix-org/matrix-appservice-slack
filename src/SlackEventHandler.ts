@@ -148,7 +148,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
 
-        if (event.bot_id && (event.bot_id === team.user_id)) {
+        if (event.bot_id && (event.bot_id === team.bot_id)) {
             return;
         }
 
@@ -205,7 +205,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
                 // Check the edit wasn't sent by us
-                if (msg.message.bot_id === team.user_id) {
+                if (msg.message.bot_id === team.bot_id) {
                     return;
                 } else {
                     msg.user_id = msg.bot_id;
