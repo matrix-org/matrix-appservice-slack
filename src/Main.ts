@@ -20,7 +20,7 @@ import { Bridge, PrometheusMetrics, StateLookup,
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
-import { IConfig } from "./IConfig";
+import { IConfig, CACHING_DEFAULTS } from "./IConfig";
 import { OAuth2 } from "./OAuth2";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
@@ -37,6 +37,7 @@ import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
+import * as QuickLRU from "quick-lru";
 
 const log = Logging.get("Main");
 
@@ -88,8 +89,8 @@ export class Main {
     private roomsByMatrixRoomId: {[roomId: string]: BridgedRoom} = {};
     private roomsByInboundId: {[inboundId: string]: BridgedRoom} = {};
 
-    private ghostsByUserId: {[userId: string]: SlackGhost} = {};
-    private matrixUsersById: {[userId: string]: MatrixUser} = {};
+    private ghostsByUserId: QuickLRU<string, SlackGhost>;
+    private matrixUsersById: QuickLRU<string, MatrixUser>;
 
     private bridge: Bridge;
 
@@ -119,6 +120,13 @@ export class Main {
                 redirect_prefix: redirectPrefix!,
             });
         }
+
+        if (!config.caching) {
+            config.caching = CACHING_DEFAULTS;
+        }
+
+        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching!.ghostUserCache || CACHING_DEFAULTS.ghostUserCache });
+        this.matrixUsersById = new QuickLRU({ maxSize: config.caching!.matrixUserCache || CACHING_DEFAULTS.matrixUserCache });
 
         if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
             throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
@@ -204,13 +212,11 @@ export class Main {
                 matrixRoomsByAge.bump(now - room.MatrixATime!);
             });
 
-            const countAges = (users: {[key: string]: MatrixUser|SlackGhost}) => {
+            const countAges = (users: QuickLRU<string, MatrixUser|SlackGhost>) => {
                 const counts = new PrometheusMetrics.AgeCounters();
-
-                Object.keys(users).forEach((id) => {
-                    counts.bump(now - users[id].aTime!);
-                });
-
+                for (const id of users.keys()) {
+                    counts.bump(now - users.get(id)!.aTime!);
+                }
                 return counts;
             };
 
