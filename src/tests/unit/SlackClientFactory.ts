@@ -55,7 +55,7 @@ describe("SlackClientFactory", () => {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {
-            expect(ex.message).to.equal("No team found in store");
+            expect(ex.message).to.equal("No team found in store for faketeam");
         }
     });
 
@@ -70,7 +70,7 @@ describe("SlackClientFactory", () => {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {
-            expect(ex.message).to.equal("Team status is not okay");
+            expect(ex.message).to.equal("Team faketeam is not usable: Team previously failed to auth and is disabled");
         }
     });
 
@@ -85,7 +85,7 @@ describe("SlackClientFactory", () => {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {
-            expect(ex.message).to.equal("Team status is not okay");
+            expect(ex.message).to.equal("Team faketeam is not usable: Team is archived");
         }
     });
 
@@ -100,7 +100,7 @@ describe("SlackClientFactory", () => {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {
-            expect(ex.message).to.equal("Team status is not okay");
+            expect(ex.message).to.equal("Team faketeam is not usable: No token stored");
         }
     });
 

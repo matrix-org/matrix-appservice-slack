@@ -34,13 +34,13 @@ export class SlackClientFactory {
             throw Error(`Team ${teamId} is not ready: No team found in store`);
         }
         if (storedTeam.status === "bad_auth") {
-            throw Error(`Team ${teamId} is not ready: Team previously failed to auth and has been disabled`);
+            throw Error(`Team ${teamId} is not usable: Team previously failed to auth and is disabled`);
         }
         if (storedTeam.status === "archived") {
-            throw Error(`Team ${teamId} is not ready: Team is archived.`);
+            throw Error(`Team ${teamId} is not usable: Team is archived`);
         }
         if (!storedTeam.bot_token) {
-            throw Error(`Team ${teamId} is not ready: No token stored.`);
+            throw Error(`Team ${teamId} is not usable: No token stored`);
         }
     }
 
@@ -138,7 +138,6 @@ export class SlackClientFactory {
         this.puppets.set(key, client);
         return client;
     }
-
 
     private async createTeamClient(token: string) {
         const opts = this.config.slack_client_opts;

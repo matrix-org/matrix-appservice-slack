@@ -178,7 +178,8 @@ export class PgDatastore implements Datastore {
             status: entry.status,
             user_id: entry.user_id,
         };
-        await this.postgresDb.oneOrNone(PgDatastore.BuildUpsertStatement("teams", "id", props), props);
+        const statement = PgDatastore.BuildUpsertStatement("teams", "id", props);
+        await this.postgresDb.oneOrNone(statement, props);
     }
 
     // tslint:disable-next-line: no-any
@@ -283,6 +284,6 @@ export class PgDatastore implements Datastore {
         const keysValues = `\${${Object.keys(keyValues).join("}, ${")}}`;
         // tslint:disable-next-line: prefer-template
         const keysSets = Object.keys(keyValues).slice(1).map((k) => `${k} = \${${k}}`).join(", ");
-        return `INSERT INTO ${table} (${keys}) VALUES (${keysValues}) ON CONFLICT ({${confictKey}}) DO UPDATE SET ${keysSets}`;
+        return `INSERT INTO ${table} (${keys}) VALUES (${keysValues}) ON CONFLICT (${confictKey}) DO UPDATE SET ${keysSets}`;
     }
 }
