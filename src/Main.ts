@@ -123,8 +123,8 @@ export class Main {
 
         config.caching = { ...CACHING_DEFAULTS, ...config.caching };
 
-        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching!.ghostUserCache });
-        this.matrixUsersById = new QuickLRU({ maxSize: config.caching!.matrixUserCache });
+        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching.ghostUserCache });
+        this.matrixUsersById = new QuickLRU({ maxSize: config.caching.matrixUserCache });
 
         if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
             throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
