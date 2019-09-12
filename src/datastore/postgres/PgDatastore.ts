@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 // tslint thinks we can combine these two statements, but so far I have been unable to.
 import * as pgInit from "pg-promise";
 // tslint:disable-next-line: no-duplicate-imports
