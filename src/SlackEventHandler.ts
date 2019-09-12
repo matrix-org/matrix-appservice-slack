@@ -138,7 +138,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
-        const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
+        const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
         if (event.bot_id && (!room.SlackBotId || event.bot_id === room.SlackBotId)) {
@@ -249,7 +249,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleReaction(event: ISlackEventReaction, teamId: string) {
         // Reactions store the channel in the item
         const channel = event.item.channel;
-        const room = this.main.getRoomBySlackChannelId(channel) as BridgedRoom;
+        const room = this.main.rooms.getBySlackChannelId(channel) as BridgedRoom;
         if (!room) { throw new Error("unknown_channel"); }
 
         const msg = Object.assign({}, event, {
@@ -270,7 +270,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {
-        await Promise.all(this.main.getRoomsBySlackTeamId(teamId).map(async (room: BridgedRoom) => {
+        await Promise.all(this.main.rooms.getBySlackTeamId(teamId).map(async (room: BridgedRoom) => {
             room.SlackTeamDomain = event.domain;
             if (room.isDirty) {
                 await this.main.datastore.upsertRoom(room);
@@ -280,7 +280,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
     private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
         // TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.getRoomBySlackChannelId(event.id);
+        const room = this.main.rooms.getBySlackChannelId(event.id);
         if (!room) { throw new Error("unknown_channel"); }
 
         const channelName = `${room.SlackTeamDomain}.#${event.name}`;
@@ -291,7 +291,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleTyping(event: ISlackEvent, teamId: string) {
-        const room = this.main.getRoomBySlackChannelId(event.channel);
+        const room = this.main.rooms.getBySlackChannelId(event.channel);
         if (!room) { throw new Error("unknown_channel"); }
         const typingEvent = Object.assign({}, event, {
             channel_id: event.channel,

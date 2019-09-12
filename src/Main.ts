@@ -37,6 +37,7 @@ import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
+import { SlackRoomStore } from "./SlackRoomStore";
 
 const log = Logging.get("Main");
 
@@ -61,10 +62,6 @@ export class Main {
         return this.config.username_prefix;
     }
 
-    public get allRooms() {
-        return Array.from(this.rooms);
-    }
-
     public get botUserId(): string {
         return this.bridge.getBot().userId();
     }
@@ -82,11 +79,7 @@ export class Main {
     private recentMatrixEventIds: string[] = new Array(RECENT_EVENTID_SIZE);
     private mostRecentEventIdIdx = 0;
 
-    private rooms: BridgedRoom[] = [];
-    private roomsBySlackChannelId: {[channelId: string]: BridgedRoom} = {};
-    private roomsBySlackTeamId: {[teamId: string]: [BridgedRoom]} = {};
-    private roomsByMatrixRoomId: {[roomId: string]: BridgedRoom} = {};
-    private roomsByInboundId: {[inboundId: string]: BridgedRoom} = {};
+    public readonly rooms: SlackRoomStore = new SlackRoomStore();
 
     private ghostsByUserId: {[userId: string]: SlackGhost} = {};
     private matrixUsersById: {[userId: string]: MatrixUser} = {};
@@ -199,7 +192,7 @@ export class Main {
             const remoteRoomsByAge = new PrometheusMetrics.AgeCounters();
             const matrixRoomsByAge = new PrometheusMetrics.AgeCounters();
 
-            this.rooms.forEach((room) => {
+            this.rooms.all.forEach((room) => {
                 remoteRoomsByAge.bump(now - room.RemoteATime!);
                 matrixRoomsByAge.bump(now - room.MatrixATime!);
             });
@@ -215,8 +208,8 @@ export class Main {
             };
 
             return {
-                matrixRoomConfigs: Object.keys(this.roomsByMatrixRoomId).length,
-                remoteRoomConfigs: Object.keys(this.roomsByInboundId).length,
+                matrixRoomConfigs: this.rooms.matrixRoomCount,
+                remoteRoomConfigs: this.rooms.remoteRoomCount,
                 // As a relaybot we don't create remote-side ghosts
                 remoteGhosts: 0,
 
@@ -292,7 +285,7 @@ export class Main {
             return this.teams.get(teamId!)!.domain;
         }
 
-        const room = this.getRoomBySlackChannelId(message.channel || message.channel_id);
+        const room = this.rooms.getBySlackChannelId(message.channel || message.channel_id);
 
         if (room && room.SlackTeamDomain) {
             return room.SlackTeamDomain;
@@ -385,8 +378,9 @@ export class Main {
         let attempts = 10;
         while (attempts > 0) {
             const id = randomstring.generate(INTERNAL_ID_LEN);
-            if (!(id in this.roomsByInboundId)) { return id; }
-
+            if (this.rooms.getByInboundId(id) === undefined) {
+                return id;
+            }
             attempts--;
         }
         // Prevent tightlooping if randomness goes odd
@@ -394,29 +388,13 @@ export class Main {
     }
 
     public async addBridgedRoom(room: BridgedRoom) {
-        this.rooms.push(room);
 
-        this.roomsByMatrixRoomId[room.MatrixRoomId] = room;
-
-        if (room.SlackChannelId) {
-            this.roomsBySlackChannelId[room.SlackChannelId] = room;
-        }
-
-        if (room.InboundId) {
-            this.roomsByInboundId[room.InboundId] = room;
-        }
         if ((!room.SlackTeamId || !room.SlackBotId) && room.SlackBotToken) {
             await room.refreshTeamInfo();
             await room.refreshUserInfo();
         }
 
         if (room.SlackTeamId) {
-            if (this.roomsBySlackTeamId[room.SlackTeamId]) {
-                this.roomsBySlackTeamId[room.SlackTeamId].push(room);
-            } else {
-                this.roomsBySlackTeamId[room.SlackTeamId] = [ room ];
-            }
-
             if (room.SlackBotToken && this.slackRtm) {
                 // This will start a new RTM client for the team, if the team
                 // doesn't currently have a client running.
@@ -424,46 +402,6 @@ export class Main {
             }
         }
 
-    }
-
-    public removeBridgedRoom(room: BridgedRoom) {
-        this.rooms = this.rooms.filter((r) => r !== room);
-
-        if (room.SlackChannelId) {
-            delete this.roomsBySlackChannelId[room.SlackChannelId];
-        }
-
-        if (room.InboundId) {
-            delete this.roomsByInboundId[room.InboundId];
-        }
-
-        // XXX: We don't remove it from this.roomsBySlackTeamId?
-    }
-
-    public getRoomBySlackChannelId(channelId: string): BridgedRoom|undefined {
-        return this.roomsBySlackChannelId[channelId];
-    }
-
-    public getRoomsBySlackTeamId(channelId: string) {
-        return this.roomsBySlackTeamId[channelId] || [];
-    }
-
-    public getRoomBySlackChannelName(channelName: string) {
-        for (const room of this.rooms) {
-            if (room.SlackChannelName === channelName) {
-                return room;
-            }
-        }
-
-        return null;
-    }
-
-    public getRoomByMatrixRoomId(roomId: string): BridgedRoom|undefined {
-        return this.roomsByMatrixRoomId[roomId];
-    }
-
-    public getRoomByInboundId(inboundId: string): BridgedRoom|undefined {
-        return this.roomsByInboundId[inboundId];
     }
 
     public getInboundUrlForRoom(room: BridgedRoom) {
@@ -591,7 +529,7 @@ export class Main {
             return;
         }
 
-        const room = this.getRoomByMatrixRoomId(ev.room_id);
+        const room = this.rooms.getByMatrixRoomId(ev.room_id);
         if (!room) {
             log.warn(`Ignoring ev for matrix room with unknown slack channel: ${ev.room_id}`);
             endTimer({outcome: "dropped"});
@@ -689,7 +627,7 @@ export class Main {
         const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
         if (openResponse.already_open) {
             // Check to see if we have a room for this channel already.
-            const existing = this.roomsBySlackChannelId[openResponse.channel.id];
+            const existing = this.rooms.getBySlackChannelId[openResponse.channel.id];
             if (existing) {
                 await this.datastore.deleteRoom(existing.InboundId);
                 await intent.sendEvent(roomId, "m.room.message", {
@@ -879,7 +817,7 @@ export class Main {
     }) {
         const matrixRoomId = opts.matrix_room_id;
 
-        const existingRoom = this.getRoomByMatrixRoomId(matrixRoomId);
+        const existingRoom = this.rooms.getByMatrixRoomId(matrixRoomId);
         let room: BridgedRoom;
 
         let isNew = false;
@@ -898,7 +836,6 @@ export class Main {
                 is_private: false,
             });
             isNew = true;
-            this.roomsByMatrixRoomId[matrixRoomId] = room;
             this.stateStorage.trackRoom(matrixRoomId);
         } else {
             room = existingRoom;
@@ -965,13 +902,12 @@ export class Main {
     public async actionUnlink(opts: {
         matrix_room_id: string,
     }) {
-        const room = this.getRoomByMatrixRoomId(opts.matrix_room_id);
+        const room = this.rooms.getByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
             throw new Error("Cannot unlink - unknown channel");
         }
 
-        this.removeBridgedRoom(room);
-        delete this.roomsByMatrixRoomId[opts.matrix_room_id];
+        this.rooms.removeRoom(room);
         this.stateStorage.untrackRoom(opts.matrix_room_id);
 
         const id = room.toEntry().id;
@@ -1030,7 +966,7 @@ export class Main {
     }
 
     public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
-        const room = this.getRoomBySlackChannelId(channel);
+        const room = this.rooms.getBySlackChannelId(channel);
         const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId);
         if (!room || !room.SlackClient) {
             return userId;
