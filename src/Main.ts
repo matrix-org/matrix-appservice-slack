@@ -822,6 +822,7 @@ export class Main {
                 teamClient[team.id] = await this.clientFactory.getTeamClient(team.id);
             } catch (ex) {
                 log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
+                log.error(ex);
             }
             // Also start RTM clients for teams.
             if (this.slackRtm) {

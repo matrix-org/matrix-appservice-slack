@@ -168,11 +168,31 @@ export class PgDatastore implements Datastore {
 
     public async upsertTeam(entry: TeamEntry) {
         log.debug(`upsertTeam: ${entry.id} ${entry.name}`);
-        await this.postgresDb.oneOrNone("INSERT INTO teams VALUES (${id}, ${name}, ${bot_token}, ${user_id}, ${status}, ${domain}, ${scopes})" +
-            "ON CONFLICT (id) DO UPDATE SET name = ${name}, token = ${bot_token}, bot_id = ${user_id}, domain = ${domain}" +
-            ", scopes = ${scopes}, status = ${status}",
-            entry,
-        );
+        const props = {
+            id: entry.id,
+            name: entry.name,
+            token: entry.bot_token,
+            bot_id: entry.bot_id,
+            domain: entry.domain,
+            scopes: entry.scopes,
+            status: entry.status,
+            user_id: entry.user_id,
+        };
+        await this.postgresDb.oneOrNone(PgDatastore.BuildUpsertStatement("teams", "id", props), props);
+    }
+
+    // tslint:disable-next-line: no-any
+    private static teamEntryForRow(doc: any) {
+       return {
+            id: doc.id,
+            name: doc.name,
+            bot_token: doc.token,
+            user_id: doc.user_id,
+            bot_id: doc.bot_id,
+            domain: doc.domain,
+            scopes: doc.scopes,
+            status: doc.status,
+        } as TeamEntry;
     }
 
     public async getTeam(teamId: string): Promise<TeamEntry|null> {
@@ -180,29 +200,11 @@ export class PgDatastore implements Datastore {
         if (doc === null) {
             return null;
         }
-        return {
-            id: doc.id,
-            name: doc.name,
-            bot_token: doc.token,
-            user_id: doc.bot_id,
-            domain: doc.domain,
-            scopes: doc.scopes,
-            status: doc.status,
-        } as TeamEntry;
+        return PgDatastore.teamEntryForRow(doc);
     }
 
     public async getAllTeams(): Promise<TeamEntry[]> {
-        return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map((doc) => {
-            return {
-                id: doc.id,
-                name: doc.name,
-                bot_token: doc.token,
-                user_id: doc.bot_id,
-                domain: doc.domain,
-                scopes: doc.scopes,
-                status: doc.status,
-            } as TeamEntry;
-        });
+        return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map(PgDatastore.teamEntryForRow);
     }
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
@@ -274,5 +276,13 @@ export class PgDatastore implements Datastore {
             log.error("Failed to get schema version:", ex);
         }
         throw Error("Couldn't fetch schema version");
+    }
+
+    private static BuildUpsertStatement(table: string, confictKey: string, keyValues: {[key: string]: string}) {
+        const keys = Object.keys(keyValues).join(", ");
+        const keysValues = `\${${Object.keys(keyValues).join("}, ${")}}`;
+        // tslint:disable-next-line: prefer-template
+        const keysSets = Object.keys(keyValues).slice(1).map((k) => `${k} = \${${k}}`).join(", ");
+        return `INSERT INTO ${table} (${keys}) VALUES (${keysValues}) ON CONFLICT ({${confictKey}}) DO UPDATE SET ${keysSets}`;
     }
 }

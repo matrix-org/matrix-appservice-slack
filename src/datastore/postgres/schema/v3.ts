@@ -6,5 +6,6 @@ export async function runSchema(db: IDatabase<any>) {
         ALTER TABLE teams ADD COLUMN status TEXT;
         ALTER TABLE teams ADD COLUMN domain TEXT;
         ALTER TABLE teams ADD COLUMN scopes TEXT;
+        ALTER TABLE teams ADD COLUMN user_id TEXT;
     `);
 }

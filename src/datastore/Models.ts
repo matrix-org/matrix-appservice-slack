@@ -58,10 +58,11 @@ export interface TeamEntry {
     id: string;
     bot_token: string;
     name: string;
-    user_id: string;
+    bot_id: string;
     domain: string;
     scopes: string;
     status: TeamStatus;
+    user_id: string;
 }
 
 export interface PuppetEntry {

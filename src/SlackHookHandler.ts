@@ -337,7 +337,8 @@ export class SlackHookHandler extends BaseSlackHandler {
                 if (response.bot) {
                     const team: TeamEntry = {
                         bot_token: response.bot!.bot_access_token,
-                        user_id: response.bot!.bot_user_id,
+                        bot_id: response.bot!.bot_user_id,
+                        user_id: "unknown",
                         id: response.team_id,
                         name: response.team_name,
                         scopes: access_scopes.join(","),

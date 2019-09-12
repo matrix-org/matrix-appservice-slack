@@ -77,7 +77,8 @@ export class SlackClientFactory {
             const userRes = (await slackClient.users.info({user: authRes.user_id})) as UsersInfoResponse;
             teamEntry.domain = team.domain;
             teamEntry.name = team.name;
-            teamEntry.user_id = userRes.user!.profile!.bot_id!;
+            teamEntry.bot_id = userRes.user!.profile!.bot_id!;
+            teamEntry.user_id = userRes.user!.id!;
             teamEntry.status = "ok";
             this.teamClients.set(teamId, slackClient);
             return slackClient;
@@ -102,11 +103,13 @@ export class SlackClientFactory {
     public async upsertTeamByToken(token: string): Promise<string> {
         let teamRes: {id: string, name: string, domain: string};
         let botId: string;
+        let userId: string;
         let existingTeam: TeamEntry|undefined;
         try {
             const { slackClient, team } = await this.createTeamClient(token);
             // Call this to get our identity.
             const authRes = (await slackClient.auth.test()) as AuthTestResponse;
+            userId = authRes.user_id;
             const userRes = (await slackClient.users.info({user: authRes.user_id})) as UsersInfoResponse;
             botId = userRes.user!.profile!.bot_id!;
             teamRes = team;
@@ -124,12 +127,14 @@ export class SlackClientFactory {
             domain: "",
             name: "",
             user_id: "",
+            bot_id: "",
             status: "ok",
             bot_token: "",
         };
         teamEntry.domain = teamRes!.domain;
         teamEntry.name = teamRes!.name;
-        teamEntry.user_id = botId;
+        teamEntry.bot_id = botId;
+        teamEntry.user_id = userId;
         teamEntry.status = "ok";
         teamEntry.bot_token = token;
         await this.datastore.upsertTeam(teamEntry);
