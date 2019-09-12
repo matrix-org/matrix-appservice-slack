@@ -22,8 +22,7 @@ import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixRes
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
-import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse,
-    ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
+import { ChatUpdateResponse, ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");

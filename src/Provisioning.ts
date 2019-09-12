@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 import { Logging, Bridge, MatrixUser } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";

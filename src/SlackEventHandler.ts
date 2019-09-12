@@ -18,9 +18,6 @@ import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
-import { ConversationsInfoResponse } from "./SlackResponses";
-import { WebClient } from "@slack/web-api";
-import { PuppetEntry } from "./datastore/Models";
 
 const log = Logging.get("SlackEventHandler");
 
