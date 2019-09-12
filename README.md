@@ -101,23 +101,40 @@ and bot users. This allows you to link as many channels as you would like with o
 3. Click on `bot users` and add a new bot user. We will use this account to bridge the
    the rooms.
 
-4. Click on `Event Subscriptions` and enable them. At this point, the bridge needs to be
-   started as Slack will do some verification of the request rul. The request url should be
-   `https://$HOST:$SLACK_PORT"`. Then add the following events and save:
+4. Click on `Event Subscriptions` and enable them. 
 
-   Bot User Events:
+   1. You will need to decide on using either the **RTM API** or the **Events API**.  
+      The RTM API is recommended because it does not require you to setup scopes or open ports
+      to a webserver like the Events API.  
+      Events API provisioning is forwards compatible with the RTM API and if enabled in the config,
+      RTM is used by default.
+      The RTM API uses websockets and will pull information from Slack, whereas the Events API will
+      push informaton to the bridge over HTTP.
 
-       - team_domain_change
-       - message.channels
-       - chat:write:bot
-       - message.groups (if you want to bridge private channels)
-       - users:read
-       - team.info
+   2. If you want to use the RTM API, ensure that you have enabled RTM support in the
+      config file. And then put your feet up, you are done.
 
-5. Skip this step if you do not want to bridge files.
-   Click on `OAuth & Permissions` and add the following scopes:
+   3. If you want to use the Events API, follow these steps:
 
-   - files:write:user
+      The bridge needs to be started as Slack will do some verification of the request url. The request url should be `https://$HOST:$SLACK_PORT"`. Then add the following events to "Subscribe to Bot Events" and save:
+
+         - team_domain_change
+         - message.channels
+         - reaction_added
+         - reaction_removed
+
+5. Click on `OAuth & Permissions` and add the following scopes:
+
+   - files:read (So the bot may upload files to Matrix)
+   - files:write:user (Upload files from Matrix)
+   - users:read (Profile information on users)
+   - team:read (Get basic information about the workspace)
+   - chat:write:bot (Write messages as the bridge bot)
+   - reactions:write (Add/remove reactions on Slack)
+
+   The following are needed if you plan to integrate the bridge with an Integration Manager:
+
+   - channels:read (Used to fetch information about public channels on the workspace)
 
    Note: any media uploaded to matrix is currently accessible by anyone who knows the url.
    In order to make Slack files visible to matrix users, this bridge will make Slack files
@@ -126,9 +143,8 @@ and bot users. This allows you to link as many channels as you would like with o
    posted in private channels. See [MSC701](https://github.com/matrix-org/matrix-doc/issues/701)
    for details.
 
-6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
-   You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
-   `OAuth Access Token` whenever you link a room.
+6. Click on `Install App` and `Install App to Workspace`. Note the access token shown.
+   You will need the `OAuth Access Token` whenever you link a room.
 
 7. For each channel you would like to bridge, perform the following steps:
 
@@ -147,15 +163,8 @@ and bot users. This allows you to link as many channels as you would like with o
    3. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
 
-      with file bridging:
-
          ```
          link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx --slack_user_token xoxp-xxxxxxxx-xxxxxxxxx-xxxxxxxx-xxxxxxxx
-         ```
-      without file bridging:
-
-         ```
-         link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
          ```
 
       These arguments can be shortened to single-letter forms:
