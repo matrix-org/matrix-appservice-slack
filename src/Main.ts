@@ -121,12 +121,10 @@ export class Main {
             });
         }
 
-        if (!config.caching) {
-            config.caching = CACHING_DEFAULTS;
-        }
+        config.caching = { ...CACHING_DEFAULTS, ...config.caching };
 
-        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching!.ghostUserCache || CACHING_DEFAULTS.ghostUserCache });
-        this.matrixUsersById = new QuickLRU({ maxSize: config.caching!.matrixUserCache || CACHING_DEFAULTS.matrixUserCache });
+        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching!.ghostUserCache });
+        this.matrixUsersById = new QuickLRU({ maxSize: config.caching!.matrixUserCache });
 
         if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
             throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
@@ -339,10 +337,10 @@ export class Main {
             slackUserId.toUpperCase(),
             teamDomain,
         );
-
-        if (this.ghostsByUserId[userId]) {
+        const existing = this.ghostsByUserId.get(userId);
+        if (existing) {
             log.debug("Getting existing ghost from cache for", userId);
-            return this.ghostsByUserId[userId];
+            return existing;
         }
 
         const intent = this.bridge.getIntent(userId);
@@ -364,7 +362,7 @@ export class Main {
             await this.datastore.upsertUser(ghost);
         }
 
-        this.ghostsByUserId[userId] = ghost;
+        this.ghostsByUserId.set(userId, ghost);
         return ghost;
     }
 
@@ -379,11 +377,12 @@ export class Main {
     }
 
     public getOrCreateMatrixUser(id: string) {
-        let u = this.matrixUsersById[id];
+        let u = this.matrixUsersById.get(id);
         if (u) {
             return u;
         }
-        u = this.matrixUsersById[id] = new MatrixUser(this, {user_id: id});
+        u = new MatrixUser(this, {user_id: id});
+        this.matrixUsersById.set(id, u);
         return u;
     }
 
