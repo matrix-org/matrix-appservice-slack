@@ -145,8 +145,8 @@ export class SlackEventHandler extends BaseSlackHandler {
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
         const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
-        if (!room) { throw new Error("unknown_channel"); }
-        if (!team) { throw new Error("unknown_team"); }
+        if (!room) { throw Error("unknown_channel"); }
+        if (!team) { throw Error("unknown_team"); }
 
         if (event.bot_id && (event.bot_id === team.user_id)) {
             return;
@@ -256,7 +256,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         const channel = event.item.channel;
         const room = this.main.getRoomBySlackChannelId(channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
-        if (!room) { throw new Error("unknown_channel"); }
+        if (!room) { throw Error("unknown_channel"); }
 
         const msg = Object.assign({}, event, {
             channel_id: channel,
@@ -286,7 +286,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
         // TODO test me. and do we even need this? doesn't appear to be used anymore
         const room = this.main.getRoomBySlackChannelId(event.id);
-        if (!room) { throw new Error("unknown_channel"); }
+        if (!room) { throw Error("unknown_channel"); }
 
         const channelName = `#${event.name}`;
         room.SlackChannelName = channelName;
@@ -298,7 +298,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleTyping(event: ISlackEvent, teamId: string) {
         const room = this.main.getRoomBySlackChannelId(event.channel);
         const team = await this.main.datastore.getTeam(teamId);
-        if (!room) { throw new Error("unknown_channel"); }
+        if (!room) { throw Error("unknown_channel"); }
         const typingEvent = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: team!.domain || room.SlackTeamId,

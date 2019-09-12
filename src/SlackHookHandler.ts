@@ -209,7 +209,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         if (method === "POST" && path === "post") {
             try {
                 if (!room) {
-                    throw new Error("No room found for inboundId");
+                    throw Error("No room found for inboundId");
                 }
                 await this.handlePost(room, params);
                 endTimer({outcome: "success"});

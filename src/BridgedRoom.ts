@@ -149,10 +149,10 @@ export class BridgedRoom {
     constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
 
         if (!opts.inbound_id) {
-            throw new Error("BridgedRoom requires an inbound ID");
+            throw Error("BridgedRoom requires an inbound ID");
         }
         if (!opts.matrix_room_id) {
-            throw new Error("BridgedRoom requires an Matrix Room ID");
+            throw Error("BridgedRoom requires an Matrix Room ID");
         }
 
         this.matrixRoomId = opts.matrix_room_id;

@@ -249,7 +249,7 @@ export abstract class BaseSlackHandler {
             url_private: file.url_private!,
         }) || file.permalink_public;
         if (!url) {
-            throw new Error("File doesn't have any URLs we can use.");
+            throw Error("File doesn't have any URLs we can use.");
         }
 
         const response = await rp({

@@ -8,31 +8,31 @@ export class FakeDatastore implements Datastore {
     }
 
     public async upsertUser(user: SlackGhost): Promise<void> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getUser(id: string): Promise<UserEntry | null> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getMatrixUser(userId: string): Promise<any> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async storeMatrixUser(user: MatrixUser): Promise<void> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async upsertRoom(room: import("../../BridgedRoom").BridgedRoom): Promise<void> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async deleteRoom(id: string): Promise<void> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getAllRooms(): Promise<RoomEntry[]> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra | undefined): Promise<void>;
@@ -40,15 +40,15 @@ export class FakeDatastore implements Datastore {
     public async upsertEvent(roomIdOrEntry: EventEntry): Promise<void>;
 
     public async upsertEvent(roomId: any, eventId?: any, channelId?: any, ts?: any, extras?: any) {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry | null> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry | null> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async upsertTeam(entry: TeamEntry) {
@@ -69,7 +69,7 @@ export class FakeDatastore implements Datastore {
     }
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string | null> {
@@ -81,7 +81,7 @@ export class FakeDatastore implements Datastore {
     }
 
     public async removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<void> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
     public async getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]> {
@@ -89,7 +89,7 @@ export class FakeDatastore implements Datastore {
     }
 
     public async getPuppetedUsers(): Promise<PuppetEntry[]> {
-        throw new Error("Method not implemented.");
+        throw Error("Method not implemented.");
     }
 
 }

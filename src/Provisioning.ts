@@ -146,7 +146,7 @@ commands.channels = new Command({
         }
         const team = await main.datastore.getTeam(teamId);
         if (team === null) {
-            throw new Error("No team token for this team_id");
+            throw Error("No team token for this team_id");
         }
         const cli = await main.clientFactory.getTeamClient(teamId);
         const response = (await cli.conversations.list({

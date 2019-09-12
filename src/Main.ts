@@ -283,7 +283,7 @@ export class Main {
             if (message.team_id) {
                 teamId = message.team_id;
             } else {
-                throw new Error("Cannot determine team, no id given.");
+                throw Error("Cannot determine team, no id given.");
             }
         }
 
@@ -987,7 +987,7 @@ export class Main {
     }) {
         const room = this.getRoomByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
-            throw new Error("Cannot unlink - unknown channel");
+            throw Error("Cannot unlink - unknown channel");
         }
 
         this.removeBridgedRoom(room);
