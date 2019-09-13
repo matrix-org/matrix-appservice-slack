@@ -374,6 +374,7 @@ export class Main {
     }
 
     public async addBridgedRoom(room: BridgedRoom) {
+        this.rooms.upsertRoom(room);
         if (room.SlackTeamId) {
             if (this.slackRtm) {
                 // This will start a new RTM client for the team, if the team
