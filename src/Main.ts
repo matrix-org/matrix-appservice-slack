@@ -39,7 +39,6 @@ import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
-import e = require("express");
 
 const log = Logging.get("Main");
 
