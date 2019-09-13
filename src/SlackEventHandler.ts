@@ -18,10 +18,6 @@ import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
-import { ConversationsInfoResponse } from "./SlackResponses";
-import { WebClient } from "@slack/web-api";
-import { PuppetEntry } from "./datastore/Models";
-
 const log = Logging.get("SlackEventHandler");
 
 interface ISlackEventChannelRenamed extends ISlackEvent {
@@ -143,7 +139,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
-        const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
+        const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
@@ -254,9 +250,10 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleReaction(event: ISlackEventReaction, teamId: string) {
         // Reactions store the channel in the item
         const channel = event.item.channel;
-        const room = this.main.getRoomBySlackChannelId(channel) as BridgedRoom;
+        const room = this.main.rooms.getBySlackChannelId(channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
+        if (!team) { throw Error("unknown_team"); }
 
         const msg = Object.assign({}, event, {
             channel_id: channel,
@@ -285,8 +282,8 @@ export class SlackEventHandler extends BaseSlackHandler {
 
     private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
         // TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.getRoomBySlackChannelId(event.id);
-        if (!room) { throw Error("unknown_channel"); }
+        const room = this.main.rooms.getBySlackChannelId(event.id);
+        if (!room) { throw new Error("unknown_channel"); }
 
         const channelName = `#${event.name}`;
         room.SlackChannelName = channelName;
@@ -296,9 +293,10 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleTyping(event: ISlackEvent, teamId: string) {
-        const room = this.main.getRoomBySlackChannelId(event.channel);
+        const room = this.main.rooms.getBySlackChannelId(event.channel);
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
+        if (!team) { throw Error("unknown_team"); }
         const typingEvent = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: team!.domain || room.SlackTeamId,

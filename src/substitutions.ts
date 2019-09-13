@@ -128,7 +128,7 @@ class Substitutions {
                 const alias = match[2];
                 const client = main.botIntent.getClient();
                 const roomIdResponse = await client.getRoomIdForAlias(alias);
-                const room = main.getRoomByMatrixRoomId(roomIdResponse.room_id);
+                const room = main.rooms.getByMatrixRoomId(roomIdResponse.room_id);
                 if (room && room.SlackTeamId === teamId) {
                     body = body.replace(alias, `<#${room.SlackChannelId!}>`);
                 }
