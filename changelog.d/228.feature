@@ -1,0 +1,1 @@
+Add caching option to config to limit the number of stored users in memory
