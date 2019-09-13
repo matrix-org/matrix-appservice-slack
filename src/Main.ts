@@ -690,7 +690,6 @@ export class Main {
 
     public async run(port: number) {
         log.info("Loading databases");
-        const roomListPromise = this.bridge.getBot().getJoinedRooms() as Promise<string[]>;
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
             const postgresDb = new PgDatastore(this.config.db!.connectionString);
@@ -742,6 +741,7 @@ export class Main {
         }
 
         this.bridge.run(port, this.config);
+        const roomListPromise = this.bridge.getBot().getJoinedRooms() as Promise<string[]>;
 
         this.bridge.addAppServicePath({
             handler: this.onHealth.bind(this.bridge),
@@ -783,6 +783,9 @@ export class Main {
         await Promise.all(entries.map(async (entry) => {
             // If we aren't in the room, mark as inactive until we get re-invited.
             const activeRoom = joinedRooms.includes(entry.matrix_id);
+            if (!activeRoom) {
+                log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
+            }
 
             const teamId = entry.remote.slack_team_id;
             const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
