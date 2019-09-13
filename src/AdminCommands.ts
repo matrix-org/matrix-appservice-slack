@@ -70,7 +70,7 @@ export class AdminCommands {
                 }
 
                 let found = 0;
-                this.main.allRooms.forEach((r) => {
+                this.main.rooms.all.forEach((r) => {
                     const channelName = r.SlackChannelName || "UNKNOWN";
 
                     if (nameFilter && !nameFilter.exec(channelName)) {
@@ -115,16 +115,14 @@ export class AdminCommands {
         return new AdminCommand(
             "show",
             "show a single connected room",
-            ({respond, channel, channel_id, room}) => {
+            ({respond, channel_id, room}) => {
                 let bridgedRoom: BridgedRoom|undefined;
                 if (typeof(room) === "string") {
-                    bridgedRoom = this.main.getRoomByMatrixRoomId(room);
-                } else if (typeof(channel) === "string") {
-                    bridgedRoom = this.main.getRoomBySlackChannelName(channel) || undefined;
+                    bridgedRoom = this.main.rooms.getByMatrixRoomId(room);
                 } else if (typeof(channel_id) === "string") {
-                    bridgedRoom = this.main.getRoomBySlackChannelId(channel_id);
+                    bridgedRoom = this.main.rooms.getBySlackChannelId(channel_id);
                 } else {
-                    respond("Require exactly one of room, channel or channel_id");
+                    respond("Require exactly one of room or channel_id");
                     return;
                 }
 
@@ -154,10 +152,6 @@ export class AdminCommands {
                 }
             },
             {
-                channel: {
-                    alias: "C",
-                    description: "Slack channel name",
-                },
                 channel_id: {
                     alias: "I",
                     description: "Slack channel ID",
@@ -279,7 +273,7 @@ export class AdminCommands {
                 const roomIds = await this.main.listRoomsFor();
                 roomIds.forEach((id) => {
                     if (id === this.main.config.matrix_admin_room ||
-                        this.main.getRoomByMatrixRoomId(id)) {
+                        this.main.rooms.getByMatrixRoomId(id)) {
                         return;
                     }
                     respond(id);

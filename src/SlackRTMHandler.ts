@@ -158,7 +158,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             (id) => this.main.getGhostForSlack(id, (event as any).team_domain, puppet.teamId)),
         );
         const ghost = await this.main.getGhostForSlackMessage(event, puppet.teamId);
-        let room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
+        let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         if (!room && chanInfo.channel.is_im) {
             log.info(`Creating new DM room for ${event.channel}`);
             // Create a new DM room.

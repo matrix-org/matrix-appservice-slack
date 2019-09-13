@@ -181,7 +181,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             params = qs.parse(result![2]);
         }
 
-        const room = this.main.getRoomByInboundId(inboundId);
+        const room = this.main.rooms.getByInboundId(inboundId);
 
         if (method === "GET" && path === "authorize") {
             // We may or may not have a room bound to the inboundId.
