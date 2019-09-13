@@ -27,6 +27,7 @@ import { Main } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
+import { TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("SlackHookHandler");
 
@@ -208,7 +209,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         if (method === "POST" && path === "post") {
             try {
                 if (!room) {
-                    throw new Error("No room found for inboundId");
+                    throw Error("No room found for inboundId");
                 }
                 await this.handlePost(room, params);
                 endTimer({outcome: "success"});
@@ -322,8 +323,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             );
             log.debug("Got a full OAuth2 token");
             if (room) { // Legacy webhook
-                room.updateAccessToken(response.access_token, new Set(access_scopes));
-                await this.main.datastore.upsertRoom(room);
+                // XXX: We no longer support setting tokens for webhooks
             } else if (user) { // New event api
                 // We always get a user access token, but if we set certain
                 // fancy scopes we might not get a bot one.
@@ -335,12 +335,17 @@ export class SlackHookHandler extends BaseSlackHandler {
                     response.bot === undefined,
                 );
                 if (response.bot) {
-                    this.main.datastore.upsertTeam(
-                        response.team_id,
-                        response.team_name,
-                        response.bot!.bot_user_id,
-                        response.bot!.bot_access_token,
-                    );
+                    const team: TeamEntry = {
+                        bot_token: response.bot!.bot_access_token,
+                        bot_id: response.bot!.bot_user_id,
+                        user_id: "unknown",
+                        id: response.team_id,
+                        name: response.team_name,
+                        scopes: access_scopes.join(","),
+                        status: "ok",
+                        domain: "not-set",
+                    };
+                    await this.main.datastore.upsertTeam(team);
                 }
             }
         } catch (err) {

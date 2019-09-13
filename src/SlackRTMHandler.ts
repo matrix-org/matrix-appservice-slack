@@ -81,7 +81,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         return this.rtmTeamClients.has(teamId.toUpperCase());
     }
 
-    public async startTeamClientIfNotStarted(expectedTeam: string, botToken: string) {
+    public async startTeamClientIfNotStarted(expectedTeam: string) {
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
             try {
@@ -91,7 +91,8 @@ export class SlackRTMHandler extends SlackEventHandler {
                 log.warn("Failed to create RTM client");
             }
         }
-        const promise = this.startTeamClient(expectedTeam, botToken);
+        const team = (await this.main.datastore.getTeam(expectedTeam))!;
+        const promise = this.startTeamClient(expectedTeam, team.bot_token);
         this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
         await promise;
     }
@@ -169,19 +170,16 @@ export class SlackRTMHandler extends SlackEventHandler {
                     is_direct: true,
                 },
             });
+            const team = (await this.main.datastore.getTeam(puppet.teamId))!;
             room = new BridgedRoom(this.main, {
                 inbound_id: chanInfo.channel.id,
                 matrix_room_id: room_id,
-                slack_user_id: puppet.slackId,
                 slack_team_id: puppet.teamId,
-                // We hacked this in above.
-                // tslint:disable-next-line: no-any
-                slack_team_domain: (event as any).team_domain,
                 slack_channel_id: chanInfo.channel.id,
                 slack_channel_name: chanInfo.channel.name,
                 puppet_owner: puppet.matrixId,
                 is_private: chanInfo.channel.is_private,
-            }, slackClient);
+            }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);

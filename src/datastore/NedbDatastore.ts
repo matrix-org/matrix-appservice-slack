@@ -147,23 +147,17 @@ export class NedbDatastore implements Datastore {
         });
     }
 
-    public async upsertTeam(teamId: string, botToken: string, teamName: string, userId: string) {
-        return this.teamStore.update({team_id: teamId}, {
-            bot_token: botToken,
-            team_id: teamId,
-            team_name: teamName,
-            user_id: userId,
-        } as TeamEntry, {upsert: true});
+    public async upsertTeam(entry: TeamEntry) {
+        return this.teamStore.update({id: entry.id}, entry, {upsert: true});
     }
 
-    public async getTeam(teamId: string): Promise<TeamEntry> {
+    public async getTeam(teamId: string): Promise<TeamEntry|null> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless
             // tslint:disable-next-line: no-any
-            this.teamStore.findOne({team_id: teamId}, (err: Error|null, doc: any) => {
-                if (err) {
-                    reject(err);
-                    return;
+            this.teamStore.findOne({id: teamId}, (err: Error|null, doc: any) => {
+                if (err || !doc) {
+                    resolve(null);
                 }
                 // We don't use this.
                 delete doc._id;

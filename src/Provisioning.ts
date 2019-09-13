@@ -134,7 +134,7 @@ commands.logout = new Command({
 commands.channels = new Command({
     params: ["user_id", "team_id"],
     async func(main, req, res, userId, teamId) {
-        log.debug(`${userId} requested their teams`);
+        log.debug(`${userId} for ${teamId} requested their channels`);
         const matrixUser = await main.datastore.getMatrixUser(userId);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
@@ -146,9 +146,9 @@ commands.channels = new Command({
         }
         const team = await main.datastore.getTeam(teamId);
         if (team === null) {
-            throw new Error("No team token for this team_id");
+            throw Error("No team token for this team_id");
         }
-        const cli = await main.clientFactory.createOrGetTeamClient(teamId, team.bot_token);
+        const cli = await main.clientFactory.getTeamClient(teamId);
         const response = (await cli.conversations.list({
             exclude_archived: true,
             limit: 100, // TODO: Pagination
@@ -188,8 +188,8 @@ commands.teams = new Command({
             );
         }));
         const teams = results.map((account) => ({
-            id: account.team.team_id,
-            name: account.team.team_name,
+            id: account.team!.id,
+            name: account.team!.name,
             slack_id: account.slack_id,
         }));
         res.json({ teams });
@@ -271,7 +271,13 @@ commands.getlink = new Command({
         }
 
         let authUri;
-        if (main.oauth2 && !room.AccessToken) {
+        let stordTeamExists = room.SlackTeamId !== undefined;
+
+        if (room.SlackTeamId) {
+            stordTeamExists = (await main.datastore.getTeam(room.SlackTeamId)) !== null;
+        }
+
+        if (main.oauth2 && !stordTeamExists) {
             // We don't have an auth token but we do have the ability
             // to ask for one
             authUri = main.oauth2.makeAuthorizeURL(
@@ -283,8 +289,7 @@ commands.getlink = new Command({
         res.json({
             auth_uri: authUri,
             inbound_uri: main.getInboundUrlForRoom(room),
-            isWebhook: !room.SlackBotId,
-            // This is slightly a lie
+            isWebhook: room.SlackWebhookUri !== undefined,
             matrix_room_id: matrixRoomId,
             slack_channel_id: room.SlackChannelId,
             slack_channel_name: room.SlackChannelName,

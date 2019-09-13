@@ -30,9 +30,9 @@ import { AdminCommands } from "./AdminCommands";
 import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { TeamInfoResponse, ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
 
-import { Datastore } from "./datastore/Models";
+import { Datastore, TeamEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -64,7 +64,7 @@ export class Main {
     }
 
     public get botUserId(): string {
-        return this.bridge.getBot().userId();
+        return this.bridge.getBot().getUserId();
     }
 
     public get clientFactory(): SlackClientFactory {
@@ -74,8 +74,6 @@ export class Main {
     public readonly oauth2: OAuth2|null = null;
 
     public datastore!: Datastore;
-
-    private teams: Map<string, ISlackTeam> = new Map();
 
     private recentMatrixEventIds: string[] = new Array(RECENT_EVENTID_SIZE);
     private mostRecentEventIdIdx = 0;
@@ -156,6 +154,7 @@ export class Main {
             homeserverUrl: config.homeserver.url,
             registration,
             ...bridgeStores,
+            disableContext: true,
         });
 
         if (!usingNeDB) {
@@ -281,32 +280,14 @@ export class Main {
             if (message.team_id) {
                 teamId = message.team_id;
             } else {
-                throw new Error("Cannot determine team, no id given.");
+                throw Error("Cannot determine team, no id given.");
             }
         }
 
-        if (this.teams.has(teamId!)) {
-            return this.teams.get(teamId!)!.domain;
+        const team = await this.datastore.getTeam(teamId!);
+        if (team) {
+            return team.domain;
         }
-
-        const room = this.rooms.getBySlackChannelId(message.channel || message.channel_id);
-
-        if (room && room.SlackTeamDomain) {
-            return room.SlackTeamDomain;
-        }
-
-        const cli = this.clientFactory.getTeamClient(message.team_id);
-        if (!cli) {
-            throw Error("No client for team");
-        }
-        const response = (await cli.team.info()) as TeamInfoResponse;
-        if (!response.ok) {
-            log.error(`Trying to fetch the ${teamId} team.`, response);
-            return;
-        }
-        log.info("Got new team:", response);
-        this.teams.set(teamId!, response.team);
-        return response.team.domain;
     }
 
     public getUserId(id: string, teamDomain: string) {
@@ -393,20 +374,13 @@ export class Main {
     }
 
     public async addBridgedRoom(room: BridgedRoom) {
-
-        if ((!room.SlackTeamId || !room.SlackBotId) && room.SlackBotToken) {
-            await room.refreshTeamInfo();
-            await room.refreshUserInfo();
-        }
-
         if (room.SlackTeamId) {
-            if (room.SlackBotToken && this.slackRtm) {
+            if (this.slackRtm) {
                 // This will start a new RTM client for the team, if the team
                 // doesn't currently have a client running.
-                await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId, room.SlackBotToken);
+                await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
             }
         }
-
     }
 
     public getInboundUrlForRoom(room: BridgedRoom) {
@@ -643,19 +617,17 @@ export class Main {
             }
         }
         const puppetIdent = (await slackClient.auth.test()) as AuthTestResponse;
-        const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
+        const team = await this.datastore.getTeam(teamId);
         // The convo may be open, but we do not have a channel for it. Create the channel.
         const room = new BridgedRoom(this, {
             inbound_id: openResponse.channel.id,
             matrix_room_id: roomId,
-            slack_user_id: puppetIdent.user_id,
             slack_team_id: puppetIdent.team_id,
-            slack_team_domain: teamInfo.team.domain,
             slack_channel_id: openResponse.channel.id,
             slack_channel_name: undefined,
             puppet_owner: sender,
             is_private: true,
-        }, slackClient);
+        }, team! , slackClient);
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
         await this.datastore.upsertRoom(room);
@@ -773,24 +745,46 @@ export class Main {
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
 
-        const entries = await this.datastore.getAllRooms();
-
-        await Promise.all(entries.map(async (entry) => {
-            const hasToken = entry.remote.slack_team_id && entry.remote.slack_bot_token;
-            let cli: WebClient|undefined;
+        const teams = await this.datastore.getAllTeams();
+        const teamClient: { [id: string]: WebClient } = {};
+        for (const team of teams) {
+            // This will create team clients before we use them for any rooms,
+            // as a pre-optimisation.
             try {
-                if (hasToken) {
-                    cli = await this.clientFactory.createOrGetTeamClient(entry.remote.slack_team_id!, entry.remote.slack_bot_token!);
-                } else if (entry.remote.puppet_owner) {
-                    cli = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
+                teamClient[team.id] = await this.clientFactory.getTeamClient(team.id);
+            } catch (ex) {
+                log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
+                log.error(ex);
+            }
+            // Also start RTM clients for teams.
+            if (this.slackRtm) {
+                try {
+                    await this.slackRtm.startTeamClientIfNotStarted(team.id);
+                } catch (ex) {
+                    log.error(`Failed to start RTM for ${team.id}, rooms may be missing slack messages`);
+                }
+            }
+        }
+
+        const entries = await this.datastore.getAllRooms();
+        await Promise.all(entries.map(async (entry) => {
+            const teamId = entry.remote.slack_team_id;
+            const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
+            let slackClient: WebClient|null = null;
+            try {
+                if (entry.remote.puppet_owner) {
+                    // Puppeted room (like a DM)
+                    slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
+                } else if (teamId && teamClient[teamId]) {
+                    slackClient = teamClient[teamId];
                 }
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
             }
-            if (!cli && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
+            if (!slackClient && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
                 log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
             }
-            const room = BridgedRoom.fromEntry(this, entry, cli);
+            const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
             await this.addBridgedRoom(room);
             if (!room.IsPrivate) {
                 // Only public rooms can be tracked.
@@ -808,7 +802,7 @@ export class Main {
         log.info("Bridge initialised.");
     }
 
-        // This so-called "link" action is really a multi-function generic provisioning
+    // This so-called "link" action is really a multi-function generic provisioning
     // interface. It will
     //  * Create a BridgedRoom instance, linked to the given Matrix room ID
     //  * Associate a webhook_uri to an existing instance
@@ -816,14 +810,49 @@ export class Main {
         matrix_room_id: string,
         slack_webhook_uri?: string,
         slack_channel_id?: string,
-        slack_user_token?: string,
         slack_bot_token?: string,
         team_id?: string,
     }) {
-        const matrixRoomId = opts.matrix_room_id;
-
-        const existingRoom = this.rooms.getByMatrixRoomId(matrixRoomId);
+        let slackClient: WebClient|undefined;
         let room: BridgedRoom;
+        let teamEntry: TeamEntry|null = null;
+        let teamId: string = opts.team_id!;
+
+        const matrixRoomId = opts.matrix_room_id;
+        const existingRoom = this.rooms.getByMatrixRoomId(matrixRoomId);
+
+        if (!opts.team_id && !opts.slack_bot_token) {
+            if (!opts.slack_webhook_uri) {
+                throw Error("Neither a team_id nor a bot_token were provided");
+            }
+        }
+
+        if (opts.slack_bot_token) {
+            // We may have this team already and want to update the token, or this might be new.
+            // But first check that the token works.
+            try {
+                teamId = await this.clientFactory.upsertTeamByToken(opts.slack_bot_token);
+                log.info(`Found ${teamId} for token`);
+            } catch (ex) {
+                log.error("Failed to action link because the token couldn't used:", ex);
+                throw Error("Token did not work, unable to get team");
+            }
+        }
+
+        // else, assume we have a teamId
+        if (teamId) {
+            try {
+                slackClient = await this.clientFactory.getTeamClient(teamId);
+            } catch (ex) {
+                log.error("Failed to action link because the team client couldn't be fetched:", ex);
+                throw Error("Team is known, but unable to get team client");
+            }
+
+            teamEntry = await this.datastore.getTeam(teamId);
+            if (!teamEntry) {
+                throw Error("Team ID provided, but no team found in database");
+            }
+        }
 
         let isNew = false;
         if (!existingRoom) {
@@ -838,8 +867,9 @@ export class Main {
             room = new BridgedRoom(this, {
                 inbound_id: inboundId,
                 matrix_room_id: matrixRoomId,
+                slack_team_id: teamId,
                 is_private: false,
-            });
+            }, teamEntry || undefined, slackClient);
             isNew = true;
             this.stateStorage.trackRoom(matrixRoomId);
         } else {
@@ -854,44 +884,20 @@ export class Main {
             room.SlackChannelId = opts.slack_channel_id;
         }
 
-        if (opts.slack_user_token) {
-            room.SlackUserToken = opts.slack_user_token;
-        }
-
         if (!room.SlackChannelId && !room.SlackWebhookUri) {
             throw Error("Missing webhook_id OR channel_id");
         }
 
-        let teamToken = opts.slack_bot_token;
-
-        if (opts.team_id) {
-            teamToken = (await this.datastore.getTeam(opts.team_id)).bot_token;
-        }
-
-        let cli: WebClient|undefined;
-
-        if (opts.team_id || teamToken) {
-            cli = await this.clientFactory.createOrGetTeamClient(opts.team_id!, teamToken!);
-        }
-
-        if (cli && opts.slack_channel_id) {
+        if (slackClient && opts.slack_channel_id) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
-            const infoRes = (await cli.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
+            const infoRes = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
             if (!infoRes.ok) {
                 log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes);
                 throw Error("Failed to get channel info");
             }
-            room.setBotClient(cli);
-            room.SlackBotToken = teamToken;
+            room.setBotClient(slackClient);
             room.SlackChannelName = infoRes.channel.name;
-            await Promise.all([
-                room.refreshTeamInfo(),
-                room.refreshUserInfo(),
-            ]);
-        } else if (teamToken) {
-            // No channel id given, but we have a token so store it.
-            room.SlackBotToken = teamToken;
         }
 
         if (isNew) {
@@ -899,6 +905,10 @@ export class Main {
         }
         if (room.isDirty) {
             await this.datastore.upsertRoom(room);
+        }
+
+        if (this.slackRtm && !room.SlackWebhookUri) {
+            await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId!);
         }
 
         return room;
@@ -909,7 +919,7 @@ export class Main {
     }) {
         const room = this.rooms.getByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
-            throw new Error("Cannot unlink - unknown channel");
+            throw Error("Cannot unlink - unknown channel");
         }
 
         this.rooms.removeRoom(room);

@@ -89,7 +89,7 @@ export class OAuth2 {
             };
         }
         log.error("oauth.access failed: ", response);
-        throw new Error(`OAuth2 process failed: '${response.error}'`);
+        throw Error(`OAuth2 process failed: '${response.error}'`);
     }
 
     // Authenticating users is a bit tricky:

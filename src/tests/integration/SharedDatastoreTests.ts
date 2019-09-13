@@ -170,18 +170,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
 
         it("should insert and retrieve a room", async () => {
             const room = new BridgedRoom({} as any, {
-                access_scopes: new Set(["fooo", "bar"]),
-                access_token: "access_token_foo",
                 inbound_id: "a_remote_id",
                 matrix_room_id: "a_matrix_id",
-                slack_bot_id: "a_bot_id",
-                slack_bot_token: "a_bot_token",
                 slack_channel_id: "a_channel_id",
                 slack_channel_name: "a_channel_name",
-                slack_team_domain: "a_team_domain",
                 slack_team_id: "a_team_id",
-                slack_user_id: "a_user_id",
-                slack_user_token: "a_user_token",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: "foobar",
             }, {} as any);
@@ -192,23 +185,16 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
 
         it("should insert, upsert and retrieve a room", async () => {
             const room = new BridgedRoom({} as any, {
-                access_scopes: new Set(["fooo", "bar"]),
-                access_token: "access_token_foo",
                 inbound_id: "a_remote_id_upserted",
                 matrix_room_id: "a_matrix_id",
-                slack_bot_id: "a_bot_id",
-                slack_bot_token: "a_bot_token",
                 slack_channel_id: "a_channel_id",
                 slack_channel_name: "a_channel_name",
-                slack_team_domain: "a_team_domain",
                 slack_team_id: "a_team_id",
-                slack_user_id: "a_user_id",
-                slack_user_token: "a_user_token",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: "foobar",
             }, {} as any);
             await ds().upsertRoom(room);
-            room.SlackTeamDomain = "new_team_domain";
+            room.SlackChannelName = "new_channel_name";
             await ds().upsertRoom(room);
             const rooms = await ds().getAllRooms();
             expect(rooms[0]).to.deep.equal(room.toEntry());
@@ -217,18 +203,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
         it("should be able to find many rooms", async () => {
             for (let i = 0; i < 20; i++) {
                 const room = new BridgedRoom({} as any, {
-                    access_scopes: new Set(["fooo", "bar"]),
-                    access_token: "access_token_foo",
                     inbound_id: "a_remote_id" + i,
                     matrix_room_id: "a_matrix_id",
-                    slack_bot_id: "a_bot_id",
-                    slack_bot_token: "a_bot_token",
                     slack_channel_id: "a_channel_id",
                     slack_channel_name: "a_channel_name",
-                    slack_team_domain: "a_team_domain",
                     slack_team_id: "a_team_id",
-                    slack_user_id: "a_user_id",
-                    slack_user_token: "a_user_token",
                     slack_webhook_uri: "a_webhook_uri",
                     puppet_owner: undefined,
                 }, {} as any);
@@ -241,25 +220,60 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
 
     describe("teams", () => {
         it("should insert and retrieve a team", async () => {
-            await ds().upsertTeam("12345team", "some_bot_token", "a_team_name", "team_user_id");
+            await ds().upsertTeam({
+                id: "12345team",
+                bot_token: "some_bot_token",
+                name: "a_team_name",
+                user_id: "team_user_id",
+                bot_id: "bot_id",
+                domain: "foo.bar",
+                scopes: "foo,bar",
+                status: "bad_auth",
+            });
             const team = await ds().getTeam("12345team");
             expect(team).to.deep.equal({
-                team_id: "12345team",
+                id: "12345team",
                 bot_token: "some_bot_token",
-                team_name: "a_team_name",
+                name: "a_team_name",
                 user_id: "team_user_id",
+                bot_id: "bot_id",
+                domain: "foo.bar",
+                scopes: "foo,bar",
+                status: "bad_auth",
             });
         });
 
         it("should insert, upsert and retrieve a team", async () => {
-            await ds().upsertTeam("54321team", "some_bot_token", "a_team_name", "team_user_id");
-            await ds().upsertTeam("54321team", "another_bot_token", "new_team_name", "foo_user_id");
-            const team = await ds().getTeam("54321team");
-            expect(team).to.deep.equal({
-                team_id: "54321team",
+            await ds().upsertTeam({
+                id: "12345team",
+                bot_token: "some_bot_token",
+                name: "a_team_name",
+                user_id: "team_user_id",
+                bot_id: "bot_id",
+                domain: "foo.bar",
+                scopes: "foo,bar",
+                status: "bad_auth",
+            });
+            await ds().upsertTeam({
+                id: "12345team",
                 bot_token: "another_bot_token",
-                team_name: "new_team_name",
-                user_id: "foo_user_id",
+                name: "another_team_name",
+                user_id: "another_user_id",
+                bot_id: "bot_id",
+                domain: "another:foo.bar",
+                scopes: "another:foo,bar",
+                status: "ok",
+            });
+            const team = await ds().getTeam("12345team");
+            expect(team).to.deep.equal({
+                id: "12345team",
+                bot_token: "another_bot_token",
+                name: "another_team_name",
+                user_id: "another_user_id",
+                bot_id: "bot_id",
+                domain: "another:foo.bar",
+                scopes: "another:foo,bar",
+                status: "ok",
             });
         });
     });

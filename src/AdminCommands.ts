@@ -165,13 +165,12 @@ export class AdminCommands {
         return new AdminCommand(
             "link",
             "connect a Matrix and a Slack room together",
-            async ({respond, room, channel_id, webhook_url, slack_bot_token, slack_user_token}) => {
+            async ({respond, room, channel_id, webhook_url, slack_bot_token}) => {
                 try {
                     const r = await this.main.actionLink({
                         matrix_room_id: room as string,
                         slack_bot_token: slack_bot_token as string,
                         slack_channel_id: channel_id as string,
-                        slack_user_token: slack_user_token as string,
                         slack_webhook_uri: webhook_url as string,
                     });
                     respond("Room is now " + r.getStatus());

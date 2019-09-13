@@ -9,5 +9,4 @@ export async function runSchema(db: IDatabase<any>) {
         token TEXT,
         CONSTRAINT cons_puppets_uniq UNIQUE(slackuser, slackteam, matrixuser)
     );`);
-
 }
