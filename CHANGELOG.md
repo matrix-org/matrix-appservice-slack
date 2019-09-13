@@ -1,3 +1,36 @@
+1.0.0-rc1 (2019-09-13)
+=======================
+
+**This is the first RC of a major restructure of the bridge's architecture. Please do NOT upgrade production bridges onto this release**
+
+Features
+--------
+
+- Add caching option to config to limit the number of stored users in memory ([\#228](https://github.com/matrix-org/matrix-appservice-slack-issues/228))
+- The bridge now has support for the RTM API. See the README for more information. ([\#164](https://github.com/matrix-org/matrix-appservice-slack-issues/164))
+- Support Postgresql and implement generic Datastores. ([\#186](https://github.com/matrix-org/matrix-appservice-slack-issues/186))
+- A datastore migration script is included. ([\#190](https://github.com/matrix-org/matrix-appservice-slack-issues/190))
+- Add a /health endpoint. ([\#199](https://github.com/matrix-org/matrix-appservice-slack-issues/199))
+- Add support for puppeting Slack accounts. ([\#200](https://github.com/matrix-org/matrix-appservice-slack-issues/200))
+
+Bugfixes
+--------
+
+- Fix issue where DMs can race while the DM room is being created. ([\#219](https://github.com/matrix-org/matrix-appservice-slack-issues/219))
+- Logging out your personal puppeting token no longer logs out the whole workspace. ([\#220](https://github.com/matrix-org/matrix-appservice-slack-issues/220))
+- Correctly add reply fallbacks on messages in threads, and edits in threads. Thanks @Cadair. ([\#169](https://github.com/matrix-org/matrix-appservice-slack/pull/169)
+- Correctly bookeep threads when we reply on matrix. Thanks @Cadair. ([\#194](https://github.com/matrix-org/matrix-appservice-slack/pull/194)
+
+Internal Changes
+----------------
+
+- The project now uses TypeScript for source code ([\#152](https://github.com/matrix-org/matrix-appservice-slack-issues/152))
+- The project now has integration testing! ([\#181](https://github.com/matrix-org/matrix-appservice-slack/pull/181))
+- The project now uses towncrier for changelog management. ([\#216](https://github.com/matrix-org/matrix-appservice-slack-issues/216))
+- Room storage is now handled in a dedicated class ([\#225](https://github.com/matrix-org/matrix-appservice-slack-issues/225))
+- We now use the Slack Node library for calls ([\#185](https://github.com/matrix-org/matrix-appservice-slack-issues/185))
+- Add CONTRIBUTING.md ([\#207](https://github.com/matrix-org/matrix-appservice-slack-issues/207))
+
 Changes in 0.3.2 (2019-07-22)
 =============================
 
