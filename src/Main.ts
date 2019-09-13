@@ -39,6 +39,7 @@ import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
+import e = require("express");
 
 const log = Logging.get("Main");
 
@@ -464,13 +465,24 @@ export class Main {
         if (ev.type === "m.room.member" && ev.state_key === myUserId) {
             // A membership event about myself
             const membership = ev.content.membership;
+            const forRoom = this.rooms.getByMatrixRoomId(ev.room_id);
             if (membership === "invite") {
                 // Automatically accept all invitations
                 // NOTE: This can race and fail if the invite goes down the AS stream
                 // before the homeserver believes we can actually join the room.
                 await this.botIntent.join(ev.room_id);
+                // Mark the room as active if we managed to join.
+                if (forRoom) {
+                    forRoom.MatrixRoomActive = true;
+                    this.stateStorage.trackRoom(ev.room_id);
+                }
+            } else if (membership === "leave" || membership === "ban") {
+                // We've been kicked out :(
+                if (forRoom) {
+                    forRoom.MatrixRoomActive = false;
+                    this.stateStorage.untrackRoom(ev.room_id);
+                }
             }
-
             endTimer({outcome: "success"});
             return;
         }
@@ -480,7 +492,6 @@ export class Main {
             && ev.sender !== myUserId
             && ev.content.is_direct) {
 
-            log.info(`${ev.state_key} got invite for ${ev.room_id} but we can't do DMs, warning room.`);
             try {
                 await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
                 endTimer({outcome: "success"});
@@ -680,6 +691,7 @@ export class Main {
 
     public async run(port: number) {
         log.info("Loading databases");
+        const roomListPromise = this.bridge.getBot().getJoinedRooms() as Promise<string[]>;
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
             const postgresDb = new PgDatastore(this.config.db!.connectionString);
@@ -768,7 +780,11 @@ export class Main {
         }
 
         const entries = await this.datastore.getAllRooms();
+        const joinedRooms = await roomListPromise;
         await Promise.all(entries.map(async (entry) => {
+            // If we aren't in the room, mark as inactive until we get re-invited.
+            const activeRoom = joinedRooms.includes(entry.matrix_id);
+
             const teamId = entry.remote.slack_team_id;
             const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
             let slackClient: WebClient|null = null;
@@ -787,7 +803,8 @@ export class Main {
             }
             const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
             await this.addBridgedRoom(room);
-            if (!room.IsPrivate) {
+            room.MatrixRoomActive = activeRoom;
+            if (!room.IsPrivate && activeRoom) {
                 // Only public rooms can be tracked.
                 this.stateStorage.trackRoom(entry.matrix_id);
             }
