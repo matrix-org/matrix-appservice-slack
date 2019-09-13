@@ -161,7 +161,7 @@ export abstract class BaseSlackHandler {
             const id = testForName![iteration].match(CHANNEL_ID_REGEX_FIRST)![1];
 
             // Lookup the room in the store.
-            let room = this.main.getRoomBySlackChannelId(id);
+            let room = this.main.rooms.getBySlackChannelId(id);
 
             // If we bridge the room, attempt to look up its canonical alias.
             if (room !== undefined) {

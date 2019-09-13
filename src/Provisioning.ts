@@ -243,7 +243,7 @@ commands.removeaccount = new Command({
 commands.getlink = new Command({
     params: ["matrix_room_id", "user_id"],
     async func(main, req, res, matrixRoomId, userId) {
-        const room = main.getRoomByMatrixRoomId(matrixRoomId);
+        const room = main.rooms.getByMatrixRoomId(matrixRoomId);
         if (!room) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "Link not found"});
             return;
