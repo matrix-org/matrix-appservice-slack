@@ -200,7 +200,8 @@ commands.accounts = new Command({
     params: ["user_id"],
     async func(main, _, res, userId) {
         log.debug(`${userId} requested their puppeted accounts`);
-        const accts = await main.datastore.getPuppetsByMatrixId(userId);
+        const allPuppets = await main.datastore.getPuppetedUsers();
+        const accts = allPuppets.filter((p) => p.matrixId === userId);
         // tslint:disable-next-line: no-any
         const accounts = await Promise.all(accts.map(async (acct: any) => {
             delete acct.token;
@@ -212,6 +213,7 @@ commands.accounts = new Command({
                         team: identity.team,
                         name: identity.user,
                     };
+                    acct.isLast = allPuppets.filter((t) => t.teamId).length < 2;
                 } catch (ex) {
                     return acct;
                 }
@@ -226,6 +228,10 @@ commands.removeaccount = new Command({
     params: ["user_id", "team_id"],
     async func(main, _, res, userId, teamId) {
         log.debug(`${userId} is removing their account on ${teamId}`);
+        const isLast = (await main.datastore.getPuppetedUsers()).filter((t) => t.teamId).length < 2;
+        if (isLast) {
+            log.warn("This is the last user on the workspace which means we will lose access to the team token!");
+        }
         const client = await main.clientFactory.getClientForUser(teamId, userId);
         if (client) {
             await client.auth.revoke();
