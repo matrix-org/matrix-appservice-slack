@@ -117,10 +117,10 @@ export class AdminCommands {
             "show a single connected room",
             ({respond, channel_id, room}) => {
                 let bridgedRoom: BridgedRoom|undefined;
-                if (typeof(room) === "string") {
-                    bridgedRoom = this.main.rooms.getByMatrixRoomId(room);
-                } else if (typeof(channel_id) === "string") {
-                    bridgedRoom = this.main.rooms.getBySlackChannelId(channel_id);
+                if (room) {
+                    bridgedRoom = this.main.rooms.getByMatrixRoomId(room as string);
+                } else if (channel_id) {
+                    bridgedRoom = this.main.rooms.getBySlackChannelId(channel_id as string);
                 } else {
                     respond("Require exactly one of room or channel_id");
                     return;
