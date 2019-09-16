@@ -117,7 +117,7 @@ docker run -d --name slackpg -p 59999:5432 -e POSTGRES_PASSWORD=pass postgres
 You should also create a new database in preparation for using the bridge
 
 ```bash
-psql -h localhost -U postgres -W postgres
+psql -h localhost -p 59999 -U postgres -W postgres
 ```
 
 And then on the postgres shell:
