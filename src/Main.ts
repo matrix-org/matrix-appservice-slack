@@ -782,11 +782,10 @@ export class Main {
         const joinedRooms = await roomListPromise;
         await Promise.all(entries.map(async (entry) => {
             // If we aren't in the room, mark as inactive until we get re-invited.
-            const activeRoom = joinedRooms.includes(entry.matrix_id);
+            const activeRoom = entry.remote.puppet_owner !== undefined || joinedRooms.includes(entry.matrix_id);
             if (!activeRoom) {
                 log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
             }
-
             const teamId = entry.remote.slack_team_id;
             const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
             let slackClient: WebClient|null = null;
