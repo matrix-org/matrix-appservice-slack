@@ -166,6 +166,21 @@ export class NedbDatastore implements Datastore {
         });
     }
 
+    public async getTeamByDomain(domain: string): Promise<TeamEntry|null> {
+        return new Promise((resolve, reject) => {
+            // These are technically schemaless
+            // tslint:disable-next-line: no-any
+            this.teamStore.findOne({domain}, (err: Error|null, doc: any) => {
+                if (err || !doc) {
+                    resolve(null);
+                }
+                // We don't use this.
+                delete doc._id;
+                resolve(doc as TeamEntry);
+            });
+        });
+    }
+
     public async getAllTeams(): Promise<TeamEntry[]> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless

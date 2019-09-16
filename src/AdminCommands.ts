@@ -165,13 +165,21 @@ export class AdminCommands {
         return new AdminCommand(
             "link",
             "connect a Matrix and a Slack room together",
-            async ({respond, room, channel_id, webhook_url, slack_bot_token}) => {
+            async ({respond, room, channel_id, webhook_url, slack_bot_token, team_id, domain}) => {
                 try {
+                    if (domain) {
+                        const team = await this.main.datastore.getTeamByDomain(domain as string);
+                        if (!team) {
+                            throw Error("Could not find team for given domain");
+                        }
+                        team_id = team.id;
+                    }
                     const r = await this.main.actionLink({
                         matrix_room_id: room as string,
                         slack_bot_token: slack_bot_token as string,
                         slack_channel_id: channel_id as string,
                         slack_webhook_uri: webhook_url as string,
+                        team_id: team_id as string,
                     });
                     respond("Room is now " + r.getStatus());
                     if (r.SlackWebhookUri) {
@@ -198,8 +206,13 @@ export class AdminCommands {
                     alias: "t",
                     description: "Slack bot user token. Used with Slack bot user & Events api",
                 },
-                slack_user_token: {
-                    description: "Slack user token. Used to bridge files",
+                team_id: {
+                    alias: "T",
+                    description: "Slack team Id",
+                },
+                domain: {
+                    alias: "D",
+                    description: "Slack team domain",
                 },
                 webhook_url: {
                     alias: "u",

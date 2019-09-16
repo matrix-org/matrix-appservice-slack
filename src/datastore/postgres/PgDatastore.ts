@@ -204,6 +204,14 @@ export class PgDatastore implements Datastore {
         return PgDatastore.teamEntryForRow(doc);
     }
 
+    public async getTeamByDomain(domain: string): Promise<TeamEntry|null> {
+        const doc = await this.postgresDb.oneOrNone("SELECT * FROM teams WHERE domain = ${domain}", { domain });
+        if (doc === null) {
+            return null;
+        }
+        return PgDatastore.teamEntryForRow(doc);
+    }
+
     public async getAllTeams(): Promise<TeamEntry[]> {
         return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map(PgDatastore.teamEntryForRow);
     }

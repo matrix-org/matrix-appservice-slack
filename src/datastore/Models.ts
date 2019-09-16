@@ -89,6 +89,7 @@ export interface Datastore {
 
     upsertTeam(entry: TeamEntry);
     getTeam(teamId: string): Promise<TeamEntry|null>;
+    getTeamByDomain(teamDomain: string): Promise<TeamEntry|null>;
     getAllTeams(): Promise<TeamEntry[]>;
 
     setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
