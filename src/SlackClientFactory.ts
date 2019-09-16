@@ -1,5 +1,5 @@
 import { Datastore, TeamEntry } from "./datastore/Models";
-import { WebClient, WebClientOptions } from "@slack/web-api";
+import { WebClient, WebClientOptions, LogLevel } from "@slack/web-api";
 import { Logging } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 
@@ -145,7 +145,7 @@ export class SlackClientFactory {
             logger: {
                 setLevel: () => {}, // We don't care about these.
                 setName: () => {},
-                debug: (msg: any[]) => {
+                debug: (msg: string) => {
                     // non-ideal way to detect calls to slack.
                     webLog.debug.bind(webLog);
                     if (!this.onRemoteCall) { return; }
@@ -153,11 +153,13 @@ export class SlackClientFactory {
                     if (match && match[1]) {
                         this.onRemoteCall(match[1]);
                     }
+                    webLog.debug(msg);
                 },
                 warn: webLog.warn.bind(webLog),
                 info: webLog.info.bind(webLog),
                 error: webLog.error.bind(webLog),
             },
+            logLevel: LogLevel.DEBUG,
             ...opts,
         });
         try {

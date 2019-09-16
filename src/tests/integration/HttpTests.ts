@@ -32,7 +32,7 @@ function constructHarness() {
         matrix_admin_room: "foobar",
         username_prefix: "test_",
         homeserver: {
-            url: "foobar",
+            url: "https://localhost",
             server_name: "foobar",
         },
         enable_metrics: false,
@@ -44,6 +44,9 @@ function constructHarness() {
             enable: true,
         },
     }, reg);
+    (main as any).bridge.getBot = () => ({
+       getJoinedRooms: () => Promise.resolve([]),
+    });
     return { main };
 }
 
