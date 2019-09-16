@@ -102,7 +102,7 @@ As an example:
 }
 ```
 
-Finally, run `docker run -v /home/will/git/scalar-env/riot-config.json:/app/config.json -p 8080:80 vectorim/riot-web`
+Finally, run `docker run -d --name riot -v ~/slack-bridge-env/riot-config.json:/app/config.json -p 8080:80 vectorim/riot-web`
 to start your Riot instance. You should be able to register a new user on your
 local synapse instance through Riot.
 
