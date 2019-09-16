@@ -18,7 +18,7 @@ interface RequiredConfigOptions {
 export class SlackClientFactory {
     private teamClients: Map<string, WebClient> = new Map();
     private puppets: Map<string, WebClient> = new Map();
-    constructor(private datastore: Datastore, private config: RequiredConfigOptions, private onRemoteCall: (method: string) => void) {
+    constructor(private datastore: Datastore, private config?: RequiredConfigOptions, private onRemoteCall?: (method: string) => void) {
 
     }
 
@@ -140,7 +140,7 @@ export class SlackClientFactory {
     }
 
     private async createTeamClient(token: string) {
-        const opts = this.config.slack_client_opts;
+        const opts = this.config ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {
                 setLevel: () => {}, // We don't care about these.
@@ -148,6 +148,7 @@ export class SlackClientFactory {
                 debug: (msg: any[]) => {
                     // non-ideal way to detect calls to slack.
                     webLog.debug.bind(webLog);
+                    if (!this.onRemoteCall) { return; }
                     const match = /apiCall\('([\w\.]+)'\) start/.exec(msg[0]);
                     if (match && match[1]) {
                         this.onRemoteCall(match[1]);
