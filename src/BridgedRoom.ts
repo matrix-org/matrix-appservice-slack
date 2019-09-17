@@ -254,7 +254,8 @@ export class BridgedRoom {
 
         // TODO: This only works once from matrix as we are sending the event as the
         // bot user.
-        const res = await this.botClient.reactions.add({
+        const client = (await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.sender)) || this.botClient;
+        const res = await client.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
@@ -280,7 +281,8 @@ export class BridgedRoom {
             return;
         }
 
-        const res = await this.botClient.chat.delete({
+        const client = (await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.sender)) || this.botClient;
+        const res = await client.chat.delete({
             as_user: false,
             channel: this.slackChannelId!,
             ts: event.slackTs,
