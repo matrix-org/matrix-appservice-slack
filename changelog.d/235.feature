@@ -1,1 +1,0 @@
-Suppport puppeted reactions/redactions

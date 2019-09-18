@@ -1,3 +1,20 @@
+ 1.0.0-rc2 (2019-09-18)
+=======================
+
+Features
+--------
+
+- Suppport puppeted reactions/redactions ([\#235](https://github.com/matrix-org/matrix-appservice-slack-issues/235))
+
+
+Bugfixes
+--------
+
+- Remove option slack_user_token on link command ([\#236](https://github.com/matrix-org/matrix-appservice-slack-issues/236))
+- Messages from puppeted accounts are no longer duplicated over the bridge ([\#237](https://github.com/matrix-org/matrix-appservice-slack-issues/237))
+- Do not send messages to slack with no content ([\#238](https://github.com/matrix-org/matrix-appservice-slack-issues/238))
+
+
 1.0.0-rc1 (2019-09-13)
 =======================
 
