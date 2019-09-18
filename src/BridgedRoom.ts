@@ -255,7 +255,7 @@ export class BridgedRoom {
             }
         }
         let client: WebClient = this.botClient;
-        let id?: string;
+        let id: string|undefined;
         const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, message.sender);
         if (puppet) {
             client = puppet.client;
