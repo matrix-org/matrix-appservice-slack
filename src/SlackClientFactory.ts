@@ -17,8 +17,8 @@ interface RequiredConfigOptions {
 
 export class SlackClientFactory {
     private teamClients: Map<string, WebClient> = new Map();
-    private puppets: Map<string, WebClient> = new Map();
-    constructor(private datastore: Datastore, private config: RequiredConfigOptions, private onRemoteCall: (method: string) => void) {
+    private puppets: Map<string, {client: WebClient, id: string}> = new Map();
+    constructor(private datastore: Datastore, private config?: RequiredConfigOptions, private onRemoteCall?: (method: string) => void) {
 
     }
 
@@ -119,7 +119,7 @@ export class SlackClientFactory {
         return teamRes!.id;
     }
 
-    public async getClientForUser(teamId: string, matrixUser: string): Promise<WebClient|null> {
+    public async getClientForUserWithId(teamId: string, matrixUser: string): Promise<{client: WebClient, id: string}|null> {
         const key = `${teamId}:${matrixUser}`;
         if (this.puppets.has(key)) {
             return this.puppets.get(key) || null;
@@ -129,25 +129,34 @@ export class SlackClientFactory {
             return null;
         }
         const client = new WebClient(token);
+        let id: string;
         try {
-            await client.auth.test();
+            const res = (await client.auth.test()) as AuthTestResponse;
+            id = res.user_id;
         } catch (ex) {
             log.warn("Failed to auth puppeted client for user:", ex);
             return null;
         }
-        this.puppets.set(key, client);
-        return client;
+        this.puppets.set(key, {id, client});
+        return {id, client};
+    }
+
+    public async getClientForUser(teamId: string, matrixUser: string): Promise<WebClient|null> {
+        const res = await this.getClientForUserWithId(teamId, matrixUser);
+        return res !== null ? res.client : null;
     }
 
     private async createTeamClient(token: string) {
-        const opts = this.config.slack_client_opts;
+        const opts = this.config ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {
                 setLevel: () => {}, // We don't care about these.
                 setName: () => {},
                 debug: (msg: string) => {
                     // non-ideal way to detect calls to slack.
-                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg);
+                    webLog.debug.bind(webLog);
+                    if (!this.onRemoteCall) { return; }
+                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg[0]);
                     if (match && match[1]) {
                         this.onRemoteCall(match[1]);
                     }
