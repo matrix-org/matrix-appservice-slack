@@ -260,7 +260,8 @@ export class BridgedRoom {
         if (puppet) {
             client = puppet.client;
             // We must do this before sending to avoid racing
-            this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${puppet.id}:${event.slackTs}`);
+            // Use the unicode key for uniqueness
+            this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${puppet.id}:${event.slackTs}`);
         }
 
         // TODO: This only works once from matrix if we are sending the event as the
@@ -458,15 +459,17 @@ export class BridgedRoom {
         if (message.user_id === this.team!.user_id) {
             return;
         }
-        if (this.recentSlackMessages.includes(`reactadd:${message.reaction}:${message.user_id}:${message.item.ts}`)) {
+
+        const reaction = `:${message.reaction}:`;
+        const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
+
+        if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
             return;
         }
         const ghost = await this.main.getGhostForSlackMessage(message, teamId);
         await ghost.update(message, this);
 
-        const reaction = `:${message.reaction}:`;
-        const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 
