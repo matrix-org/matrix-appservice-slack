@@ -435,12 +435,16 @@ export class BridgedRoom {
         if (this.slackTeamId && message.user) {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
             const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);
-            await new Promise((resolve) => setTimeout(resolve, PUPPET_INCOMING_DELAY_MS));
+            if (hasPuppet) {
+                await new Promise((r) => setTimeout(r, PUPPET_INCOMING_DELAY_MS));
+            }
         }
         if (this.recentSlackMessages.includes(message.ts)) {
             // We sent this, ignore.
             return;
         }
+        // Dedupe across RTM/Event streams
+        this.addRecentSlackMessage(message.ts);
         try {
             const ghost = await this.main.getGhostForSlackMessage(message, this.slackTeamId!);
             await ghost.update(message, this);
