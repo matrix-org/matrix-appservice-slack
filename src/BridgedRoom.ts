@@ -22,7 +22,7 @@ import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixRes
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
-import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse, ChatUpdateResponse,
+import { ChatUpdateResponse,
     ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
@@ -46,6 +46,8 @@ interface ISlackChatMessagePayload extends ISlackToMatrixResult {
     thread_ts?: string;
     icon_url?: string;
 }
+
+const RECENT_MESSAGE_MAX = 10;
 
 export class BridgedRoom {
     public get isDirty() {
@@ -142,6 +144,7 @@ export class BridgedRoom {
     private intent: Intent;
     // Is the matrix room in use by the bridge.
     public MatrixRoomActive: boolean;
+    private recentSlackMessages: string[] = [];
 
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
@@ -251,16 +254,26 @@ export class BridgedRoom {
                 emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
             }
         }
+        let client: WebClient = this.botClient;
+        let id?: string;
+        const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, message.sender);
+        if (puppet) {
+            client = puppet.client;
+            id = puppet.id;
+        }
 
-        // TODO: This only works once from matrix as we are sending the event as the
+        // TODO: This only works once from matrix if we are sending the event as the
         // bot user.
-        const client = (await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.sender)) || this.botClient;
         const res = await client.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
             timestamp: event.slackTs,
         });
+
+        if (id) {
+            this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${id}`);
+        }
 
         if (!res.ok) {
             log.error("HTTP Error: ", res);
@@ -390,6 +403,8 @@ export class BridgedRoom {
             channel: this.slackChannelId!,
         })) as ChatPostMessageResponse;
 
+        this.addRecentSlackMessage(res.ts);
+
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
 
         if (!res.ok) {
@@ -416,6 +431,10 @@ export class BridgedRoom {
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
+        if (this.recentSlackMessages.includes(message.ts)) {
+            // We sent this, ignore.
+            return;
+        }
         try {
             const ghost = await this.main.getGhostForSlackMessage(message, this.slackTeamId!);
             await ghost.update(message, this);
@@ -429,6 +448,10 @@ export class BridgedRoom {
 
     public async onSlackReactionAdded(message: any, teamId: string) {
         if (message.user_id === this.team!.user_id) {
+            return;
+        }
+        if (this.recentSlackMessages.includes(`reactadd:${message.reaction}:${message.user_id}`)) {
+            // We sent this, ignore.
             return;
         }
         const ghost = await this.main.getGhostForSlackMessage(message, teamId);
@@ -744,6 +767,13 @@ export class BridgedRoom {
         const firstGhost = (await this.main.listGhostUsers(roomID))[0];
         this.intent =  this.main.getIntent(firstGhost);
         return this.intent;
+    }
+
+    private addRecentSlackMessage(ts: string) {
+        this.recentSlackMessages.push(ts);
+        if (this.recentSlackMessages.length > RECENT_MESSAGE_MAX) {
+            this.recentSlackMessages.shift();
+        }
     }
 }
 
