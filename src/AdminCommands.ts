@@ -198,9 +198,6 @@ export class AdminCommands {
                     alias: "t",
                     description: "Slack bot user token. Used with Slack bot user & Events api",
                 },
-                slack_user_token: {
-                    description: "Slack user token. Used to bridge files",
-                },
                 webhook_url: {
                     alias: "u",
                     description: "Slack webhook URL. Used with Slack outgoing hooks integration",
