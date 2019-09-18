@@ -145,7 +145,7 @@ export class SlackClientFactory {
             logger: {
                 setLevel: () => {}, // We don't care about these.
                 setName: () => {},
-                debug: (msg: any[]) => {
+                debug: (msg: string) => {
                     // non-ideal way to detect calls to slack.
                     webLog.debug.bind(webLog);
                     if (!this.onRemoteCall) { return; }
@@ -153,6 +153,7 @@ export class SlackClientFactory {
                     if (match && match[1]) {
                         this.onRemoteCall(match[1]);
                     }
+                    webLog.debug(msg);
                 },
                 warn: webLog.warn.bind(webLog),
                 info: webLog.info.bind(webLog),

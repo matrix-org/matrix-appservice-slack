@@ -140,6 +140,8 @@ export class BridgedRoom {
     private slackATime?: number;
     private matrixATime?: number;
     private intent: Intent;
+    // Is the matrix room in use by the bridge.
+    public MatrixRoomActive: boolean;
 
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
@@ -148,6 +150,7 @@ export class BridgedRoom {
 
     constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
 
+        this.MatrixRoomActive = true;
         if (!opts.inbound_id) {
             throw Error("BridgedRoom requires an inbound ID");
         }
