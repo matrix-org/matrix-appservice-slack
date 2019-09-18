@@ -256,11 +256,11 @@ export class BridgedRoom {
             }
         }
         let client: WebClient = this.botClient;
-        let id: string|undefined;
         const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, message.sender);
         if (puppet) {
             client = puppet.client;
-            id = puppet.id;
+            // We must do this before sending to avoid racing
+            this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${puppet.id}:${event.slackTs}`);
         }
 
         // TODO: This only works once from matrix if we are sending the event as the
@@ -273,9 +273,6 @@ export class BridgedRoom {
         });
         log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
-        if (id) {
-            this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${id}:${event.slackTs}`);
-        }
 
         if (!res.ok) {
             log.error("HTTP Error: ", res);
