@@ -274,7 +274,6 @@ export class BridgedRoom {
         });
         log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
-
         if (!res.ok) {
             log.error("HTTP Error: ", res);
             return;
@@ -469,7 +468,6 @@ export class BridgedRoom {
         }
         const ghost = await this.main.getGhostForSlackMessage(message, teamId);
         await ghost.update(message, this);
-
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 
