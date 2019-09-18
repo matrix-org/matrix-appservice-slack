@@ -347,6 +347,11 @@ export class BridgedRoom {
             username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
         };
 
+        if (!body.attachments && !body.text) {
+            // The message type might not be understood. In any case, we can't send something without
+            // text.
+            return;
+        }
         const reply = await this.findParentReply(message);
         let parentStoredEvent: EventEntry | null = null;
         if (reply !== message.event_id) {
