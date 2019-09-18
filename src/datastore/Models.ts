@@ -26,7 +26,7 @@ export interface RoomEntry {
         slack_type?: string;
         id: string;
         name: string;
-        webhook_uri: string;
+        webhook_uri?: string;
         slack_private?: boolean;
         puppet_owner?: string;
     };
