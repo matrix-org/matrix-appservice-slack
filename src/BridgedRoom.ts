@@ -48,6 +48,7 @@ interface ISlackChatMessagePayload extends ISlackToMatrixResult {
 }
 
 const RECENT_MESSAGE_MAX = 10;
+const PUPPET_INCOMING_DELAY_MS = 5000;
 
 export class BridgedRoom {
     public get isDirty() {
@@ -431,6 +432,11 @@ export class BridgedRoom {
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
+        if (this.slackTeamId && message.user) {
+            // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
+            const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);
+            await new Promise((resolve) => setTimeout(resolve, PUPPET_INCOMING_DELAY_MS));
+        }
         if (this.recentSlackMessages.includes(message.ts)) {
             // We sent this, ignore.
             return;
