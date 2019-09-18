@@ -48,7 +48,7 @@ interface ISlackChatMessagePayload extends ISlackToMatrixResult {
 }
 
 const RECENT_MESSAGE_MAX = 10;
-const PUPPET_INCOMING_DELAY_MS = 5000;
+const PUPPET_INCOMING_DELAY_MS = 1500;
 
 export class BridgedRoom {
     public get isDirty() {
