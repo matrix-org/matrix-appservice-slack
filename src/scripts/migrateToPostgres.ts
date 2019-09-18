@@ -112,11 +112,9 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
             return;
         }
         try {
-            if (at) {
-                const teamId = await slackClientFactory.upsertTeamByToken(at);
-                log.info("Got team from token:", teamId);
-                teamTokenMap.set(at, teamId);
-            }
+            const teamId = await slackClientFactory.upsertTeamByToken(at);
+            log.info("Got team from token:", teamId);
+            teamTokenMap.set(at, teamId);
         } catch (ex) {
             log.warn("Failed to get team token for slack token:", ex);
         }
@@ -159,7 +157,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         let ghost = SlackGhost.fromEntry(null as any, user, null);
         if (!ghost.slackId || !ghost.teamId) {
             const localpart = ghost.userId.split(":")[0];
-            // TODO: we are making an assumption here that the prefix ends with _
+            // XXX: we are making an assumption here that the prefix ends with _
             const parts = localpart.substr(USER_PREFIX.length + 1).split("_"); // Remove any prefix.
             // If we encounter more parts than expected, the domain may be underscored
             while (parts.length > 2) {
@@ -185,17 +183,23 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         await targetDs.storeMatrixUser(mxUser);
         log.info(`Migrated matrix user ${mxUser.getId()} (${i + 1}/${allMatrixUsers.length})`);
     }));
+    log.info("Starting eventMigrations");
     await eventMigrations();
     log.info("Finished eventMigrations");
+    log.info("Starting preTeamMigrations");
     await preTeamMigrations();
     log.info("Finished preTeamMigrations");
+    log.info("Starting teamMigrations");
     await teamMigrations();
     log.info("Finished teamMigrations");
     readyTeams = await targetDs.getAllTeams();
+    log.info("Starting roomMigrations");
     await roomMigrations();
     log.info("Finished roomMigrations");
+    log.info("Starting slackUserMigrations");
     await slackUserMigrations();
     log.info("Finished slackUserMigrations");
+    log.info("Starting matrixUserMigrations");
     await matrixUserMigrations();
     log.info("Finished matrixUserMigrations");
 }

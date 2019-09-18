@@ -1,5 +1,5 @@
 import { Datastore, TeamEntry } from "./datastore/Models";
-import { WebClient, WebClientOptions } from "@slack/web-api";
+import { WebClient, WebClientOptions, LogLevel } from "@slack/web-api";
 import { Logging } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 
@@ -158,6 +158,7 @@ export class SlackClientFactory {
                 info: webLog.info.bind(webLog),
                 error: webLog.error.bind(webLog),
             },
+            logLevel: LogLevel.DEBUG,
             ...opts,
         });
         try {
