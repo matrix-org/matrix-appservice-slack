@@ -271,6 +271,7 @@ export class BridgedRoom {
             name: emojiKeyName,
             timestamp: event.slackTs,
         });
+        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
         if (id) {
             this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${id}:${event.slackTs}`);
@@ -475,7 +476,7 @@ export class BridgedRoom {
         if (event === null) {
             return;
         }
-
+        log.debug(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}`);
         return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
                                   message.item.channel, message.event_ts);
     }
@@ -780,6 +781,7 @@ export class BridgedRoom {
     }
 
     private addRecentSlackMessage(ts: string) {
+        log.debug("Recent message key add:", ts);
         this.recentSlackMessages.push(ts);
         if (this.recentSlackMessages.length > RECENT_MESSAGE_MAX) {
             this.recentSlackMessages.shift();
