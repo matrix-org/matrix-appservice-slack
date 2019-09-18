@@ -847,7 +847,7 @@ export class Main {
         }
 
         if (opts.slack_bot_token) {
-            if (!opts.slack_bot_token.startsWith("xoxb-") {
+            if (!opts.slack_bot_token.startsWith("xoxb-")) {
                 throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
             }
             // We may have this team already and want to update the token, or this might be new.
