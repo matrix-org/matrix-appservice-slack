@@ -273,7 +273,7 @@ export class BridgedRoom {
         });
 
         if (id) {
-            this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${id}`);
+            this.addRecentSlackMessage(`reactadd:${emojiKeyName}:${id}:${event.slackTs}`);
         }
 
         if (!res.ok) {
@@ -460,7 +460,7 @@ export class BridgedRoom {
         if (message.user_id === this.team!.user_id) {
             return;
         }
-        if (this.recentSlackMessages.includes(`reactadd:${message.reaction}:${message.user_id}`)) {
+        if (this.recentSlackMessages.includes(`reactadd:${message.reaction}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
             return;
         }
