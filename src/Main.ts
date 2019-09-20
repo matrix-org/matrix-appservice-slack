@@ -646,14 +646,16 @@ export class Main {
     }
 
     public async onMatrixAdminMessage(ev) {
+        const HIDE_TOKEN_REGEX = /(xox[p|b])([-|\w]+)/gi;
         const cmd = ev.content.body;
+        const loggableCmd = cmd.replace(HIDE_TOKEN_REGEX, "$1-xxx");
 
         // Ignore "# comment" lines as chatter between humans sharing the console
         if (cmd.match(/^\s*#/))  {
             return;
         }
 
-        log.info("Admin: " + cmd);
+        log.info(`Admin Command from ${ev.content.sender}: ${loggableCmd}`);
 
         const response: any[] = [];
         const respond = (responseMsg: string) => {
@@ -668,13 +670,13 @@ export class Main {
             // This will return true or false if the command matched.
             const matched = await this.adminCommands.parse(cmd, respond);
             if (!matched) {
-                log.debug("Unrecognised command: " + cmd);
-                respond("Unrecognised command: " + cmd);
+                log.debug("Unrecognised command");
+                respond("Unrecognised command");
             } else if (response.length === 0) {
                 respond("Done");
             }
         } catch (ex) {
-            log.debug(`Command '${cmd}' failed to complete:`, ex);
+            log.debug(`Command failed to complete:`, ex);
             respond("Command failed: " + ex);
         }
 
