@@ -27,7 +27,7 @@ properties:
     properties:
       enable:
         type: boolean
-      logging:
+      log_level:
         type: "string"
         enum: ["error", "warn", "info", "debug", "off"]
   db:
