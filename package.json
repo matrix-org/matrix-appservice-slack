@@ -36,6 +36,7 @@
     "minimist": "^1.2",
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",
+    "p-queue": "^6.1.1",
     "pg-promise": "^9.0.2",
     "quick-lru": "^4.0.1",
     "randomstring": "^1",

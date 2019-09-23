@@ -39,10 +39,12 @@ import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
+import PQueue from "p-queue";
 
 const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
+const STARTUP_TEAM_INIT_CONCURRENCY = 10;
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
 export interface ISlackTeam {
@@ -375,12 +377,10 @@ export class Main {
 
     public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.upsertRoom(room);
-        if (room.SlackTeamId) {
-            if (this.slackRtm) {
-                // This will start a new RTM client for the team, if the team
-                // doesn't currently have a client running.
-                await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
-            }
+        if (this.slackRtm && room.SlackTeamId) {
+            // This will start a new RTM client for the team, if the team
+            // doesn't currently have a client running.
+            await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
         }
     }
 
@@ -760,32 +760,44 @@ export class Main {
         const teams = await this.datastore.getAllTeams();
         log.info(`Loaded ${teams.length} teams`);
         const teamClients: { [id: string]: WebClient } = {};
+        const teamPromises = new PQueue({concurrency: STARTUP_TEAM_INIT_CONCURRENCY});
+        let i = 0;
         for (const team of teams) {
-            log.info(`Getting team client for ${team.name || team.id}`);
-            // This will create team clients before we use them for any rooms,
-            // as a pre-optimisation.
-            try {
-                teamClients[team.id] = await this.clientFactory.getTeamClient(team.id);
-            } catch (ex) {
-                log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
-                log.error(ex);
-            }
-            // Also start RTM clients for teams.
-            if (this.slackRtm) {
-                log.info(`Starting RTM for ${team.id}`);
+            i++;
+            // tslint:disable-next-line: no-floating-promises
+            teamPromises.add(async () => {
+                log.info(`[${i}/${teams.length}] Getting team client for ${team.name || team.id}`);
+                // This will create team clients before we use them for any rooms,
+                // as a pre-optimisation.
                 try {
-                    await this.slackRtm.startTeamClientIfNotStarted(team.id);
+                    teamClients[team.id] = await this.clientFactory.getTeamClient(team.id);
                 } catch (ex) {
-                    log.error(`Failed to start RTM for ${team.id}, rooms may be missing slack messages`);
+                    log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
+                    log.error(ex);
                 }
-                log.info(`Started RTM for ${team.id}`);
-            }
+                // Also start RTM clients for teams.
+                // Ensure the token is a bot token so that we can actually enable RTM for these teams.
+                if (this.slackRtm && team.bot_token.startsWith("xoxb")) {
+                    log.info(`Starting RTM for ${team.id}`);
+                    try {
+                        await this.slackRtm!.startTeamClientIfNotStarted(team.id);
+                    } catch (ex) {
+                        log.warn(`Failed to start RTM for ${team.id}, rooms may be missing slack messages: ${ex}`);
+                    }
+                    log.info(`Started RTM for ${team.id}`);
+                }
+            });
         }
+        await teamPromises.onIdle();
+        log.info("Finished loading all team clients");
 
         const entries = await this.datastore.getAllRooms();
         log.info(`Found ${entries.length} room entries in store`);
         const joinedRooms = await roomListPromise;
+        i = 0;
         await Promise.all(entries.map(async (entry) => {
+            i++;
+            log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
                 await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
             } catch (ex) {
