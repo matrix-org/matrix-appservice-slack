@@ -786,7 +786,11 @@ export class Main {
         log.info(`Found ${entries.length} room entries in store`);
         const joinedRooms = await roomListPromise;
         await Promise.all(entries.map(async (entry) => {
-            await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
+            try {
+                await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
+            } catch (ex) {
+                log.error(`Failed to load entry ${entry.matrix_id}, exception thrown`, ex);
+            }
         }));
 
         if (this.metrics) {
