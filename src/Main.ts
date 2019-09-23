@@ -783,6 +783,7 @@ export class Main {
         }
 
         const entries = await this.datastore.getAllRooms();
+        log.info(`Found ${entries.length} room entries in store`);
         const joinedRooms = await roomListPromise;
         await Promise.all(entries.map(async (entry) => {
             await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
