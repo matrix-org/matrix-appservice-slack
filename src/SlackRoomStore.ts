@@ -1,4 +1,7 @@
 import { BridgedRoom } from "./BridgedRoom";
+import { Logging } from "matrix-appservice-bridge";
+
+const log = Logging.get("SlackRoomStore");
 
 export class SlackRoomStore {
     private rooms: Set<BridgedRoom> = new Set();
@@ -20,6 +23,7 @@ export class SlackRoomStore {
     }
 
     public upsertRoom(room: BridgedRoom) {
+        log.debug(`upsertRoom ${room.MatrixRoomId}`);
         this.rooms.add(room);
 
         // Remove if the room already exists in the map.
@@ -50,6 +54,7 @@ export class SlackRoomStore {
     }
 
     public removeRoom(room: BridgedRoom) {
+        log.debug(`removeRoom ${room.MatrixRoomId}`);
         this.roomsByMatrixId.delete(room.MatrixRoomId);
 
         if (room.SlackChannelId) {
