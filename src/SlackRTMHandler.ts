@@ -81,6 +81,17 @@ export class SlackRTMHandler extends SlackEventHandler {
         return this.rtmTeamClients.has(teamId.toUpperCase());
     }
 
+    public async teamCanUseRTM(team: string): Promise<boolean> {
+        const teamEntry = (await this.main.datastore.getTeam(team));
+        if (!teamEntry) {
+            return false;
+        }
+        if (!teamEntry.bot_token.startsWith("xoxb")) {
+            return false; // User tokens are not able to use the RTM API
+        }
+        return true; // Bots can use RTM by default, yay \o/.
+    }
+
     public async startTeamClientIfNotStarted(expectedTeam: string) {
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
@@ -91,6 +102,10 @@ export class SlackRTMHandler extends SlackEventHandler {
                 log.warn("Failed to create RTM client");
             }
         }
+        if (!(await this.teamCanUseRTM(expectedTeam))) {
+            // Cannot use RTM, no-op.
+            return;
+        }
         const team = (await this.main.datastore.getTeam(expectedTeam))!;
         const promise = this.startTeamClient(expectedTeam, team.bot_token);
         this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
@@ -98,6 +113,9 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     private async startTeamClient(expectedTeam: string, botToken: string) {
+        if (!botToken.startsWith("xoxb")) {
+            throw Error("Bot token invalid, must start with xoxb");
+        }
         const rtm = this.createRtmClient(botToken, expectedTeam);
 
         // For each event that SlackEventHandler supports, register
