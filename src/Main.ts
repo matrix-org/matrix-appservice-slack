@@ -799,34 +799,34 @@ export class Main {
     }
 
     private async startupLoadRoomEntry(entry: RoomEntry, joinedRooms: string[], teamClients: {[teamId: string]: WebClient}) {
-            // If we aren't in the room, mark as inactive until we get re-invited.
-            const activeRoom = entry.remote.puppet_owner !== undefined || joinedRooms.includes(entry.matrix_id);
-            if (!activeRoom) {
-                log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
+        // If we aren't in the room, mark as inactive until we get re-invited.
+        const activeRoom = entry.remote.puppet_owner !== undefined || joinedRooms.includes(entry.matrix_id);
+        if (!activeRoom) {
+            log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
+        }
+        const teamId = entry.remote.slack_team_id;
+        const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
+        let slackClient: WebClient|null = null;
+        try {
+            if (entry.remote.puppet_owner) {
+                // Puppeted room (like a DM)
+                slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
+            } else if (teamId && teamClients[teamId]) {
+                slackClient = teamClients[teamId];
             }
-            const teamId = entry.remote.slack_team_id;
-            const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
-            let slackClient: WebClient|null = null;
-            try {
-                if (entry.remote.puppet_owner) {
-                    // Puppeted room (like a DM)
-                    slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
-                } else if (teamId && teamClients[teamId]) {
-                    slackClient = teamClients[teamId];
-                }
-            } catch (ex) {
-                log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
-            }
-            if (!slackClient && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
-                log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
-            }
-            const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
-            await this.addBridgedRoom(room);
-            room.MatrixRoomActive = activeRoom;
-            if (!room.IsPrivate && activeRoom) {
-                // Only public rooms can be tracked.
-                this.stateStorage.trackRoom(entry.matrix_id);
-            }
+        } catch (ex) {
+            log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
+        }
+        if (!slackClient && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
+            log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
+        }
+        const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
+        await this.addBridgedRoom(room);
+        room.MatrixRoomActive = activeRoom;
+        if (!room.IsPrivate && activeRoom) {
+            // Only public rooms can be tracked.
+            this.stateStorage.trackRoom(entry.matrix_id);
+        }
     }
 
     // This so-called "link" action is really a multi-function generic provisioning
