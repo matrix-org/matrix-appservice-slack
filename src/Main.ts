@@ -32,7 +32,7 @@ import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
 
-import { Datastore, TeamEntry } from "./datastore/Models";
+import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -756,31 +756,49 @@ export class Main {
             client: this.bridge.getIntent().client,
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
-
+        log.info("Fetching teams");
         const teams = await this.datastore.getAllTeams();
-        const teamClient: { [id: string]: WebClient } = {};
+        log.info(`Loaded ${teams.length} teams`);
+        const teamClients: { [id: string]: WebClient } = {};
         for (const team of teams) {
+            log.info(`Getting team client for ${team.name || team.id}`);
             // This will create team clients before we use them for any rooms,
             // as a pre-optimisation.
             try {
-                teamClient[team.id] = await this.clientFactory.getTeamClient(team.id);
+                teamClients[team.id] = await this.clientFactory.getTeamClient(team.id);
             } catch (ex) {
                 log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
                 log.error(ex);
             }
             // Also start RTM clients for teams.
             if (this.slackRtm) {
+                log.info(`Starting RTM for ${team.id}`);
                 try {
                     await this.slackRtm.startTeamClientIfNotStarted(team.id);
                 } catch (ex) {
                     log.error(`Failed to start RTM for ${team.id}, rooms may be missing slack messages`);
                 }
+                log.info(`Started RTM for ${team.id}`);
             }
         }
 
         const entries = await this.datastore.getAllRooms();
         const joinedRooms = await roomListPromise;
         await Promise.all(entries.map(async (entry) => {
+            await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
+        }));
+
+        if (this.metrics) {
+            this.metrics.addAppServicePath(this.bridge);
+            // Send process stats again just to make the counters update sooner after
+            // startup
+            this.metrics.refresh();
+        }
+        await puppetsWaiting;
+        log.info("Bridge initialised.");
+    }
+
+    private async startupLoadRoomEntry(entry: RoomEntry, joinedRooms: string[], teamClients: {[teamId: string]: WebClient}) {
             // If we aren't in the room, mark as inactive until we get re-invited.
             const activeRoom = entry.remote.puppet_owner !== undefined || joinedRooms.includes(entry.matrix_id);
             if (!activeRoom) {
@@ -793,8 +811,8 @@ export class Main {
                 if (entry.remote.puppet_owner) {
                     // Puppeted room (like a DM)
                     slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
-                } else if (teamId && teamClient[teamId]) {
-                    slackClient = teamClient[teamId];
+                } else if (teamId && teamClients[teamId]) {
+                    slackClient = teamClients[teamId];
                 }
             } catch (ex) {
                 log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
@@ -809,16 +827,6 @@ export class Main {
                 // Only public rooms can be tracked.
                 this.stateStorage.trackRoom(entry.matrix_id);
             }
-        }));
-
-        if (this.metrics) {
-            this.metrics.addAppServicePath(this.bridge);
-            // Send process stats again just to make the counters update sooner after
-            // startup
-            this.metrics.refresh();
-        }
-        await puppetsWaiting;
-        log.info("Bridge initialised.");
     }
 
     // This so-called "link" action is really a multi-function generic provisioning
