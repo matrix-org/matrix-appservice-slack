@@ -1,4 +1,25 @@
- 1.0.0-rc3 (2019-09-24)
+ 1.0.0-rc4 (2019-09-24)
+=======================
+
+Bugfixes
+--------
+
+- Fix multi-person DMs being marked with the group (private channel) type rather than the mpim type. ([\#253](https://github.com/matrix-org/matrix-appservice-slack/issues/253))
+- Connecting an account via OAuth will no longer barf on the lack of a `puppeting` parameter ([\#254](https://github.com/matrix-org/matrix-appservice-slack/issues/254))
+- Don't log stack traces for missing rooms, teams or events ([\#255](https://github.com/matrix-org/matrix-appservice-slack/issues/255))
+- Don't log the whole response object when an error occurs when sending slack requests ([\#256](https://github.com/matrix-org/matrix-appservice-slack/issues/256))
+- Fix .toUpperCase() errors due to the bridge trying to handle unknown deleted messages ([\#257](https://github.com/matrix-org/matrix-appservice-slack/issues/257))
+
+
+Internal Changes
+----------------
+
+- Update datastore.md with a few more options ([\#239](https://github.com/matrix-org/matrix-appservice-slack/issues/239))
+- Fix issue where towncrier would wrongly link to matrix-appservice-slack-issues ([\#251](https://github.com/matrix-org/matrix-appservice-slack/issues/251))
+- Towncrier should check against develop for changelog changes ([\#258](https://github.com/matrix-org/matrix-appservice-slack/issues/258))
+
+
+1.0.0-rc3 (2019-09-24)
 =======================
 
 Bugfixes

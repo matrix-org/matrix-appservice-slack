@@ -1,1 +1,0 @@
-Fix .toUpperCase() errors due to the bridge trying to handle unknown deleted messages

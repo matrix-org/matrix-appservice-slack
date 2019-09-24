@@ -1,1 +1,0 @@
-Connecting an account via OAuth will no longer barf on the lack of a `puppeting` parameter

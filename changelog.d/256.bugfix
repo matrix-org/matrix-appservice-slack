@@ -1,1 +1,0 @@
-Don't log the whole response object when an error occurs when sending slack requests
