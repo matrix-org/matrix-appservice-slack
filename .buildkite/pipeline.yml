@@ -37,7 +37,7 @@ steps:
     branches: "!master !develop !release-*"
     command:
       - "python3 -m pip install towncrier"
-      - "python3 -m towncrier.check"
+      - "python3 -m towncrier.check --compare-with=origin/develop"
     plugins:
       - docker#v3.0.1:
           image: "python:3.6"
