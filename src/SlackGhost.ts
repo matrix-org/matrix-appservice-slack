@@ -136,7 +136,7 @@ export class SlackGhost {
     public async getBotName(botId: string, client: WebClient) {
         const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
         if (!response.ok || !response.bot.name) {
-            log.error("Failed to get bot name", response);
+            log.error("Failed to get bot name", response.error);
             return;
         }
         return response.bot.name;
@@ -144,13 +144,18 @@ export class SlackGhost {
 
     public async getBotAvatarUrl(botId: string, client: WebClient) {
         const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
-        if (!response.ok || !response.bot.icons.image_72) {
-            log.error("Failed to get bot name", response);
+        if (!response.ok) {
+            log.error("Failed to get bot name", response.error);
             return;
         }
         const icons = response.bot.icons;
-        return icons.image_original || icons.image_1024 || icons.image_512 ||
+        const icon = icons.image_original || icons.image_1024 || icons.image_512 ||
             icons.image_192 || icons.image_72 || icons.image_48;
+        if (!icon) {
+            log.error("No suitable icon for bot");
+            return;
+        }
+        return icon;
     }
 
     public async lookupUserInfo(client: WebClient) {

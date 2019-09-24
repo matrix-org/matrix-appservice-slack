@@ -276,7 +276,7 @@ export class BridgedRoom {
         log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
         if (!res.ok) {
-            log.error("HTTP Error: ", res);
+            log.error("HTTP Error: ", res.error);
             return;
         }
         // TODO: Add this event to the event store
@@ -301,8 +301,9 @@ export class BridgedRoom {
             ts: event.slackTs,
         });
 
-        if (!res) {
-            log.error("HTTP Error: ", res);
+        if (!res.ok) {
+            log.error("HTTP Error: ", res.error);
+            return;
         }
         return res;
     }
@@ -334,8 +335,8 @@ export class BridgedRoom {
         })) as ChatUpdateResponse;
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
-        if (!res) {
-            log.error("HTTP Error: ", res);
+        if (!res.ok) {
+            log.error("HTTP Error: ", res.error);
             return;
         }
         // Add this event to the event store
@@ -413,7 +414,7 @@ export class BridgedRoom {
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
 
         if (!res.ok) {
-            log.error("HTTP Error: ", res);
+            log.error("HTTP Error: ", res.error);
             return;
         }
 
