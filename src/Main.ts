@@ -32,17 +32,19 @@ import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
 
-import { Datastore, TeamEntry } from "./datastore/Models";
+import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
+import PQueue from "p-queue";
 
 const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
+const STARTUP_TEAM_INIT_CONCURRENCY = 10;
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
 export interface ISlackTeam {
@@ -375,12 +377,10 @@ export class Main {
 
     public async addBridgedRoom(room: BridgedRoom) {
         this.rooms.upsertRoom(room);
-        if (room.SlackTeamId) {
-            if (this.slackRtm) {
-                // This will start a new RTM client for the team, if the team
-                // doesn't currently have a client running.
-                await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
-            }
+        if (this.slackRtm && room.SlackTeamId) {
+            // This will start a new RTM client for the team, if the team
+            // doesn't currently have a client running.
+            await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
         }
     }
 
@@ -756,58 +756,52 @@ export class Main {
             client: this.bridge.getIntent().client,
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
-
+        log.info("Fetching teams");
         const teams = await this.datastore.getAllTeams();
-        const teamClient: { [id: string]: WebClient } = {};
+        log.info(`Loaded ${teams.length} teams`);
+        const teamClients: { [id: string]: WebClient } = {};
+        const teamPromises = new PQueue({concurrency: STARTUP_TEAM_INIT_CONCURRENCY});
+        let i = 0;
         for (const team of teams) {
-            // This will create team clients before we use them for any rooms,
-            // as a pre-optimisation.
-            try {
-                teamClient[team.id] = await this.clientFactory.getTeamClient(team.id);
-            } catch (ex) {
-                log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
-                log.error(ex);
-            }
-            // Also start RTM clients for teams.
-            if (this.slackRtm) {
+            i++;
+            // tslint:disable-next-line: no-floating-promises
+            teamPromises.add(async () => {
+                log.info(`[${i}/${teams.length}] Getting team client for ${team.name || team.id}`);
+                // This will create team clients before we use them for any rooms,
+                // as a pre-optimisation.
                 try {
-                    await this.slackRtm.startTeamClientIfNotStarted(team.id);
+                    teamClients[team.id] = await this.clientFactory.getTeamClient(team.id);
                 } catch (ex) {
-                    log.error(`Failed to start RTM for ${team.id}, rooms may be missing slack messages`);
+                    log.error(`Failed to create client for ${team.id}, some rooms may be unbridgable`);
+                    log.error(ex);
                 }
-            }
+                // Also start RTM clients for teams.
+                // Ensure the token is a bot token so that we can actually enable RTM for these teams.
+                if (this.slackRtm && team.bot_token.startsWith("xoxb")) {
+                    log.info(`Starting RTM for ${team.id}`);
+                    try {
+                        await this.slackRtm!.startTeamClientIfNotStarted(team.id);
+                    } catch (ex) {
+                        log.warn(`Failed to start RTM for ${team.id}, rooms may be missing slack messages: ${ex}`);
+                    }
+                    log.info(`Started RTM for ${team.id}`);
+                }
+            });
         }
+        await teamPromises.onIdle();
+        log.info("Finished loading all team clients");
 
         const entries = await this.datastore.getAllRooms();
+        log.info(`Found ${entries.length} room entries in store`);
         const joinedRooms = await roomListPromise;
+        i = 0;
         await Promise.all(entries.map(async (entry) => {
-            // If we aren't in the room, mark as inactive until we get re-invited.
-            const activeRoom = entry.remote.puppet_owner !== undefined || joinedRooms.includes(entry.matrix_id);
-            if (!activeRoom) {
-                log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
-            }
-            const teamId = entry.remote.slack_team_id;
-            const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
-            let slackClient: WebClient|null = null;
+            i++;
+            log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
-                if (entry.remote.puppet_owner) {
-                    // Puppeted room (like a DM)
-                    slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
-                } else if (teamId && teamClient[teamId]) {
-                    slackClient = teamClient[teamId];
-                }
+                await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
             } catch (ex) {
-                log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
-            }
-            if (!slackClient && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
-                log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
-            }
-            const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
-            await this.addBridgedRoom(room);
-            room.MatrixRoomActive = activeRoom;
-            if (!room.IsPrivate && activeRoom) {
-                // Only public rooms can be tracked.
-                this.stateStorage.trackRoom(entry.matrix_id);
+                log.error(`Failed to load entry ${entry.matrix_id}, exception thrown`, ex);
             }
         }));
 
@@ -819,6 +813,37 @@ export class Main {
         }
         await puppetsWaiting;
         log.info("Bridge initialised.");
+    }
+
+    private async startupLoadRoomEntry(entry: RoomEntry, joinedRooms: string[], teamClients: {[teamId: string]: WebClient}) {
+        // If we aren't in the room, mark as inactive until we get re-invited.
+        const activeRoom = entry.remote.puppet_owner !== undefined || joinedRooms.includes(entry.matrix_id);
+        if (!activeRoom) {
+            log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
+        }
+        const teamId = entry.remote.slack_team_id;
+        const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
+        let slackClient: WebClient|null = null;
+        try {
+            if (entry.remote.puppet_owner) {
+                // Puppeted room (like a DM)
+                slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
+            } else if (teamId && teamClients[teamId]) {
+                slackClient = teamClients[teamId];
+            }
+        } catch (ex) {
+            log.error(`Failed to track room ${entry.matrix_id} ${entry.remote.name}:`, ex);
+        }
+        if (!slackClient && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
+            log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
+        }
+        const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
+        await this.addBridgedRoom(room);
+        room.MatrixRoomActive = activeRoom;
+        if (!room.IsPrivate && activeRoom) {
+            // Only public rooms can be tracked.
+            this.stateStorage.trackRoom(entry.matrix_id);
+        }
     }
 
     // This so-called "link" action is really a multi-function generic provisioning
@@ -847,6 +872,9 @@ export class Main {
         }
 
         if (opts.slack_bot_token) {
+            if (!opts.slack_bot_token.startsWith("xoxb-")) {
+                throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
+            }
             // We may have this team already and want to update the token, or this might be new.
             // But first check that the token works.
             try {

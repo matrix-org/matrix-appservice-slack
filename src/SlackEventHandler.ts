@@ -100,7 +100,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                         err = "unknown_event";
                 }
             } catch (ex) {
-                log.warn("Didn't handle event:", ex);
+                log.warn("Didn't handle event");
                 err = ex;
             }
 
@@ -118,6 +118,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             } else if (err === "unknown_event") {
                 endTimer({outcome: "dropped"});
             } else if (err !== null) {
+                log.warn("Error when handing event:", err);
                 endTimer({outcome: "fail"});
             }
 
