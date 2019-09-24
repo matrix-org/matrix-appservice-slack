@@ -1,1 +1,0 @@
-Fix issue where the bridge will not start if a team cannot connect to RTM.

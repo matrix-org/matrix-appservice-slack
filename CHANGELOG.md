@@ -1,4 +1,20 @@
- 1.0.0-rc2 (2019-09-18)
+ 1.0.0-rc3 (2019-09-24)
+=======================
+
+Bugfixes
+--------
+
+- Ensure users enter the correct type of token into the link command ([\#243](https://github.com/matrix-org/matrix-appservice-slack-issues/243))
+- Fix issue where the bridge will not start if a team cannot connect to RTM. ([\#247](https://github.com/matrix-org/matrix-appservice-slack-issues/247))
+
+
+Internal Changes
+----------------
+
+- Log more information during startup ([\#246](https://github.com/matrix-org/matrix-appservice-slack-issues/246))
+
+
+1.0.0-rc2 (2019-09-18)
 =======================
 
 Features
