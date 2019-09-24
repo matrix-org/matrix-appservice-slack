@@ -335,17 +335,11 @@ export class SlackHookHandler extends BaseSlackHandler {
                     response.bot === undefined,
                 );
                 if (response.bot) {
-                    const team: TeamEntry = {
-                        bot_token: response.bot!.bot_access_token,
-                        bot_id: response.bot!.bot_user_id,
-                        user_id: "unknown",
-                        id: response.team_id,
-                        name: response.team_name,
-                        scopes: access_scopes.join(","),
-                        status: "ok",
-                        domain: "not-set",
-                    };
-                    await this.main.datastore.upsertTeam(team);
+                    // Rather than upsert the values we were given, use the
+                    // access token to validate and make additional requests
+                    await this.main.clientFactory.upsertTeamByToken(
+                        response.bot.bot_access_token,
+                    );
                 }
             }
         } catch (err) {
