@@ -26,7 +26,7 @@ const log = Logging.get("Provisioning");
 type CommandFunc = (main: Main, req: Request, res: Response, ...params: string[]) => void|Promise<void>;
 export const commands: {[verb: string]: Command} = {};
 
-type Param = string;
+type Param = string | { param: string, required: boolean};
 
 export class Command {
     private params: Param[];
@@ -40,12 +40,14 @@ export class Command {
         const body = req.body;
         const args: [Main, Request, Response, ...string[]] = [main, req, res];
         for (const param of this.params) {
-            if (!(param in body)) {
+            const paramName = typeof(param) === "string" ? param : param.param;
+            const paramRequired = typeof(param) === "string" ? true : param.required;
+            if (!(paramName in body) && paramRequired) {
                 res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
                 return;
             }
 
-            args.push(body[param]);
+            args.push(body[paramName]);
         }
 
         try {
@@ -92,7 +94,7 @@ commands.getbotid = new Command({
 });
 
 commands.authurl = new Command({
-    params: ["user_id", "puppeting"],
+    params: ["user_id", { param: "puppeting", required: false}],
     func(main, req, res, userId, puppeting) {
         if (!main.oauth2) {
             res.status(HTTP_CODES.CLIENT_ERROR).json({
@@ -155,7 +157,7 @@ commands.channels = new Command({
             types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
         })) as ConversationsListResponse;
         if (!response.ok) {
-            log.error(`Failed trying to fetch channels for ${teamId}.`, response);
+            log.error(`Failed trying to fetch channels for ${teamId}.`, response.error);
             res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
             return;
         }

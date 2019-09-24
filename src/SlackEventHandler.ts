@@ -75,7 +75,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // We must respond within 3 seconds or it will be sent again!
             response(HTTP_OK, "OK");
 
-            let err: string|null = null;
+            let err: Error|null = null;
             try {
                 switch (event.type) {
                     case "message":
@@ -97,35 +97,38 @@ export class SlackEventHandler extends BaseSlackHandler {
                     // XXX: Unused?
                     case "file_comment_added":
                     default:
-                        err = "unknown_event";
+                        err = Error("unknown_event");
                 }
             } catch (ex) {
                 log.warn("Didn't handle event");
                 err = ex;
             }
 
-            if (err === "unknown_channel") {
+            if (err === null) {
+                endTimer({outcome: "success"});
+            } else if (!(err instanceof Error)) {
+                log.warn("Error when handing event:", err);
+                endTimer({outcome: "fail"});
+            } else if (err.message === "unknown_channel") {
                 const chanIdMix = `${event.channel} (${teamId})`;
                 log.warn(`Ignoring message from unrecognised slack channel id: ${chanIdMix}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
-            } else if (err === "unknown_team") {
+            } else if (err.message === "unknown_team") {
                 log.warn(`Ignoring message from unrecognised slack team id: ${teamId}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
-            } else if (err === "unknown_event") {
+            } else if (err.message === "unknown_message") {
+                log.warn(`Ignoring event because we couldn't find a referred to message`);
                 endTimer({outcome: "dropped"});
-            } else if (err !== null) {
+                return;
+            } else if (err.message === "unknown_event") {
+                endTimer({outcome: "dropped"});
+            } else {
                 log.warn("Error when handing event:", err);
                 endTimer({outcome: "fail"});
-            }
-
-            if (err === null) {
-                endTimer({outcome: "success"});
-            } else {
-                log.error("Failed to handle slack event:", err);
             }
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
@@ -214,6 +217,8 @@ export class SlackEventHandler extends BaseSlackHandler {
                 const botClient = this.main.botIntent.getClient();
                 return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
             }
+            // If we don't have the event
+            throw Error("unknown_message");
         } else if (msg.subtype === "message_replied") {
             // Slack sends us one of these as well as a normal message event
             // when using RTM, so we ignore it.

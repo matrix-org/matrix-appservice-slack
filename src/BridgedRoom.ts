@@ -183,10 +183,11 @@ export class BridgedRoom {
         this.setValue("isPrivate", chan.is_private);
         if (chan.is_channel) {
             this.setValue("slackType", "channel");
+        } else if (chan.is_mpim) {
+            // note: is_group is also set for mpims, so order is important
+            this.setValue("slackType", "mpim");
         } else if (chan.is_group) {
             this.setValue("slackType", "group");
-        } else if (chan.is_mpim) {
-            this.setValue("slackType", "mpim");
         } else if (chan.is_im) {
             this.setValue("slackType", "im");
         } else {
@@ -275,7 +276,7 @@ export class BridgedRoom {
         log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
         if (!res.ok) {
-            log.error("HTTP Error: ", res);
+            log.error("HTTP Error: ", res.error);
             return;
         }
         // TODO: Add this event to the event store
@@ -300,8 +301,9 @@ export class BridgedRoom {
             ts: event.slackTs,
         });
 
-        if (!res) {
-            log.error("HTTP Error: ", res);
+        if (!res.ok) {
+            log.error("HTTP Error: ", res.error);
+            return;
         }
         return res;
     }
@@ -333,8 +335,8 @@ export class BridgedRoom {
         })) as ChatUpdateResponse;
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
-        if (!res) {
-            log.error("HTTP Error: ", res);
+        if (!res.ok) {
+            log.error("HTTP Error: ", res.error);
             return;
         }
         // Add this event to the event store
@@ -412,7 +414,7 @@ export class BridgedRoom {
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
 
         if (!res.ok) {
-            log.error("HTTP Error: ", res);
+            log.error("HTTP Error: ", res.error);
             return;
         }
 
