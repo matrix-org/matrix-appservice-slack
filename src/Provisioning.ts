@@ -157,7 +157,7 @@ commands.channels = new Command({
             types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
         })) as ConversationsListResponse;
         if (!response.ok) {
-            log.error(`Failed trying to fetch channels for ${teamId}.`, response);
+            log.error(`Failed trying to fetch channels for ${teamId}.`, response.error);
             res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
             return;
         }

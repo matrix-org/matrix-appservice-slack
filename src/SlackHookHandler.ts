@@ -391,7 +391,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         })) as ConversationsHistoryResponse;
 
         if (!response.ok || !response.messages || response.messages.length === 0) {
-            log.warn("Could not find history: " + response);
+            log.warn("Could not find history: " + response.error);
             throw Error("Could not find history");
         }
         if (response.messages.length !== 1) {

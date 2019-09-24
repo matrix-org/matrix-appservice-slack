@@ -940,7 +940,7 @@ export class Main {
 
             const infoRes = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
             if (!infoRes.ok) {
-                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes);
+                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes.error);
                 throw Error("Failed to get channel info");
             }
             room.setBotClient(slackClient);
