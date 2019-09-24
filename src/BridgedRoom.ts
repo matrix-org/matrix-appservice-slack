@@ -183,10 +183,11 @@ export class BridgedRoom {
         this.setValue("isPrivate", chan.is_private);
         if (chan.is_channel) {
             this.setValue("slackType", "channel");
+        } else if (chan.is_mpim) {
+            // note: is_group is also set for mpims, so order is important
+            this.setValue("slackType", "mpim");
         } else if (chan.is_group) {
             this.setValue("slackType", "group");
-        } else if (chan.is_mpim) {
-            this.setValue("slackType", "mpim");
         } else if (chan.is_im) {
             this.setValue("slackType", "im");
         } else {
