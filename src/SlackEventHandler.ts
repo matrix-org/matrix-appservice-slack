@@ -120,6 +120,10 @@ export class SlackEventHandler extends BaseSlackHandler {
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
+            } else if (err.message === "unknown_message") {
+                log.warn(`Ignoring event because we couldn't find a referred to message`);
+                endTimer({outcome: "dropped"});
+                return;
             } else if (err.message === "unknown_event") {
                 endTimer({outcome: "dropped"});
             } else {
@@ -213,6 +217,8 @@ export class SlackEventHandler extends BaseSlackHandler {
                 const botClient = this.main.botIntent.getClient();
                 return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
             }
+            // If we don't have the event
+            throw Error("unknown_message");
         } else if (msg.subtype === "message_replied") {
             // Slack sends us one of these as well as a normal message event
             // when using RTM, so we ignore it.
