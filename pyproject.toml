@@ -2,7 +2,7 @@
     # The name of your Python package
     filename = "CHANGELOG.md"
     directory = "changelog.d"
-    issue_format = "[\\#{issue}](https://github.com/matrix-org/matrix-appservice-slack-issues/{issue})"
+    issue_format = "[\\#{issue}](https://github.com/matrix-org/matrix-appservice-slack/issues/{issue})"
 
     [[tool.towncrier.type]]
         directory = "feature"
