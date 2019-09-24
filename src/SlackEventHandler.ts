@@ -75,7 +75,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // We must respond within 3 seconds or it will be sent again!
             response(HTTP_OK, "OK");
 
-            let err: string|null = null;
+            let err: Error|null = null;
             try {
                 switch (event.type) {
                     case "message":
@@ -97,35 +97,34 @@ export class SlackEventHandler extends BaseSlackHandler {
                     // XXX: Unused?
                     case "file_comment_added":
                     default:
-                        err = "unknown_event";
+                        err = Error("unknown_event");
                 }
             } catch (ex) {
                 log.warn("Didn't handle event");
                 err = ex;
             }
 
-            if (err === "unknown_channel") {
+            if (err === null) {
+                endTimer({outcome: "success"});
+            } else if (!(err instanceof Error)) {
+                log.warn("Error when handing event:", err);
+                endTimer({outcome: "fail"});
+            } else if (err.message === "unknown_channel") {
                 const chanIdMix = `${event.channel} (${teamId})`;
                 log.warn(`Ignoring message from unrecognised slack channel id: ${chanIdMix}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
-            } else if (err === "unknown_team") {
+            } else if (err.message === "unknown_team") {
                 log.warn(`Ignoring message from unrecognised slack team id: ${teamId}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
-            } else if (err === "unknown_event") {
+            } else if (err.message === "unknown_event") {
                 endTimer({outcome: "dropped"});
-            } else if (err !== null) {
+            } else {
                 log.warn("Error when handing event:", err);
                 endTimer({outcome: "fail"});
-            }
-
-            if (err === null) {
-                endTimer({outcome: "success"});
-            } else {
-                log.error("Failed to handle slack event:", err);
             }
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
