@@ -99,39 +99,10 @@ export class SlackHookHandler extends BaseSlackHandler {
             const isEvent = req.headers["content-type"] === "application/json" && req.method === "POST";
             try {
                 if (isEvent) {
-                    const eventsResponse = (resStatus, resBody, resHeaders) => {
-                        if (resHeaders) {
-                            res.writeHead(resStatus, resHeaders);
-                        } else {
-                            res.writeHead(resStatus);
-                        }
-                        if (resBody) {
-                            res.write(resBody);
-                        }
-                        res.end();
-                    };
-                    const eventPayload = JSON.parse(body) as ISlackEventPayload;
-                    if (eventPayload.type === "url_verification") {
-                        this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
-                        // If RTM is enabled for this team, do not handle the event.
-                        // Slack will push us events for all connected teams to our bots,
-                        // but this will cause duplicates if the team is ALSO using RTM.
-                    } else if (eventPayload.type === "event_callback" &&
-                               !this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase())
-                    ) {
-                        this.eventHandler.handle(
-                            // The event can take many forms.
-                            // tslint:disable-next-line: no-any
-                            eventPayload.event as any,
-                            eventPayload.team_id,
-                            eventsResponse,
-                        ).catch((ex) => {
-                            log.error("Failed to handle event", ex);
-                        });
-                    }
+                    this.handleEvent(body, res);
                 } else {
                     const params = qs.parse(body);
-                    this.handle(req.method!, req.url!, params, res).catch((ex) => {
+                    this.handleWebhook(req.method!, req.url!, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
                 }
@@ -146,6 +117,37 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
+    private handleEvent(jsonBodyStr: string, res: ServerResponse) {
+        const eventsResponse = (resStatus: number, resBody?: string, resHeaders?: {[key: string]: string}) => {
+            if (resHeaders) {
+                res.writeHead(resStatus, resHeaders);
+            } else {
+                res.writeHead(resStatus);
+            }
+            if (resBody) {
+                res.write(resBody);
+            }
+            res.end();
+        };
+        const eventPayload = JSON.parse(jsonBodyStr) as ISlackEventPayload;
+        if (eventPayload.type === "url_verification") {
+            this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
+        } else if (eventPayload.type !== "event_callback") {
+            return; // We can't handle anything else.
+        }
+        const isUsingRtm = this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase());
+        this.eventHandler.handle(
+            // The event can take many forms.
+            // tslint:disable-next-line: no-any
+            eventPayload.event as any,
+            eventPayload.team_id,
+            eventsResponse,
+            isUsingRtm,
+        ).catch((ex) => {
+            log.error("Failed to handle event", ex);
+        });
+    }
+
     /**
      * Handles a slack webhook request.
      *
@@ -155,8 +157,8 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param url The HTTP url for the incoming request
      * @param params Parameters given in either the body or query string.
      */
-    private async handle(method: string, url: string, params: {[key: string]: string|string[]},
-                         response: ServerResponse) {
+    private async handleWebhook(method: string, url: string, params: {[key: string]: string|string[]},
+                                response: ServerResponse) {
         log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
         const urlMatch = url.match(/^\/(.{32})(?:\/(.*))?$/);
