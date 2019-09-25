@@ -1,4 +1,14 @@
- 1.0.0-rc4 (2019-09-24)
+1.0.0-rc5 (2019-09-25)
+=======================
+
+Bugfixes
+--------
+
+- Fix bug where teams would start echoing messages after accepting an oauth request. ([\#260](https://github.com/matrix-org/matrix-appservice-slack/issues/260))
+- Fix issue where using RTM on large deployments would trigger Slack to turn off Event subscriptions ([\#261](https://github.com/matrix-org/matrix-appservice-slack/issues/261))
+
+
+1.0.0-rc4 (2019-09-24)
 =======================
 
 Bugfixes
