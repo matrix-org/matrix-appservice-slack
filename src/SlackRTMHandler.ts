@@ -127,7 +127,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                         log.error("Cannot handle event, no active teamId!");
                         return;
                     }
-                    await this.handle(event, rtm.activeTeamId! , () => {});
+                    await this.handle(event, rtm.activeTeamId! , () => {}, false);
                 } catch (ex) {
                     log.error(`Failed to handle '${eventName}' event`);
                 }
