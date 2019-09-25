@@ -36,14 +36,32 @@ describe("SlackToMatrix", () => {
     });
 
     it("will drop slack events that have an unknown type", async () => {
+        let called = false;
         await harness.eventHandler.handle({
             type: "faketype",
             channel: "fakechannel",
             ts: "12345",
         }, "12345", (status: number, body?: string) => {
+            called = true;
             expect(status).to.equal(200);
             expect(body).to.equal("OK");
-        });
+        }, false);
         expect(harness.main.timerFinished.remote_request_seconds).to.be.equal("dropped");
+        expect(called).to.be.true;
+    });
+
+    it("will no-op slack events when using RTM API and is an Event API request", async () => {
+        let called = false;
+        await harness.eventHandler.handle({
+            type: "faketype",
+            channel: "fakechannel",
+            ts: "12345",
+        }, "12345", (status: number, body?: string) => {
+            called = true;
+            expect(status).to.equal(200);
+            expect(body).to.equal("OK");
+        }, true);
+        expect(harness.main.timerFinished.remote_request_seconds).to.be.undefined;
+        expect(called).to.be.true;
     });
 });

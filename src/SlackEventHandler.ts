@@ -66,14 +66,22 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Handles a slack event request.
      * @param ISlackEventParams
      */
-    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback) {
+    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback, isEventAndUsingRtm: boolean) {
         try {
-            log.debug("Received slack event:", event, teamId);
-
-            const endTimer = this.main.startTimer("remote_request_seconds");
             // See https://api.slack.com/events-api#responding_to_events
             // We must respond within 3 seconds or it will be sent again!
             response(HTTP_OK, "OK");
+
+            if (isEventAndUsingRtm) {
+                // This is a special flag that is raised if the team is using the RTM
+                // API AND this event is from the Events API. Certain Events only come down
+                // that API, and we may have to handle those in the future. For now, all the events
+                // given below can be found on both APIs.
+                // If this flag is true, we should return early to avoid duplication.
+                return;
+            }
+            log.debug("Received slack event:", event, teamId);
+            const endTimer = this.main.startTimer("remote_request_seconds");
 
             let err: Error|null = null;
             try {
