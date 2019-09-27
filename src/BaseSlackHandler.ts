@@ -66,19 +66,14 @@ export interface ISlackMessageEvent extends ISlackEvent {
     subtype?: string;
     bot_id?: string;
     text?: string;
-    deleted_ts: string;
+    deleted_ts?: string;
     // For comments
     comment?: {
         user: string;
     };
     attachments?: ISlackEventMessageAttachment[];
     // For message_changed
-    message?: {
-        text: string;
-        user: string;
-        bot_id: string;
-        thread_ts?: string;
-    };
+    message?: ISlackMessageEvent;
     previous_message?: ISlackMessageEvent;
     file?: ISlackFile;
     files?: ISlackFile[];
