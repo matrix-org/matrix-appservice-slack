@@ -1,3 +1,13 @@
+ 1.0.0-rc6 (2019-09-27)
+=======================
+
+Bugfixes
+--------
+
+- Do not handle slack tombstone messages as edits ([\#262](https://github.com/matrix-org/matrix-appservice-slack/issues/262))
+- Fix issue where metrics would not report user activity ages ([\#263](https://github.com/matrix-org/matrix-appservice-slack/issues/263))
+
+
 1.0.0-rc5 (2019-09-25)
 =======================
 
