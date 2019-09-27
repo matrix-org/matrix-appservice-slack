@@ -21,7 +21,6 @@ import { SlackEventHandler } from "../../SlackEventHandler";
 import { ISlackMessageEvent } from "../../BaseSlackHandler";
 import { BridgedRoom } from "../../BridgedRoom";
 
-
 // tslint:disable: no-unused-expression no-any
 
 function constructHarness() {
@@ -43,7 +42,6 @@ function constructHarness() {
     const hooks = new SlackHookHandler(main as unknown as Main);
     return { eventHandler: hooks.eventHandler, main };
 }
-
 
 describe("SlackToMatrix", () => {
     let harness: { eventHandler: SlackEventHandler, main: FakeMain };
