@@ -18,18 +18,35 @@ import { FakeMain } from "../utils/fakeMain";
 import { Main } from "../../Main";
 import { expect } from "chai";
 import { SlackEventHandler } from "../../SlackEventHandler";
+import { ISlackMessageEvent } from "../../BaseSlackHandler";
+import { BridgedRoom } from "../../BridgedRoom";
+
 
 // tslint:disable: no-unused-expression no-any
 
 function constructHarness() {
-    const main = new FakeMain();
+    const main = new FakeMain({
+        oauth2: false,
+        teams: [
+            {
+                bot_token: "foo",
+                id: "12345",
+                name: "FakeTeam",
+                domain: "fake-domain",
+                user_id: "foo",
+                bot_id: "bar",
+                status: "ok",
+                scopes: "",
+            },
+        ],
+    });
     const hooks = new SlackHookHandler(main as unknown as Main);
     return { eventHandler: hooks.eventHandler, main };
 }
 
-let harness: { eventHandler: SlackEventHandler, main: FakeMain };
 
 describe("SlackToMatrix", () => {
+    let harness: { eventHandler: SlackEventHandler, main: FakeMain };
 
     beforeEach(() => {
         harness = constructHarness();
@@ -42,6 +59,36 @@ describe("SlackToMatrix", () => {
             channel: "fakechannel",
             ts: "12345",
         }, "12345", (status: number, body?: string) => {
+            called = true;
+            expect(status).to.equal(200);
+            expect(body).to.equal("OK");
+        }, false);
+        expect(harness.main.timerFinished.remote_request_seconds).to.be.equal("dropped");
+        expect(called).to.be.true;
+    });
+
+    it("will not handle replies with tombstoned contents", async () => {
+        harness.main.rooms.upsertRoom({
+            InboundId: "foobarId",
+            MatrixRoomId: "!foo:bar",
+            SlackChannelId: "fakechannel",
+            SlackClient: true, // To ensure we do not drop out early
+        } as unknown as BridgedRoom);
+        let called = false;
+        await harness.eventHandler.handle({
+            type: "message",
+            subtype: "message_changed",
+            hidden: true,
+            message: {
+              channel: "foo",
+              type: "message",
+              subtype: "tombstone",
+              ts: "1569567229.124700",
+            },
+            channel: "fakechannel",
+            ts: "12345",
+         } as ISlackMessageEvent,
+         "12345", (status: number, body?: string) => {
             called = true;
             expect(status).to.equal(200);
             expect(body).to.equal("OK");
