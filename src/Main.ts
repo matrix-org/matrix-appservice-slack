@@ -206,8 +206,9 @@ export class Main {
 
             const countAges = (users: QuickLRU<string, MatrixUser|SlackGhost>) => {
                 const counts = new PrometheusMetrics.AgeCounters();
-                for (const id of users.keys()) {
-                    counts.bump(now - users.get(id)!.aTime!);
+                const snapshot = [...users.values()].filter((u) => u !== undefined && u.aTime! > 0);
+                for (const user of snapshot) {
+                    counts.bump(now - user.aTime!);
                 }
                 return counts;
             };
