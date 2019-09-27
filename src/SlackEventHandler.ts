@@ -162,9 +162,8 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
 
         if (event.subtype !== "message_deleted" && event.message && event.message.subtype === "tombstone") {
-            throw Error("ignored");
             // Filter out tombstones early, we only care about them on deletion.
-            return;
+            throw Error("ignored");
         }
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
