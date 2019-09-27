@@ -132,7 +132,8 @@ export class SlackEventHandler extends BaseSlackHandler {
                 log.warn(`Ignoring event because we couldn't find a referred to message`);
                 endTimer({outcome: "dropped"});
                 return;
-            } else if (err.message === "unknown_event") {
+            } else if (err.message === "unknown_event" || err.message === "ignored") {
+                // where ignored means we deliberately don't care about an event.
                 endTimer({outcome: "dropped"});
             } else {
                 log.warn("Error when handing event:", err);
@@ -160,6 +161,10 @@ export class SlackEventHandler extends BaseSlackHandler {
             return;
         }
 
+        if (event.subtype !== "message_deleted" && event.message && event.message.subtype === "tombstone") {
+            // Filter out tombstones early, we only care about them on deletion.
+            throw Error("ignored");
+        }
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
@@ -219,7 +224,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                     msg.user_id = msg.bot_id;
                 }
             }
-        } else if (msg.subtype === "message_deleted") {
+        } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {
             const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
             if (originalEvent) {
                 const botClient = this.main.botIntent.getClient();
