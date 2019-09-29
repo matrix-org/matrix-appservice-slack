@@ -51,10 +51,8 @@ Setup
    `$SLACK_PORT` in the remaining instructions.
 
 1. Create a `config.yaml` file for global configuration. There is a sample
-<<<<<<< HEAD
    one to begin with in `config/config.sample.yaml` you may wish to copy and
    edit as appropriate. The required and optional values are flagged in the config.
-
 
 1. See [datastores](docs/datastores.md) on how to setup a database with the bridge.
 
