@@ -26,7 +26,7 @@ const log = Logging.get("Provisioning");
 type CommandFunc = (main: Main, req: Request, res: Response, ...params: string[]) => void|Promise<void>;
 export const commands: {[verb: string]: Command} = {};
 
-type Param = string;
+type Param = string | { param: string, required: boolean};
 
 export class Command {
     private params: Param[];
@@ -40,12 +40,14 @@ export class Command {
         const body = req.body;
         const args: [Main, Request, Response, ...string[]] = [main, req, res];
         for (const param of this.params) {
-            if (!(param in body)) {
+            const paramName = typeof(param) === "string" ? param : param.param;
+            const paramRequired = typeof(param) === "string" ? true : param.required;
+            if (!(paramName in body) && paramRequired) {
                 res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
                 return;
             }
 
-            args.push(body[param]);
+            args.push(body[paramName]);
         }
 
         try {
@@ -92,7 +94,7 @@ commands.getbotid = new Command({
 });
 
 commands.authurl = new Command({
-    params: ["user_id", "puppeting"],
+    params: ["user_id", { param: "puppeting", required: false}],
     func(main, req, res, userId, puppeting) {
         if (!main.oauth2) {
             res.status(HTTP_CODES.CLIENT_ERROR).json({
@@ -134,7 +136,7 @@ commands.logout = new Command({
 commands.channels = new Command({
     params: ["user_id", "team_id"],
     async func(main, req, res, userId, teamId) {
-        log.debug(`${userId} requested their teams`);
+        log.debug(`${userId} for ${teamId} requested their channels`);
         const matrixUser = await main.datastore.getMatrixUser(userId);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
@@ -146,16 +148,16 @@ commands.channels = new Command({
         }
         const team = await main.datastore.getTeam(teamId);
         if (team === null) {
-            throw new Error("No team token for this team_id");
+            throw Error("No team token for this team_id");
         }
-        const cli = await main.clientFactory.createOrGetTeamClient(teamId, team.bot_token);
+        const cli = await main.clientFactory.getTeamClient(teamId);
         const response = (await cli.conversations.list({
             exclude_archived: true,
             limit: 100, // TODO: Pagination
             types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
         })) as ConversationsListResponse;
         if (!response.ok) {
-            log.error(`Failed trying to fetch channels for ${teamId}.`, response);
+            log.error(`Failed trying to fetch channels for ${teamId}.`, response.error);
             res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
             return;
         }
@@ -188,8 +190,8 @@ commands.teams = new Command({
             );
         }));
         const teams = results.map((account) => ({
-            id: account.team.team_id,
-            name: account.team.team_name,
+            id: account.team!.id,
+            name: account.team!.name,
             slack_id: account.slack_id,
         }));
         res.json({ teams });
@@ -200,7 +202,8 @@ commands.accounts = new Command({
     params: ["user_id"],
     async func(main, _, res, userId) {
         log.debug(`${userId} requested their puppeted accounts`);
-        const accts = await main.datastore.getPuppetsByMatrixId(userId);
+        const allPuppets = await main.datastore.getPuppetedUsers();
+        const accts = allPuppets.filter((p) => p.matrixId === userId);
         // tslint:disable-next-line: no-any
         const accounts = await Promise.all(accts.map(async (acct: any) => {
             delete acct.token;
@@ -212,6 +215,7 @@ commands.accounts = new Command({
                         team: identity.team,
                         name: identity.user,
                     };
+                    acct.isLast = allPuppets.filter((t) => t.teamId).length < 2;
                 } catch (ex) {
                     return acct;
                 }
@@ -226,6 +230,10 @@ commands.removeaccount = new Command({
     params: ["user_id", "team_id"],
     async func(main, _, res, userId, teamId) {
         log.debug(`${userId} is removing their account on ${teamId}`);
+        const isLast = (await main.datastore.getPuppetedUsers()).filter((t) => t.teamId).length < 2;
+        if (isLast) {
+            log.warn("This is the last user on the workspace which means we will lose access to the team token!");
+        }
         const client = await main.clientFactory.getClientForUser(teamId, userId);
         if (client) {
             await client.auth.revoke();
@@ -237,7 +245,7 @@ commands.removeaccount = new Command({
 commands.getlink = new Command({
     params: ["matrix_room_id", "user_id"],
     async func(main, req, res, matrixRoomId, userId) {
-        const room = main.getRoomByMatrixRoomId(matrixRoomId);
+        const room = main.rooms.getByMatrixRoomId(matrixRoomId);
         if (!room) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "Link not found"});
             return;
@@ -265,7 +273,13 @@ commands.getlink = new Command({
         }
 
         let authUri;
-        if (main.oauth2 && !room.AccessToken) {
+        let stordTeamExists = room.SlackTeamId !== undefined;
+
+        if (room.SlackTeamId) {
+            stordTeamExists = (await main.datastore.getTeam(room.SlackTeamId)) !== null;
+        }
+
+        if (main.oauth2 && !stordTeamExists) {
             // We don't have an auth token but we do have the ability
             // to ask for one
             authUri = main.oauth2.makeAuthorizeURL(
@@ -277,8 +291,7 @@ commands.getlink = new Command({
         res.json({
             auth_uri: authUri,
             inbound_uri: main.getInboundUrlForRoom(room),
-            isWebhook: !room.SlackBotId,
-            // This is slightly a lie
+            isWebhook: room.SlackWebhookUri !== undefined,
             matrix_room_id: matrixRoomId,
             slack_channel_id: room.SlackChannelId,
             slack_channel_name: room.SlackChannelName,

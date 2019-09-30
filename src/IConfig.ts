@@ -19,6 +19,11 @@ limitations under the License.
 type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";
 
+export const CACHING_DEFAULTS = {
+    ghostUserCache: 100,
+    matrixUserCache: 100,
+};
+
 export interface IConfig {
     inbound_uri_prefix?: string;
     username_prefix: string;
@@ -29,11 +34,17 @@ export interface IConfig {
         url: string;
         server_name: string;
         media_url?: string;
+        max_upload_size?: number;
     };
 
     tls?: {
         key_file: string;
         crt_file: string;
+    };
+
+    caching?: {
+        ghostUserCache: number,
+        matrixUserCache: number,
     };
 
     logging: {

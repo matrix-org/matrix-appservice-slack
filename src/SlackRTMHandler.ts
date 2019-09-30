@@ -81,7 +81,18 @@ export class SlackRTMHandler extends SlackEventHandler {
         return this.rtmTeamClients.has(teamId.toUpperCase());
     }
 
-    public async startTeamClientIfNotStarted(expectedTeam: string, botToken: string) {
+    public async teamCanUseRTM(team: string): Promise<boolean> {
+        const teamEntry = (await this.main.datastore.getTeam(team));
+        if (!teamEntry) {
+            return false;
+        }
+        if (!teamEntry.bot_token.startsWith("xoxb")) {
+            return false; // User tokens are not able to use the RTM API
+        }
+        return true; // Bots can use RTM by default, yay \o/.
+    }
+
+    public async startTeamClientIfNotStarted(expectedTeam: string) {
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
             try {
@@ -91,12 +102,20 @@ export class SlackRTMHandler extends SlackEventHandler {
                 log.warn("Failed to create RTM client");
             }
         }
-        const promise = this.startTeamClient(expectedTeam, botToken);
+        if (!(await this.teamCanUseRTM(expectedTeam))) {
+            // Cannot use RTM, no-op.
+            return;
+        }
+        const team = (await this.main.datastore.getTeam(expectedTeam))!;
+        const promise = this.startTeamClient(expectedTeam, team.bot_token);
         this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
         await promise;
     }
 
     private async startTeamClient(expectedTeam: string, botToken: string) {
+        if (!botToken.startsWith("xoxb")) {
+            throw Error("Bot token invalid, must start with xoxb");
+        }
         const rtm = this.createRtmClient(botToken, expectedTeam);
 
         // For each event that SlackEventHandler supports, register
@@ -108,7 +127,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                         log.error("Cannot handle event, no active teamId!");
                         return;
                     }
-                    await this.handle(event, rtm.activeTeamId! , () => {});
+                    await this.handle(event, rtm.activeTeamId! , () => {}, false);
                 } catch (ex) {
                     log.error(`Failed to handle '${eventName}' event`);
                 }
@@ -157,7 +176,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             (id) => this.main.getGhostForSlack(id, (event as any).team_domain, puppet.teamId)),
         );
         const ghost = await this.main.getGhostForSlackMessage(event, puppet.teamId);
-        let room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
+        let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         if (!room && chanInfo.channel.is_im) {
             log.info(`Creating new DM room for ${event.channel}`);
             // Create a new DM room.
@@ -169,19 +188,16 @@ export class SlackRTMHandler extends SlackEventHandler {
                     is_direct: true,
                 },
             });
+            const team = (await this.main.datastore.getTeam(puppet.teamId))!;
             room = new BridgedRoom(this.main, {
                 inbound_id: chanInfo.channel.id,
                 matrix_room_id: room_id,
-                slack_user_id: puppet.slackId,
                 slack_team_id: puppet.teamId,
-                // We hacked this in above.
-                // tslint:disable-next-line: no-any
-                slack_team_domain: (event as any).team_domain,
                 slack_channel_id: chanInfo.channel.id,
                 slack_channel_name: chanInfo.channel.name,
                 puppet_owner: puppet.matrixId,
                 is_private: chanInfo.channel.is_private,
-            }, slackClient);
+            }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);

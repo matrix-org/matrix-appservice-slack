@@ -18,10 +18,6 @@ import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
-import { ConversationsInfoResponse } from "./SlackResponses";
-import { WebClient } from "@slack/web-api";
-import { PuppetEntry } from "./datastore/Models";
-
 const log = Logging.get("SlackEventHandler");
 
 interface ISlackEventChannelRenamed extends ISlackEvent {
@@ -70,16 +66,24 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Handles a slack event request.
      * @param ISlackEventParams
      */
-    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback) {
+    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback, isEventAndUsingRtm: boolean) {
         try {
-            log.debug("Received slack event:", event, teamId);
-
-            const endTimer = this.main.startTimer("remote_request_seconds");
             // See https://api.slack.com/events-api#responding_to_events
             // We must respond within 3 seconds or it will be sent again!
             response(HTTP_OK, "OK");
 
-            let err: string|null = null;
+            if (isEventAndUsingRtm) {
+                // This is a special flag that is raised if the team is using the RTM
+                // API AND this event is from the Events API. Certain Events only come down
+                // that API, and we may have to handle those in the future. For now, all the events
+                // given below can be found on both APIs.
+                // If this flag is true, we should return early to avoid duplication.
+                return;
+            }
+            log.debug("Received slack event:", event, teamId);
+            const endTimer = this.main.startTimer("remote_request_seconds");
+
+            let err: Error|null = null;
             try {
                 switch (event.type) {
                     case "message":
@@ -101,29 +105,39 @@ export class SlackEventHandler extends BaseSlackHandler {
                     // XXX: Unused?
                     case "file_comment_added":
                     default:
-                        err = "unknown_event";
+                        err = Error("unknown_event");
                 }
             } catch (ex) {
-                log.warn("Didn't handle event:", ex);
+                log.warn("Didn't handle event");
                 err = ex;
             }
 
-            if (err === "unknown_channel") {
+            if (err === null) {
+                endTimer({outcome: "success"});
+            } else if (!(err instanceof Error)) {
+                log.warn("Error when handing event:", err);
+                endTimer({outcome: "fail"});
+            } else if (err.message === "unknown_channel") {
                 const chanIdMix = `${event.channel} (${teamId})`;
                 log.warn(`Ignoring message from unrecognised slack channel id: ${chanIdMix}`);
                 this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
-            } else if (err === "unknown_event") {
+            } else if (err.message === "unknown_team") {
+                log.warn(`Ignoring message from unrecognised slack team id: ${teamId}`);
+                this.main.incCounter("received_messages", {side: "remote"});
                 endTimer({outcome: "dropped"});
-            } else if (err !== null) {
-                endTimer({outcome: "fail"});
-            }
-
-            if (err === null) {
-                endTimer({outcome: "success"});
+                return;
+            } else if (err.message === "unknown_message") {
+                log.warn(`Ignoring event because we couldn't find a referred to message`);
+                endTimer({outcome: "dropped"});
+                return;
+            } else if (err.message === "unknown_event" || err.message === "ignored") {
+                // where ignored means we deliberately don't care about an event.
+                endTimer({outcome: "dropped"});
             } else {
-                log.error("Failed to handle slack event:", err);
+                log.warn("Error when handing event:", err);
+                endTimer({outcome: "fail"});
             }
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
@@ -138,21 +152,25 @@ export class SlackEventHandler extends BaseSlackHandler {
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
-        const room = this.main.getRoomBySlackChannelId(event.channel) as BridgedRoom;
-        if (!room) { throw new Error("unknown_channel"); }
+        const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!room) { throw Error("unknown_channel"); }
+        if (!team) { throw Error("unknown_team"); }
 
-        if (event.bot_id && (!room.SlackBotId || event.bot_id === room.SlackBotId)) {
+        if (event.bot_id && (event.bot_id === team.bot_id)) {
             return;
         }
 
+        if (event.subtype !== "message_deleted" && event.message && event.message.subtype === "tombstone") {
+            // Filter out tombstones early, we only care about them on deletion.
+            throw Error("ignored");
+        }
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
-        const token = room.AccessToken;
-
         const msg = Object.assign({}, event, {
             channel_id: event.channel,
-            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_domain: team.domain || team.id,
             team_id: teamId,
             user_id: event.user || event.bot_id,
         });
@@ -169,7 +187,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
-            log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
+            log.warn("no slack token for " + room.SlackChannelId);
             return room.onSlackMessage(msg);
         }
 
@@ -200,18 +218,20 @@ export class SlackEventHandler extends BaseSlackHandler {
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
                 // Check the edit wasn't sent by us
-                if (msg.message.bot_id === room.SlackBotId) {
+                if (msg.message.bot_id === team.bot_id) {
                     return;
                 } else {
                     msg.user_id = msg.bot_id;
                 }
             }
-        } else if (msg.subtype === "message_deleted") {
+        } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {
             const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
             if (originalEvent) {
                 const botClient = this.main.botIntent.getClient();
                 return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
             }
+            // If we don't have the event
+            throw Error("unknown_message");
         } else if (msg.subtype === "message_replied") {
             // Slack sends us one of these as well as a normal message event
             // when using RTM, so we ignore it.
@@ -222,7 +242,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
-            log.warn("no slack token for " + room.SlackTeamDomain || room.SlackChannelId);
+            log.warn("no slack token for " + team.domain || room.SlackChannelId);
             return room.onSlackMessage(event);
         }
 
@@ -249,12 +269,14 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleReaction(event: ISlackEventReaction, teamId: string) {
         // Reactions store the channel in the item
         const channel = event.item.channel;
-        const room = this.main.getRoomBySlackChannelId(channel) as BridgedRoom;
-        if (!room) { throw new Error("unknown_channel"); }
+        const room = this.main.rooms.getBySlackChannelId(channel) as BridgedRoom;
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!room) { throw Error("unknown_channel"); }
+        if (!team) { throw Error("unknown_team"); }
 
         const msg = Object.assign({}, event, {
             channel_id: channel,
-            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_domain: team!.domain || room.SlackTeamId,
             team_id: teamId,
             user_id: event.user || event.bot_id,
         });
@@ -270,20 +292,19 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {
-        await Promise.all(this.main.getRoomsBySlackTeamId(teamId).map(async (room: BridgedRoom) => {
-            room.SlackTeamDomain = event.domain;
-            if (room.isDirty) {
-                await this.main.datastore.upsertRoom(room);
-            }
-        }));
+        const team = await this.main.datastore.getTeam(teamId);
+        if (team) {
+            team.domain = event.domain;
+            await this.main.datastore.upsertTeam(team);
+        }
     }
 
     private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
         // TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.getRoomBySlackChannelId(event.id);
+        const room = this.main.rooms.getBySlackChannelId(event.id);
         if (!room) { throw new Error("unknown_channel"); }
 
-        const channelName = `${room.SlackTeamDomain}.#${event.name}`;
+        const channelName = `#${event.name}`;
         room.SlackChannelName = channelName;
         if (room.isDirty) {
             await this.main.datastore.upsertRoom(room);
@@ -291,11 +312,13 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleTyping(event: ISlackEvent, teamId: string) {
-        const room = this.main.getRoomBySlackChannelId(event.channel);
-        if (!room) { throw new Error("unknown_channel"); }
+        const room = this.main.rooms.getBySlackChannelId(event.channel);
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!room) { throw Error("unknown_channel"); }
+        if (!team) { throw Error("unknown_team"); }
         const typingEvent = Object.assign({}, event, {
             channel_id: event.channel,
-            team_domain: room.SlackTeamDomain || room.SlackTeamId,
+            team_domain: team!.domain || room.SlackTeamId,
             team_id: teamId,
             user_id: event.user || event.bot_id,
         });

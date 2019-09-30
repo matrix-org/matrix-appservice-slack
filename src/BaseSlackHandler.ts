@@ -66,19 +66,14 @@ export interface ISlackMessageEvent extends ISlackEvent {
     subtype?: string;
     bot_id?: string;
     text?: string;
-    deleted_ts: string;
+    deleted_ts?: string;
     // For comments
     comment?: {
         user: string;
     };
     attachments?: ISlackEventMessageAttachment[];
     // For message_changed
-    message?: {
-        text: string;
-        user: string;
-        bot_id: string;
-        thread_ts?: string;
-    };
+    message?: ISlackMessageEvent;
     previous_message?: ISlackMessageEvent;
     file?: ISlackFile;
     files?: ISlackFile[];
@@ -104,6 +99,7 @@ export interface ISlackFile {
     url_private?: string;
     public_url_shared?: string;
     permalink?: string;
+    size: number;
 }
 
 export interface ISlackUser {
@@ -161,7 +157,7 @@ export abstract class BaseSlackHandler {
             const id = testForName![iteration].match(CHANNEL_ID_REGEX_FIRST)![1];
 
             // Lookup the room in the store.
-            let room = this.main.getRoomBySlackChannelId(id);
+            let room = this.main.rooms.getBySlackChannelId(id);
 
             // If we bridge the room, attempt to look up its canonical alias.
             if (room !== undefined) {
@@ -249,7 +245,7 @@ export abstract class BaseSlackHandler {
             url_private: file.url_private!,
         }) || file.permalink_public;
         if (!url) {
-            throw new Error("File doesn't have any URLs we can use.");
+            throw Error("File doesn't have any URLs we can use.");
         }
 
         const response = await rp({

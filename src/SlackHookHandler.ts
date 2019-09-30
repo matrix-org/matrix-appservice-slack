@@ -27,6 +27,7 @@ import { Main } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
+import { TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("SlackHookHandler");
 
@@ -98,39 +99,10 @@ export class SlackHookHandler extends BaseSlackHandler {
             const isEvent = req.headers["content-type"] === "application/json" && req.method === "POST";
             try {
                 if (isEvent) {
-                    const eventsResponse = (resStatus, resBody, resHeaders) => {
-                        if (resHeaders) {
-                            res.writeHead(resStatus, resHeaders);
-                        } else {
-                            res.writeHead(resStatus);
-                        }
-                        if (resBody) {
-                            res.write(resBody);
-                        }
-                        res.end();
-                    };
-                    const eventPayload = JSON.parse(body) as ISlackEventPayload;
-                    if (eventPayload.type === "url_verification") {
-                        this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
-                        // If RTM is enabled for this team, do not handle the event.
-                        // Slack will push us events for all connected teams to our bots,
-                        // but this will cause duplicates if the team is ALSO using RTM.
-                    } else if (eventPayload.type === "event_callback" &&
-                               !this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase())
-                    ) {
-                        this.eventHandler.handle(
-                            // The event can take many forms.
-                            // tslint:disable-next-line: no-any
-                            eventPayload.event as any,
-                            eventPayload.team_id,
-                            eventsResponse,
-                        ).catch((ex) => {
-                            log.error("Failed to handle event", ex);
-                        });
-                    }
+                    this.handleEvent(body, res);
                 } else {
                     const params = qs.parse(body);
-                    this.handle(req.method!, req.url!, params, res).catch((ex) => {
+                    this.handleWebhook(req.method!, req.url!, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
                 }
@@ -145,6 +117,37 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
+    private handleEvent(jsonBodyStr: string, res: ServerResponse) {
+        const eventsResponse = (resStatus: number, resBody?: string, resHeaders?: {[key: string]: string}) => {
+            if (resHeaders) {
+                res.writeHead(resStatus, resHeaders);
+            } else {
+                res.writeHead(resStatus);
+            }
+            if (resBody) {
+                res.write(resBody);
+            }
+            res.end();
+        };
+        const eventPayload = JSON.parse(jsonBodyStr) as ISlackEventPayload;
+        if (eventPayload.type === "url_verification") {
+            this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
+        } else if (eventPayload.type !== "event_callback") {
+            return; // We can't handle anything else.
+        }
+        const isUsingRtm = this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase());
+        this.eventHandler.handle(
+            // The event can take many forms.
+            // tslint:disable-next-line: no-any
+            eventPayload.event as any,
+            eventPayload.team_id,
+            eventsResponse,
+            isUsingRtm,
+        ).catch((ex) => {
+            log.error("Failed to handle event", ex);
+        });
+    }
+
     /**
      * Handles a slack webhook request.
      *
@@ -154,8 +157,8 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param url The HTTP url for the incoming request
      * @param params Parameters given in either the body or query string.
      */
-    private async handle(method: string, url: string, params: {[key: string]: string|string[]},
-                         response: ServerResponse) {
+    private async handleWebhook(method: string, url: string, params: {[key: string]: string|string[]},
+                                response: ServerResponse) {
         log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
         const urlMatch = url.match(/^\/(.{32})(?:\/(.*))?$/);
@@ -180,7 +183,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             params = qs.parse(result![2]);
         }
 
-        const room = this.main.getRoomByInboundId(inboundId);
+        const room = this.main.rooms.getByInboundId(inboundId);
 
         if (method === "GET" && path === "authorize") {
             // We may or may not have a room bound to the inboundId.
@@ -208,7 +211,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         if (method === "POST" && path === "post") {
             try {
                 if (!room) {
-                    throw new Error("No room found for inboundId");
+                    throw Error("No room found for inboundId");
                 }
                 await this.handlePost(room, params);
                 endTimer({outcome: "success"});
@@ -322,8 +325,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             );
             log.debug("Got a full OAuth2 token");
             if (room) { // Legacy webhook
-                room.updateAccessToken(response.access_token, new Set(access_scopes));
-                await this.main.datastore.upsertRoom(room);
+                // XXX: We no longer support setting tokens for webhooks
             } else if (user) { // New event api
                 // We always get a user access token, but if we set certain
                 // fancy scopes we might not get a bot one.
@@ -335,11 +337,10 @@ export class SlackHookHandler extends BaseSlackHandler {
                     response.bot === undefined,
                 );
                 if (response.bot) {
-                    this.main.datastore.upsertTeam(
-                        response.team_id,
-                        response.team_name,
-                        response.bot!.bot_user_id,
-                        response.bot!.bot_access_token,
+                    // Rather than upsert the values we were given, use the
+                    // access token to validate and make additional requests
+                    await this.main.clientFactory.upsertTeamByToken(
+                        response.bot.bot_access_token,
                     );
                 }
             }
@@ -386,7 +387,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         })) as ConversationsHistoryResponse;
 
         if (!response.ok || !response.messages || response.messages.length === 0) {
-            log.warn("Could not find history: " + response);
+            log.warn("Could not find history: " + response.error);
             throw Error("Could not find history");
         }
         if (response.messages.length !== 1) {

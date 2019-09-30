@@ -1,0 +1,1 @@
+Fix issue where using RTM on large deployments would trigger Slack to turn off Event subscriptions

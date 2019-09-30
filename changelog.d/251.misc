@@ -1,0 +1,1 @@
+Fix issue where towncrier would wrongly link to matrix-appservice-slack-issues

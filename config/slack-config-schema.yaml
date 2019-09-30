@@ -13,6 +13,8 @@ properties:
         type: string
       media_url:
         type: string
+      max_upload_size:
+        type: number
   tls:
     type: object
     required: ["key_file", "crt_file"]
@@ -27,7 +29,7 @@ properties:
     properties:
       enable:
         type: boolean
-      logging:
+      log_level:
         type: "string"
         enum: ["error", "warn", "info", "debug", "off"]
   db:

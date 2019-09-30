@@ -60,7 +60,7 @@ export class OAuth2 {
 
     public makeAuthorizeURL(room: string|BridgedRoom, state: string, isPuppeting: boolean = false): string {
         const redirectUri = this.makeRedirectURL(room);
-        const scopes = isPuppeting ? REQUIRED_SCOPES : PUPPET_SCOPES;
+        const scopes = isPuppeting ? PUPPET_SCOPES : REQUIRED_SCOPES;
 
         const qs = querystring.stringify({
             client_id: this.clientId,
@@ -89,7 +89,7 @@ export class OAuth2 {
             };
         }
         log.error("oauth.access failed: ", response);
-        throw new Error(`OAuth2 process failed: '${response.error}'`);
+        throw Error(`OAuth2 process failed: '${response.error}'`);
     }
 
     // Authenticating users is a bit tricky:
