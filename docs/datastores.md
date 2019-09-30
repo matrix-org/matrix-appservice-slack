@@ -44,10 +44,20 @@ Ensure that `dbdir` is not included in the config.
 Migrating from an existing NeDB installation
 --------------------------------------------
 
+From a checkout of the code base you can run:
+
 ```bash
 npm run build
 node lib/scripts/migrateToPostgres.js "connectionString" "dbDir" "slackPrefix"
 ```
+
+If you use docker you can run:
+
+```bash
+docker run --entrypoint "node" -it -v /dbDir:/data  matrixdotorg/matrix-appservice-slack:latest "/usr/src/app/lib/scripts/migrateToPostgres.js" "connectionString" "/data" "slackPrefix"
+```
+
+(Note the docker container will need to be able to access the postgres port, so you might need `--network host` or to set the ip address to the host etc.)
 
 Where you should replace:
 - `connectionString` with the value above (such as `postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge?sslmode=require`)
