@@ -107,7 +107,8 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     const preTeamMigrations = () => Promise.all(allRooms.map(async (room, i) => {
         // This is an old format remote
         // tslint:disable-next-line: no-any
-        const at = (room.remote as any).access_token;
+        const remote = (room.remote as any);
+        const at = remote.slack_bot_token || remote.access_token;
         if (!at) {
             return;
         }
