@@ -34,8 +34,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                     display_name: "A displayname",
                     avatar_url: "Some avatar",
                     id: "someid1",
-                    slack_id: "foobar",
-                    team_id: "barbaz",
+                    slack_id: "FOOBAR",
+                    team_id: "BARBAZ",
                 }, null),
             );
             const userEntry = await ds().getUser("someid1");
@@ -43,8 +43,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 display_name: "A displayname",
                 avatar_url: "Some avatar",
                 id: "someid1",
-                slack_id: "foobar",
-                team_id: "barbaz",
+                slack_id: "FOOBAR",
+                team_id: "BARBAZ",
             });
         });
 
@@ -53,8 +53,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 display_name: "A displayname",
                 avatar_url: "Some avatar",
                 id: "someid3",
-                slack_id: "foobar",
-                team_id: "barbaz",
+                slack_id: "FOOBAR",
+                team_id: "BARBAZ",
             }, null);
             await ds().upsertUser(user);
             (user as any).displayName = "A changed displayname";
@@ -64,8 +64,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 display_name: "A changed displayname",
                 avatar_url: "Some avatar",
                 id: "someid3",
-                slack_id: "foobar",
-                team_id: "barbaz",
+                slack_id: "FOOBAR",
+                team_id: "BARBAZ",
             });
         });
 
