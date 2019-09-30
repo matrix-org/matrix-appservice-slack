@@ -652,7 +652,7 @@ export class BridgedRoom {
                     await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
                 } else {
                     if (uploadSize && file.size > uploadSize) {
-                        const link = file.permalink_public || file.url_private;
+                        const link = file.public_url_shared ? file.permalink_public : file.url_private;
                         if (link) {
                             log.info("File too large, sending as a link");
                             const messageContent = {
