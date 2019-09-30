@@ -4,19 +4,6 @@ Datastores
 Version 1.0+ supports using PostgreSQL as a storage backend instead of the
 deprecated NeDB storage backend. 
 
-NeDB End-of-life
---------
-
-NeDB is a library which is used to store json documents locally to disk to give the bridge some local persistent state. 
-All deployments of this bridge before `1.0` will have been using NeDB.
-
-Starting with version `1.0`, NeDB will be deprecated and shouldn't be used for new installations. NeDB is
-[unmaintained](https://github.com/matrix-org/matrix-appservice-bridge/issues/77) and doesn't scale well for the
-needs of this bridge. Features such as puppeting will not be supported, however existing functionality will continue
-to be maintained until support for NeDB is removed. 
-
-Version 1.0 of the bridge only supports PostgreSQL as an alternative datastore.
-
 Using PostgreSQL
 ----------------
 
@@ -40,6 +27,19 @@ db:
 (replacing "somethingverysecret" with your own password)
 
 Ensure that `dbdir` is not included in the config.
+
+NeDB End-of-life
+--------
+
+NeDB is a library which is used to store json documents locally to disk to give the bridge some local persistent state. 
+All deployments of this bridge before `1.0` will have been using NeDB.
+
+Starting with version `1.0`, NeDB will be deprecated and shouldn't be used for new installations. NeDB is
+[unmaintained](https://github.com/matrix-org/matrix-appservice-bridge/issues/77) and doesn't scale well for the
+needs of this bridge. Features such as puppeting will not be supported, however existing functionality will continue
+to be maintained until support for NeDB is removed. 
+
+Version 1.0 of the bridge only supports PostgreSQL as an alternative datastore.
 
 Migrating from an existing NeDB installation
 --------------------------------------------
