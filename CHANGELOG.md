@@ -1,4 +1,16 @@
- 1.0.0-rc6 (2019-09-27)
+ 1.0.0 (2019-09-30)
+===================
+
+This release marks the end of the 1.0RC period. Please see [UPGRADE](UPGRADE.md)
+for notes on how to upgrade your bridge from 0.3.2 to 1.0.
+
+Bugfixes
+--------
+
+- Fix issue where uploading large files will crash the bridge. ([\#264](https://github.com/matrix-org/matrix-appservice-slack/issues/264))
+
+
+1.0.0-rc6 (2019-09-27)
 =======================
 
 Bugfixes
