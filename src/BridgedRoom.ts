@@ -407,6 +407,7 @@ export class BridgedRoom {
         const res = (await slackClient.chat.postMessage({
             ...body,
             channel: this.slackChannelId!,
+            unfurl_links: true,
         })) as ChatPostMessageResponse;
 
         this.addRecentSlackMessage(res.ts);
