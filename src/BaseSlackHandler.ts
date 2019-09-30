@@ -99,6 +99,7 @@ export interface ISlackFile {
     url_private?: string;
     public_url_shared?: string;
     permalink?: string;
+    size: number;
 }
 
 export interface ISlackUser {
