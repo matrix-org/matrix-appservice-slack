@@ -611,11 +611,13 @@ export class BridgedRoom {
             };
             return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
         } else if (message.files) { // A message without a subtype can contain files.
+            const maxUploadSize = this.main.config.homeserver.max_upload_size;
             for (const file of message.files) {
                 if (!file.url_private) {
                     // Cannot do anything with this.
                     continue;
                 }
+
                 if (file.mode === "snippet") {
                     let htmlString: string;
                     try {
@@ -648,13 +650,19 @@ export class BridgedRoom {
                         msgtype: "m.text",
                     };
                     await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
-                    // TODO: Currently Matrix lacks a way to upload a "captioned image",
-                    //   so we just send a separate `m.image` and `m.text` message
-                    // See https://github.com/matrix-org/matrix-doc/issues/906
-                    if (message.text) {
-                        return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
-                    }
                 } else {
+                    if (maxUploadSize && file.size > maxUploadSize) {
+                        const link = file.public_url_shared ? file.permalink_public : file.url_private;
+                        log.info("File too large, sending as a link");
+                        const messageContent = {
+                            body: `${link} (${file.name})`,
+                            format: "org.matrix.custom.html",
+                            formatted_body: `<a href="${link}">${file.name}</a>`,
+                            msgtype: "m.text",
+                        };
+                        await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
+                        continue;
+                    }
                     // We also need to upload the thumbnail
                     let thumbnailPromise: Promise<string> = Promise.resolve("");
                     // Slack ain't a believer in consistency.
@@ -678,13 +686,13 @@ export class BridgedRoom {
                         channelId,
                         eventTS,
                     );
-                    // TODO: Currently Matrix lacks a way to upload a "captioned image",
-                    //   so we just send a separate `m.image` and `m.text` message
-                    // See https://github.com/matrix-org/matrix-doc/issues/906
-                    if (message.text) {
-                        return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
-                    }
                 }
+            }
+            // TODO: Currently Matrix lacks a way to upload a "captioned image",
+            //   so we just send a separate `m.image` and `m.text` message
+            // See https://github.com/matrix-org/matrix-doc/issues/906
+            if (message.text) {
+                return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
             }
         } else {
             log.warn(`Ignoring message with subtype: ${subtype}`);
