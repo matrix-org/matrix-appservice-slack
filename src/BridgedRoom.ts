@@ -611,7 +611,7 @@ export class BridgedRoom {
             };
             return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
         } else if (message.files) { // A message without a subtype can contain files.
-            const uploadSize = this.main.config.homeserver.max_upload_size;
+            const maxUploadSize = this.main.config.homeserver.max_upload_size;
             for (const file of message.files) {
                 if (!file.url_private) {
                     // Cannot do anything with this.
@@ -651,18 +651,16 @@ export class BridgedRoom {
                     };
                     await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
                 } else {
-                    if (uploadSize && file.size > uploadSize) {
+                    if (maxUploadSize && file.size > maxUploadSize) {
                         const link = file.public_url_shared ? file.permalink_public : file.url_private;
-                        if (link) {
-                            log.info("File too large, sending as a link");
-                            const messageContent = {
-                                body: `${link} (${file.name})`,
-                                format: "org.matrix.custom.html",
-                                formatted_body: `<a href="${link}">${file.name}</a>`,
-                                msgtype: "m.text",
-                            };
-                            await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
-                        }
+                        log.info("File too large, sending as a link");
+                        const messageContent = {
+                            body: `${link} (${file.name})`,
+                            format: "org.matrix.custom.html",
+                            formatted_body: `<a href="${link}">${file.name}</a>`,
+                            msgtype: "m.text",
+                        };
+                        await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, eventTS);
                         continue;
                     }
                     // We also need to upload the thumbnail
