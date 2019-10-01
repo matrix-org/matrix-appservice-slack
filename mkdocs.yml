@@ -2,6 +2,7 @@ site_name: Matrix Appservice Slack
 
 nav:
 - Home: index.md
+- Features: features.md
 - Guide:
     - Getting Started: getting_started.md
     - Linking Channels: link_channels.md

@@ -57,7 +57,7 @@ ever stuck, you can post a question in the [Matrix Bridging channel]
    one to begin with in `config/config.sample.yaml` you may wish to copy and
    edit as appropriate. The required and optional values are flagged in the config.
 
-4. See [datastores](docs/datastores.md) on how to setup a database with the bridge.
+4. See [datastores](datastores.md) on how to setup a database with the bridge.
 
 5. Generate the appservice registration file. This will be used by the
    Matrix homeserver. Here, you must specify the direct link the
@@ -65,24 +65,24 @@ ever stuck, you can post a question in the [Matrix Bridging channel]
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
    
-   ```
+   ```sh
    $ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
    ```
    
    or with docker:
    
-   ```
+   ```sh
    $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
    ```
 
 6. Start the actual application service.
 
-   ```
+   ```sh
    $ npm start -c config.yaml -p $MATRIX_PORT
    ```
    
    or with docker:
-   ```
+   ```sh
    $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
    ```
 
@@ -90,7 +90,7 @@ ever stuck, you can post a question in the [Matrix Bridging channel]
    homeserver. Add the registration file to your homeserver config (default
    `homeserver.yaml`):
 
-   ```
+   ```yaml
    app_service_config_files:
       - ...
       - "/path/to/Slack-registration.yaml"
