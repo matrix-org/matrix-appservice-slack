@@ -6,11 +6,19 @@ other places.
 
 ## Installation
 
+### From source
+
 ```sh
 $ git clone https://github.com/matrix-org/matrix-appservice-slack.git
 $ cd matrix-appservice-slack
 $ npm install
 $ npm run build
+```
+
+### With Docker
+
+```sh
+$ docker pull matrixdotorg/matrix-appservice-slack:latest
 ```
 
 ## How it Works:
@@ -60,11 +68,22 @@ ever stuck, you can post a question in the [Matrix Bridging channel]
    ```
    $ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
    ```
+   
+   or with docker:
+   
+   ```
+   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
+   ```
 
 6. Start the actual application service.
 
    ```
    $ npm start -c config.yaml -p $MATRIX_PORT
+   ```
+   
+   or with docker:
+   ```
+   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
    ```
 
 7. Copy the newly-generated `slack-registration.yaml` file to your Matrix
