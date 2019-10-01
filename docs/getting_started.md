@@ -123,3 +123,11 @@ The bridge itself should now be running. Congrats!
 
 To actually use it, you will need to configure some linked channels, see
 [linking channels](link_channels.md).
+
+## Proxying
+
+If you want to host this bridge on a different server than your homeserver, you will have
+to proxy the bridge so both the Matrix port (specified when creating your registration file
+through the -u property) and the Slack port (specified by the inbound_uri prefix in your
+config file) can be reached. This way both the Matrix homeserver and the Slack API can reach
+your bridge.
