@@ -37,7 +37,7 @@ export interface UserEntry {
     display_name: string;
     avatar_url: string;
     slack_id: string;
-    team_id: string;
+    team_id?: string;
 }
 
 export interface EventEntry {

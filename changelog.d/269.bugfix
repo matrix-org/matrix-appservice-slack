@@ -1,0 +1,1 @@
+Fix issue where Slack webhooks would not be able to send messages to Matrix.
