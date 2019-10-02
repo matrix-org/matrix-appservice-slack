@@ -43,6 +43,6 @@ This requires you to have `python3` and `pip` installed.
 ```sh
 # For Debian-based platforms
 $ apt install python3 python3-pip
-$ pip3 install mkdocs
+$ pip3 install -r docs/requirements.txt
 mkdocs serve
 ```
