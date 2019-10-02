@@ -1,5 +1,7 @@
 site_name: Matrix Appservice Slack
 
+theme: cosmo
+
 nav:
 - Home: index.md
 - Features: features.md

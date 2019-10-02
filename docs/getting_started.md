@@ -37,10 +37,10 @@ is the same port. No problem! Multiple bridges can plug into the same
 homeserver url without conflicting with each other.
 
 NOTE: If your bridge and homeserver run on different machines, you will need
-to introduce proxying into the mix, which is beyond the scope of this readme.
+to introduce proxying into the mix, which is beyond the scope of these docs.
 There are some really awesome and kind people in the Matrix community. If you're
-ever stuck, you can post a question in the [Matrix Bridging channel]
-(https://matrix.to/#/#bridges:matrix.org).
+ever stuck, you can post a question in the 
+[Matrix Bridging channel](https://matrix.to/#/#bridges:matrix.org).
 
 
 ## Setup
