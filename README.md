@@ -8,7 +8,7 @@ A bridge that connects [Matrix](https://matrix.org) and [Slack](https://slack.co
 The bridge is considered **stable** and mature for use in production
 environments.
 
-![Screenshot](./screenshot.png)
+![Screenshot](screenshot.png)
 
 ## Requirements
 
