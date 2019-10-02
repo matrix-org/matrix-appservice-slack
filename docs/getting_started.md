@@ -54,7 +54,7 @@ ever stuck, you can post a question in the
    the remaining instructions.
 
 3. Create a `config.yaml` file for global configuration. There is a sample
-   one to begin with in `config/config.sample.yaml` you may wish to copy and
+   one to begin with in `config/config.sample.yaml`. You should copy and
    edit as appropriate. The required and optional values are flagged in the config.
 
 4. See [datastores](datastores.md) on how to setup a database with the bridge.
@@ -104,7 +104,7 @@ app_service_config_files:
     ```
 
 NOTE: At the time of writing, Riot does not recognize the Slack bot. This is
-okay. The bot *is there*... probably. Either way, when Riot asks if you're
+okay. The bot *is there*. If Riot asks if you're
 sure you want to invite @slackbot, just say yes.
 
 The bridge bot will stay offline for most of the time. This is normal. You
