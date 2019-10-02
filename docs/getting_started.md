@@ -2,29 +2,32 @@
 
 In this guide we will setup the bridge connected to your homeserver. This guide
 will walk through the most common settings, other options are documented in
-other places.
+the `config.sample.yaml` file.
 
 ## Installation
 
+These instructions assume you are using Syanpse 1.4.0+. They should
+work for older releases and other homeservers, but configruation may vary.
+
 ### From source
 
-```
+```sh
 $ git clone https://github.com/matrix-org/matrix-appservice-slack.git
-$ cd matrix-appservice-slack
+$ cd Matrix-appservice-slack
 $ npm install
 $ npm run build
 ```
 
 ### With Docker
 
-```
+```sh
 $ docker pull matrixdotorg/matrix-appservice-slack:latest
 ```
 
 ## How it Works:
 
 The bridge listens to events using the Slack RTM API over websockets, and to
-matrix events on a port that the homeserver sends events to. This tutorial will
+Matrix events on a port that the homeserver sends events to. This tutorial will
 walk you through configuring your homeserver and Slack to send messages to this
 bridge and setting up the api so this bridge can relay those message (all
 messages) to the other bridged channel. For the sake of this tutorial, we will
@@ -40,7 +43,7 @@ NOTE: If your bridge and homeserver run on different machines, you will need
 to introduce proxying into the mix, which is beyond the scope of these docs.
 There are some really awesome and kind people in the Matrix community. If you're
 ever stuck, you can post a question in the 
-[Matrix Bridging channel](https://matrix.to/#/#bridges:matrix.org).
+[Matrix Bridging room](https://matrix.to/#/#bridges:matrix.org).
 
 
 ## Setup
@@ -50,7 +53,7 @@ ever stuck, you can post a question in the
 
 2. Decide on a spare local TCP port number to use. It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
-   firewalls appropriately. This ports will be notated as `$MATRIX_PORT` and in
+   firewalls appropriately. This ports will be notated as `$MATRIX_PORT` in
    the remaining instructions.
 
 3. Create a `config.yaml` file for global configuration. There is a sample
@@ -68,7 +71,7 @@ ever stuck, you can post a question in the
     `$ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
-```
+```sh
 $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
     -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
 ```

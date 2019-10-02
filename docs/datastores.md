@@ -39,21 +39,19 @@ Starting with version `1.0`, NeDB will be deprecated and shouldn't be used for n
 needs of this bridge. Features such as puppeting will not be supported, however existing functionality will continue
 to be maintained until support for NeDB is removed. 
 
-Version 1.0 of the bridge only supports PostgreSQL as an alternative datastore.
-
 Migrating from an existing NeDB installation
 --------------------------------------------
 
 From a checkout of the code base you can run:
 
-```bash
+```sh
 npm run build
 node lib/scripts/migrateToPostgres.js "connectionString" "dbDir" "slackPrefix"
 ```
 
 If you use docker you can run:
 
-```bash
+```sh
 docker run --entrypoint "node" -it -v /dbDir:/data  matrixdotorg/matrix-appservice-slack:latest "/usr/src/app/lib/scripts/migrateToPostgres.js" "connectionString" "/data" "slackPrefix"
 ```
 
