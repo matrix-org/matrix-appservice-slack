@@ -8,7 +8,7 @@ other places.
 
 ### From source
 
-```sh
+```
 $ git clone https://github.com/matrix-org/matrix-appservice-slack.git
 $ cd matrix-appservice-slack
 $ npm install
@@ -17,7 +17,7 @@ $ npm run build
 
 ### With Docker
 
-```sh
+```
 $ docker pull matrixdotorg/matrix-appservice-slack:latest
 ```
 
@@ -65,36 +65,30 @@ ever stuck, you can post a question in the
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
    
-   ```sh
-   $ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"
-   ```
-   
+    `$ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
-   ```sh
-   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
-   ```
+```
+$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
+```
 
-6. Start the actual application service.
+6. Start the actual application service:
 
-   ```sh
-   $ npm start -c config.yaml -p $MATRIX_PORT
-   ```
-   
+    `$ npm start -c config.yaml -p $MATRIX_PORT`
    or with docker:
-   ```sh
-   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
-   ```
+   
+    `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
 
 7. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
    `homeserver.yaml`):
-
-   ```yaml
-   app_service_config_files:
-      - ...
-      - "/path/to/Slack-registration.yaml"
-   ```
+   
+```yaml
+app_service_config_files:
+    - ...
+    - "/path/to/slack-registration.yaml"
+```
 
    Don't forget - it has to be a YAML list of strings, not just a single string.
 
@@ -105,9 +99,9 @@ ever stuck, you can post a question in the
    respond to commands. The bot's user ID is formed from the `sender_localpart`
    field of the registration file, and the homeserver's domain name. For example:
 
-   ```
-   /invite @slackbot:my.server.here
-   ```
+    ```
+    /invite @slackbot:my.server.here
+    ```
 
 NOTE: At the time of writing, Riot does not recognize the Slack bot. This is
 okay. The bot *is there*... probably. Either way, when Riot asks if you're

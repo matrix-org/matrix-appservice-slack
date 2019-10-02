@@ -2,6 +2,13 @@ site_name: Matrix Appservice Slack
 
 theme: cosmo
 
+markdown_extensions:
+    - smarty
+    - sane_lists
+    - fenced_code
+    - codehilite
+    # - nl2br
+
 nav:
 - Home: index.md
 - Features: features.md

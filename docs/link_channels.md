@@ -50,9 +50,9 @@ This is the newer and recommended way to use the bridge.
    4. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
 
-         ```
-         link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
-         ```
+      ```
+      link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
+      ```
 
 ## Webhooks
 
@@ -81,9 +81,9 @@ although it can be useful for single channels or if you are using Mattermost.
 1. Issue a ``link`` command in the administration control room with these
    collected values as arguments:
 
-   ```
-   link --channel_id CHANNELID --room !the-matrix:room.id --webhook_url https://hooks.Slack.com/services/ABC/DEF/123
-   ```
+    ```
+    link --channel_id CHANNELID --room !the-matrix:room.id --webhook_url https://hooks.Slack.com/services/ABC/DEF/123
+    ```
 
 ## Unlink Channels
 
