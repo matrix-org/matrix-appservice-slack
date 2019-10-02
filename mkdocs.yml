@@ -1,0 +1,19 @@
+site_name: Matrix Appservice Slack
+repo_url: https://github.com/matrix-org/matrix-appservice-slack
+site_author: Matrix Foundation CIC
+site_description: Documentation for the Matrix Slack Bridge.
+theme: cosmo
+
+markdown_extensions:
+    - smarty
+    - sane_lists
+    - fenced_code
+    - codehilite
+
+nav:
+- Home: index.md
+- Features: features.md
+- Guide:
+    - Getting Started: getting_started.md
+    - Linking Channels: link_channels.md
+    - Datastores: datastores.md
