@@ -1,14 +1,26 @@
- 1.0.0 (2019-09-30)
+1.0.0 (2019-10-03)
 ===================
 
 This release marks the end of the 1.0RC period. Please see [UPGRADE](UPGRADE.md)
 for notes on how to upgrade your bridge from 0.3.2 to 1.0.
 
+Features
+--------
+
+- Add documentation built by RTD at https://matrix-appservice-slack.rtfd.io ([\#273](https://github.com/matrix-org/matrix-appservice-slack/issues/273))
+
 Bugfixes
 --------
 
+- Fix migrator bug where it would not find an access token ([\#267](https://github.com/matrix-org/matrix-appservice-slack/issues/267))
+- Fix issue where Slack webhooks would not be able to send messages to Matrix. ([\#269](https://github.com/matrix-org/matrix-appservice-slack/issues/269))
 - Fix issue where uploading large files will crash the bridge. ([\#264](https://github.com/matrix-org/matrix-appservice-slack/issues/264))
 
+Improved Documentation
+----------------------
+
+- Update documentation for the bridge to include more information on Docker. Thanks @kingoftheconnors. ([\#168](https://github.com/matrix-org/matrix-appservice-slack/issues/168))
+- Added migration instructions for docker users ([\#268](https://github.com/matrix-org/matrix-appservice-slack/issues/268))
 
 1.0.0-rc6 (2019-09-27)
 =======================
