@@ -57,16 +57,12 @@ logging:
       "./debug.log": "info"
       "./error.log": "error"
 
-# Specify the location of NeDB datastore files
-# This option is DEPRECATED in favor of using the database options below. See docs/datastore.md for more information
-dbdir: "."
-
 # Settings for database connections.
 # Optional if using "nedb", as it's the assumed default.
 db:
   # Which database engine to use.
   engine: "postgres" # "postgres" or "nedb". If using "nedb", do not define connectionString
-  connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge?sslmode=require" # A postgres connection string
+  connectionString: "postgresql://slackbridge_user:pass@localhost/slack_bridge?ssl=true" # A postgres connection string
 
 # Use a matrix room to issue link and unlink commands to the bridge
 # Optional
