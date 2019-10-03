@@ -15,6 +15,7 @@ Bugfixes
 - Fix migrator bug where it would not find an access token ([\#267](https://github.com/matrix-org/matrix-appservice-slack/issues/267))
 - Fix issue where Slack webhooks would not be able to send messages to Matrix. ([\#269](https://github.com/matrix-org/matrix-appservice-slack/issues/269))
 - Fix issue where uploading large files will crash the bridge. ([\#264](https://github.com/matrix-org/matrix-appservice-slack/issues/264))
+- Lock around avatar updates so it doesn't race. ([\#274](https://github.com/matrix-org/matrix-appservice-slack/issues/274))
 
 Improved Documentation
 ----------------------
