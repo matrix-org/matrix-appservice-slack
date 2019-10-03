@@ -298,7 +298,7 @@ export class Main {
         return `@${localpart}:${this.config.homeserver.server_name}`;
     }
 
-    public async getGhostForSlackMessage(message: any, teamId: string): Promise<SlackGhost> {
+    public async getGhostForSlackMessage(message: any, teamId?: string): Promise<SlackGhost> {
         // Slack ghost IDs need to be constructed from user IDs, not usernames,
         // because users can change their names
         // TODO if the team_domain is changed, we will recreate all users.
@@ -309,7 +309,7 @@ export class Main {
         return this.getGhostForSlack(message.user_id, teamDomain, teamId);
     }
 
-    public async getGhostForSlack(slackUserId: string, teamDomain: string, teamId: string): Promise<SlackGhost> {
+    public async getGhostForSlack(slackUserId: string, teamDomain: string, teamId?: string): Promise<SlackGhost> {
         const userId = this.getUserId(
             slackUserId.toUpperCase(),
             teamDomain,
@@ -331,8 +331,8 @@ export class Main {
             log.debug("Creating new ghost for", userId);
             ghost = new SlackGhost(
                 this,
-                slackUserId.toUpperCase(),
-                teamId.toUpperCase(),
+                slackUserId,
+                teamId,
                 userId,
                 intent,
             );

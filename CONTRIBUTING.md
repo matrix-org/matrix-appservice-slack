@@ -33,3 +33,16 @@ in the `src/tests` directory.
  - Each formal release corresponds to a branch which is of the form `vX.Y.Z` where `X.Y.Z` maps
    directly onto the `package.json` (NPM) version.
  - Releases are also tagged so they are present on the Releases page on Github.
+
+## Building the documentation
+
+You can build a rendered version of the help documentation by using `mkdocs`.
+
+This requires you to have `python3` and `pip` installed.
+
+```sh
+# For Debian-based platforms
+$ apt install python3 python3-pip
+$ pip3 install -r docs/requirements.txt
+mkdocs serve
+```

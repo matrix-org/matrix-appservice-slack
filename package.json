@@ -4,6 +4,7 @@
   "description": "A Matrix <--> Slack bridge",
   "main": "app.js",
   "scripts": {
+    "postinstall": "npm run build",
     "start": "node ./lib/app.js",
     "build": "tsc",
     "test": "npm run test:unit && npm run test:integration",

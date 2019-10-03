@@ -62,11 +62,15 @@ export class SlackGhost {
     constructor(
         private main: Main,
         public readonly slackId: string,
-        public readonly teamId: string,
+        public readonly teamId: string|undefined,
         public readonly userId: string,
         public readonly intent?: Intent,
         private displayName?: string,
         private avatarUrl?: string) {
+        this.slackId = slackId.toUpperCase();
+        if (teamId) {
+            this.teamId = teamId.toUpperCase();
+        }
     }
 
     public toEntry(): UserEntry {

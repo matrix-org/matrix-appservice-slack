@@ -1,0 +1,1 @@
+Add documentation built by RTD at https://matrix-appservice-slack.rtfd.io
