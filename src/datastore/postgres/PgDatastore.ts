@@ -279,11 +279,11 @@ export class PgDatastore implements Datastore {
         throw Error("Couldn't fetch schema version");
     }
 
-    private static BuildUpsertStatement(table: string, confictKey: string, keyValues: {[key: string]: string}) {
+    private static BuildUpsertStatement(table: string, conflictKey: string, keyValues: {[key: string]: string}) {
         const keys = Object.keys(keyValues).join(", ");
         const keysValues = `\${${Object.keys(keyValues).join("}, ${")}}`;
         // tslint:disable-next-line: prefer-template
         const keysSets = Object.keys(keyValues).slice(1).map((k) => `${k} = \${${k}}`).join(", ");
-        return `INSERT INTO ${table} (${keys}) VALUES (${keysValues}) ON CONFLICT (${confictKey}) DO UPDATE SET ${keysSets}`;
+        return `INSERT INTO ${table} (${keys}) VALUES (${keysValues}) ON CONFLICT (${conflictKey}) DO UPDATE SET ${keysSets}`;
     }
 }

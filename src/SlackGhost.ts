@@ -59,6 +59,7 @@ export class SlackGhost {
     private userInfoCache?: ISlackUser;
     private typingInRooms: Set<string> = new Set();
     private userInfoLoading?: Promise<UsersInfoResponse>;
+    private updateInProgress: boolean = false;
     constructor(
         private main: Main,
         public readonly slackId: string,
@@ -84,8 +85,15 @@ export class SlackGhost {
     }
 
     public async update(message: {user_id?: string, user?: string}, room: BridgedRoom) {
-        log.info("Updating user information for " + (message.user_id || message.user));
-        return Promise.all([
+        const user = (message.user_id || message.user);
+        if (this.updateInProgress) {
+            log.debug(`Not updating ${user}: Update in progress.`);
+            return;
+        }
+        log.info(`Updating user information for ${user}`);
+        const updateStartTime = Date.now();
+        this.updateInProgress = true;
+        await Promise.all([
             this.updateDisplayname(message, room).catch((e) => {
                 log.error("Failed to update ghost displayname:", e);
             }),
@@ -93,6 +101,8 @@ export class SlackGhost {
                 log.error("Failed to update ghost avatar:", e);
             }),
         ]);
+        log.debug(`Completed update for ${user} in ${Date.now() - updateStartTime}ms`);
+        this.updateInProgress = false;
     }
 
     public async getDisplayname(client: WebClient) {
@@ -102,8 +112,8 @@ export class SlackGhost {
         }
     }
 
-    public async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-                                   room: BridgedRoom) {
+    private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
+                                    room: BridgedRoom) {
         if (!room.SlackClient) {
             return;
         }
@@ -119,6 +129,8 @@ export class SlackGhost {
         if (!displayName || this.displayName === displayName) {
             return; // Nothing to do.
         }
+
+        log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
 
         await this.intent.setDisplayName(displayName);
         this.displayName = displayName;
@@ -137,7 +149,7 @@ export class SlackGhost {
             profile.image_72 || profile.image_48;
     }
 
-    public async getBotName(botId: string, client: WebClient) {
+    private async getBotName(botId: string, client: WebClient) {
         const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
         if (!response.ok || !response.bot.name) {
             log.error("Failed to get bot name", response.error);
@@ -146,7 +158,7 @@ export class SlackGhost {
         return response.bot.name;
     }
 
-    public async getBotAvatarUrl(botId: string, client: WebClient) {
+    private async getBotAvatarUrl(botId: string, client: WebClient) {
         const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
         if (!response.ok) {
             log.error("Failed to get bot name", response.error);
@@ -162,7 +174,7 @@ export class SlackGhost {
         return icon;
     }
 
-    public async lookupUserInfo(client: WebClient) {
+    private async lookupUserInfo(client: WebClient) {
         if (this.userInfoCache) {
             log.debug("Using cached userInfo for", this.slackId);
             return this.userInfoCache;
@@ -188,7 +200,7 @@ export class SlackGhost {
         return response.user!;
     }
 
-    public async updateAvatar(message: {bot_id?: string, user_id?: string}, room: BridgedRoom) {
+    private async updateAvatar(message: {bot_id?: string, user_id?: string}, room: BridgedRoom) {
         if (!room.SlackClient) {
             return;
         }
@@ -209,6 +221,8 @@ export class SlackGhost {
         if (!match || !match[1]) {
             return;
         }
+
+        log.debug(`Updating avatar ${this.avatarUrl} > ${avatarUrl}`);
 
         const title = match[1];
 
