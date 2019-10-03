@@ -1,0 +1,1 @@
+Lock around avatar updates so it doesn't race.
