@@ -59,6 +59,7 @@ export class SlackGhost {
     private userInfoCache?: ISlackUser;
     private typingInRooms: Set<string> = new Set();
     private userInfoLoading?: Promise<UsersInfoResponse>;
+    private updateInProgress: boolean = false;
     constructor(
         private main: Main,
         public readonly slackId: string,
@@ -84,8 +85,15 @@ export class SlackGhost {
     }
 
     public async update(message: {user_id?: string, user?: string}, room: BridgedRoom) {
-        log.info("Updating user information for " + (message.user_id || message.user));
-        return Promise.all([
+        const user = (message.user_id || message.user);
+        if (this.updateInProgress) {
+            log.debug(`Not updating ${user}: Update in progress.`);
+            return;
+        }
+        log.info(`Updating user information for ${user}`);
+        const updateStartTime = Date.now();
+        this.updateInProgress = true;
+        await Promise.all([
             this.updateDisplayname(message, room).catch((e) => {
                 log.error("Failed to update ghost displayname:", e);
             }),
@@ -93,6 +101,8 @@ export class SlackGhost {
                 log.error("Failed to update ghost avatar:", e);
             }),
         ]);
+        log.debug(`Completed update for ${user} in ${Date.now() - updateStartTime}ms`);
+        this.updateInProgress = false;
     }
 
     public async getDisplayname(client: WebClient) {
