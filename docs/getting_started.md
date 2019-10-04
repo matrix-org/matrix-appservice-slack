@@ -6,8 +6,8 @@ the `config.sample.yaml` file.
 
 ## Installation
 
-These instructions assume you are using Syanpse 1.4.0+. They should
-work for older releases and other homeservers, but configruation may vary.
+These instructions assume you are using Synapse 1.4.0+. They should
+work for older releases and other homeservers, but configuration may vary.
 
 ### From source
 
