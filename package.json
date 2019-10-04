@@ -33,6 +33,7 @@
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
     "chai": "^4.2.0",
     "chalk": "^2.4.1",
+    "escape-string-regexp": "^2.0.0",
     "matrix-appservice-bridge": "^1.9.0",
     "minimist": "^1.2",
     "nedb": "^1.8.0",

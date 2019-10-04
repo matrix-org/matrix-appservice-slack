@@ -327,7 +327,7 @@ export class BridgedRoom {
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
-        if (!body) {
+        if (!body || !body.text) {
             log.warn(`Dropped edit ${message.event_id}, message content could not be identified`);
             // Could not handle content, dropped
             return false;
@@ -338,6 +338,9 @@ export class BridgedRoom {
             as_user: false,
             channel: this.slackChannelId!,
             ...body,
+            // We include this for type safety as Typescript isn't aware that body.text is defined
+            // from the ...body statement.
+            text: body.text,
         })) as ChatUpdateResponse;
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
@@ -372,8 +375,8 @@ export class BridgedRoom {
             as_user: false,
             username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
         };
-
-        if (!body.attachments && !body.text) {
+        const text = body.text;
+        if (!body.attachments && !text) {
             // The message type might not be understood. In any case, we can't send something without
             // text.
             log.warn(`Dropped ${message.event_id}, message had no attachments or text`);
@@ -419,6 +422,8 @@ export class BridgedRoom {
         }
         const res = (await slackClient.chat.postMessage({
             ...body,
+            // Ensure that text is defined, even for attachments.
+            text: text || "",
             channel: this.slackChannelId!,
         })) as ChatPostMessageResponse;
 

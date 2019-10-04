@@ -344,6 +344,10 @@ export class Main {
     }
 
     public async getExistingSlackGhost(userId: string): Promise<SlackGhost|null> {
+        if (!this.bridge.getBot().isRemoteUser(userId)) {
+            // Catch this early.
+            return null;
+        }
         const entry = await this.datastore.getUser(userId);
         log.debug("Getting existing ghost for", userId);
         if (!entry) {
@@ -620,7 +624,7 @@ export class Main {
         const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
         if (openResponse.already_open) {
             // Check to see if we have a room for this channel already.
-            const existing = this.rooms.getBySlackChannelId[openResponse.channel.id];
+            const existing = this.rooms.getBySlackChannelId(openResponse.channel.id);
             if (existing) {
                 await this.datastore.deleteRoom(existing.InboundId);
                 await intent.sendEvent(roomId, "m.room.message", {
