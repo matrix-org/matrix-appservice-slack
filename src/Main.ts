@@ -552,6 +552,8 @@ export class Main {
             endTimer({outcome: "success"});
         }
 
+        let success = false;
+
         // Handle a m.room.message event
         if (ev.type === "m.room.message" || ev.content) {
             if (ev.content["m.relates_to"] !== undefined) {
@@ -559,26 +561,26 @@ export class Main {
                 if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
                     // We have an edit.
                     try {
-                        await room.onMatrixEdit(ev);
+                        success = await room.onMatrixEdit(ev);
                     } catch (e) {
                         log.error("Failed processing matrix edit: ", e);
                         endTimer({outcome: "fail"});
                         return;
                     }
-                    endTimer({outcome: "success"});
                     return;
                 }
             }
             try {
-                await room.onMatrixMessage(ev);
+                success = await room.onMatrixMessage(ev);
             } catch (e) {
                 log.error("Failed processing matrix message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
-            endTimer({outcome: "success"});
             return;
         }
+
+        endTimer({outcome: success ? "success" : "dropped"});
     }
 
     public async handleDmInvite(recipient: string, sender: string, roomId: string) {

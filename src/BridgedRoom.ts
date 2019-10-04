@@ -309,7 +309,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        if (!this.botClient) { return; }
+        if (!this.botClient) { return false; }
 
         const event = await this.main.datastore.getEventByMatrixId(
             message.room_id,
@@ -318,7 +318,7 @@ export class BridgedRoom {
 
         if (!event) {
             log.debug("Skipping matrix edit because couldn't find event in datastore");
-            return;
+            return false;
         }
         // re-write the message so the matrixToSlack converter works as expected.
         let newMessage = JSON.parse(JSON.stringify(message));
@@ -326,6 +326,12 @@ export class BridgedRoom {
         newMessage = await this.stripMatrixReplyFallback(newMessage);
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
+
+        if (!body) {
+            log.warn(`Dropped edit ${message.event_id}, message content could not be identified`);
+            // Could not handle content, dropped
+            return false;
+        }
 
         const res = (await this.botClient.chat.update({
             ts: event.slackTs,
@@ -337,7 +343,7 @@ export class BridgedRoom {
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
-            return;
+            throw Error("Failed to send");
         }
         // Add this event to the event store
         await this.main.datastore.upsertEvent(
@@ -346,15 +352,21 @@ export class BridgedRoom {
             this.slackChannelId!,
             res.ts,
         );
+        return true;
     }
 
     public async onMatrixMessage(message: any) {
         const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
-        if (!this.slackWebhookUri && !this.botClient) { return; }
+        if (!this.slackWebhookUri && !this.botClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
+        if (!matrixToSlackResult) {
+            // Could not handle content, dropped.
+            log.warn(`Dropped ${message.event_id}, message content could not be identified`);
+            return false;
+        }
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
@@ -364,7 +376,8 @@ export class BridgedRoom {
         if (!body.attachments && !body.text) {
             // The message type might not be understood. In any case, we can't send something without
             // text.
-            return;
+            log.warn(`Dropped ${message.event_id}, message had no attachments or text`);
+            return false;
         }
         const reply = await this.findParentReply(message);
         let parentStoredEvent: EventEntry | null = null;
@@ -395,10 +408,10 @@ export class BridgedRoom {
             };
             const webhookRes = await rp(sendMessageParams);
             if (webhookRes !== "ok") {
-                log.error("HTTP Error: ", webhookRes);
+                log.error("Failed to send webhook message");
             }
             // Webhooks don't give us any ID, so we can't store this.
-            return;
+            return true;
         }
         if (puppetedClient) {
             body.as_user = true;
@@ -415,7 +428,7 @@ export class BridgedRoom {
 
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
-            return;
+            throw Error("Failed to send");
         }
 
         // Add this event to the event store
@@ -434,6 +447,7 @@ export class BridgedRoom {
             parentStoredEvent._extras.slackThreadMessages.push(res.ts);
             await this.main.datastore.upsertEvent(parentStoredEvent);
         }
+        return true;
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
