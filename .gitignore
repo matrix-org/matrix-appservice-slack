@@ -4,6 +4,7 @@ slack-registration.yaml
 
 # Editor temporaries
 .*.swp
+.vscode
 
 # Logs
 logs
