@@ -18,7 +18,7 @@ import { FakeMain } from "../utils/fakeMain";
 import { Main } from "../../Main";
 import { expect } from "chai";
 import { SlackEventHandler } from "../../SlackEventHandler";
-import { ISlackMessageEvent } from "../../BaseSlackHandler";
+import { ISlackMessageEvent, ISlackEvent } from "../../BaseSlackHandler";
 import { BridgedRoom } from "../../BridgedRoom";
 
 // tslint:disable: no-unused-expression no-any
@@ -107,6 +107,36 @@ describe("SlackToMatrix", () => {
             expect(body).to.equal("OK");
         }, true);
         expect(harness.main.timerFinished.remote_request_seconds).to.be.undefined;
+        expect(called).to.be.true;
+    });
+
+    it("will join ghost to room on channel_joined event", async () => {
+        // Setup
+        harness.main.rooms.upsertRoom({
+            InboundId: "foobarId",
+            MatrixRoomId: "!foo:bar",
+            SlackChannelId: "fakechannel",
+            SlackClient: true, // To ensure we do not drop out early
+        } as unknown as BridgedRoom);
+        let called = false;
+        // Run test
+        await harness.eventHandler.handle({
+            type: 'member_joined_channel',
+            user: 'UDAS26GDC',
+            channel: 'CP54M4WPQ',
+            channel_type: 'C',
+            team: 'T9T6EKEEB',
+            event_ts: '1570292441.001400',
+            ts: '1570292441.001400'
+         } as ISlackEvent,
+         "12345",
+         (status: number, body?: string) => {
+            called = true;
+            expect(status).to.equal(200);
+            expect(body).to.equal("OK");
+         },
+         false);
+        // TODO: Assert that the user joined the room somehow.
         expect(called).to.be.true;
     });
 });

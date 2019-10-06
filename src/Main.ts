@@ -274,13 +274,13 @@ export class Main {
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: any, teamId?: string) {
-        if (message.team_domain) {
+    public async getTeamDomainForMessage(message?: any, teamId?: string) {
+        if (message && message.team_domain) {
             return message.team_domain;
         }
 
         if (!teamId) {
-            if (message.team_id) {
+            if (message && message.team_id) {
                 teamId = message.team_id;
             } else {
                 throw Error("Cannot determine team, no id given.");

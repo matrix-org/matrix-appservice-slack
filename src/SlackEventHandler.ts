@@ -49,7 +49,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * to events in order to handle them.
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
-    "team_domain_change", "channel_rename", "user_typing"];
+    "team_domain_change", "channel_rename", "user_typing", "member_joined_channel", "member_left_channel"];
     constructor(main: Main) {
         super(main);
     }
@@ -78,6 +78,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                 // that API, and we may have to handle those in the future. For now, all the events
                 // given below can be found on both APIs.
                 // If this flag is true, we should return early to avoid duplication.
+                log.debug("Ignoring event down EventAPI");
                 return;
             }
             log.debug("Received slack event:", event, teamId);
@@ -101,6 +102,12 @@ export class SlackEventHandler extends BaseSlackHandler {
                         break;
                     case "user_typing":
                         await this.handleTyping(event, teamId);
+                        break;
+                    case "member_joined_channel":
+                        await this.handleMemberJoined(event, teamId);
+                        break;
+                    case "member_left_channel":
+                        await this.handleMemberParted(event, teamId);
                         break;
                     // XXX: Unused?
                     case "file_comment_added":
@@ -144,6 +151,26 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
+    protected async handleMemberJoined(event: ISlackEvent, teamId: string) {
+        const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
+        if ( !event.user) {
+            return;
+        }
+        const ghost = await this.main.getGhostForSlack(event.user, teamDomain, teamId);
+        const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        await ghost.intent.join(room.MatrixRoomId);
+    }
+
+    protected async handleMemberParted(event: ISlackEvent, teamId: string) {
+        const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
+        if ( !event.user) {
+            return;
+        }
+        const ghost = await this.main.getGhostForSlack(event.user, teamDomain, teamId);
+        const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        await ghost.intent.leave(room.MatrixRoomId);
+    }
+
     /**
      * Attempts to handle the `message` event.
      *
@@ -163,6 +190,11 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         if (event.subtype !== "message_deleted" && event.message && event.message.subtype === "tombstone") {
             // Filter out tombstones early, we only care about them on deletion.
+            throw Error("ignored");
+        }
+
+        // TODO: This seems like the wrong type, we don't seem to be getting real join / part events.
+        if (event.subtype == "channel_join") {
             throw Error("ignored");
         }
         // Only count received messages that aren't self-reflections
