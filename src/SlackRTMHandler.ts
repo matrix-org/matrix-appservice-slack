@@ -152,6 +152,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
+                getLevel: () => LogLevel.DEBUG,
                 setLevel: () => {},
                 setName: () => {}, // We handle both of these ourselves.
                 debug: logLevel <= 0 ? connLog.debug.bind(connLog) : () => {},
