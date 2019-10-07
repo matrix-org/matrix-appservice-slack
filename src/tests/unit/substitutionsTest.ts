@@ -155,19 +155,6 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace @channel with @room", async () => {
-            const res = await subsitutions.matrixToSlack({
-                content: {
-                    body: "@room Hello everyone!",
-                },
-                sender: "@alice:localhost",
-            }, fakeMain, "");
-            expect(res).to.deep.equal({
-                link_names: true,
-                text: "@channel Hello everyone!",
-                username: "@alice:localhost",
-            });
-        });
         it ("should replace room pills with slack mentions", async () => {
             const res = await subsitutions.matrixToSlack({
                 content: {
@@ -240,6 +227,19 @@ describe("Substitutions", () => {
             expect(res).to.deep.equal({
                 link_names: true,
                 text: "Hello! <@12345>",
+                username: "@alice:localhost",
+            });
+        });
+        it ("should replace matrix links with slack links", async () => {
+            const res = await subsitutions.matrixToSlack({
+                content: {
+                    body: "This bridge is built on the [Matrix](https://matrix.org) protocol.",
+                },
+                sender: "@alice:localhost",
+            }, fakeMain, "footeam");
+            expect(res).to.deep.equal({
+                link_names: true,
+                text: "This bridge is built on the https://matrix.org protocol.",
                 username: "@alice:localhost",
             });
         });

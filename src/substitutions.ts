@@ -103,6 +103,10 @@ class Substitutions {
         if ((typeof(body) !== "string" || body.length < 1) && !isAttachment) {
             return null;
         }
+
+        // Replace markdown urls with plain urls to make them match.
+        body = body.replace(/!?\[.*\]\((.+)\)/gm, "$1");
+
         if (isAttachment) {
             // If it's an attachment, we can allow the body.
             body = typeof(body) === "string" ? body : "";
