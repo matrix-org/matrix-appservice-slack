@@ -114,8 +114,6 @@ export class SlackGhost {
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
                                     room: BridgedRoom) {
-
-
         let displayName = message.username || message.user_name;
 
         if (room.SlackClient) { // We can be smarter if we have the bot.
