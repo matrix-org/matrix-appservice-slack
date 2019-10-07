@@ -22,6 +22,7 @@ import { WebClientOptions } from "@slack/web-api";
 export const CACHING_DEFAULTS = {
     ghostUserCache: 100,
     matrixUserCache: 100,
+    roomCache: 25,
 };
 
 export interface IConfig {
@@ -44,8 +45,9 @@ export interface IConfig {
     };
 
     caching?: {
-        ghostUserCache: number,
-        matrixUserCache: number,
+        ghostUserCache?: number,
+        matrixUserCache?: number,
+        roomCache?: number,
     };
 
     logging: {

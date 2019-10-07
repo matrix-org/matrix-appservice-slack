@@ -14,7 +14,7 @@ interface Opts {
 
 export class FakeMain {
     public oauth2?: OAuth2;
-    public rooms: SlackRoomStore = new SlackRoomStore();
+    public rooms: SlackRoomStore;
     public datastore: FakeDatastore;
     constructor(opts: Opts = DEFAULT_OPTS) {
         if (opts.oauth2) {
@@ -27,6 +27,7 @@ export class FakeMain {
             });
         }
         this.datastore = new FakeDatastore(opts.teams);
+        this.rooms = new SlackRoomStore(this.datastore, null);
     }
     public readonly timerFinished: {[eventName: string]: string } = {};
     public readonly counters: {[type: string]: [{side: string}] } = {};

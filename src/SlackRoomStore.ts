@@ -1,25 +1,34 @@
 import { BridgedRoom } from "./BridgedRoom";
 import { Logging } from "matrix-appservice-bridge";
+import { Datastore } from "./datastore/Models";
+import QuickLRU = require("quick-lru");
+import { IConfig } from "./IConfig";
 
 const log = Logging.get("SlackRoomStore");
 
 export class SlackRoomStore {
     private rooms: Set<BridgedRoom> = new Set();
     // These are used to optimise the time taken to find a room.
-    private roomsBySlackChannelId: Map<string, BridgedRoom> = new Map();
-    private roomsByMatrixId: Map<string, BridgedRoom> = new Map();
-    private roomsByInboundId: Map<string, BridgedRoom> = new Map();
+    private roomsBySlackChannelId: QuickLRU<string, BridgedRoom>;
+    private roomsByMatrixId: QuickLRU<string, BridgedRoom>;
+    private roomsByInboundId: QuickLRU<string, BridgedRoom>;
+
+    constructor(private store: Datastore, private cacheSize: number) {
+        this.roomsBySlackChannelId = new QuickLRU({ maxSize: cacheSize });
+        this.roomsByMatrixId = new QuickLRU({ maxSize: cacheSize });
+        this.roomsByInboundId = new QuickLRU({ maxSize: cacheSize });
+    }
 
     public get all() {
         return [...this.rooms];
     }
 
     public get matrixRoomCount() {
-        return this.roomsByMatrixId.size;
+        return this.store.getRoomCount("matrix");
     }
 
     public get remoteRoomCount() {
-        return this.roomsByInboundId.size;
+        return this.store.getRoomCount("remote");
     }
 
     public upsertRoom(room: BridgedRoom) {
@@ -69,7 +78,10 @@ export class SlackRoomStore {
     }
 
     public getBySlackChannelId(channelId: string): BridgedRoom|undefined {
-        return this.roomsBySlackChannelId.get(channelId);
+        const res = this.roomsBySlackChannelId.get(channelId);
+        if (!res) {
+            return res;
+        }
     }
 
     public getBySlackTeamId(teamId: string): BridgedRoom[] {

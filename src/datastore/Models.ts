@@ -82,6 +82,8 @@ export interface Datastore {
     deleteRoom(id: string): Promise<void>;
     getAllRooms(): Promise<RoomEntry[]>;
 
+    getRoomCount(side: "matrix"|"remote"): Promise<number>;
+
     upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<void>;
     upsertEvent(roomIdOrEntry: EventEntry): Promise<void>;
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;

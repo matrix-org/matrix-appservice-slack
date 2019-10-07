@@ -80,7 +80,7 @@ export class Main {
     private recentMatrixEventIds: string[] = new Array(RECENT_EVENTID_SIZE);
     private mostRecentEventIdIdx = 0;
 
-    public readonly rooms: SlackRoomStore = new SlackRoomStore();
+    public rooms!: SlackRoomStore;
 
     private ghostsByUserId: QuickLRU<string, SlackGhost>;
     private matrixUsersById: QuickLRU<string, MatrixUser>;
@@ -114,10 +114,10 @@ export class Main {
             });
         }
 
-        config.caching = { ...CACHING_DEFAULTS, ...config.caching };
+        const caching = { ...CACHING_DEFAULTS, ...config.caching };
 
-        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching.ghostUserCache });
-        this.matrixUsersById = new QuickLRU({ maxSize: config.caching.matrixUserCache });
+        this.ghostsByUserId = new QuickLRU({ maxSize: caching.ghostUserCache });
+        this.matrixUsersById = new QuickLRU({ maxSize: caching.matrixUserCache });
 
         if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
             throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
@@ -721,6 +721,8 @@ export class Main {
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
         }
+        const roomCacheSize = this.config.caching ? this.config.caching.roomCache : CACHING_DEFAULTS.roomCache;
+        this.rooms = new SlackRoomStore(this.datastore, roomCacheSize || CACHING_DEFAULTS.roomCache);
 
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
             this.incRemoteCallCounter(method);
