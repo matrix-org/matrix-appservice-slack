@@ -150,6 +150,7 @@ export class SlackClientFactory {
         const opts = this.config ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {
+                getLevel: () => LogLevel.DEBUG,
                 setLevel: () => {}, // We don't care about these.
                 setName: () => {},
                 debug: (msg: string) => {
