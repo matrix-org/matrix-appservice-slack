@@ -571,7 +571,6 @@ export class Main {
                         endTimer({outcome: "fail"});
                         return;
                     }
-                    return;
                 }
             }
             try {
@@ -581,7 +580,6 @@ export class Main {
                 endTimer({outcome: "fail"});
                 return;
             }
-            return;
         }
 
         endTimer({outcome: success ? "success" : "dropped"});
