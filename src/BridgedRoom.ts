@@ -183,24 +183,18 @@ export class BridgedRoom {
 
     public async joinAllSlackUsers() {
         const members = await this.getSlackChannelMembership();
-        if (!members) {
-            return;
-        }
+        if (!members) return;
         return Promise.all(members.map(this.joinUserToRoom, this));
     }
 
     private async joinUserToRoom(user_id) {
-        if (!this.team) {
-            return;
-        }
+        if (!this.team) return;
         const ghost = await this.main.getGhostForSlack(user_id, this.team.domain, this.team.id);
         return ghost.intent.join(this.matrixRoomId);
     }
 
     private async getSlackChannelMembership() {
-        if (!this.botClient || !this.slackChannelId) {
-            return;
-        }
+        if (!this.botClient || !this.slackChannelId) return;
         // TODO: Handle paging here
         const args = {channel: this.slackChannelId, limit: 100} as ConversationsMembersArguments;
         const resp = await this.botClient.conversations.members(args);
