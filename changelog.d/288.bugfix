@@ -1,3 +1,1 @@
-The upstream typescript slack library changed the API of its client constructor,
-essentially making it incompatible with the previous version of the type.
-Fixed by implementing the missing API on our end.
+Typescript now builds correctly after a typing change on the upstream node-slack library. Thanks @kampka
