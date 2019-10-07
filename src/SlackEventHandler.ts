@@ -154,7 +154,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     protected async handleMemberJoined(event: ISlackEvent, teamId: string) {
         const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
         if ( !event.user) {
-            return;
+            throw Error("No user given for event.");
         }
         const ghost = await this.main.getGhostForSlack(event.user, teamDomain, teamId);
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
@@ -163,8 +163,8 @@ export class SlackEventHandler extends BaseSlackHandler {
 
     protected async handleMemberParted(event: ISlackEvent, teamId: string) {
         const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
-        if ( !event.user) {
-            return;
+        if (!event.user) {
+            throw Error("No user given for event.");
         }
         const ghost = await this.main.getGhostForSlack(event.user, teamDomain, teamId);
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
