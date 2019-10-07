@@ -152,6 +152,9 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleMemberJoined(event: ISlackEvent, teamId: string) {
+        // We only join members on messages if syncing is disabled.
+        if (!this.main.membershipSyncing) return;
+
         const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
         if ( !event.user) {
             throw Error("No user given for event.");

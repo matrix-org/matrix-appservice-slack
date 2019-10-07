@@ -74,6 +74,7 @@ export class Main {
     }
 
     public readonly oauth2: OAuth2|null = null;
+    public readonly membershipSyncing: boolean = true;
 
     public datastore!: Datastore;
 
@@ -180,6 +181,8 @@ export class Main {
         if (config.enable_metrics) {
             this.initialiseMetrics();
         }
+
+        this.membershipSyncing = config.sync_membership || true;
     }
 
     public teamIsUsingRtm(teamId: string): boolean {

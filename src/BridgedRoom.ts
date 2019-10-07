@@ -179,6 +179,7 @@ export class BridgedRoom {
     }
 
     public async joinAllSlackUsers() {
+        if (!this.main.membershipSyncing) return;
         const members = await this.getSlackChannelMembership();
         if (!members) return;
         return Promise.all(members.map(this.joinUserToRoom, this));

@@ -3,6 +3,8 @@ required: ["homeserver", "username_prefix"]
 properties:
   dbdir:
     type: string
+  membership_syncing:
+    type: boolean
   homeserver:
     type: object
     required: ["server_name", "url"]

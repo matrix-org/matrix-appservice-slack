@@ -75,4 +75,5 @@ export interface IConfig {
     };
 
     dbdir: string;
+    sync_membership: boolean;
 }
