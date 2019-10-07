@@ -151,7 +151,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
-    protected async handleMemberJoined(event: ISlackEvent, teamId: string) {
+    private async handleMemberJoined(event: ISlackEvent, teamId: string) {
         const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
         if ( !event.user) {
             throw Error("No user given for event.");
@@ -161,7 +161,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         await ghost.intent.join(room.MatrixRoomId);
     }
 
-    protected async handleMemberParted(event: ISlackEvent, teamId: string) {
+    private async handleMemberParted(event: ISlackEvent, teamId: string) {
         const teamDomain = (await this.main.getTeamDomainForMessage(undefined, teamId)).toLowerCase();
         if (!event.user) {
             throw Error("No user given for event.");

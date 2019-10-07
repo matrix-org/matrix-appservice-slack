@@ -176,9 +176,6 @@ export class BridgedRoom {
         this.puppetOwner = opts.puppet_owner;
 
         this.dirty = true;
-
-        // This almost certainly isn't the best place for this
-        this.joinAllSlackUsers();
     }
 
     public async joinAllSlackUsers() {
@@ -194,14 +191,15 @@ export class BridgedRoom {
     }
 
     private async getSlackChannelMembership() {
-        if (!this.botClient || !this.slackChannelId) return;
+        if (!this.team || !this.botClient) return;
+        const our_user_id = this.team.user_id;
+
         // TODO: Handle paging here
         const args = {channel: this.slackChannelId, limit: 100} as ConversationsMembersArguments;
         const resp = await this.botClient.conversations.members(args);
         let members = resp.members as string[];
         members = members.filter((member) => {
-            if (!this.team) return true;
-            return member != this.team.user_id;
+            return member != our_user_id;
         })
         return members;
     }

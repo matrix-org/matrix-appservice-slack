@@ -796,15 +796,21 @@ export class Main {
         log.info(`Found ${entries.length} room entries in store`);
         const joinedRooms = await roomListPromise;
         i = 0;
-        await Promise.all(entries.map(async (entry) => {
+        const rooms = await Promise.all(entries.map(async (entry) => {
             i++;
             log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
-                await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
+                return await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
             } catch (ex) {
                 log.error(`Failed to load entry ${entry.matrix_id}, exception thrown`, ex);
             }
         }));
+
+        const roomMembersPromises = new PQueue({concurrency: STARTUP_TEAM_INIT_CONCURRENCY});
+        for (const room of rooms) {
+            if (!room) return;
+            roomMembersPromises.add(async () => room.joinAllSlackUsers());
+        }
 
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);
@@ -845,6 +851,8 @@ export class Main {
             // Only public rooms can be tracked.
             this.stateStorage.trackRoom(entry.matrix_id);
         }
+
+        return room;
     }
 
     // This so-called "link" action is really a multi-function generic provisioning
@@ -958,6 +966,8 @@ export class Main {
         if (this.slackRtm && !room.SlackWebhookUri) {
             await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId!);
         }
+
+        await room.joinAllSlackUsers();
 
         return room;
     }
