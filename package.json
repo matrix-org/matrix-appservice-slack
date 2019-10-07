@@ -6,7 +6,7 @@
   "scripts": {
     "postinstall": "npm run build",
     "start": "node ./lib/app.js",
-    "build": "tsc -sourcemap",
+    "build": "tsc",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "mocha --reporter list --ui bdd --require ts-node/register --require source-map-support/register --recursive lib/tests/unit",
     "test:integration": "mocha --exit --reporter list --ui bdd --require ts-node/register --require source-map-support/register --recursive lib/tests/integration",

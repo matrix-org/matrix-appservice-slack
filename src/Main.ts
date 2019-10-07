@@ -808,8 +808,8 @@ export class Main {
 
         const roomMembersPromises = new PQueue({concurrency: STARTUP_TEAM_INIT_CONCURRENCY});
         for (const room of rooms) {
-            if (!room) return;
-            roomMembersPromises.add(async () => room.joinAllSlackUsers());
+            if (!room) continue;
+            roomMembersPromises.add(() => room.joinAllSlackUsers());
         }
 
         if (this.metrics) {

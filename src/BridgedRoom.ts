@@ -192,14 +192,14 @@ export class BridgedRoom {
 
     private async getSlackChannelMembership() {
         if (!this.team || !this.botClient) return;
-        const our_user_id = this.team.user_id;
+        const ourUserId = this.team.user_id;
 
         // TODO: Handle paging here
         const args = {channel: this.slackChannelId, limit: 100} as ConversationsMembersArguments;
         const resp = await this.botClient.conversations.members(args);
         let members = resp.members as string[];
         members = members.filter((member) => {
-            return member != our_user_id;
+            return member != ourUserId;
         })
         return members;
     }
