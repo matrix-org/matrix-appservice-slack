@@ -154,10 +154,12 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     }));
 
     const slackUserMigrations = () => Promise.all(allSlackUsers.map(async (user, i) => {
-        // tslint:disable-next-line: no-any
-        let ghost = SlackGhost.fromEntry(null as any, user, null);
-        if (!ghost.slackId || !ghost.teamId) {
-            const localpart = ghost.userId.split(":")[0];
+        if (!user.id) {
+            // Cannot migrate without ID.
+            return;
+        }
+        if (!user.slack_id || !user.team_id) {
+            const localpart = user.id.split(":")[0];
             // XXX: we are making an assumption here that the prefix ends with _
             const parts = localpart.substr(USER_PREFIX.length + 1).split("_"); // Remove any prefix.
             // If we encounter more parts than expected, the domain may be underscored
@@ -166,14 +168,15 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
             }
             const existingTeam = readyTeams.find((t) => t.domain === parts[0]);
             if (!existingTeam) {
-                log.warn("No existing team could be found for", ghost.userId);
+                log.warn("No existing team could be found for", user.id);
                 return;
             }
             user.slack_id = parts[1];
             user.team_id = existingTeam!.id;
             // tslint:disable-next-line: no-any
-            ghost = SlackGhost.fromEntry(null as any, user, null);
         }
+        // tslint:disable-next-line: no-any
+        const ghost = SlackGhost.fromEntry(null as any, user, null);
         await targetDs.upsertUser(ghost);
         log.info(`Migrated slack user ${user.id} (${i + 1}/${allSlackUsers.length})`);
     }));
