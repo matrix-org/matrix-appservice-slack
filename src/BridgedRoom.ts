@@ -21,7 +21,7 @@ import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
-import { WebClient } from "@slack/web-api";
+import { WebClient, ConversationsMembersArguments } from "@slack/web-api";
 import { ChatUpdateResponse,
     ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
@@ -176,6 +176,40 @@ export class BridgedRoom {
         this.puppetOwner = opts.puppet_owner;
 
         this.dirty = true;
+
+        // This almost certainly isn't the best place for this
+        this.joinAllSlackUsers();
+    }
+
+    public async joinAllSlackUsers() {
+        const members = await this.getSlackChannelMembership();
+        if (!members) {
+            return;
+        }
+        return Promise.all(members.map(this.joinUserToRoom, this));
+    }
+
+    private async joinUserToRoom(user_id) {
+        if (!this.team) {
+            return;
+        }
+        const ghost = await this.main.getGhostForSlack(user_id, this.team.domain, this.team.id);
+        return ghost.intent.join(this.matrixRoomId);
+    }
+
+    private async getSlackChannelMembership() {
+        if (!this.botClient || !this.slackChannelId) {
+            return;
+        }
+        // TODO: Handle paging here
+        const args = {channel: this.slackChannelId, limit: 100} as ConversationsMembersArguments;
+        const resp = await this.botClient.conversations.members(args);
+        let members = resp.members as string[];
+        members = members.filter((member) => {
+            if (!this.team) return true;
+            return member != this.team.user_id;
+        })
+        return members;
     }
 
     public updateUsingChannelInfo(channelInfo: ConversationsInfoResponse) {
