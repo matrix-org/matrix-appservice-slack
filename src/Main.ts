@@ -689,7 +689,7 @@ export class Main {
         });
     }
 
-    public async run(port: number) {
+    public async run(cliPort: number) {
         log.info("Loading databases");
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
@@ -740,7 +740,7 @@ export class Main {
         if (this.slackHookHandler) {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
         }
-
+        const port = this.config.homeserver.appservice_port || cliPort;
         this.bridge.run(port, this.config);
         const roomListPromise = this.bridge.getBot().getJoinedRooms() as Promise<string[]>;
 
