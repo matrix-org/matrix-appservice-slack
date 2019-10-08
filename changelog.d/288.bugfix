@@ -1,0 +1,1 @@
+Typescript now builds correctly after a typing change on the upstream node-slack library. Thanks @kampka

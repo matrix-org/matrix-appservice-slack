@@ -35,6 +35,7 @@ export interface IConfig {
         server_name: string;
         media_url?: string;
         max_upload_size?: number;
+        appservice_port?: number;
     };
 
     tls?: {

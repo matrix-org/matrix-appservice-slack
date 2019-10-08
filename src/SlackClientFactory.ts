@@ -1,7 +1,7 @@
 import { Datastore, TeamEntry } from "./datastore/Models";
-import { WebClient, WebClientOptions, LogLevel } from "@slack/web-api";
+import { WebClient, WebClientOptions, LogLevel, Logger } from "@slack/web-api";
 import { Logging } from "matrix-appservice-bridge";
-import { TeamInfoResponse, AuthTestResponse, BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
+import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 
 const webLog = Logging.get("slack-api");
 const log = Logging.get("SlackClientFactory");
@@ -150,6 +150,7 @@ export class SlackClientFactory {
         const opts = this.config ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {
+                getLevel: () => LogLevel.DEBUG,
                 setLevel: () => {}, // We don't care about these.
                 setName: () => {},
                 debug: (msg: string) => {
@@ -165,7 +166,7 @@ export class SlackClientFactory {
                 warn: webLog.warn.bind(webLog),
                 info: webLog.info.bind(webLog),
                 error: webLog.error.bind(webLog),
-            },
+            } as Logger,
             logLevel: LogLevel.DEBUG,
             ...opts,
         });

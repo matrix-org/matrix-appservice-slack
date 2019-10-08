@@ -48,6 +48,9 @@ homeserver: # Required
   media_url: "http://my.server.here"
   # Optional. The maximum size of a uploaded file to Matrix in bytes. No limit by default
   # max_upload_size: 104857600
+  # Optional. Used to specify the port of the appservice in the config, rather than the cli.
+  # If this is defined, it will **override** the port given in the process arguments.
+  # appservice_port: 9999
 
 # Optional
 logging:

@@ -239,8 +239,6 @@ export class SlackHookHandler extends BaseSlackHandler {
         // tells us.
         const channelName = `${params.team_domain}.#${params.channel_name}`;
 
-        const teamId = params.team_id as string;
-
         room.SlackChannelName = channelName;
         if (room.isDirty) {
             await this.main.datastore.upsertRoom(room);
@@ -263,6 +261,9 @@ export class SlackHookHandler extends BaseSlackHandler {
             // (because we don't have a master token), but it has text,
             // just send the message as text.
             log.warn("no slack token for " + params.team_domain);
+
+            // Mattermost: Mattermost uses `timestamp` rather than `ts`
+            params.ts = params.ts || params.timestamp;
 
             if (params.text) {
                 // Converting params to an object here, as we assume that params is the right shape.

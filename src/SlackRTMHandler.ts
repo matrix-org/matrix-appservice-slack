@@ -5,7 +5,7 @@ import { Logging } from "matrix-appservice-bridge";
 import { PuppetEntry } from "./datastore/Models";
 import { ConversationsInfoResponse, ConversationsMembersResponse } from "./SlackResponses";
 import { ISlackMessageEvent } from "./BaseSlackHandler";
-import { WebClient } from "@slack/web-api";
+import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 
 const log = Logging.get("SlackRTMHandler");
@@ -152,13 +152,14 @@ export class SlackRTMHandler extends SlackEventHandler {
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
+                getLevel: () => LogLevel.DEBUG,
                 setLevel: () => {},
                 setName: () => {}, // We handle both of these ourselves.
                 debug: logLevel <= 0 ? connLog.debug.bind(connLog) : () => {},
                 warn: logLevel <= 1 ? connLog.warn.bind(connLog) : () => {},
                 info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
                 error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
-            },
+            } as Logger,
         });
 
         rtm.on("error", (error) => {
