@@ -142,7 +142,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace @channel with @room", async () => {
+        it ("should replace @room with @channel", async () => {
             const res = await subsitutions.matrixToSlack({
                 content: {
                     body: "@room Hello everyone!",
