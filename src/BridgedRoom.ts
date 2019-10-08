@@ -18,7 +18,7 @@ import * as rp from "request-promise-native";
 import { Logging, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
-import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
+import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
@@ -40,7 +40,7 @@ interface IBridgedRoomOpts {
     puppet_owner?: string;
 }
 
-interface ISlackChatMessagePayload extends ISlackToMatrixResult {
+interface ISlackChatMessagePayload extends IMatrixToSlackResult {
     as_user?: boolean;
     channel?: string;
     thread_ts?: string;
@@ -309,7 +309,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        if (!this.botClient) { return; }
+        if (!this.botClient) { return false; }
 
         const event = await this.main.datastore.getEventByMatrixId(
             message.room_id,
@@ -318,7 +318,7 @@ export class BridgedRoom {
 
         if (!event) {
             log.debug("Skipping matrix edit because couldn't find event in datastore");
-            return;
+            return false;
         }
         // re-write the message so the matrixToSlack converter works as expected.
         let newMessage = JSON.parse(JSON.stringify(message));
@@ -327,17 +327,26 @@ export class BridgedRoom {
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
+        if (!body || !body.text) {
+            log.warn(`Dropped edit ${message.event_id}, message content could not be identified`);
+            // Could not handle content, dropped
+            return false;
+        }
+
         const res = (await this.botClient.chat.update({
             ts: event.slackTs,
             as_user: false,
             channel: this.slackChannelId!,
             ...body,
+            // We include this for type safety as Typescript isn't aware that body.text is defined
+            // from the ...body statement.
+            text: body.text,
         })) as ChatUpdateResponse;
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
-            return;
+            throw Error("Failed to send");
         }
         // Add this event to the event store
         await this.main.datastore.upsertEvent(
@@ -346,25 +355,32 @@ export class BridgedRoom {
             this.slackChannelId!,
             res.ts,
         );
+        return true;
     }
 
     public async onMatrixMessage(message: any) {
         const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
-        if (!this.slackWebhookUri && !this.botClient) { return; }
+        if (!this.slackWebhookUri && !this.botClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
+        if (!matrixToSlackResult) {
+            // Could not handle content, dropped.
+            log.warn(`Dropped ${message.event_id}, message content could not be identified`);
+            return false;
+        }
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
             username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
         };
-
-        if (!body.attachments && !body.text) {
+        const text = body.text;
+        if (!body.attachments && !text) {
             // The message type might not be understood. In any case, we can't send something without
             // text.
-            return;
+            log.warn(`Dropped ${message.event_id}, message had no attachments or text`);
+            return false;
         }
         const reply = await this.findParentReply(message);
         let parentStoredEvent: EventEntry | null = null;
@@ -395,10 +411,10 @@ export class BridgedRoom {
             };
             const webhookRes = await rp(sendMessageParams);
             if (webhookRes !== "ok") {
-                log.error("HTTP Error: ", webhookRes);
+                log.error("Failed to send webhook message");
             }
             // Webhooks don't give us any ID, so we can't store this.
-            return;
+            return true;
         }
         if (puppetedClient) {
             body.as_user = true;
@@ -406,6 +422,8 @@ export class BridgedRoom {
         }
         const res = (await slackClient.chat.postMessage({
             ...body,
+            // Ensure that text is defined, even for attachments.
+            text: text || "",
             channel: this.slackChannelId!,
         })) as ChatPostMessageResponse;
 
@@ -415,7 +433,7 @@ export class BridgedRoom {
 
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
-            return;
+            throw Error("Failed to send");
         }
 
         // Add this event to the event store
@@ -434,6 +452,7 @@ export class BridgedRoom {
             parentStoredEvent._extras.slackThreadMessages.push(res.ts);
             await this.main.datastore.upsertEvent(parentStoredEvent);
         }
+        return true;
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {

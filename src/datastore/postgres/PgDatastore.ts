@@ -61,6 +61,13 @@ export class PgDatastore implements Datastore {
         return userData !== null ? new MatrixUser(userId, userData) : null;
     }
 
+    public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
+        const users = await this.postgresDb.manyOrNone("SELECT json FROM users WHERE json::json->>'team_id' = ${teamId}", {
+            teamId,
+        });
+        return users.map((dbEntry) => JSON.parse(dbEntry.json) as UserEntry);
+    }
+
     public async storeMatrixUser(user: MatrixUser): Promise<void> {
         log.debug(`storeMatrixUser: ${user.getId()}`);
         await this.postgresDb.none("INSERT INTO users VALUES(${id}, false, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {

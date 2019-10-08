@@ -1,9 +1,10 @@
 import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry } from "../../datastore/Models";
 import { SlackGhost } from "../../SlackGhost";
 import { MatrixUser } from "matrix-appservice-bridge";
+import { BridgedRoom } from "../../BridgedRoom";
 
 export class FakeDatastore implements Datastore {
-    constructor(public teams: TeamEntry[] = []) {
+    constructor(public teams: TeamEntry[] = [], public usersInTeam: UserEntry[] = []) {
 
     }
 
@@ -23,7 +24,11 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
-    public async upsertRoom(room: import("../../BridgedRoom").BridgedRoom): Promise<void> {
+    public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
+        return this.usersInTeam;
+    }
+
+    public async upsertRoom(room: BridgedRoom): Promise<void> {
         throw Error("Method not implemented.");
     }
 

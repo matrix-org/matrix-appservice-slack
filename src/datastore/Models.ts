@@ -77,6 +77,7 @@ export interface Datastore {
     getUser(id: string): Promise<UserEntry|null>;
     getMatrixUser(userId: string): Promise<MatrixUser|null>;
     storeMatrixUser(user: MatrixUser): Promise<void>;
+    getAllUsersForTeam(teamId: string): Promise<UserEntry[]>;
 
     upsertRoom(room: BridgedRoom): Promise<void>;
     deleteRoom(id: string): Promise<void>;

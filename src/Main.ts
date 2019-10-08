@@ -344,6 +344,10 @@ export class Main {
     }
 
     public async getExistingSlackGhost(userId: string): Promise<SlackGhost|null> {
+        if (!this.bridge.getBot().isRemoteUser(userId)) {
+            // Catch this early.
+            return null;
+        }
         const entry = await this.datastore.getUser(userId);
         log.debug("Getting existing ghost for", userId);
         if (!entry) {
@@ -552,6 +556,8 @@ export class Main {
             endTimer({outcome: "success"});
         }
 
+        let success = false;
+
         // Handle a m.room.message event
         if (ev.type === "m.room.message" || ev.content) {
             if (ev.content["m.relates_to"] !== undefined) {
@@ -559,26 +565,24 @@ export class Main {
                 if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
                     // We have an edit.
                     try {
-                        await room.onMatrixEdit(ev);
+                        success = await room.onMatrixEdit(ev);
                     } catch (e) {
                         log.error("Failed processing matrix edit: ", e);
                         endTimer({outcome: "fail"});
                         return;
                     }
-                    endTimer({outcome: "success"});
-                    return;
                 }
             }
             try {
-                await room.onMatrixMessage(ev);
+                success = await room.onMatrixMessage(ev);
             } catch (e) {
                 log.error("Failed processing matrix message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
-            endTimer({outcome: "success"});
-            return;
         }
+
+        endTimer({outcome: success ? "success" : "dropped"});
     }
 
     public async handleDmInvite(recipient: string, sender: string, roomId: string) {
@@ -618,7 +622,7 @@ export class Main {
         const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
         if (openResponse.already_open) {
             // Check to see if we have a room for this channel already.
-            const existing = this.rooms.getBySlackChannelId[openResponse.channel.id];
+            const existing = this.rooms.getBySlackChannelId(openResponse.channel.id);
             if (existing) {
                 await this.datastore.deleteRoom(existing.InboundId);
                 await intent.sendEvent(roomId, "m.room.message", {

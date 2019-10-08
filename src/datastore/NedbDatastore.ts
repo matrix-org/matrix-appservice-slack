@@ -57,6 +57,11 @@ export class NedbDatastore implements Datastore {
         });
     }
 
+    public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
+        const users = await this.getAllUsers(false);
+        return users.filter((u) => u.team_id === teamId);
+    }
+
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         return (await this.userStore.getMatrixUser(userId)) || null;
     }
