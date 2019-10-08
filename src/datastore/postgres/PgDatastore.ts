@@ -148,7 +148,7 @@ export class PgDatastore implements Datastore {
         await this.postgresDb.none("DELETE FROM rooms WHERE id = ${id}", { id });
     }
 
-    public async getAllRooms() : Promise<RoomEntry> {
+    public async getAllRooms() : Promise<RoomEntry[]> {
         return this.postgresDb.map<RoomEntry>("SELECT * FROM rooms", [], r => {
             const remote = JSON.parse(r.json);
             return {
