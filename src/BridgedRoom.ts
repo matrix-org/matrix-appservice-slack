@@ -18,7 +18,7 @@ import * as rp from "request-promise-native";
 import { Logging, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
-import { default as substitutions, getFallbackForMissingEmoji, ISlackToMatrixResult } from "./substitutions";
+import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
@@ -40,7 +40,7 @@ interface IBridgedRoomOpts {
     puppet_owner?: string;
 }
 
-interface ISlackChatMessagePayload extends ISlackToMatrixResult {
+interface ISlackChatMessagePayload extends IMatrixToSlackResult {
     as_user?: boolean;
     channel?: string;
     thread_ts?: string;

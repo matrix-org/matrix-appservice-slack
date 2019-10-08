@@ -44,7 +44,7 @@ interface PillItem {
     text: string;
 }
 
-export interface ISlackToMatrixResult {
+export interface IMatrixToSlackResult {
     link_names: boolean;  // This no longer works for nicks but is needed to make @channel work.
     text?: string;
     username: string;
@@ -93,7 +93,7 @@ class Substitutions {
      * @return An object which can be posted as JSON to the Slack API.
      */
     // tslint:disable-next-line: no-any
-    public async matrixToSlack(event: any, main: Main, teamId: string): Promise<ISlackToMatrixResult|null> {
+    public async matrixToSlack(event: any, main: Main, teamId: string): Promise<IMatrixToSlackResult|null> {
         if (!event || !event.content || !event.sender) {
             return null;
         }
