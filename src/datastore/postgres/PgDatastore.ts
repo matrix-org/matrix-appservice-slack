@@ -41,10 +41,7 @@ export class PgDatastore implements Datastore {
     public async upsertUser(user: SlackGhost): Promise<void> {
         const entry = user.toEntry();
         log.debug(`upsertUser: ${entry.id}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${id}, true, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {
-            id: entry.id,
-            json: JSON.stringify(entry),
-        });
+        await this.postgresDb.none("INSERT INTO users VALUES(${id}, true, ${this}) ON CONFLICT (userId) DO UPDATE SET json = ${this}", entry);
     }
 
     public async getUser(id: string): Promise<UserEntry | null> {
@@ -62,18 +59,14 @@ export class PgDatastore implements Datastore {
     }
 
     public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
-        const users = await this.postgresDb.manyOrNone("SELECT json FROM users WHERE json::json->>'team_id' = ${teamId}", {
+        return this.postgresDb.map<UserEntry>("SELECT json FROM users WHERE json::json->>'team_id' = ${teamId}", {
             teamId,
-        });
-        return users.map((dbEntry) => JSON.parse(dbEntry.json) as UserEntry);
+        }, dbEntry => JSON.parse(dbEntry.json) as UserEntry);
     }
 
     public async storeMatrixUser(user: MatrixUser): Promise<void> {
         log.debug(`storeMatrixUser: ${user.getId()}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${id}, false, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {
-            id: user.getId(),
-            json: user.serialize(),
-        });
+        await this.postgresDb.none("INSERT INTO users VALUES(${getId}, false, ${serialize}) ON CONFLICT (userId) DO UPDATE SET json = ${serialize}", user);
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry, eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra) {
@@ -147,12 +140,7 @@ export class PgDatastore implements Datastore {
     public async upsertRoom(room: BridgedRoom) {
         const entry = room.toEntry();
         log.debug(`upsertRoom: ${entry.id}`);
-        await this.postgresDb.none("INSERT INTO rooms VALUES(${id}, ${roomid}, ${remoteid}, ${json}) ON CONFLICT (id) DO UPDATE SET json = ${json}", {
-            id: entry.id,
-            roomid: entry.matrix_id,
-            remoteid: entry.remote_id,
-            json: JSON.stringify(entry.remote),
-        });
+        await this.postgresDb.none("INSERT INTO rooms VALUES(${id}, ${matrix_id}, ${remote_id}, ${remote:json}) ON CONFLICT (id) DO UPDATE SET json = ${remote:json}", entry);
     }
 
     public async deleteRoom(id: string) {
@@ -160,16 +148,15 @@ export class PgDatastore implements Datastore {
         await this.postgresDb.none("DELETE FROM rooms WHERE id = ${id}", { id });
     }
 
-    public async getAllRooms() {
-        const entries = await this.postgresDb.manyOrNone("SELECT * FROM rooms");
-        return entries.map((r) => {
+    public async getAllRooms() : Promise<RoomEntry> {
+        return this.postgresDb.map<RoomEntry>("SELECT * FROM rooms", [], r => {
             const remote = JSON.parse(r.json);
             return {
                 id: r.id,
                 matrix_id: r.roomid,
                 remote,
                 remote_id: r.remoteid,
-            } as RoomEntry;
+            } as RoomEntry;            
         });
     }
 
@@ -212,7 +199,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async getAllTeams(): Promise<TeamEntry[]> {
-        return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map(PgDatastore.teamEntryForRow);
+        return this.postgresDb.map<TeamEntry>("SELECT * FROM teams", [], PgDatastore.teamEntryForRow));
     }
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
@@ -245,29 +232,28 @@ export class PgDatastore implements Datastore {
     }
 
     public async getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]> {
-        return (await this.postgresDb.manyOrNone(
-            "SELECT * FROM puppets WHERE matrixuser = ${userId}",
-            { userId },
-        )).map((u) => ({
-            matrixId: u.matrixuser,
-            teamId: u.slackteam,
-            slackId: u.slackuser,
-            token: u.token,
-        }));
+        return this.postgresDb.map<PuppetEntry>("SELECT * FROM puppets WHERE matrixuser = ${userId}", { userId }, u => {
+            return {
+                matrixId: u.matrixuser,
+                teamId: u.slackteam,
+                slackId: u.slackuser,
+                token: u.token,
+            } as PuppetEntry;
+        });
     }
 
     public async getPuppetedUsers(): Promise<PuppetEntry[]> {
-        return (await this.postgresDb.manyOrNone(
-            "SELECT * FROM puppets")
-        ).map((u) => ({
-            matrixId: u.matrixuser,
-            teamId: u.slackteam,
-            slackId: u.slackuser,
-            token: u.token,
-        }));
+        return this.postgresDb.map<PuppetEntry>("SELECT * FROM puppets", [], u => {
+            return {
+                    matrixId: u.matrixuser,
+                    teamId: u.slackteam,
+                    slackId: u.slackuser,
+                    token: u.token,
+            } as PuppetEntry;
+        });
     }
 
-    private async updateSchemaVersion(version: number) {
+    private async updateSchemaVersion(version: number) : Promise<void> {
         log.debug(`updateSchemaVersion: ${version}`);
         await this.postgresDb.none("UPDATE schema SET version = ${version};", {version});
     }
