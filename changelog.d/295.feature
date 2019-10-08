@@ -1,1 +1,0 @@
-You can now specify the appservice port in the config.

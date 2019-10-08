@@ -1,3 +1,27 @@
+1.0.1 (2019-10-08)
+===================
+
+Features
+--------
+
+- You can now specify the appservice port in the config. ([\#295](https://github.com/matrix-org/matrix-appservice-slack/issues/295))
+
+
+Bugfixes
+--------
+
+- Fixes to matrix -> slack message formatting to ensure consistent success. ([\#280](https://github.com/matrix-org/matrix-appservice-slack/issues/280))
+- Typescript now builds correctly after a typing change on the upstream node-slack library. Thanks @kampka ([\#288](https://github.com/matrix-org/matrix-appservice-slack/issues/288))
+- Fix webhooks not being able to set a displayname and erroneously deduplicating messages. ([\#291](https://github.com/matrix-org/matrix-appservice-slack/issues/291))
+- Fix issue where migrating slack users to postgres would fail. ([\#294](https://github.com/matrix-org/matrix-appservice-slack/issues/294))
+
+
+Internal Changes
+----------------
+
+- Fix compile issues related to `Logger` ([\#296](https://github.com/matrix-org/matrix-appservice-slack/issues/296))
+
+
 1.0.0 (2019-10-03)
 ===================
 

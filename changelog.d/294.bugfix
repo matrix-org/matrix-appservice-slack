@@ -1,1 +1,0 @@
-Fix issue where migrating slack users to postgres would fail.
