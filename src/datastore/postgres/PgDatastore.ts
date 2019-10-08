@@ -199,7 +199,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async getAllTeams(): Promise<TeamEntry[]> {
-        return this.postgresDb.map<TeamEntry>("SELECT * FROM teams", [], PgDatastore.teamEntryForRow));
+        return this.postgresDb.map<TeamEntry>("SELECT * FROM teams", [], PgDatastore.teamEntryForRow);
     }
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
