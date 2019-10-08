@@ -22,12 +22,6 @@ import { expect } from "chai";
 import { Main } from "../../Main";
 import { BridgedRoom } from "../../BridgedRoom";
 
-const displayMap = {
-    "Alice": "U2222",
-    "Bob": "U1111",
-    "Bob Charlie": "U3333",
-};
-
 describe("Substitutions", () => {
     const fakeMain = new FakeMain({
         oauth2: false,
@@ -36,6 +30,18 @@ describe("Substitutions", () => {
                 display_name: "Stranger",
                 slack_id: "12345",
                 id: "@_slack_12345:localhost",
+                avatar_url: "",
+            },
+            {
+                display_name: "Alice",
+                slack_id: "12346",
+                id: "@_slack_12346:localhost",
+                avatar_url: "",
+            },
+            {
+                display_name: "Alice Bob",
+                slack_id: "12347",
+                id: "@_slack_12347:localhost",
                 avatar_url: "",
             },
         ],
@@ -227,6 +233,19 @@ describe("Substitutions", () => {
             expect(res).to.deep.equal({
                 link_names: true,
                 text: "Hello! <@12345>",
+                username: "@alice:localhost",
+            });
+        });
+        it ("should replace non-pilled @user mentions with the most obvious match", async () => {
+            const res = await subsitutions.matrixToSlack({
+                content: {
+                    body: "Hello! @Alice Bob",
+                },
+                sender: "@alice:localhost",
+            }, fakeMain, "footeam");
+            expect(res).to.deep.equal({
+                link_names: true,
+                text: "Hello! <@12347>",
                 username: "@alice:localhost",
             });
         });

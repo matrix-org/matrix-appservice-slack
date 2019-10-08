@@ -327,7 +327,9 @@ export default substitutions;
  * @return {String} The string with replacements performed.
  */
 async function plainTextSlackMentions(main: Main, body: string, teamId: string) {
-    const users = await main.datastore.getAllUsersForTeam(teamId);
+    let users = await main.datastore.getAllUsersForTeam(teamId);
+    users = users.filter((u) => u.display_name && u.display_name.length > 0);
+    users.sort((u1, u2) => u2.display_name.length - u1.display_name.length);
     for (const user of users) {
         const displayName = `@${user.display_name}`;
         if (body.includes(displayName)) {
