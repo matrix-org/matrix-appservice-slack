@@ -425,6 +425,7 @@ export class BridgedRoom {
             // Ensure that text is defined, even for attachments.
             text: text || "",
             channel: this.slackChannelId!,
+            unfurl_links: true,
         })) as ChatPostMessageResponse;
 
         this.addRecentSlackMessage(res.ts);
