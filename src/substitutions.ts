@@ -104,14 +104,14 @@ class Substitutions {
             return null;
         }
 
-        // Replace markdown urls with plain urls to make them match.
-        body = body.replace(/!?\[.*\]\((.+)\)/gm, "$1");
-
         if (isAttachment) {
             // If it's an attachment, we can allow the body.
             body = typeof(body) === "string" ? body : "";
         }
         body = this.htmlEscape(body);
+
+        // Convert markdown links to slack mrkdwn links
+        body = body.replace(/!?\[(.*?)\]\((.+?)\)/gm, "<$2|$1>");
 
         // emotes in slack are just italicised
         if (msgType === "m.emote") {

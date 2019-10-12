@@ -258,7 +258,20 @@ describe("Substitutions", () => {
             }, fakeMain, "footeam");
             expect(res).to.deep.equal({
                 link_names: true,
-                text: "This bridge is built on the https://matrix.org protocol.",
+                text: "This bridge is built on the <https://matrix.org|Matrix> protocol.",
+                username: "@alice:localhost",
+            });
+        });
+        it ("should replace multiple matrix links with slack links", async () => {
+            const res = await subsitutions.matrixToSlack({
+                content: {
+                    body: "[a](http://example.com) b [c](http://example.net)",
+                },
+                sender: "@alice:localhost",
+            }, fakeMain, "footeam");
+            expect(res).to.deep.equal({
+                link_names: true,
+                text: "<http://example.com|a> b <http://example.net|c>",
                 username: "@alice:localhost",
             });
         });
