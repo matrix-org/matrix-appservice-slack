@@ -24,7 +24,7 @@ import * as escapeStringRegexp from "escape-string-regexp";
 
 const log = Logging.get("substitutions");
 
-const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file"];
+const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file", "m.image"];
 const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\/a>/g;
 
 /**

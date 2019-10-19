@@ -44,6 +44,10 @@ export class FakeMain {
         };
     }
 
+    public getUrlForMxc(mxcUrl: string) {
+        return "fake-" + mxcUrl;
+    }
+
     public incCounter(type: string, data: {side: string}): void {
         this.counters[type] = (this.counters[type] || []);
         this.counters[type].push(data);
