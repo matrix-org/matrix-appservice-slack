@@ -275,5 +275,25 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
+        it ("should return an attachment for an m.image message", async () => {
+            const res = await subsitutions.matrixToSlack({
+                content: {
+                    body: "image.png",
+                    msgtype: "m.image",
+                    url: "mxc://localhost/fake",
+                },
+                sender: "@alice:localhost",
+            }, fakeMain, "footeam");
+            expect(res).to.deep.equal({
+                link_names: false,
+                username: "@alice:localhost",
+                attachments: [
+                    {
+                        fallback: "image.png",
+                        image_url: "fake-mxc://localhost/fake",
+                    },
+                ],
+            });
+        });
     });
 });
