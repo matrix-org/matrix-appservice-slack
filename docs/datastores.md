@@ -2,7 +2,10 @@ Datastores
 ==========
 
 Version 1.0+ supports using PostgreSQL as a storage backend instead of the
-deprecated NeDB storage backend. 
+deprecated NeDB storage backend.
+The required version of PostgreSQL is at least 9.5, but we recommend using the lastest stable version
+available to you. Follow the installation instructions on the [official website](https://www.postgresql.org/download/)
+or pull a [docker container](https://hub.docker.com/_/postgres).
 
 Using PostgreSQL
 ----------------
@@ -27,6 +30,13 @@ db:
 (replacing "somethingverysecret" with your own password)
 
 Ensure that `dbdir` is not included in the config.
+
+Note: depending on your environment, the default PostgreSQL configuration might be set up such that it can be
+reached only from localhost. Make sure it is reachable from your bridge installation. If necessary, set up
+[`listen_addresses`](https://www.postgresql.org/docs/current/runtime-config-connection.html) and
+[authentication](https://www.postgresql.org/docs/current/auth-pg-hba-conf.html) for your needs.
+
+Remember to choose conservative options to ensure security of your database!
 
 NeDB End-of-life
 --------
