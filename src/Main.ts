@@ -886,7 +886,7 @@ export class Main {
                 teamId = await this.clientFactory.upsertTeamByToken(opts.slack_bot_token);
                 log.info(`Found ${teamId} for token`);
             } catch (ex) {
-                log.error("Failed to action link because the token couldn't used:", ex);
+                log.error("Failed to action link because the token couldn't be used:", ex);
                 throw Error("Token did not work, unable to get team");
             }
         }
