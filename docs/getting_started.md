@@ -8,6 +8,7 @@ the `config.sample.yaml` file.
 
 These instructions assume you are using Synapse 1.4.0+. They should
 work for older releases and other homeservers, but configuration may vary.
+The bridge also requires a database, for more information see [datastores](datastores.md).
 
 ### From source
 
@@ -59,6 +60,9 @@ ever stuck, you can post a question in the
 3. Create a `config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml`. You should copy and
    edit as appropriate. The required and optional values are flagged in the config.
+   
+   If using docker, put this file in a new `config` directory which we will later
+   mount to the container.
 
 4. See [datastores](datastores.md) on how to setup a database with the bridge.
 
@@ -72,8 +76,8 @@ ever stuck, you can post a question in the
    or with docker:
    
 ```sh
-$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
+$ docker run --network=host -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
 ```
 
 6. Start the actual application service:
@@ -81,7 +85,12 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
     `$ npm start -c config.yaml -p $MATRIX_PORT`
    or with docker:
    
-    `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
+    `$ docker run --network=host -d -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
+    
+    (Note: `--network=host` will expose the container directly to the host's network, i.e. you will be able to use
+    localhost just as if you're running the node app. If you want to use the default network bridge mode,
+    you will have to configure the config files, port forwarding, firewalls and your database server to
+    traverse the network bridge.)
 
 7. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
