@@ -13,7 +13,7 @@ work for older releases and other homeservers, but configuration may vary.
 
 ```sh
 $ git clone https://github.com/matrix-org/matrix-appservice-slack.git
-$ cd matrix-appservice-slack
+$ cd Matrix-appservice-slack
 $ npm install
 $ npm run build
 ```
@@ -73,7 +73,7 @@ ever stuck, you can post a question in the
    
 ```sh
 $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
+    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
 ```
 
 6. Start the actual application service:
