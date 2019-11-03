@@ -64,24 +64,27 @@ ever stuck, you can post a question in the
 
 5. Generate the appservice registration file. This will be used by the
    Matrix homeserver. Here, you must specify the direct link the
-   **Matrix Homserver** can use to access the bridge, including the Matrix
+   **Matrix Homeserver** can use to access the bridge, including the Matrix
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
    
     `$ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
-```sh
-$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
-```
+   ```sh
+   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+       -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
+   ```
 
 6. Start the actual application service:
 
     `$ npm start -c config.yaml -p $MATRIX_PORT`
    or with docker:
    
-    `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
+   ```sh
+   $ docker run -v /path/to/config/:/config/ -p 127.0.0.1:$MATRIX_PORT:5858 -p 9898:9898 \
+       matrixdotorg/matrix-appservice-slack
+   ```
 
 7. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
