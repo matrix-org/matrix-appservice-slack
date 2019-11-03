@@ -18,7 +18,10 @@ This project follows "git flow" semantics. In practice, this means:
  - Make sure your new code passes all the code checks (tests and linting). Do this by running
    `npm run test` and `npm run lint`.
  - Create a pull request. If this PR fixes an issue, link to it by referring to its number.
- - You must [sign off your pull requests](https://github.com/matrix-org/synapse/blob/master/CONTRIBUTING.rst#sign-off)
+ - Make a [newsfile for the pull request](https://github.com/matrix-org/synapse/blob/v1.4.0/CONTRIBUTING.rst#changelog)
+ - You must [sign off your pull requests](https://github.com/matrix-org/synapse/blob/v1.4.0/CONTRIBUTING.rst#sign-off)
+ 
+ (We follow the same rules as the Synapse project for the last two steps)
 
 ## Coding notes
 The Slack bridge uses Typescript as it's language, which is then compiled into JavaScript using `npm run build`.
