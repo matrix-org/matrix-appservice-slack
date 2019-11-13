@@ -150,7 +150,7 @@ class Substitutions {
                 if (ghost && ghost.slackId) {
                     // We need to replace the user's displayname with the slack mention, but we need to
                     // ensure to do it only on whitespace wrapped strings.
-                    const userRegex = new RegExp(`(?<=^|\\s)${escapeStringRegexp(user.text)}(?=$|\\s)`, "g");
+                    const userRegex = new RegExp(`(?<=^|\\s)${escapeStringRegexp(user.text)}(?=$|\\s|: )`, "g");
                     body = body.replace(userRegex, `<@${ghost.slackId}>`);
                 }
             }
