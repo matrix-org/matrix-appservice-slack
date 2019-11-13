@@ -1,3 +1,27 @@
+ 1.0.2 (2019-11-13)
+===================
+
+Features
+--------
+
+- Messages bridged to Slack now get links with text-based content unfurled ([\#266](https://github.com/matrix-org/matrix-appservice-slack/issues/266))
+
+
+Bugfixes
+--------
+
+- Fix Markdown link replacements deleting link text, links, and text between links. ([\#299](https://github.com/matrix-org/matrix-appservice-slack/issues/299))
+- Fix Matrix images being sent as the filename only on Slack ([\#302](https://github.com/matrix-org/matrix-appservice-slack/issues/302))
+- Mentions will now work if followed by a colon and a space ([\#320](https://github.com/matrix-org/matrix-appservice-slack/issues/320))
+
+
+Improved Documentation
+----------------------
+
+- Fix minor typos in documentation that made it inconsistent ([\#306](https://github.com/matrix-org/matrix-appservice-slack/issues/306))
+- Fix syntax typo for service start command. ([\#317](https://github.com/matrix-org/matrix-appservice-slack/issues/317))
+
+
 1.0.1 (2019-10-08)
 ===================
 
