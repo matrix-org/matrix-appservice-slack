@@ -24,7 +24,7 @@ import * as escapeStringRegexp from "escape-string-regexp";
 
 const log = Logging.get("substitutions");
 
-const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file"];
+const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file", "m.image"];
 const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\/a>/g;
 
 /**
@@ -104,14 +104,14 @@ class Substitutions {
             return null;
         }
 
-        // Replace markdown urls with plain urls to make them match.
-        body = body.replace(/!?\[.*\]\((.+)\)/gm, "$1");
-
         if (isAttachment) {
             // If it's an attachment, we can allow the body.
             body = typeof(body) === "string" ? body : "";
         }
         body = this.htmlEscape(body);
+
+        // Convert markdown links to slack mrkdwn links
+        body = body.replace(/!?\[(.*?)\]\((.+?)\)/gm, "<$2|$1>");
 
         // emotes in slack are just italicised
         if (msgType === "m.emote") {
@@ -150,7 +150,7 @@ class Substitutions {
                 if (ghost && ghost.slackId) {
                     // We need to replace the user's displayname with the slack mention, but we need to
                     // ensure to do it only on whitespace wrapped strings.
-                    const userRegex = new RegExp(`(?<=^|\\s)${escapeStringRegexp(user.text)}(?=$|\\s)`, "g");
+                    const userRegex = new RegExp(`(?<=^|\\s)${escapeStringRegexp(user.text)}(?=$|\\s|: )`, "g");
                     body = body.replace(userRegex, `<@${ghost.slackId}>`);
                 }
             }
