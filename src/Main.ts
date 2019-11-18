@@ -559,20 +559,23 @@ export class Main {
         let success = false;
 
         // Handle a m.room.message event
-        if (ev.type === "m.room.message" || ev.content) {
-            if (ev.content["m.relates_to"] !== undefined) {
-                const relatesTo = ev.content["m.relates_to"];
-                if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
-                    // We have an edit.
-                    try {
-                        success = await room.onMatrixEdit(ev);
-                    } catch (e) {
-                        log.error("Failed processing matrix edit: ", e);
-                        endTimer({outcome: "fail"});
-                        return;
-                    }
+        if (ev.type !== "m.room.message" || !ev.content) {
+            return;
+        }
+
+        if (ev.content["m.relates_to"] !== undefined) {
+            const relatesTo = ev.content["m.relates_to"];
+            if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
+                // We have an edit.
+                try {
+                    success = await room.onMatrixEdit(ev);
+                } catch (e) {
+                    log.error("Failed processing matrix edit: ", e);
+                    endTimer({outcome: "fail"});
+                    return;
                 }
             }
+        } else {
             try {
                 success = await room.onMatrixMessage(ev);
             } catch (e) {
