@@ -147,6 +147,8 @@ export class BridgedRoom {
     public MatrixRoomActive: boolean;
     private recentSlackMessages: string[] = [];
 
+    private slackSendLock: Promise<void> = Promise.resolve();
+
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
      */
@@ -174,7 +176,6 @@ export class BridgedRoom {
         }
         this.isPrivate = opts.is_private;
         this.puppetOwner = opts.puppet_owner;
-
         this.dirty = true;
     }
 
@@ -474,7 +475,10 @@ export class BridgedRoom {
             const ghost = await this.main.getGhostForSlackMessage(message, this.slackTeamId!);
             await ghost.update(message, this);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
-            return await this.handleSlackMessage(message, ghost, content);
+            this.slackSendLock = this.slackSendLock.finally(async () => {
+                return this.handleSlackMessage(message, ghost, content);
+            });
+            await this.slackSendLock;
         } catch (err) {
             log.error("Failed to process event");
             log.error(err);
@@ -591,6 +595,12 @@ export class BridgedRoom {
             let formatted = `<i>(edited)</i> ${before} <font color="red"> ${prev} </font> ${after} =&gt; ${before}` +
             `<font color="green"> ${curr} </font> ${after}`;
             const prevEvent = await this.main.datastore.getEventBySlackId(channelId, message.previous_message!.ts);
+
+            if (!prevEvent) {
+                // We don't have a previous eventId for this. Either the bridge
+                // hasn't tracked the previous message or we've not seen it. In this case,
+                // treat as a normal message.
+            }
 
             // If this edit is in a thread we need to inject the reply fallback, or
             // non-reply supporting clients will no longer show it as a reply.
