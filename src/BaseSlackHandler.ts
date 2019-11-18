@@ -104,6 +104,7 @@ export interface ISlackFile {
 
 export interface ISlackUser {
     id: string;
+    name: string;
     profile?: {
         display_name?: string;
         real_name?: string;
@@ -188,7 +189,8 @@ export abstract class BaseSlackHandler {
             // (if this is an emote msg, the format is <@ID|nick>, but in normal msgs it's just <@ID>
             const id = match[0].match(USER_ID_REGEX_FIRST)![1];
 
-            const teamDomain = await this.main.getTeamDomainForMessage(message);
+            // TODO: any
+            const teamDomain = await this.main.getTeamDomainForMessage(message as any);
 
             let displayName = "";
             const userId = this.main.getUserId(id, teamDomain);

@@ -40,6 +40,7 @@ import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
 import PQueue from "p-queue";
+import { TeamSyncer } from "./TeamSyncer";
 
 const log = Logging.get("Main");
 
@@ -99,6 +100,8 @@ export class Main {
 
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
+
+    public readonly teamSyncer?: TeamSyncer;
 
     constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
@@ -179,6 +182,10 @@ export class Main {
 
         if (config.enable_metrics) {
             this.initialiseMetrics();
+        }
+
+        if (config.team_sync) {
+            this.teamSyncer = new TeamSyncer(this);
         }
     }
 
@@ -274,7 +281,7 @@ export class Main {
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: any, teamId?: string) {
+    public async getTeamDomainForMessage(message: {team_domain?: string, team_id?: string}, teamId?: string) {
         if (message.team_domain) {
             return message.team_domain;
         }
@@ -291,6 +298,7 @@ export class Main {
         if (team) {
             return team.domain;
         }
+        throw Error("Team not found");
     }
 
     public getUserId(id: string, teamDomain: string) {
@@ -309,10 +317,19 @@ export class Main {
         return this.getGhostForSlack(message.user_id, teamDomain, teamId);
     }
 
-    public async getGhostForSlack(slackUserId: string, teamDomain: string, teamId?: string): Promise<SlackGhost> {
+    public async getGhostForSlack(slackUserId: string, teamDomain?: string, teamId?: string): Promise<SlackGhost> {
+        let domain: string;
+        if (!teamDomain && !teamId) {
+            throw Error("Must provide either a teamDomain or a teamId");
+        }
+        if (!teamDomain) {
+            domain = await this.getTeamDomainForMessage({team_id: teamId});
+        } else {
+            domain = teamDomain;
+        }
         const userId = this.getUserId(
             slackUserId.toUpperCase(),
-            teamDomain,
+            domain,
         );
         const existing = this.ghostsByUserId.get(userId);
         if (existing) {
@@ -795,7 +812,6 @@ export class Main {
         }
         await teamPromises.onIdle();
         log.info("Finished loading all team clients");
-
         const entries = await this.datastore.getAllRooms();
         log.info(`Found ${entries.length} room entries in store`);
         const joinedRooms = await roomListPromise;
@@ -809,6 +825,12 @@ export class Main {
                 log.error(`Failed to load entry ${entry.matrix_id}, exception thrown`, ex);
             }
         }));
+
+        if (this.teamSyncer) {
+            // This will not throw.
+            // tslint:disable-next-line: no-floating-promises
+            this.teamSyncer.syncAllTeams(teamClients);
+        }
 
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);

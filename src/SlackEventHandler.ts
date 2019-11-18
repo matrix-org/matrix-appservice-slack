@@ -38,6 +38,16 @@ interface ISlackEventReaction extends ISlackEvent {
     item: ISlackMessage;
 }
 
+interface ISlackChannelAdded {
+    type: string;
+    channel: {
+        id: string;
+        name: string;
+        created: number;
+        creator: string;
+    };
+}
+
 const HTTP_OK = 200;
 
 export type EventHandlerCallback = (status: number, body?: string, headers?: {[header: string]: string}) => void;
@@ -49,7 +59,8 @@ export class SlackEventHandler extends BaseSlackHandler {
      * to events in order to handle them.
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
-    "team_domain_change", "channel_rename", "user_typing"];
+    "team_domain_change", "channel_rename", "user_typing", "channel_created", "channel_deleted",
+    "user_change", "team_join"];
     constructor(main: Main) {
         super(main);
     }
@@ -101,6 +112,12 @@ export class SlackEventHandler extends BaseSlackHandler {
                         break;
                     case "user_typing":
                         await this.handleTyping(event, teamId);
+                        break;
+                    case "channel_created":
+                    case "channel_deleted":
+                    case "user_change":
+                    case "team_join":
+                        await this.handleTeamSyncEvent(event, teamId);
                         break;
                     // XXX: Unused?
                     case "file_comment_added":
@@ -210,20 +227,25 @@ export class SlackEventHandler extends BaseSlackHandler {
             msg.user_id = msg.comment.user;
         } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user;
-            msg.text = msg.message.text;
-            msg.previous_message.text = (await this.doChannelUserReplacements(
-                msg, msg.previous_message!.text!, room.SlackClient)
-            )!;
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
+                console.log("Do");
                 // Check the edit wasn't sent by us
                 if (msg.message.bot_id === team.bot_id) {
+                    console.log("Daaa");
                     return;
                 } else {
                     msg.user_id = msg.bot_id;
                 }
+                console.log("Foo");
             }
+            console.log("ba");
+
+            msg.text = msg.message.text;
+            msg.previous_message.text = (await this.doChannelUserReplacements(
+                msg, msg.previous_message!.text!, room.SlackClient)
+            )!;
         } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {
             const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
             if (originalEvent) {
@@ -323,6 +345,19 @@ export class SlackEventHandler extends BaseSlackHandler {
             user_id: event.user || event.bot_id,
         });
         await room.onSlackTyping(typingEvent, teamId);
+    }
+
+    private async handleTeamSyncEvent(event: ISlackEvent, teamId: string) {
+        if (!this.main.teamSyncer) {
+            throw Error("ignored");
+        }
+        if (event.type === "channel_created") {
+            // Note: Slack violates the usual stringness of 'channel' here.
+            const eventDetails = event as unknown as ISlackChannelAdded;
+            await this.main.teamSyncer.onChannelAdded(teamId, eventDetails.channel.id, eventDetails.channel.name, eventDetails.channel.creator);
+        } else if (event.type === "channel_deleted") {
+            await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
+        }
     }
 
 }
