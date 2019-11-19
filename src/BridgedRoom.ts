@@ -596,12 +596,6 @@ export class BridgedRoom {
             `<font color="green"> ${curr} </font> ${after}`;
             const prevEvent = await this.main.datastore.getEventBySlackId(channelId, message.previous_message!.ts);
 
-            if (!prevEvent) {
-                // We don't have a previous eventId for this. Either the bridge
-                // hasn't tracked the previous message or we've not seen it. In this case,
-                // treat as a normal message.
-            }
-
             // If this edit is in a thread we need to inject the reply fallback, or
             // non-reply supporting clients will no longer show it as a reply.
             let body = ghost.prepareBody(outtext);
@@ -622,22 +616,31 @@ export class BridgedRoom {
                     newFormattedBody = formattedFallback + newFormattedBody;
                 }
             }
-
+            let replyContent: object|undefined;
+            // Only include edit metadata in the message if we have the previous eventId,
+            // otherwise just send the fallback reply text.
+            if (prevEvent) {
+                replyContent = {
+                    "m.new_content": {
+                        body: newBody,
+                        format: "org.matrix.custom.html",
+                        formatted_body: newFormattedBody,
+                        msgtype: "m.text",
+                    },
+                    "m.relates_to": {
+                        event_id: prevEvent.eventId,
+                        rel_type: "m.replace",
+                    },
+                };
+            } else {
+                log.warn("Got edit but no previous matrix events were found");
+            }
             const matrixContent = {
                 body,
-                "format": "org.matrix.custom.html",
-                "formatted_body": formatted,
-                "m.new_content": {
-                    body: newBody,
-                    format: "org.matrix.custom.html",
-                    formatted_body: newFormattedBody,
-                    msgtype: "m.text",
-                },
-                "m.relates_to": {
-                    event_id: prevEvent ? prevEvent.eventId : undefined,
-                    rel_type: "m.replace",
-                },
-                "msgtype": "m.text",
+                format: "org.matrix.custom.html",
+                formatted_body: formatted,
+                msgtype: "m.text",
+                ...replyContent,
             };
             return ghost.sendMessage(this.MatrixRoomId, matrixContent, channelId, eventTS);
         } else if (message.files) { // A message without a subtype can contain files.
