@@ -230,17 +230,13 @@ export class SlackEventHandler extends BaseSlackHandler {
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
-                console.log("Do");
                 // Check the edit wasn't sent by us
                 if (msg.message.bot_id === team.bot_id) {
-                    console.log("Daaa");
                     return;
                 } else {
                     msg.user_id = msg.bot_id;
                 }
-                console.log("Foo");
             }
-            console.log("ba");
 
             msg.text = msg.message.text;
             msg.previous_message.text = (await this.doChannelUserReplacements(

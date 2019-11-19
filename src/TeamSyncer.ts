@@ -268,11 +268,11 @@ export class TeamSyncer {
             intent = this.main.botIntent;
         }
         const aliasPrefix = this.getAliasPrefix(teamId);
+        const alias = aliasPrefix ? `${aliasPrefix}${channel.name.toLowerCase()}` : undefined;
         let topic: undefined|string;
         if (channel.purpose) {
             topic = channel.purpose.value;
         }
-        let alias = aliasPrefix ? `${aliasPrefix}${channel.name.toLowerCase()}` : undefined;
         log.debug("Creating new room for channel", channel.name, topic, alias);
         const plUsers = {};
         plUsers[this.main.botUserId] = 100;
