@@ -40,6 +40,7 @@ import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
 import PQueue from "p-queue";
+import { UserAdminRoom } from "./rooms/UserAdminRoom";
 
 const log = Logging.get("Main");
 
@@ -464,9 +465,20 @@ export class Main {
         this.incCounter("received_messages", {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
 
-        const myUserId = this.bridge.getBot().getUserId();
+        if (UserAdminRoom.IsAdminRoomInvite(ev, this.botUserId)) {
+            await this.datastore.setUserAdminRoom(ev.sender, ev.room_id);
+            await this.botIntent.join(ev.room_id);
+            await this.botIntent.sendMessage(ev.room_id, {
+                msgtype: "m.notice",
+                body: "Welcome to your Slack bridge admin room. Please say `help` for commands.",
+                formatted_body: "Welcome to your Slack bridge admin room. Please say <code>help</code> for commands.",
+                format: "org.matrix.custom.html",
+            });
+            endTimer({outcome: "success"});
+            return;
+        }
 
-        if (ev.type === "m.room.member" && ev.state_key === myUserId) {
+        if (ev.type === "m.room.member" && ev.state_key === this.botUserId) {
             // A membership event about myself
             const membership = ev.content.membership;
             const forRoom = this.rooms.getByMatrixRoomId(ev.room_id);
@@ -493,7 +505,7 @@ export class Main {
 
         if (ev.type === "m.room.member"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && ev.sender !== myUserId
+            && ev.sender !== this.botUserId
             && ev.content.is_direct) {
 
             try {
@@ -503,11 +515,6 @@ export class Main {
                 log.error("Failed to handle DM invite: ", e);
                 endTimer({outcome: "fail"});
             }
-            return;
-        }
-
-        if (ev.sender === myUserId) {
-            endTimer({outcome: "success"});
             return;
         }
 
@@ -526,6 +533,23 @@ export class Main {
 
         const room = this.rooms.getByMatrixRoomId(ev.room_id);
         if (!room) {
+            const adminRoomUser = await this.datastore.getUserForAdminRoom(ev.room_id);
+            if (adminRoomUser) {
+                if (adminRoomUser !== ev.sender) {
+                    // Not the correct user, ignore.
+                    endTimer({outcome: "dropped"});
+                    return;
+                }
+                try {
+                    const adminRoom = this.rooms.getOrCreateAdminRoom(ev.room_id, adminRoomUser, this);
+                    await adminRoom.handleEvent(ev);
+                    endTimer({outcome: "success"});
+                } catch (ex) {
+                    log.error("Failed to handle admin mesage:", ex);
+                    endTimer({outcome: "dropped"});
+                }
+                return;
+            }
             log.warn(`Ignoring ev for matrix room with unknown slack channel: ${ev.room_id}`);
             endTimer({outcome: "dropped"});
             return;
