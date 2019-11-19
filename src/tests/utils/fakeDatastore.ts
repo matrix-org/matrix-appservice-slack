@@ -100,4 +100,16 @@ export class FakeDatastore implements Datastore {
     public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<string | null> {
         throw new Error("Method not implemented.");
     }
+
+    public async getUserAdminRoom(matrixId: string): Promise<string | null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async getUserForAdminRoom(): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
+        throw Error("Method not implemented.");
+    }
 }

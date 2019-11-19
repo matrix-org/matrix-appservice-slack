@@ -99,4 +99,8 @@ export interface Datastore {
     removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<void>;
     getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]>;
     getPuppetedUsers(): Promise<PuppetEntry[]>;
+
+    getUserAdminRoom(matrixId: string): Promise<string|null>;
+    getUserForAdminRoom(roomId: string): Promise<string|null>;
+    setUserAdminRoom(matrixuser: string, roomId: string): Promise<void>;
 }

@@ -218,4 +218,15 @@ export class NedbDatastore implements Datastore {
         return null;
     }
 
+    public async getUserAdminRoom(): Promise<null> {
+        throw Error("Not supported on NeDB");
+    }
+
+    public async getUserForAdminRoom(): Promise<null> {
+        throw Error("Not supported on NeDB");
+    }
+
+    public async setUserAdminRoom(): Promise<void> {
+        throw Error("Not supported on NeDB");
+    }
 }
