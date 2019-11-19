@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackUser } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
@@ -280,6 +280,14 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
         }
 
+        if (msg.subtype === "channel_join" || msg.subtype === "group_join") {
+            await room.onSlackUserJoin(msg.user as string, msg.inviter as string|undefined);
+        }
+
+        if (msg.subtype === "channel_leave") {
+            await room.onSlackUserLeft(msg.user as string);
+        }
+
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
         return room.onSlackMessage(msg, content);
     }
@@ -353,6 +361,10 @@ export class SlackEventHandler extends BaseSlackHandler {
             await this.main.teamSyncer.onChannelAdded(teamId, eventDetails.channel.id, eventDetails.channel.name, eventDetails.channel.creator);
         } else if (event.type === "channel_deleted") {
             await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
+        } else if (event.type === "team_join") {
+            const user = event.user as unknown as ISlackUser;
+            const domain = (await this.main.datastore.getTeam(teamId))!.domain;
+            await this.main.teamSyncer.syncUser(teamId, domain, user);
         }
     }
 

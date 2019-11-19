@@ -54,6 +54,13 @@ export class SlackRTMHandler extends SlackEventHandler {
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
             await messagePromise;
         });
+        // rtm.on("im_marked", async (event) => {
+        //     const room = this.main.rooms.getBySlackChannelId(event.channel);
+        //     const info = (await slackClient.conversations.info({channel: event.channel})) as ConversationsInfoResponse;
+        //     if (room) {
+        //         room.updateSlackReadMaker(event.ts, info.channel.user!);
+        //     }
+        // });
         this.rtmUserClients.set(key, rtm);
         const { team } = await rtm.start();
         teamInfo = team as ISlackTeam;
@@ -171,15 +178,27 @@ export class SlackRTMHandler extends SlackEventHandler {
 
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
         log.debug("Received slack user event:", puppet.matrixId, event);
+        if (event.subtype === "group_join" && event.user === puppet.slackId) {
+            if (!this.main.teamSyncer) {
+                return;
+            }
+            // This could be a new private room, check in on it.
+            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            return;
+        }
+        let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        if (room) {
+            return this.handleMessageEvent(event, puppet.teamId);
+        }
         const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
         const ghosts = await Promise.all(channelMembersRes.members.map(
             // tslint:disable-next-line: no-any
             (id) => this.main.getGhostForSlack(id, (event as any).team_domain, puppet.teamId)),
         );
         const ghost = await this.main.getGhostForSlackMessage(event, puppet.teamId);
-        let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
-        if (!room && chanInfo.channel.is_im) {
+        if (!room && (chanInfo.channel.is_im || chanInfo.channel.is_mpim)) {
             log.info(`Creating new DM room for ${event.channel}`);
+            const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId)!;
             // Create a new DM room.
             const { room_id } = await ghost.intent.createRoom({
                 createAsClient: true,
@@ -187,6 +206,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                     invite: [puppet.matrixId].concat(ghosts.map((g) => g.userId!)),
                     preset: "private_chat",
                     is_direct: true,
+                    name: chanInfo.channel.is_im ? (await otherGhosts[0].getDisplayname(slackClient)) : undefined,
                 },
             });
             const team = (await this.main.datastore.getTeam(puppet.teamId))!;
@@ -202,9 +222,9 @@ export class SlackRTMHandler extends SlackEventHandler {
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);
-        } else if (!room) {
-            log.warn(`No room found for ${event.channel} and not sure how to create one`);
+            await Promise.all(otherGhosts.map((g) => g.intent.join(room_id)));
         }
-        return this.handleMessageEvent(event, puppet.teamId);
+        log.warn(`No room found for ${event.channel} and not sure how to create one`);
+        return;
     }
 }

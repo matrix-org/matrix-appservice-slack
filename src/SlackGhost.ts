@@ -67,7 +67,7 @@ export class SlackGhost {
         public readonly userId: string,
         public readonly intent?: Intent,
         private displayName?: string,
-        private avatarUrl?: string) {
+        private avatarHash?: string) {
         this.slackId = slackId.toUpperCase();
         if (teamId) {
             this.teamId = teamId.toUpperCase();
@@ -76,7 +76,7 @@ export class SlackGhost {
 
     public toEntry(): UserEntry {
         return {
-            avatar_url: this.avatarUrl!,
+            avatar_url: this.avatarHash!,
             display_name: this.displayName!,
             id: this.userId!,
             slack_id: this.slackId,
@@ -112,6 +112,40 @@ export class SlackGhost {
         }
     }
 
+    public async updateFromISlackUser(slackUser: ISlackUser) {
+        if (!slackUser.profile) {
+            return;
+        }
+        let changed = false;
+        if (slackUser.profile.display_name && this.displayName !== slackUser.profile.display_name) {
+            await this.intent.setDisplayName(slackUser.profile.display_name);
+            this.displayName = slackUser.profile.display_name;
+            changed = true;
+        }
+
+        const avatarRes = await this.lookupAvatarUrl(slackUser);
+        if (avatarRes && this.avatarHash !== avatarRes.hash) {
+            const response = await rp({
+                encoding: null,
+                resolveWithFullResponse: true,
+                uri: avatarRes.url,
+            });
+            const contentUri = await this.uploadContent({
+                mimetype: response.headers["content-type"],
+                title: avatarRes.hash,
+            }, response.body);
+            await this.intent.setAvatarUrl(contentUri);
+            this.avatarHash = avatarRes.hash;
+            changed = true;
+        }
+
+        if (!changed) {
+            return;
+        }
+
+        return this.main.datastore.upsertUser(this);
+    }
+
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
                                     room: BridgedRoom) {
         let displayName = message.username || message.user_name;
@@ -135,16 +169,19 @@ export class SlackGhost {
         return this.main.datastore.upsertUser(this);
     }
 
-    public async lookupAvatarUrl(client: WebClient) {
-        const user = await this.lookupUserInfo(client);
+    public async lookupAvatarUrl(clientOrUser: WebClient|ISlackUser) {
+        const user = clientOrUser instanceof WebClient ? await this.lookupUserInfo(clientOrUser) : clientOrUser;
         if (!user || !user.profile) { return; }
         const profile = user.profile;
 
         // Pick the original image if we can, otherwise pick the largest image
         // that is defined
-        return profile.image_original ||
+        const url = profile.image_original ||
             profile.image_1024 || profile.image_512 || profile.image_192 ||
             profile.image_72 || profile.image_48;
+        if (url) {
+            return { url, hash: profile.avatar_hash };
+        }
     }
 
     private async getBotName(botId: string, client: WebClient) {
@@ -203,26 +240,33 @@ export class SlackGhost {
             return;
         }
         let avatarUrl;
+        let hash: string|undefined;
         if (message.bot_id) {
             avatarUrl = await this.getBotAvatarUrl(message.bot_id, room.SlackClient);
+            hash = avatarUrl;
         } else if (message.user_id) {
-            avatarUrl = await this.lookupAvatarUrl(room.SlackClient);
+            const res = await this.lookupAvatarUrl(room.SlackClient);
+            if (!res) {
+                return;
+            }
+            hash = res.hash;
+            avatarUrl = res.url;
         } else {
             return;
         }
 
-        if (this.avatarUrl === avatarUrl) {
+        if (this.avatarHash === hash) {
             return;
         }
 
-        const match = avatarUrl.match(/\/([^\/]+)$/);
+        const match = hash || avatarUrl.match(/\/([^\/]+)$/);
         if (!match || !match[1]) {
             return;
         }
 
-        log.debug(`Updating avatar ${this.avatarUrl} > ${avatarUrl}`);
+        log.debug(`Updating avatar ${this.avatarHash} > ${hash}`);
 
-        const title = match[1];
+        const title = hash || match[1];
 
         const response = await rp({
             encoding: null,
@@ -234,7 +278,7 @@ export class SlackGhost {
             title,
         }, response.body);
         await this.intent.setAvatarUrl(contentUri);
-        this.avatarUrl = avatarUrl;
+        this.avatarHash = hash;
         await this.main.datastore.upsertUser(this);
     }
 
@@ -322,6 +366,10 @@ export class SlackGhost {
         // This lasts for 20000 - See http://matrix-org.github.io/matrix-js-sdk/1.2.0/client.js.html#line2031
         this.typingInRooms.add(roomId);
         await this.intent.sendTyping(roomId, true);
+    }
+
+    public async updateReadMarker(roomId: string, eventId: string): Promise<void> {
+        await this.intent.sendReadReceipt(roomId, eventId);
     }
 
     public async cancelTyping(roomId: string): Promise<void> {

@@ -97,4 +97,7 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
+    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<string | null> {
+        throw new Error("Method not implemented.");
+    }
 }

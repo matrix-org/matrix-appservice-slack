@@ -33,6 +33,9 @@ export interface ConversationsOpenResponse extends ConversationsInfoResponse {
  */
 export interface ConversationsMembersResponse extends WebAPICallResult {
     members: string[];
+    response_metadata: {
+        next_cursor: string;
+    };
 }
 
 /**
@@ -128,6 +131,16 @@ export interface ChatPostMessageResponse extends WebAPICallResult {
     channel: string;
 }
 
+/**
+ * Taken from https://api.slack.com/methods/users.list
+ */
+export interface UsersListResponse extends WebAPICallResult {
+    members: ISlackUser[];
+    response_metadata: {
+        next_cursor: string;
+    };
+}
+
 export interface ConversationsInfo {
     id: string;
     name: string;
@@ -137,6 +150,10 @@ export interface ConversationsInfo {
     is_group?: boolean;
     is_channel?: boolean;
     is_private?: boolean;
+    /**
+     * Other user in the DM. Only applies to DMs
+     */
+    user?: string;
     topic?: {
         value: string;
     };

@@ -339,6 +339,7 @@ export class Main {
 
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
+        await intent._ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {
@@ -509,10 +510,10 @@ export class Main {
         }
 
         if (ev.type === "m.room.member"
+            && ev.content.membership === "invite"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
             && ev.sender !== myUserId
             && ev.content.is_direct) {
-
             try {
                 await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
                 endTimer({outcome: "success"});
@@ -545,6 +546,24 @@ export class Main {
         if (!room) {
             log.warn(`Ignoring ev for matrix room with unknown slack channel: ${ev.room_id}`);
             endTimer({outcome: "dropped"});
+            return;
+        }
+
+        if (ev.type === "m.room.member"
+            && this.bridge.getBot().isRemoteUser(ev.state_key)
+            && !this.bridge.getBot().isRemoteUser(ev.sender)
+            && ev.state_key !== myUserId) {
+                await room.onMatrixInvite(ev.sender, ev.state_key);
+                endTimer({outcome: "success"});
+        }
+
+        if (ev.type === "m.room.member" && !this.bridge.getBot().isRemoteUser(ev.state_key)) {
+            const membership = ev.content.membership;
+            if (membership === "join") {
+                await room.onMatrixJoin(ev.state_key);
+            } else if (membership === "leave" || membership === "ban") {
+                await room.onMatrixLeave(ev.state_key);
+            }
             return;
         }
 
@@ -664,7 +683,7 @@ export class Main {
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
         await this.datastore.upsertRoom(room);
-        await slackGhost.intent.joinRoom(roomId);
+        await slackGhost.intent.join(roomId);
     }
 
     public async onMatrixAdminMessage(ev) {

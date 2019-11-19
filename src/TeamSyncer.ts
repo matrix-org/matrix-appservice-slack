@@ -4,9 +4,11 @@ import { Logging } from "matrix-appservice-bridge";
 import { SlackRoomStore } from "./SlackRoomStore";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
-import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo } from "./SlackResponses";
+import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo, UsersListResponse, ConversationsMembersResponse } from "./SlackResponses";
 import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
+import { UserInfo } from "os";
+import { ISlackUser } from "./BaseSlackHandler";
 
 const log = Logging.get("TeamSyncer");
 
@@ -53,8 +55,8 @@ export class TeamSyncer {
             // tslint:disable-next-line: no-floating-promises
             queue.add((async () => {
                 log.info("Syncing team", teamId);
-                await this.syncChannels(teamId, client);
-                await this.syncUsers(teamId, client);
+                await this.syncItems(teamId, client, "user");
+                await this.syncItems(teamId, client, "channel");
             }));
         }
         try {
@@ -66,20 +68,31 @@ export class TeamSyncer {
         }
     }
 
-    public async syncChannels(teamId: string, client: WebClient) {
-        if (!this.shouldTeamSync(teamId, "channel")) {
+    public async syncItems(teamId: string, client: WebClient, type: "user"|"channel") {
+        if (!this.shouldTeamSync(teamId, type)) {
             return;
         }
-        let channelList: ConversationsInfo[] = [];
+        // tslint:disable-next-line: no-any
+        let itemList: any[] = [];
         let cursor: string|undefined;
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
-            const res = (await client.conversations.list({
-                limit: 1000,
-                exclude_archived: true,
-                type: "public_channel",
-                cursor,
-            })) as ConversationsListResponse;
-            channelList = channelList.concat(res.channels);
+            let res: ConversationsListResponse|UsersListResponse;
+            if (type === "channel") {
+                res = (await client.conversations.list({
+                    limit: 1000,
+                    exclude_archived: true,
+                    type: "public_channel",
+                    cursor,
+                })) as ConversationsListResponse;
+                itemList = itemList.concat(res.channels);
+            } else {
+                res = (await client.users.list({
+                    limit: 1000,
+                    cursor,
+                })) as UsersListResponse;
+                itemList = itemList.concat(res.members);
+            }
+
             cursor = res.response_metadata.next_cursor;
             if (cursor !== "") {
                 const ms = Math.min(TEAM_SYNC_MIN_WAIT, Math.random() * TEAM_SYNC_MAX_WAIT);
@@ -91,19 +104,21 @@ export class TeamSyncer {
             }
         }
         const queue = new PQueue({concurrency: TEAM_SYNC_CHANNEL_CONCURRENCY});
-        log.info(`Found ${channelList.length} total channels`);
-        return;
-        for (const channel of channelList) {
-            // tslint:disable-next-line: no-floating-promises
-            queue.add(() => this.syncChannel(teamId, channel));
+        log.info(`Found ${itemList.length} total ${type}s`);
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!team || !team.domain) {
+            throw Error("No team domain!");
+        }
+        for (const item of itemList) {
+            if (type === "channel") {
+                // tslint:disable-next-line: no-floating-promises
+                queue.add(() => this.syncChannel(teamId, item));
+            } else {
+                // tslint:disable-next-line: no-floating-promises
+                queue.add(() => this.syncUser(teamId, team.domain, item));
+            }
         }
         await queue.onIdle();
-    }
-
-    public async syncUsers(teamId: string, client: WebClient) {
-        if (!this.shouldTeamSync(teamId, "user")) {
-            return;
-        }
     }
 
     private async shouldTeamSync(teamId: string, item?: "channel"|"user", itemId?: string) {
@@ -146,25 +161,49 @@ export class TeamSyncer {
             log.warn("Not creating channel: Is either private or not a channel");
             return;
         }
-        const userId = (await this.main.datastore.getTeam(teamId))!.user_id;
-        const {user} = (await client.users.info({ user: userId })) as UsersInfoResponse;
-        await client.chat.postEphemeral({
-            user: creator,
-            text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
-            channel: channelId,
-        });
+        await this.syncChannel(teamId, channel);
+    }
 
+    public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse) {
+        const channelItem = chanInfo.channel;
+        if (!this.shouldTeamSync(teamId, "channel", channelItem.id)) {
+            log.info(`Not syncing`);
+            return;
+        }
+        const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
+        if (existingChannel) {
+            log.debug("Channel already exists in datastore, not bridging");
+            return;
+        }
+        if (channelItem.is_im || channelItem.is_mpim || !channelItem.is_private) {
+            log.warn("Not creating channel: Is not a private channel");
+            return;
+        }
+        log.info(`Attempting to dynamically bridge private ${channelItem.id} ${channelItem.name}`);
         // Create the room first.
         try {
-            const roomId = await this.createRoomForChannel(teamId, creator, channel);
-            await this.main.actionLink({
+            const members = await this.mapChannelMembershipToMatrixIds(teamId, client, channelItem.id);
+            const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem, false, members);
+            const inboundId = this.main.genInboundId();
+            const room = new BridgedRoom(this.main, {
+                inbound_id: inboundId,
                 matrix_room_id: roomId,
-                slack_channel_id: channelId,
-                team_id: teamId,
-            });
+                slack_team_id: teamId,
+                slack_channel_id: channelItem.id,
+                is_private: true,
+            }, undefined, undefined);
+            room.updateUsingChannelInfo(chanInfo);
+            this.main.rooms.upsertRoom(room);
+            await this.main.datastore.upsertRoom(room);
         } catch (ex) {
             log.error("Failed to provision new room dynamically:", ex);
         }
+    }
+
+    public async syncUser(teamId: string, domain: string, item: ISlackUser) {
+        const id = this.main.getUserId(item.id, domain);
+        const slackGhost = await this.main.getGhostForSlack(item.id, domain, teamId);
+        await slackGhost.updateFromISlackUser(item);
     }
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
@@ -186,14 +225,27 @@ export class TeamSyncer {
         const userId = (await this.main.datastore.getTeam(teamId))!.user_id;
         const {user} = (await client.users.info({ user: userId })) as UsersInfoResponse;
         try {
-            await client.chat.postEphemeral({
-                user: channelItem.creator,
-                text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
+            const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);
+            if (!creatorClient) {
+                throw Error("no-client");
+            }
+            await creatorClient.client.conversations.invite({
+                users: userId,
                 channel: channelItem.id,
             });
         } catch (ex) {
-            log.warn("Could not inform the creator to invite the bot:", ex);
+            log.warn("Couldn't invite bot to channel", ex);
+            try {
+                await client.chat.postEphemeral({
+                    user: channelItem.creator,
+                    text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
+                    channel: channelItem.id,
+                });
+            } catch (ex) {
+                log.warn("Couldn't send a notice either");
+            }
         }
+
         // Create the room first.
         try {
             const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
@@ -257,7 +309,7 @@ export class TeamSyncer {
         return channelConfig.alias_prefix;
     }
 
-    private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo): Promise<string> {
+    private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo, isPublic: boolean = true, inviteList: string[] = []): Promise<string> {
         let intent;
         let creatorUserId: string|undefined;
         try {
@@ -279,14 +331,17 @@ export class TeamSyncer {
         if (creatorUserId) {
             plUsers[creatorUserId] = 100;
         }
+        inviteList = inviteList.filter((s) => s !== creatorUserId || s !== this.main.botUserId);
+        inviteList.push(this.main.botUserId);
         const {room_id} = await intent.createRoom({
             createAsClient: true,
             options: {
                 name: `#${channel.name}`,
                 topic,
-                visibility: "public",
+                visibility: isPublic ? "public" : "private",
                 room_alias: alias,
-                preset: "public_chat",
+                preset: isPublic ? "public_chat" : "private_chat",
+                invite: inviteList,
                 initial_state: [{
                     content: {
                         users: plUsers,
@@ -313,5 +368,29 @@ export class TeamSyncer {
         });
         log.info("Created new room for channel:", room_id);
         return room_id;
+    }
+
+    private async mapChannelMembershipToMatrixIds(teamId: string, webClient: WebClient, channelId: string) {
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!team || !team.domain) {
+            throw Error("No team domain!");
+        }
+        const memberset: Set<string> = new Set();
+        let cursor: string|undefined;
+        while (cursor !== "") {
+            const membersRes = (await webClient.conversations.members({
+                channel: channelId, limit: 1000, cursor,
+            })) as ConversationsMembersResponse;
+            membersRes.members.forEach(memberset.add.bind(memberset));
+            cursor = membersRes.response_metadata.next_cursor;
+        }
+        const matrixIds: string[] = [];
+        for (const member of memberset) {
+            const mxid = await this.main.datastore.getPuppetMatrixUserBySlackId(teamId, member);
+            if (mxid) {
+                matrixIds.push(mxid);
+            }
+        }
+        return matrixIds;
     }
 }

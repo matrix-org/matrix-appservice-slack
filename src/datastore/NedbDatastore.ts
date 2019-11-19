@@ -213,4 +213,9 @@ export class NedbDatastore implements Datastore {
     public async getPuppetedUsers(): Promise<[]> {
         return [];
     }
+
+    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<null> {
+        return null;
+    }
+
 }

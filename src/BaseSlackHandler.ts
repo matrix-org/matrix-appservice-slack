@@ -67,6 +67,7 @@ export interface ISlackMessageEvent extends ISlackEvent {
     bot_id?: string;
     text?: string;
     deleted_ts?: string;
+    inviter?: string;
     // For comments
     comment?: {
         user: string;
@@ -105,6 +106,7 @@ export interface ISlackFile {
 export interface ISlackUser {
     id: string;
     name: string;
+    deleted: boolean;
     profile?: {
         display_name?: string;
         real_name?: string;
@@ -115,6 +117,7 @@ export interface ISlackUser {
         image_72?: string;
         image_48?: string;
         bot_id?: string;
+        avatar_hash: string;
     };
 }
 
