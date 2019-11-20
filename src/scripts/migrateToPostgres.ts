@@ -31,6 +31,7 @@ import { Datastore, TeamEntry } from "../datastore/Models";
 import { WebClient } from "@slack/web-api";
 import { TeamInfoResponse } from "../SlackResponses";
 import { SlackClientFactory } from "../SlackClientFactory";
+import { fromEntry } from "../rooms/Room";
 
 Logging.configure({ console: "info" });
 const log = Logging.get("script");
@@ -144,7 +145,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         if (!room.remote.slack_team_id && token) {
             room.remote.slack_team_id = teamTokenMap.get(token);
         }
-        await targetDs.upsertRoom(BridgedRoom.fromEntry(null as any, room));
+        await targetDs.upsertRoom(fromEntry(null as any, room));
         log.info(`Migrated room ${room.id} (${i + 1}/${allRooms.length})`);
     }));
 

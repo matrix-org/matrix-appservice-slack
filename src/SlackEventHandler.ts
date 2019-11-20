@@ -200,6 +200,14 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackReactionRemoved(msg);
         } */
 
+        if (msg.subtype === "channel_join" || msg.subtype === "group_join") {
+            return await room.onSlackUserJoin(msg.user as string, msg.inviter as string|undefined);
+        }
+
+        if (msg.subtype === "channel_leave" || msg.subtype === "group_leave") {
+            return await room.onSlackUserLeft(msg.user as string);
+        }
+
         if (!room.SlackClient) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
@@ -280,14 +288,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
         }
 
-        if (msg.subtype === "channel_join" || msg.subtype === "group_join") {
-            await room.onSlackUserJoin(msg.user as string, msg.inviter as string|undefined);
-        }
-
-        if (msg.subtype === "channel_leave") {
-            await room.onSlackUserLeft(msg.user as string);
-        }
-
         msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
         return room.onSlackMessage(msg, content);
     }
@@ -362,6 +362,10 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (event.type === "channel_deleted") {
             await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
         } else if (event.type === "team_join") {
+            const user = event.user as unknown as ISlackUser;
+            const domain = (await this.main.datastore.getTeam(teamId))!.domain;
+            await this.main.teamSyncer.syncUser(teamId, domain, user);
+        } else if (event.type === "user_change") {
             const user = event.user as unknown as ISlackUser;
             const domain = (await this.main.datastore.getTeam(teamId))!.domain;
             await this.main.teamSyncer.syncUser(teamId, domain, user);

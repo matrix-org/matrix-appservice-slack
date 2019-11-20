@@ -1,13 +1,10 @@
-import { IConfig } from "./IConfig";
-import { Datastore } from "./datastore/Models";
 import { Logging } from "matrix-appservice-bridge";
-import { SlackRoomStore } from "./SlackRoomStore";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
-import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo, UsersListResponse, ConversationsMembersResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo,
+    UsersListResponse, ConversationsMembersResponse } from "./SlackResponses";
 import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
-import { UserInfo } from "os";
 import { ISlackUser } from "./BaseSlackHandler";
 
 const log = Logging.get("TeamSyncer");
@@ -49,7 +46,8 @@ export class TeamSyncer {
     public async syncAllTeams(teamClients: { [id: string]: WebClient; }) {
         const queue = new PQueue({concurrency: TEAM_SYNC_CONCURRENCY});
         for (const [teamId, client] of Object.entries(teamClients)) {
-            if (!this.shouldTeamSync(teamId)) {
+            if (!this.getTeamSyncConfig(teamId)) {
+                log.debug(`Not syncing ${teamId}, team is not configured to sync`);
                 continue;
             }
             // tslint:disable-next-line: no-floating-promises
@@ -69,7 +67,7 @@ export class TeamSyncer {
     }
 
     public async syncItems(teamId: string, client: WebClient, type: "user"|"channel") {
-        if (!this.shouldTeamSync(teamId, type)) {
+        if (!this.getTeamSyncConfig(teamId, type)) {
             return;
         }
         // tslint:disable-next-line: no-any
@@ -121,14 +119,15 @@ export class TeamSyncer {
         await queue.onIdle();
     }
 
-    private async shouldTeamSync(teamId: string, item?: "channel"|"user", itemId?: string) {
-        if (!this.teamConfigs[teamId]) {
+    private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string) {
+        const teamConfig = this.teamConfigs[teamId] || this.teamConfigs.all;
+        if (!teamConfig) {
             return false;
         }
-        if (this.teamConfigs[teamId].enabled) {
+        if (!teamConfig.enabled) {
             return false;
         }
-        const channels = this.teamConfigs[teamId].channels;
+        const channels = teamConfig.channels;
         if (item === "channel" && channels && itemId) {
             if (channels.blacklist) {
                 if (channels.blacklist.includes(itemId)) {
@@ -144,7 +143,7 @@ export class TeamSyncer {
             }
         }
         // More granular please.
-        return true;
+        return teamConfig;
     }
 
     public async onChannelAdded(teamId: string, channelId: string, name: string, creator: string) {
@@ -165,8 +164,9 @@ export class TeamSyncer {
     }
 
     public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse) {
+        log.info(`Discovered private channel ${teamId} ${chanInfo.channel.id}`);
         const channelItem = chanInfo.channel;
-        if (!this.shouldTeamSync(teamId, "channel", channelItem.id)) {
+        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
             log.info(`Not syncing`);
             return;
         }
@@ -201,14 +201,34 @@ export class TeamSyncer {
     }
 
     public async syncUser(teamId: string, domain: string, item: ISlackUser) {
-        const id = this.main.getUserId(item.id, domain);
+        log.info(`Syncing user ${teamId} ${item.id}`);
         const slackGhost = await this.main.getGhostForSlack(item.id, domain, teamId);
-        await slackGhost.updateFromISlackUser(item);
+        if (item.deleted !== true) {
+            await slackGhost.updateFromISlackUser(item);
+            return;
+        }
+        log.warn(`User ${item.id} has been deleted`);
+        await slackGhost.intent.setDisplayName("Deleted User");
+        await slackGhost.intent.setAvatarUrl(undefined);
+        // XXX: We *should* fetch the rooms the user is actually in rather
+        // than just removing it from every room. However, this is quicker to
+        // implement.
+        log.info("Leaving from all rooms");
+        let i = this.main.rooms.all.length;
+        await Promise.all(this.main.rooms.all.map((r) =>
+            slackGhost.intent.leave(r.MatrixRoomId).catch((ex) => {
+                i--;
+                // Failing to leave a room is fairly normal.
+            }),
+        ));
+        log.info(`Left ${i} rooms`);
+        return;
     }
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
-        if (!this.shouldTeamSync(teamId, "channel", channelItem.id)) {
-            log.info(`Not syncing`);
+        log.info(`Syncing channel ${teamId} ${channelItem.id}`);
+        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
+            log.info(`Not syncing channel because it has been disallowed.`);
             return;
         }
         const client = await this.main.clientFactory.getTeamClient(teamId);
@@ -261,7 +281,7 @@ export class TeamSyncer {
 
     public async onChannelDeleted(teamId: string, channelId: string) {
         log.info(`${teamId} removed channel ${channelId}`);
-        if (!this.shouldTeamSync(teamId, "channel", channelId)) {
+        if (!this.getTeamSyncConfig(teamId, "channel", channelId)) {
             return;
         }
         const room = this.main.rooms.getBySlackChannelId(channelId);
@@ -302,14 +322,15 @@ export class TeamSyncer {
     }
 
     private getAliasPrefix(teamId: string) {
-        const channelConfig = this.teamConfigs[teamId].channels;
-        if (!channelConfig) {
+        const channelConfig = this.getTeamSyncConfig(teamId);
+        if (channelConfig === false || channelConfig.channels === undefined) {
             return;
         }
-        return channelConfig.alias_prefix;
+        return channelConfig.channels.alias_prefix;
     }
 
-    private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo, isPublic: boolean = true, inviteList: string[] = []): Promise<string> {
+    private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo,
+                                       isPublic: boolean = true, inviteList: string[] = []): Promise<string> {
         let intent;
         let creatorUserId: string|undefined;
         try {
