@@ -23,12 +23,12 @@ import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { ChatUpdateResponse,
-    ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
+    ChatPostMessageResponse, ConversationsInfoResponse, ConversationsMembersResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
-interface IBridgedRoomOpts {
+export interface IBridgedRoomOpts {
     matrix_room_id: string;
     inbound_id: string;
     slack_channel_name?: string;
@@ -115,20 +115,6 @@ export class BridgedRoom {
         return this.slackType;
     }
 
-    public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient) {
-        return new BridgedRoom(main, {
-            inbound_id: entry.remote_id,
-            matrix_room_id: entry.matrix_id,
-            slack_channel_id: entry.remote.id,
-            slack_channel_name: entry.remote.name,
-            slack_team_id: entry.remote.slack_team_id,
-            slack_webhook_uri: entry.remote.webhook_uri,
-            puppet_owner: entry.remote.puppet_owner,
-            is_private: entry.remote.slack_private,
-            slack_type: entry.remote.slack_type,
-        }, team, botClient);
-    }
-
     private matrixRoomId: string;
     private inboundId: string;
     private slackChannelName?: string;
@@ -136,25 +122,25 @@ export class BridgedRoom {
     private slackWebhookUri?: string;
     private slackTeamId?: string;
     private slackType?: string;
-    private isPrivate?: boolean;
-    private puppetOwner?: string;
+    protected isPrivate?: boolean;
+    protected puppetOwner?: string;
 
     // last activity time in epoch seconds
     private slackATime?: number;
     private matrixATime?: number;
-    private intent: Intent;
+    protected intent: Intent;
     // Is the matrix room in use by the bridge.
     public MatrixRoomActive: boolean;
-    private recentSlackMessages: string[] = [];
+    protected recentSlackMessages: string[] = [];
 
-    private slackSendLock: Promise<void> = Promise.resolve();
+    protected slackSendLock: Promise<void> = Promise.resolve();
 
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
      */
     private dirty: boolean;
 
-    constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
+    constructor(protected main: Main, opts: IBridgedRoomOpts, protected team?: TeamEntry, protected botClient?: WebClient) {
 
         this.MatrixRoomActive = true;
         if (!opts.inbound_id) {
@@ -534,33 +520,36 @@ export class BridgedRoom {
 
         const senderPuppet = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId!, slackId);
         const senderGhost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+        const mxid = await this.main.datastore.getPuppetMatrixUserBySlackId(this.slackTeamId!, slackId);
 
         if (!wasInvitedBy) {
             if (!recipientPuppet) {
-                log.debug(`${slackId} joined ${this.SlackChannelId}`);
+                log.debug(`S-> ${slackId} joined ${this.SlackChannelId}`);
                 // 5
                 await recipientGhost.intent.join(this.matrixRoomId);
+            } else {
+                log.debug(`M-> ${slackId} joined ${this.SlackChannelId}`);
+                // 6
+                await this.main.botIntent.invite(this.matrixRoomId, mxid);
             }
-            // 6 - No-op
             return;
         }
 
         if (!recipientPuppet && !senderPuppet) {
-            log.debug(`${slackId} was invited by ${wasInvitedBy}`);
+            log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
             // 1
             await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
             await recipientGhost.intent.join(this.matrixRoomId, recipientGhost.userId);
-        } else if (!senderPuppet && recipientPuppet) {
-            // 2
-            const mxid = this.main.datastore.getPuppetMatrixUserBySlackId(this.slackTeamId!, slackId);
-            log.debug(`${mxid} was invited by ${wasInvitedBy}`);
+        } else if (recipientPuppet) {
+            // 2 & 4
+            log.debug(`S|M->M${mxid} was invited by ${wasInvitedBy}`);
             await senderGhost.intent.invite(this.matrixRoomId, mxid);
         } else if (senderPuppet && !recipientPuppet) {
+            log.debug(`M->S ${slackId} was invited by ${wasInvitedBy}`);
             // 3
             await recipientGhost.intent.join(this.matrixRoomId);
             // No-op
         }
-        // 4 - no-op
     }
 
     public async onMatrixLeave(userId: string) {
@@ -570,7 +559,7 @@ export class BridgedRoom {
             log.debug("No client");
             return;
         }
-        console.log(await puppetedClient.conversations.leave({ channel: this.SlackChannelId! }));
+        await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
     }
 
     public async onMatrixJoin(userId: string) {
@@ -848,7 +837,7 @@ export class BridgedRoom {
         if (replyToEvent === null) {
             return null;
         }
-        const intent = await this.getIntentForRoom(roomID);
+        const intent = await this.getIntentForRoom();
         return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
     }
 
@@ -902,13 +891,13 @@ export class BridgedRoom {
             return parentEventId; // We have hit our depth limit, use this one.
         }
 
-        const intent = await this.getIntentForRoom(message.room_id);
+        const intent = await this.getIntentForRoom();
         const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }
 
-    private async getIntentForRoom(roomID: string) {
+    protected async getIntentForRoom() {
         if (this.intent) {
             return this.intent;
         }
@@ -916,7 +905,7 @@ export class BridgedRoom {
         if (!this.IsPrivate) {
             this.intent = this.main.botIntent; // Non-private channels should have the bot inside.
         }
-        const firstGhost = (await this.main.listGhostUsers(roomID))[0];
+        const firstGhost = (await this.main.listGhostUsers(this.matrixRoomId))[0];
         this.intent =  this.main.getIntent(firstGhost);
         return this.intent;
     }
