@@ -161,7 +161,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                                 response: ServerResponse) {
         log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
-        const urlMatch = url.match(/^\/(.{32})(?:\/(.*))?$/);
+        const urlMatch = url.match(/\/(.{32})(?:\/(.*))?$/);
 
         if (!urlMatch) {
             log.error("Ignoring message with bad slackhook URL " + url);
