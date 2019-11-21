@@ -537,7 +537,7 @@ export class Main {
         }
 
         if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room &&
-            ev.type === "m.room.message") {
+            ev.type === "m.room.message" && ev.sender !== this.botUserId) {
             try {
                 await this.onMatrixAdminMessage(ev);
             } catch (e) {
@@ -736,8 +736,8 @@ export class Main {
             // This will return true or false if the command matched.
             const matched = await this.adminCommands.parse(cmd, respond);
             if (!matched) {
-                log.debug("Unrecognised command: " + cmd);
-                respond("Unrecognised command: " + cmd);
+                log.debug("Unrecognised command");
+                respond("Unrecognised command");
             } else if (response.length === 0) {
                 respond("Done");
             }
