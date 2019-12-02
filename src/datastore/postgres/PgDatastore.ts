@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 3;
+    public static readonly LATEST_SCHEMA = 4;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -186,7 +186,7 @@ export class PgDatastore implements Datastore {
             user_id: entry.user_id,
         };
         const statement = PgDatastore.BuildUpsertStatement("teams", "id", props);
-        await this.postgresDb.oneOrNone(statement, props);
+        await this.postgresDb.none(statement, props);
     }
 
     // tslint:disable-next-line: no-any
@@ -271,6 +271,25 @@ export class PgDatastore implements Datastore {
             slackId: u.slackuser,
             token: u.token,
         }));
+    }
+
+    public async getUserAdminRoom(userid: string): Promise<string> {
+        const res = await this.postgresDb.oneOrNone("SELECT roomid FROM user_admin_rooms WHERE matrixuser = ${userid}", {
+            userid,
+        });
+        return res ? res.roomid : null;
+    }
+
+    public async getUserForAdminRoom(roomId: string): Promise<string|null> {
+        const res = await this.postgresDb.oneOrNone("SELECT matrixuser FROM user_admin_rooms WHERE roomid = ${roomId}", {
+            roomId,
+        });
+        return res ? res.matrixuser : null;
+    }
+
+    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
+        const statement = PgDatastore.BuildUpsertStatement("user_admin_rooms", "matrixuser", {matrixuser, roomid});
+        await this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
     private async updateSchemaVersion(version: number) {
