@@ -1,0 +1,1 @@
+Fix issue where messages from the bot would be interpreted as commands.
