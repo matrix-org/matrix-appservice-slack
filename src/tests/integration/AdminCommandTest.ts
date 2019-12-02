@@ -19,24 +19,30 @@ import * as request from "request-promise-native";
 import { Response } from "request";
 
 import { constructHarness } from "../utils/harness";
+import { FakeDatastore } from "../utils/fakeDatastore";
 
 // tslint:disable: no-unused-expression no-any
 
 let harness: { main: Main };
 
-describe("HttpTests", () => {
+describe("AdminCommandTest", () => {
 
-    beforeEach(() => {
+    beforeEach(async () => {
         harness = constructHarness();
+        await harness.main.run(57000);
+        harness.main.datastore = new FakeDatastore();
     });
 
-    it("will respond 201 to a health check", async () => {
-        await harness.main.run(57000);
-        const res = await request.get("http://localhost:57000/health", {
-            resolveWithFullResponse: true,
-        }) as Response;
-        expect(res.statusCode).to.equal(201);
-        expect(res.body).to.be.empty;
+    it("will not respond to itself", async () => {
+        await harness.main.onMatrixEvent({
+            event_id: "foo",
+            room_id: "!admin_room:foobar",
+            sender: harness.main.botUserId,
+            content: {
+                body: "help",
+            },
+            type: "m.room.message",
+        });
     });
 
     afterEach(async () => {
