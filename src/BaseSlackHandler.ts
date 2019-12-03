@@ -104,6 +104,8 @@ export interface ISlackFile {
 
 export interface ISlackUser {
     id: string;
+    deleted: boolean;
+    name: string;
     profile?: {
         display_name?: string;
         real_name?: string;
@@ -114,6 +116,7 @@ export interface ISlackUser {
         image_72?: string;
         image_48?: string;
         bot_id?: string;
+        avatar_hash?: string;
     };
 }
 
