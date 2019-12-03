@@ -1,12 +1,7 @@
 import { AppServiceRegistration } from "matrix-appservice";
 import { Main } from "../../Main";
-import { FakeDatastore } from "./fakeDatastore";
 
-interface HarnessOpts {
-    useFakeDatastore?: boolean;
-}
-
-export function constructHarness(opts: HarnessOpts = {}) {
+export function constructHarness() {
     const reg = new AppServiceRegistration("foobar");
     reg.setHomeserverToken(AppServiceRegistration.generateToken());
     reg.setAppServiceToken(AppServiceRegistration.generateToken());
@@ -28,13 +23,10 @@ export function constructHarness(opts: HarnessOpts = {}) {
             enable: true,
         },
     }, reg);
-    if (opts.useFakeDatastore) {
-        main.datastore = new FakeDatastore();
-    }
     // tslint:disable-next-line: no-any
     (main as any).bridge.getBot = () => ({
        getJoinedRooms: () => Promise.resolve([]),
        getUserId: () => "@bot:foobar",
     });
     return { main };
-};
+}

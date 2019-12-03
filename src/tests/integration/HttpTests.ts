@@ -40,8 +40,6 @@ describe("HttpTests", () => {
     });
 
     afterEach(async () => {
-        console.log("Killing bridge");
         await harness.main.killBridge();
-        console.log("Killing bridge");
     });
 });
