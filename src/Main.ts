@@ -332,11 +332,9 @@ export class Main {
         if (!teamDomain && !teamId) {
             throw Error("Must provide either a teamDomain or a teamId");
         }
-        if (!teamDomain) {
-            domain = await this.getTeamDomainForMessage({team_id: teamId});
-        } else {
-            domain = teamDomain;
-        }
+
+        domain = teamDomain || await this.getTeamDomainForMessage({team_id: teamId});
+
         const userId = this.getUserId(
             slackUserId.toUpperCase(),
             domain,
