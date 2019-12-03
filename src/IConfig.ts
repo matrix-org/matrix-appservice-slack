@@ -18,6 +18,7 @@ limitations under the License.
 
 type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";
+import { ITeamSyncConfig } from "./TeamSyncer";
 
 export const CACHING_DEFAULTS = {
     ghostUserCache: 100,
@@ -74,6 +75,8 @@ export interface IConfig {
         engine: "postgres"|"nedb";
         connectionString: string;
     };
+
+    team_sync?: {[teamId: string]: ITeamSyncConfig};
 
     dbdir: string;
 }
