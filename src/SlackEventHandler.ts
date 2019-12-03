@@ -351,11 +351,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             await this.main.teamSyncer.onChannelAdded(teamId, eventDetails.channel.id, eventDetails.channel.name, eventDetails.channel.creator);
         } else if (event.type === "channel_deleted") {
             await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
-        } else if (event.type === "team_join") {
-            const user = event.user as unknown as ISlackUser;
-            const domain = (await this.main.datastore.getTeam(teamId))!.domain;
-            await this.main.teamSyncer.syncUser(teamId, domain, user);
-        } else if (event.type === "user_change") {
+        } else if (event.type === "team_join" || event.type === "user_change") {
             const user = event.user as unknown as ISlackUser;
             const domain = (await this.main.datastore.getTeam(teamId))!.domain;
             await this.main.teamSyncer.syncUser(teamId, domain, user);
