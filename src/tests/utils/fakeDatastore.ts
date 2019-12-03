@@ -94,15 +94,15 @@ export class FakeDatastore implements Datastore {
     }
 
     public async getPuppetedUsers(): Promise<PuppetEntry[]> {
-        throw Error("Method not implemented.");
+        return [];
     }
 
-    public async getUserAdminRoom(matrixId: string): Promise<string | null> {
-        throw Error("Method not implemented.");
+    public async getUserAdminRoom(matrixId: string): Promise<null> {
+        return null;
     }
 
     public async getUserForAdminRoom(): Promise<null> {
-        throw Error("Method not implemented.");
+        return null;
     }
 
     public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
