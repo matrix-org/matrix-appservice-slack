@@ -214,6 +214,10 @@ export class NedbDatastore implements Datastore {
         return [];
     }
 
+    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<null> {
+        return null;
+    }
+
     public async getUserAdminRoom(): Promise<null> {
         throw Error("Not supported on NeDB");
     }

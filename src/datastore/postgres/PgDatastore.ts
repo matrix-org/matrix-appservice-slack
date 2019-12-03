@@ -236,6 +236,12 @@ export class PgDatastore implements Datastore {
         return res ? res.token : null;
     }
 
+    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<string|null> {
+        const res = await this.postgresDb.oneOrNone("SELECT matrixuser FROM puppets WHERE slackteam = ${teamId} " +
+                                                    "AND slackuser = ${slackId}", { teamId, slackId });
+        return res ? res.matrixuser : null;
+    }
+
     public async getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string> {
         const res = await this.postgresDb.oneOrNone(
             "SELECT token FROM puppets WHERE slackteam = ${teamId} AND matrixuser = ${matrixId}",
