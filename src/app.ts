@@ -36,10 +36,21 @@ const cli = new Cli({
     run(port: number, config: IConfig, registration: any) {
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
-        new Main(config, registration).run(port).then(() => {
+        const main = new Main(config, registration);
+        main.run(port).then(() => {
             log.info("Matrix-side listening on port", port);
         }).catch((ex) => {
             log.error("Failed to start:", ex);
+            process.exit(1);
+        });
+
+        process.on("SIGTERM", async () => {
+            log.info("Got SIGTERM");
+            try {
+                await main.killBridge();
+            } catch (ex) {
+                log.warn("Failed to kill bridge, exiting anyway");
+            }
             process.exit(1);
         });
     },

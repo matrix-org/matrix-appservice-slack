@@ -41,6 +41,7 @@ import * as QuickLRU from "quick-lru";
 import PQueue from "p-queue";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
+import { AppService, AppServiceRegistration } from "matrix-appservice";
 
 const log = Logging.get("Main");
 
@@ -87,6 +88,7 @@ export class Main {
     private matrixUsersById: QuickLRU<string, MatrixUser>;
 
     private bridge: Bridge;
+    private appservice: AppService;
 
     // TODO(paul): ugh. this.getBotIntent() doesn't work before .run time
     // So we can't create the StateLookup instance yet
@@ -102,7 +104,7 @@ export class Main {
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
 
-    constructor(public readonly config: IConfig, registration: any) {
+    constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         if (config.oauth2) {
             if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
                 throw Error("Either inbound_uri_prefix or oauth2.redirect_prefix must be defined for oauth2 support");
@@ -186,6 +188,16 @@ export class Main {
         if (config.team_sync) {
             this.teamSyncer = new TeamSyncer(this);
         }
+
+        const homeserverToken = registration.getHomeserverToken();
+        if (homeserverToken === null) {
+            throw Error("Homeserver token is null");
+        }
+
+        this.appservice = new AppService({
+            homeserverToken,
+            httpMaxSizeBytes: 0, // This field is optional.
+        });
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
@@ -454,7 +466,7 @@ export class Main {
 
     public async onMatrixEvent(ev: {
         event_id: string,
-        state_key: string,
+        state_key?: string,
         type: string,
         room_id: string,
         sender: string,
@@ -523,6 +535,7 @@ export class Main {
         }
 
         if (ev.type === "m.room.member"
+            && ev.state_key
             && this.bridge.getBot().isRemoteUser(ev.state_key)
             && ev.content.is_direct) {
 
@@ -790,7 +803,7 @@ export class Main {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
         }
         const port = this.config.homeserver.appservice_port || cliPort;
-        this.bridge.run(port, this.config);
+        this.bridge.run(port, this.config, this.appservice);
         const roomListPromise = this.bridge.getBot().getJoinedRooms() as Promise<string[]>;
 
         this.bridge.addAppServicePath({
@@ -1087,6 +1100,17 @@ export class Main {
             return userId;
         }
         return (await nullGhost.getDisplayname(room!.SlackClient!)) || userId;
+    }
+
+    public async killBridge() {
+        log.info("Killing bridge");
+        if (this.slackRtm) {
+            log.info("Closing RTM connections");
+            await this.slackRtm.disconnectAll();
+        }
+        log.info("Closing appservice");
+        await this.appservice.close();
+        log.info("Bridge killed");
     }
 
     private onHealth(_, res: Response) {
