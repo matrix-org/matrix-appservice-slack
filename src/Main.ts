@@ -446,6 +446,10 @@ export class Main {
         // tslint:disable-next-line: no-any
         content: any,
     }) {
+        if (ev.sender === this.botUserId) {
+            // We don't want to handle echo.
+            return;
+        }
         // simple de-dup
         const recents = this.recentMatrixEventIds;
         for (let i = 0; i < recents.length; i++) {
@@ -505,7 +509,6 @@ export class Main {
 
         if (ev.type === "m.room.member"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && ev.sender !== this.botUserId
             && ev.content.is_direct) {
 
             try {
@@ -519,7 +522,7 @@ export class Main {
         }
 
         if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room &&
-            ev.type === "m.room.message" && ev.sender !== this.botUserId) {
+            ev.type === "m.room.message") {
             try {
                 await this.onMatrixAdminMessage(ev);
             } catch (e) {
