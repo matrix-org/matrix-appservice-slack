@@ -28,7 +28,7 @@ import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
-interface IBridgedRoomOpts {
+export interface IBridgedRoomOpts {
     matrix_room_id: string;
     inbound_id: string;
     slack_channel_name?: string;
@@ -115,29 +115,15 @@ export class BridgedRoom {
         return this.slackType;
     }
 
-    public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient) {
-        return new BridgedRoom(main, {
-            inbound_id: entry.remote_id,
-            matrix_room_id: entry.matrix_id,
-            slack_channel_id: entry.remote.id,
-            slack_channel_name: entry.remote.name,
-            slack_team_id: entry.remote.slack_team_id,
-            slack_webhook_uri: entry.remote.webhook_uri,
-            puppet_owner: entry.remote.puppet_owner,
-            is_private: entry.remote.slack_private,
-            slack_type: entry.remote.slack_type,
-        }, team, botClient);
-    }
-
-    private matrixRoomId: string;
-    private inboundId: string;
-    private slackChannelName?: string;
-    private slackChannelId?: string;
-    private slackWebhookUri?: string;
-    private slackTeamId?: string;
-    private slackType?: string;
-    private isPrivate?: boolean;
-    private puppetOwner?: string;
+    protected matrixRoomId: string;
+    protected inboundId: string;
+    protected slackChannelName?: string;
+    protected slackChannelId?: string;
+    protected slackWebhookUri?: string;
+    protected slackTeamId?: string;
+    protected slackType?: string;
+    protected isPrivate?: boolean;
+    protected puppetOwner?: string;
 
     // last activity time in epoch seconds
     private slackATime?: number;
@@ -154,7 +140,7 @@ export class BridgedRoom {
      */
     private dirty: boolean;
 
-    constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
+    constructor(protected main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
 
         this.MatrixRoomActive = true;
         if (!opts.inbound_id) {
@@ -753,7 +739,7 @@ export class BridgedRoom {
         if (replyToEvent === null) {
             return null;
         }
-        const intent = await this.getIntentForRoom(roomID);
+        const intent = await this.getIntentForRoom();
         return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
     }
 
@@ -807,13 +793,13 @@ export class BridgedRoom {
             return parentEventId; // We have hit our depth limit, use this one.
         }
 
-        const intent = await this.getIntentForRoom(message.room_id);
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+        const intent = await this.getIntentForRoom();
+        const nextEvent = await intent.getClient().fetchRoomEvent(this.MatrixRoomId, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }
 
-    private async getIntentForRoom(roomID: string) {
+    protected async getIntentForRoom() {
         if (this.intent) {
             return this.intent;
         }
@@ -821,7 +807,7 @@ export class BridgedRoom {
         if (!this.IsPrivate) {
             this.intent = this.main.botIntent; // Non-private channels should have the bot inside.
         }
-        const firstGhost = (await this.main.listGhostUsers(roomID))[0];
+        const firstGhost = (await this.main.listGhostUsers(this.MatrixRoomId))[0];
         this.intent =  this.main.getIntent(firstGhost);
         return this.intent;
     }
