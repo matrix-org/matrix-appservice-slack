@@ -15,9 +15,6 @@ limitations under the License.
 */
 import { Main } from "../../Main";
 import { expect } from "chai";
-import * as request from "request-promise-native";
-import { Response } from "request";
-
 import { constructHarness } from "../utils/harness";
 import { FakeDatastore } from "../utils/fakeDatastore";
 
@@ -34,6 +31,10 @@ describe("AdminCommandTest", () => {
     });
 
     it("will not respond to itself", async () => {
+        let called = false;
+        harness.main.onMatrixAdminMessage = async () => {
+           called = true;
+        };
         await harness.main.onMatrixEvent({
             event_id: "foo",
             room_id: "!admin_room:foobar",
@@ -43,6 +44,7 @@ describe("AdminCommandTest", () => {
             },
             type: "m.room.message",
         });
+        expect(called).to.be.false;
     });
 
     afterEach(async () => {
