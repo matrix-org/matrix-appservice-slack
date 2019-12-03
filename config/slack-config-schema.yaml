@@ -79,3 +79,28 @@ properties:
               additionalProperties:
                - type: "string"
                  enum: ["error","warn","info","debug"]
+  team_sync:
+    type: "object"
+    additionalProperties:
+      type: "object"
+      properties:
+        channels:
+          type: "object"
+          properties:
+            enabled:
+              type: boolean
+            whitelist:
+              type: "array"
+              items:
+                  type: "string"
+            blacklist:
+              type: "array"
+              items:
+                type: "string"
+            alias_prefix:
+                type: "string"
+        users:
+          type: "object"
+          properties:
+            enabled:
+              type: boolean

@@ -97,6 +97,10 @@ export class FakeDatastore implements Datastore {
         return [];
     }
 
+    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<null> {
+        return null;
+    }
+
     public async getUserAdminRoom(matrixId: string): Promise<null> {
         return null;
     }

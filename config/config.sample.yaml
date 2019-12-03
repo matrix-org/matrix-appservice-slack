@@ -74,3 +74,28 @@ matrix_admin_room: "!aBcDeF:matrix.org"
 # Enable metrics reporting on http://0.0.0.0:bridgePort/metrics which can be scraped by prometheus
 # Optional
 enable_metrics: true
+
+# Sync team users and channels
+team_sync:
+  # Entry for a single team
+  # TABCDEF:
+  #   channels:
+  #     enabled: true
+  #     # Channels to whitelist. If undefined, not used.
+  #     # whitelist: []
+  #     # Channels to blacklist
+  #     # blacklist: []
+  #     # Prefix for aliases 
+  #     # alias_prefix: "slack_"
+  #   # Should sync *all* team users to Matrix
+  #   users:
+  #     enabled: true
+  # Defaults for all other teams
+  # all:
+  #   channels:
+  #     enabled: true
+  #     whitelist: []
+  #     blacklist: []
+  #     alias_prefix: "slack_"
+  #   users:
+  #     enabled: true

@@ -141,6 +141,14 @@ export class SlackClientFactory {
         return {id, client};
     }
 
+    public async getClientForSlackUser(teamId: string, slackId: string): Promise<{client: WebClient, id: string}|null> {
+        const user = await this.datastore.getPuppetMatrixUserBySlackId(teamId, slackId);
+        if (user) {
+            return this.getClientForUserWithId(teamId, user);
+        }
+        return null;
+    }
+
     public async getClientForUser(teamId: string, matrixUser: string): Promise<WebClient|null> {
         const res = await this.getClientForUserWithId(teamId, matrixUser);
         return res !== null ? res.client : null;
