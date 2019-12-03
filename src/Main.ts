@@ -31,7 +31,6 @@ import * as Provisioning from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
-
 import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
@@ -41,6 +40,7 @@ import { SlackRoomStore } from "./SlackRoomStore";
 import * as QuickLRU from "quick-lru";
 import PQueue from "p-queue";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
+import { TeamSyncer } from "./TeamSyncer";
 
 const log = Logging.get("Main");
 
@@ -100,6 +100,7 @@ export class Main {
 
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
+    public readonly teamSyncer?: TeamSyncer;
 
     constructor(public readonly config: IConfig, registration: any) {
         if (config.oauth2) {
@@ -180,6 +181,10 @@ export class Main {
 
         if (config.enable_metrics) {
             this.initialiseMetrics();
+        }
+
+        if (config.team_sync) {
+            this.teamSyncer = new TeamSyncer(this);
         }
     }
 
@@ -310,10 +315,19 @@ export class Main {
         return this.getGhostForSlack(message.user_id, teamDomain, teamId);
     }
 
-    public async getGhostForSlack(slackUserId: string, teamDomain: string, teamId?: string): Promise<SlackGhost> {
+    public async getGhostForSlack(slackUserId: string, teamDomain?: string, teamId?: string): Promise<SlackGhost> {
+        let domain: string;
+        if (!teamDomain && !teamId) {
+            throw Error("Must provide either a teamDomain or a teamId");
+        }
+        if (!teamDomain) {
+            domain = await this.getTeamDomainForMessage({team_id: teamId});
+        } else {
+            domain = teamDomain;
+        }
         const userId = this.getUserId(
             slackUserId.toUpperCase(),
-            teamDomain,
+            domain,
         );
         const existing = this.ghostsByUserId.get(userId);
         if (existing) {
@@ -323,6 +337,7 @@ export class Main {
 
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
+        await intent._ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {
@@ -840,6 +855,8 @@ export class Main {
             }
         }));
 
+        const teamSyncPromise = this.teamSyncer ? this.teamSyncer.syncAllTeams(teamClients) : null;
+
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);
             // Send process stats again just to make the counters update sooner after
@@ -847,6 +864,7 @@ export class Main {
             this.metrics.refresh();
         }
         await puppetsWaiting;
+        await teamSyncPromise;
         log.info("Bridge initialised.");
     }
 
