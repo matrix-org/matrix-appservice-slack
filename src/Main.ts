@@ -446,6 +446,10 @@ export class Main {
         // tslint:disable-next-line: no-any
         content: any,
     }) {
+        if (ev.sender === this.botUserId) {
+            // We don't want to handle echo.
+            return;
+        }
         // simple de-dup
         const recents = this.recentMatrixEventIds;
         for (let i = 0; i < recents.length; i++) {
@@ -505,7 +509,6 @@ export class Main {
 
         if (ev.type === "m.room.member"
             && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && ev.sender !== this.botUserId
             && ev.content.is_direct) {
 
             try {
@@ -700,8 +703,8 @@ export class Main {
             // This will return true or false if the command matched.
             const matched = await this.adminCommands.parse(cmd, respond);
             if (!matched) {
-                log.debug("Unrecognised command: " + cmd);
-                respond("Unrecognised command: " + cmd);
+                log.debug("Unrecognised command");
+                respond("Unrecognised command");
             } else if (response.length === 0) {
                 respond("Done");
             }
