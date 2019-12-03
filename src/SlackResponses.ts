@@ -16,15 +16,7 @@ export interface TeamInfoResponse extends WebAPICallResult {
  * Taken from https://api.slack.com/methods/conversations.info
  */
 export interface ConversationsInfoResponse extends WebAPICallResult {
-    channel: {
-        id: string;
-        name: string;
-        is_im?: boolean;
-        is_mpim?: boolean;
-        is_group?: boolean;
-        is_channel?: boolean;
-        is_private?: boolean;
-    };
+    channel: ConversationsInfo;
 }
 
 /**
@@ -33,14 +25,7 @@ export interface ConversationsInfoResponse extends WebAPICallResult {
 export interface ConversationsOpenResponse extends ConversationsInfoResponse {
     no_op: boolean;
     already_open: boolean;
-    channel: {
-        id: string;
-        name: string;
-        is_im: boolean;
-        is_group: boolean;
-        is_channel: boolean;
-        is_private: boolean;
-    };
+    channel: ConversationsInfo;
 }
 
 /**
@@ -48,6 +33,9 @@ export interface ConversationsOpenResponse extends ConversationsInfoResponse {
  */
 export interface ConversationsMembersResponse extends WebAPICallResult {
     members: string[];
+    response_metadata: {
+        next_cursor: string;
+    };
 }
 
 /**
@@ -87,12 +75,10 @@ export interface OAuthAccessResponse extends WebAPICallResult {
  * Taken from https://api.slack.com/methods/conversations.list
  */
 export interface ConversationsListResponse extends WebAPICallResult {
-    channels: {
-        id: string;
-        name: string;
-        purpose: string;
-        topic: string;
-    }[];
+    channels: ConversationsInfo[];
+    response_metadata: {
+        next_cursor: string;
+    };
 }
 
 /**
@@ -143,4 +129,35 @@ export interface ChatUpdateResponse extends WebAPICallResult {
 export interface ChatPostMessageResponse extends WebAPICallResult {
     ts: string;
     channel: string;
+}
+
+/**
+ * Taken from https://api.slack.com/methods/users.list
+ */
+export interface UsersListResponse extends WebAPICallResult {
+    members: ISlackUser[];
+    response_metadata: {
+        next_cursor: string;
+    };
+}
+
+export interface ConversationsInfo {
+    id: string;
+    name: string;
+    creator: string;
+    is_im?: boolean;
+    is_mpim?: boolean;
+    is_group?: boolean;
+    is_channel?: boolean;
+    is_private?: boolean;
+    /**
+     * Other user in the DM. Only applies to DMs
+     */
+    user?: string;
+    topic?: {
+        value: string;
+    };
+    purpose?: {
+        value: string;
+    };
 }
