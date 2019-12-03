@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackUser } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
@@ -36,6 +36,16 @@ interface ISlackEventReaction extends ISlackEvent {
     // https://api.slack.com/events/reaction_added
     reaction: string;
     item: ISlackMessage;
+}
+
+interface ISlackChannelAdded {
+    type: string;
+    channel: {
+        id: string;
+        name: string;
+        created: number;
+        creator: string;
+    };
 }
 
 const HTTP_OK = 200;
@@ -101,6 +111,12 @@ export class SlackEventHandler extends BaseSlackHandler {
                         break;
                     case "user_typing":
                         await this.handleTyping(event, teamId);
+                        break;
+                    case "channel_created":
+                    case "channel_deleted":
+                    case "user_change":
+                    case "team_join":
+                        await this.handleTeamSyncEvent(event, teamId);
                         break;
                     // XXX: Unused?
                     case "file_comment_added":
@@ -325,4 +341,24 @@ export class SlackEventHandler extends BaseSlackHandler {
         await room.onSlackTyping(typingEvent, teamId);
     }
 
+    private async handleTeamSyncEvent(event: ISlackEvent, teamId: string) {
+        if (!this.main.teamSyncer) {
+            throw Error("ignored");
+        }
+        if (event.type === "channel_created") {
+            // Note: Slack violates the usual stringness of 'channel' here.
+            const eventDetails = event as unknown as ISlackChannelAdded;
+            await this.main.teamSyncer.onChannelAdded(teamId, eventDetails.channel.id, eventDetails.channel.name, eventDetails.channel.creator);
+        } else if (event.type === "channel_deleted") {
+            await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
+        } else if (event.type === "team_join") {
+            const user = event.user as unknown as ISlackUser;
+            const domain = (await this.main.datastore.getTeam(teamId))!.domain;
+            await this.main.teamSyncer.syncUser(teamId, domain, user);
+        } else if (event.type === "user_change") {
+            const user = event.user as unknown as ISlackUser;
+            const domain = (await this.main.datastore.getTeam(teamId))!.domain;
+            await this.main.teamSyncer.syncUser(teamId, domain, user);
+        }
+    }
 }
