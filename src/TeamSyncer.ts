@@ -26,7 +26,6 @@ import { ISlackUser } from "./BaseSlackHandler";
 const log = Logging.get("TeamSyncer");
 
 export interface ITeamSyncConfig {
-    enabled: boolean;
     channels?: {
         enabled: boolean;
         whitelist?: string[];
@@ -39,7 +38,7 @@ export interface ITeamSyncConfig {
 }
 
 const TEAM_SYNC_CONCURRENCY = 1;
-const TEAM_SYNC_CHANNEL_CONCURRENCY = 2;
+const TEAM_SYNC_ITEM_CONCURRENCY = 5;
 const TEAM_SYNC_MIN_WAIT = 5000;
 const TEAM_SYNC_MAX_WAIT = 15000;
 const TEAM_SYNC_FAILSAFE = 10;
@@ -54,13 +53,7 @@ export class TeamSyncer {
         if (!config.team_sync) {
             throw Error("team_sync is not defined in the config");
         }
-        for (const team of Object.keys(config.team_sync)) {
-            if (!config.team_sync[team].enabled) {
-                log.warn(`Team ${team} is disabled in the config`);
-                return;
-            }
-            this.teamConfigs[team] = config.team_sync[team];
-        }
+        this.teamConfigs = config.team_sync;
     }
 
     public async syncAllTeams(teamClients: { [id: string]: WebClient; }) {
@@ -88,6 +81,7 @@ export class TeamSyncer {
 
     public async syncItems(teamId: string, client: WebClient, type: "user"|"channel") {
         if (!this.getTeamSyncConfig(teamId, type)) {
+            log.warn(`Not syncing ${type}s for ${teamId}`);
             return;
         }
         // tslint:disable-next-line: no-any
@@ -121,7 +115,7 @@ export class TeamSyncer {
                 ));
             }
         }
-        const queue = new PQueue({concurrency: TEAM_SYNC_CHANNEL_CONCURRENCY});
+        const queue = new PQueue({concurrency: TEAM_SYNC_ITEM_CONCURRENCY});
         log.info(`Found ${itemList.length} total ${type}s`);
         const team = await this.main.datastore.getTeam(teamId);
         if (!team || !team.domain) {
@@ -142,9 +136,6 @@ export class TeamSyncer {
     private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string) {
         const teamConfig = this.teamConfigs[teamId] || this.teamConfigs.all;
         if (!teamConfig) {
-            return false;
-        }
-        if (!teamConfig.enabled) {
             return false;
         }
         if (item === "channel" && (!teamConfig.channels || !teamConfig.channels.enabled)) {
@@ -172,19 +163,9 @@ export class TeamSyncer {
     }
 
     public async onChannelAdded(teamId: string, channelId: string, name: string, creator: string) {
-        // Should create the channel?
-        log.info(`${teamId} created channel ${channelId}`);
-        const existingChannel = this.main.rooms.getBySlackChannelId(channelId);
-        if (existingChannel) {
-            log.info("Channel already exists in datastore, not bridging");
-            return;
-        }
+        log.info(`${teamId} ${creator} created channel ${channelId} ${name}`);
         const client = await this.main.clientFactory.getTeamClient(teamId);
         const { channel } = (await client.conversations.info({ channel: channelId })) as ConversationsInfoResponse;
-        if (!channel.is_channel || channel.is_private) {
-            log.warn("Not creating channel: Is either private or not a channel");
-            return;
-        }
         await this.syncChannel(teamId, channel);
     }
 
@@ -253,17 +234,17 @@ export class TeamSyncer {
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
-            log.info(`Not syncing channel because it has been disallowed.`);
             return;
         }
         const client = await this.main.clientFactory.getTeamClient(teamId);
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
         if (existingChannel) {
-            log.debug("Channel already exists in datastore, not bridging");
+            log.debug("Not creating room for channel: Already exists");
+            // Channel already exists in datastore, not bridging
             return;
         }
         if (!channelItem.is_channel || channelItem.is_private) {
-            log.warn("Not creating channel: Is either private or not a channel");
+            log.debug("Not creating room for channel: Is either private or not a channel");
             return;
         }
         log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
