@@ -184,6 +184,12 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
+        if (event.type === "channel_join") {
+            await room.onSlackUserJoin(event.user!, event.inviter!);
+        } else if (event.type === "channel_leave") {
+            await room.onSlackUserLeft(event.user!);
+        }
+
         const msg = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: team.domain || team.id,

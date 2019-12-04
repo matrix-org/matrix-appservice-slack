@@ -58,6 +58,7 @@ export interface ISlackEventMessageAttachment {
 }
 
 export interface ISlackMessageEvent extends ISlackEvent {
+    inviter?: string;
     item?: {
         type: string;
         channel: string;
