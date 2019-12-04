@@ -1120,7 +1120,7 @@ export class Main {
 
     public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
         const room = this.rooms.getBySlackChannelId(channel);
-        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId);
+        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId, undefined);
         if (!room || !room.SlackClient) {
             return userId;
         }
