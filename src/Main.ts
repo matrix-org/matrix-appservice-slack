@@ -413,6 +413,11 @@ export class Main {
             // doesn't currently have a client running.
             await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
         }
+        try {
+            await room.syncBridgeState();
+        } catch (ex) {
+            log.warn("Failed to sync bridge state:", ex);
+        }
     }
 
     public getInboundUrlForRoom(room: BridgedRoom) {
