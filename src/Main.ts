@@ -42,6 +42,7 @@ import PQueue from "p-queue";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
+import { fromEntry } from "./rooms/Rooms";
 
 const log = Logging.get("Main");
 
@@ -412,6 +413,11 @@ export class Main {
             // This will start a new RTM client for the team, if the team
             // doesn't currently have a client running.
             await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
+        }
+        try {
+            await room.syncBridgeState();
+        } catch (ex) {
+            log.warn("Failed to sync bridge state:", ex);
         }
     }
 
@@ -901,12 +907,16 @@ export class Main {
         if (!slackClient && !entry.remote.webhook_uri) { // Do not warn if this is a webhook.
             log.warn(`${entry.remote.name} ${entry.remote.id} does not have a WebClient and will not be able to issue slack requests`);
         }
-        const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
+        const room = fromEntry(this, entry, teamEntry, slackClient || undefined);
         await this.addBridgedRoom(room);
         room.MatrixRoomActive = activeRoom;
         if (!room.IsPrivate && activeRoom) {
             // Only public rooms can be tracked.
-            this.stateStorage.trackRoom(entry.matrix_id);
+            try {
+                await this.stateStorage.trackRoom(entry.matrix_id);
+            } catch (ex) {
+                this.stateStorage.untrackRoom(entry.matrix_id);
+            }
         }
     }
 

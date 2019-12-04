@@ -230,6 +230,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             await this.main.datastore.upsertRoom(room);
         } else if (!room) {
             log.warn(`No room found for ${event.channel} and not sure how to create one`);
+            return;
         }
         return this.handleMessageEvent(event, puppet.teamId);
     }

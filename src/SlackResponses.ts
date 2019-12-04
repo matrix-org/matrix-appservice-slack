@@ -9,6 +9,15 @@ export interface TeamInfoResponse extends WebAPICallResult {
         id: string;
         name: string;
         domain: string;
+        icon: {
+            image_36?: string;
+            image_44?: string;
+            image_68?: string;
+            image_88?: string;
+            image_102?: string;
+            image_123?: string;
+            image_default: boolean;
+        }
     };
 }
 
