@@ -232,68 +232,38 @@ export class TeamSyncer {
         return;
     }
 
+    private async preSyncChannel() {
+
+    }
+
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
-        // We assume that we have this
-        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
             return;
         }
+
         const client = await this.main.clientFactory.getTeamClient(teamId);
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
-        if (existingChannel) {
-            log.debug("Not creating room for channel: Already exists");
-            try {
-                await this.syncMembershipForRoom(existingChannel.MatrixRoomId, channelItem.id, teamId, client);
-            } catch (ex) {
-                log.warn("Failed to sync membership to existing channel:", ex);
-            }
-            // Channel already exists in datastore, not bridging
-            return;
-        }
-        if (!channelItem.is_channel || channelItem.is_private) {
-            log.debug("Not creating room for channel: Is either private or not a channel");
-            return;
-        }
-        log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
-        const {user} = (await client.users.info({ user: teamInfo.user_id })) as UsersInfoResponse;
-        try {
-            const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);
-            if (!creatorClient) {
-                throw Error("no-client");
-            }
-            await creatorClient.client.conversations.invite({
-                users: teamInfo.user_id,
-                channel: channelItem.id,
-            });
-        } catch (ex) {
-            log.warn("Couldn't invite bot to channel", ex);
-            try {
-                await client.chat.postEphemeral({
-                    user: channelItem.creator,
-                    text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
-                    channel: channelItem.id,
-                });
-            } catch (ex) {
-                log.warn("Couldn't send a notice either");
-            }
-        }
-
-        // Create the room first.
         let roomId: string;
-        try {
-            roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
-            await this.main.actionLink({
-                matrix_room_id: roomId,
-                slack_channel_id: channelItem.id,
-                team_id: teamId,
-            });
-        } catch (ex) {
-            log.error("Failed to provision new room dynamically:", ex);
-            return;
+        if (!existingChannel) {
+            if (!channelItem.is_channel || channelItem.is_private) {
+                log.debug("Not creating room for channel: Is either private or not a channel");
+                return;
+            }
+
+            try {
+                roomId = await this.bridgeChannelToNewRoom(teamId, channelItem, client);
+            } catch (ex) {
+                log.error("Failed to provision new room dynamically:", ex);
+                throw ex;
+            }
+        } else {
+            log.debug("Not creating room for channel: Already exists");
+            roomId = existingChannel.MatrixRoomId;
         }
 
         try {
+            // Always sync membership for rooms.
             await this.syncMembershipForRoom(roomId, channelItem.id, teamId, client);
         } catch (ex) {
             log.error("Failed to sync membership to room:", ex);
@@ -367,6 +337,47 @@ export class TeamSyncer {
             return;
         }
         return channelConfig.channels.alias_prefix;
+    }
+
+    private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient) {
+        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
+        log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
+        const {user} = (await client.users.info({ user: teamInfo.user_id })) as UsersInfoResponse;
+        try {
+            const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);
+            if (!creatorClient) {
+                throw Error("no-client");
+            }
+            await creatorClient.client.conversations.invite({
+                users: teamInfo.user_id,
+                channel: channelItem.id,
+            });
+        } catch (ex) {
+            log.warn("Couldn't invite bot to channel", ex);
+            try {
+                await client.chat.postEphemeral({
+                    user: channelItem.creator,
+                    text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
+                    channel: channelItem.id,
+                });
+            } catch (ex) {
+                log.warn("Couldn't send a notice either");
+            }
+        }
+
+        // Create the room.
+        let roomId: string;
+        try {
+            roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
+            await this.main.actionLink({
+                matrix_room_id: roomId,
+                slack_channel_id: channelItem.id,
+                team_id: teamId,
+            });
+            return roomId;
+        } catch (ex) {
+            throw ex;
+        }
     }
 
     private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo,
