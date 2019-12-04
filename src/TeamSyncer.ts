@@ -39,6 +39,7 @@ export interface ITeamSyncConfig {
 
 const TEAM_SYNC_CONCURRENCY = 1;
 const TEAM_SYNC_ITEM_CONCURRENCY = 5;
+const JOIN_CONCURRENCY = 5;
 const TEAM_SYNC_MIN_WAIT = 5000;
 const TEAM_SYNC_MAX_WAIT = 15000;
 const TEAM_SYNC_FAILSAFE = 10;
@@ -233,6 +234,8 @@ export class TeamSyncer {
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
+        // We assume that we have this
+        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
             return;
         }
@@ -240,6 +243,11 @@ export class TeamSyncer {
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
         if (existingChannel) {
             log.debug("Not creating room for channel: Already exists");
+            try {
+                await this.syncMembershipForRoom(existingChannel.MatrixRoomId, channelItem.id, teamId, client);
+            } catch (ex) {
+                log.warn("Failed to sync membership to existing channel:", ex);
+            }
             // Channel already exists in datastore, not bridging
             return;
         }
@@ -248,15 +256,14 @@ export class TeamSyncer {
             return;
         }
         log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
-        const userId = (await this.main.datastore.getTeam(teamId))!.user_id;
-        const {user} = (await client.users.info({ user: userId })) as UsersInfoResponse;
+        const {user} = (await client.users.info({ user: teamInfo.user_id })) as UsersInfoResponse;
         try {
             const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);
             if (!creatorClient) {
                 throw Error("no-client");
             }
             await creatorClient.client.conversations.invite({
-                users: userId,
+                users: teamInfo.user_id,
                 channel: channelItem.id,
             });
         } catch (ex) {
@@ -273,8 +280,9 @@ export class TeamSyncer {
         }
 
         // Create the room first.
+        let roomId: string;
         try {
-            const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
+            roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
             await this.main.actionLink({
                 matrix_room_id: roomId,
                 slack_channel_id: channelItem.id,
@@ -282,6 +290,14 @@ export class TeamSyncer {
             });
         } catch (ex) {
             log.error("Failed to provision new room dynamically:", ex);
+            return;
+        }
+
+        try {
+            await this.syncMembershipForRoom(roomId, channelItem.id, teamId, client);
+        } catch (ex) {
+            log.error("Failed to sync membership to room:", ex);
+            return;
         }
     }
 
@@ -317,6 +333,32 @@ export class TeamSyncer {
         } catch (ex) {
             log.warn("Tried to unlink room but failed:", ex);
         }
+    }
+
+    private async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
+        const existingGhosts = await this.main.listGhostUsers(roomId);
+        // We assume that we have this
+        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
+        // Finally, sync membership for the channel.
+        const members = await client.conversations.members({channel: channelId}) as ConversationsMembersResponse;
+        // Ghosts will exist already: We joined them in the user sync.
+        const ghosts = await Promise.all(members.members.map((slackUserId) => this.main.getGhostForSlack(slackUserId, teamInfo.domain, teamId)));
+
+        const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.userId)); // Skip users that are joined.
+        const leftUsers = existingGhosts.filter((userId) => !ghosts.find((g) => g.userId === userId ));
+        log.info(`Joining ${joinedUsers.length} ghosts to ${roomId}`);
+        log.info(`Leaving ${leftUsers.length} ghosts to ${roomId}`);
+
+        const queue = new PQueue({concurrency: JOIN_CONCURRENCY});
+
+        // Join users who aren't joined
+        joinedUsers.forEach((g) => queue.add(() => g.intent.join(roomId)));
+
+        // Leave users who are joined
+        leftUsers.forEach((userId) => queue.add(() => this.main.getIntent(userId).leave(roomId)));
+
+        await queue.onIdle();
+        log.debug(`Finished syncing membership to ${roomId}`);
     }
 
     private getAliasPrefix(teamId: string) {
