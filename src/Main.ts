@@ -333,11 +333,9 @@ export class Main {
         if (!teamDomain && !teamId) {
             throw Error("Must provide either a teamDomain or a teamId");
         }
-        if (!teamDomain) {
-            domain = await this.getTeamDomainForMessage({team_id: teamId});
-        } else {
-            domain = teamDomain;
-        }
+
+        domain = teamDomain || await this.getTeamDomainForMessage({team_id: teamId});
+
         const userId = this.getUserId(
             slackUserId.toUpperCase(),
             domain,
@@ -585,6 +583,26 @@ export class Main {
             log.warn(`Ignoring ev for matrix room with unknown slack channel: ${ev.room_id}`);
             endTimer({outcome: "dropped"});
             return;
+        }
+
+        if (ev.type === "m.room.member" && ev.state_key) {
+            if (this.bridge.getBot().isRemoteUser(ev.state_key)
+                && !this.bridge.getBot().isRemoteUser(ev.sender)
+                && ev.state_key !== this.botUserId) {
+                await room.onMatrixInvite(ev.sender, ev.state_key);
+                endTimer({ outcome: "success" });
+                return;
+            }
+
+            if (!this.bridge.getBot().isRemoteUser(ev.state_key)) {
+                const membership = ev.content.membership;
+                if (membership === "join") {
+                    await room.onMatrixJoin(ev.state_key);
+                } else if (membership === "leave" || membership === "ban") {
+                    await room.onMatrixLeave(ev.state_key);
+                }
+                return;
+            }
         }
 
         // Handle a m.room.redaction event
@@ -913,6 +931,7 @@ export class Main {
                 await this.stateStorage.trackRoom(entry.matrix_id);
             } catch (ex) {
                 this.stateStorage.untrackRoom(entry.matrix_id);
+                room.MatrixRoomActive = false;
             }
         }
     }
@@ -1100,7 +1119,7 @@ export class Main {
 
     public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
         const room = this.rooms.getBySlackChannelId(channel);
-        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId);
+        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId, undefined);
         if (!room || !room.SlackClient) {
             return userId;
         }

@@ -185,6 +185,12 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter("received_messages", {side: "remote"});
 
+        if (event.type === "channel_join") {
+            await room.onSlackUserJoin(event.user!, event.inviter!);
+        } else if (event.type === "channel_leave") {
+            await room.onSlackUserLeft(event.user!);
+        }
+
         const msg = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: team.domain || team.id,
@@ -352,11 +358,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             await this.main.teamSyncer.onChannelAdded(teamId, eventDetails.channel.id, eventDetails.channel.name, eventDetails.channel.creator);
         } else if (event.type === "channel_deleted") {
             await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
-        } else if (event.type === "team_join") {
-            const user = event.user as unknown as ISlackUser;
-            const domain = (await this.main.datastore.getTeam(teamId))!.domain;
-            await this.main.teamSyncer.syncUser(teamId, domain, user);
-        } else if (event.type === "user_change") {
+        } else if (event.type === "team_join" || event.type === "user_change") {
             const user = event.user as unknown as ISlackUser;
             const domain = (await this.main.datastore.getTeam(teamId))!.domain;
             await this.main.teamSyncer.syncUser(teamId, domain, user);

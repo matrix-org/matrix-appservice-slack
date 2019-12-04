@@ -65,7 +65,7 @@ export class SlackGhost {
         public readonly slackId: string,
         public readonly teamId: string|undefined,
         public readonly userId: string,
-        public readonly intent?: Intent,
+        public readonly intent: Intent,
         private displayName?: string,
         private avatarHash?: string) {
         this.slackId = slackId.toUpperCase();
