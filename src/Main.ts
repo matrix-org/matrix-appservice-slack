@@ -584,19 +584,16 @@ export class Main {
             return;
         }
 
-        if (ev.type === "m.room.member"
-            && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && !this.bridge.getBot().isRemoteUser(ev.sender)
-            && ev.state_key
-            && ev.state_key !== this.botUserId) {
+        if (ev.type === "m.room.member" && ev.state_key) {
+            if (this.bridge.getBot().isRemoteUser(ev.state_key)
+                && !this.bridge.getBot().isRemoteUser(ev.sender)
+                && ev.state_key !== this.botUserId) {
                 await room.onMatrixInvite(ev.sender, ev.state_key);
-                endTimer({outcome: "success"});
+                endTimer({ outcome: "success" });
                 return;
-        }
+            }
 
-        if (ev.type === "m.room.member" &&
-            ev.state_key &&
-            !this.bridge.getBot().isRemoteUser(ev.state_key)) {
+            if (!this.bridge.getBot().isRemoteUser(ev.state_key)) {
                 const membership = ev.content.membership;
                 if (membership === "join") {
                     await room.onMatrixJoin(ev.state_key);
@@ -604,6 +601,7 @@ export class Main {
                     await room.onMatrixLeave(ev.state_key);
                 }
                 return;
+            }
         }
 
         // Handle a m.room.redaction event
