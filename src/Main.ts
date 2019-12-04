@@ -604,8 +604,6 @@ export class Main {
             }
         }
 
-        
-
         // Handle a m.room.redaction event
         if (ev.type === "m.room.redaction") {
             try {
