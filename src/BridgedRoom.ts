@@ -31,7 +31,7 @@ import e = require("express");
 
 const log = Logging.get("BridgedRoom");
 
-interface IBridgedRoomOpts {
+export interface IBridgedRoomOpts {
     matrix_room_id: string;
     inbound_id: string;
     slack_channel_name?: string;
@@ -118,29 +118,15 @@ export class BridgedRoom {
         return this.slackType;
     }
 
-    public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient) {
-        return new BridgedRoom(main, {
-            inbound_id: entry.remote_id,
-            matrix_room_id: entry.matrix_id,
-            slack_channel_id: entry.remote.id,
-            slack_channel_name: entry.remote.name,
-            slack_team_id: entry.remote.slack_team_id,
-            slack_webhook_uri: entry.remote.webhook_uri,
-            puppet_owner: entry.remote.puppet_owner,
-            is_private: entry.remote.slack_private,
-            slack_type: entry.remote.slack_type,
-        }, team, botClient);
-    }
-
-    private matrixRoomId: string;
-    private inboundId: string;
-    private slackChannelName?: string;
-    private slackChannelId?: string;
-    private slackWebhookUri?: string;
-    private slackTeamId?: string;
-    private slackType?: string;
-    private isPrivate?: boolean;
-    private puppetOwner?: string;
+    protected matrixRoomId: string;
+    protected inboundId: string;
+    protected slackChannelName?: string;
+    protected slackChannelId?: string;
+    protected slackWebhookUri?: string;
+    protected slackTeamId?: string;
+    protected slackType?: string;
+    protected isPrivate?: boolean;
+    protected puppetOwner?: string;
 
     // last activity time in epoch seconds
     private slackATime?: number;
@@ -157,7 +143,7 @@ export class BridgedRoom {
      */
     private dirty: boolean;
 
-    constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
+    constructor(protected main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
 
         this.MatrixRoomActive = true;
         if (!opts.inbound_id) {
@@ -555,7 +541,7 @@ export class BridgedRoom {
         const { team } = await this.botClient!.team.info() as TeamInfoResponse;
         let icon: string|undefined;
         if (team.icon && !team.icon.image_default) {
-            const iconUrl = Object.keys(team.icon).filter((s) => s !== "icon_default").sort().reverse()[0];
+            const iconUrl = team.icon[Object.keys(team.icon).filter((s) => s !== "icon_default").sort().reverse()[0]];
 
             const response = await rp({
                 encoding: null,
@@ -565,8 +551,8 @@ export class BridgedRoom {
             const content = response.body as Buffer;
 
             icon = await intent.getClient().uploadContent(content, {
-                name: "workspace-icon",
-                type: response.headers["Content-Type"],
+                name: "workspace-icon.png",
+                type: response.headers["content-type"],
                 rawResponse: false,
                 onlyContentUri: true,
             });
@@ -867,12 +853,12 @@ export class BridgedRoom {
         }
 
         const intent = await this.getIntentForRoom();
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+        const nextEvent = await intent.getClient().fetchRoomEvent(this.MatrixRoomId, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }
 
-    private async getIntentForRoom() {
+    protected async getIntentForRoom() {
         if (this.intent) {
             return this.intent;
         }
