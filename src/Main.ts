@@ -584,6 +584,26 @@ export class Main {
             return;
         }
 
+        if (ev.type === "m.room.member" && ev.state_key) {
+            if (this.bridge.getBot().isRemoteUser(ev.state_key)
+                && !this.bridge.getBot().isRemoteUser(ev.sender)
+                && ev.state_key !== this.botUserId) {
+                await room.onMatrixInvite(ev.sender, ev.state_key);
+                endTimer({ outcome: "success" });
+                return;
+            }
+
+            if (!this.bridge.getBot().isRemoteUser(ev.state_key)) {
+                const membership = ev.content.membership;
+                if (membership === "join") {
+                    await room.onMatrixJoin(ev.state_key);
+                } else if (membership === "leave" || membership === "ban") {
+                    await room.onMatrixLeave(ev.state_key);
+                }
+                return;
+            }
+        }
+
         // Handle a m.room.redaction event
         if (ev.type === "m.room.redaction") {
             try {
@@ -906,7 +926,12 @@ export class Main {
         room.MatrixRoomActive = activeRoom;
         if (!room.IsPrivate && activeRoom) {
             // Only public rooms can be tracked.
-            this.stateStorage.trackRoom(entry.matrix_id);
+            try {
+                await this.stateStorage.trackRoom(entry.matrix_id);
+            } catch (ex) {
+                this.stateStorage.untrackRoom(entry.matrix_id);
+                room.MatrixRoomActive = false;
+            }
         }
     }
 
@@ -1093,7 +1118,7 @@ export class Main {
 
     public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
         const room = this.rooms.getBySlackChannelId(channel);
-        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId);
+        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId, undefined);
         if (!room || !room.SlackClient) {
             return userId;
         }

@@ -361,7 +361,7 @@ export class BridgedRoom {
 
     public async onMatrixMessage(message: any) {
         const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
-        if (!this.slackWebhookUri && !this.botClient) { return false; }
+        if (!this.slackWebhookUri && !this.botClient && !puppetedClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
         const user = this.main.getOrCreateMatrixUser(message.user_id);
         message = await this.stripMatrixReplyFallback(message);
@@ -455,6 +455,91 @@ export class BridgedRoom {
             await this.main.datastore.upsertEvent(parentStoredEvent);
         }
         return true;
+    }
+
+    public async onSlackUserLeft(slackId: string) {
+        const ghost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+        await ghost.intent.leave(this.matrixRoomId);
+    }
+
+    public async onSlackUserJoin(slackId: string, wasInvitedBy?: string) {
+        // There are different flows for this:
+        // 1 - Slack user invites slack user
+        // 2 - Slack user invites matrix user
+        // 3 - Matrix user invites slack user
+        // 4 - Matrix user invites matrix user
+        // 5 - Slack user has joined
+        // 6 - Matrix user has joined
+
+        const recipientPuppet = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId!, slackId);
+        const recipientGhost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+
+        const senderPuppet = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId!, slackId);
+        const senderGhost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+        const mxid = await this.main.datastore.getPuppetMatrixUserBySlackId(this.slackTeamId!, slackId);
+
+        if (!wasInvitedBy) {
+            if (!recipientPuppet) {
+                log.debug(`S-> ${slackId} joined ${this.SlackChannelId}`);
+                // 5
+                await recipientGhost.intent.join(this.matrixRoomId);
+            } else {
+                log.debug(`M-> ${slackId} joined ${this.SlackChannelId}`);
+                // 6
+                await this.main.botIntent.invite(this.matrixRoomId, mxid);
+            }
+            return;
+        }
+
+        if (!recipientPuppet && !senderPuppet) {
+            log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
+            // 1
+            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
+            await recipientGhost.intent.join(this.matrixRoomId, recipientGhost.userId);
+        } else if (recipientPuppet) {
+            // 2 & 4
+            log.debug(`S|M->M${mxid} was invited by ${wasInvitedBy}`);
+            await senderGhost.intent.invite(this.matrixRoomId, mxid);
+        } else if (senderPuppet && !recipientPuppet) {
+            log.debug(`M->S ${slackId} was invited by ${wasInvitedBy}`);
+            // 3
+            await recipientGhost.intent.join(this.matrixRoomId);
+            // No-op
+        }
+    }
+
+    public async onMatrixLeave(userId: string) {
+        log.info(`Leaving ${userId} from ${this.SlackChannelId}`);
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
+        if (!puppetedClient) {
+            log.debug("No client");
+            return;
+        }
+        await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
+    }
+
+    public async onMatrixJoin(userId: string) {
+        log.info(`Joining ${userId} to ${this.SlackChannelId}`);
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
+        if (!puppetedClient) {
+            log.debug("No client");
+            return;
+        }
+        await puppetedClient.conversations.join({ channel: this.SlackChannelId! });
+    }
+
+    public async onMatrixInvite(inviter: string, invitee: string) {
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, inviter);
+        if (!puppetedClient) {
+            log.debug("No client");
+            return;
+        }
+        const ghost = await this.main.getExistingSlackGhost(invitee);
+        if (!ghost) {
+            log.debug("No ghost");
+            return;
+        }
+        await puppetedClient.conversations.invite({channel: this.slackChannelId!, users: ghost.slackId });
     }
 
     public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
