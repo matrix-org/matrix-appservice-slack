@@ -633,6 +633,7 @@ export class Main {
 
         // Handle a m.room.message event
         if (ev.type !== "m.room.message" || !ev.content) {
+            log.debug(`${ev.event_id} ${ev.room_id} cannot be handled`);
             return;
         }
 
@@ -648,14 +649,15 @@ export class Main {
                     return;
                 }
             }
-        } else {
-            try {
-                success = await room.onMatrixMessage(ev);
-            } catch (e) {
-                log.error("Failed processing matrix message: ", e);
-                endTimer({outcome: "fail"});
-                return;
-            }
+        } // Allow this to fall through, so we can handle edits.
+
+        try {
+            log.info(`Handling matrix room message ${ev.event_id} ${ev.room_id}`);
+            success = await room.onMatrixMessage(ev);
+        } catch (e) {
+            log.error("Failed processing matrix message: ", e);
+            endTimer({outcome: "fail"});
+            return;
         }
 
         endTimer({outcome: success ? "success" : "dropped"});
