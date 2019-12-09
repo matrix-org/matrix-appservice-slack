@@ -51,6 +51,8 @@ export interface ISlackEvent {
     ts: string;
     user?: string;
     bot_id?: string;
+    team_domain?: string;
+    user_id: string;
 }
 
 export interface ISlackEventMessageAttachment {
@@ -58,6 +60,8 @@ export interface ISlackEventMessageAttachment {
 }
 
 export interface ISlackMessageEvent extends ISlackEvent {
+    team_domain?: string;
+    user_id: string;
     inviter?: string;
     item?: {
         type: string;
@@ -195,14 +199,14 @@ export abstract class BaseSlackHandler {
             const teamDomain = await this.main.getTeamDomainForMessage(message);
 
             let displayName = "";
-            const userId = this.main.getUserId(id, teamDomain);
+            const userId = this.main.ghostStore.getUserId(id, teamDomain);
 
             const users = await this.main.datastore.getUser(userId);
 
             if (!users) {
                 log.warn("Mentioned user not in store. Looking up display name from slack.");
                 // if the user is not in the store then we look up the displayname
-                displayName = await this.main.getNullGhostDisplayName(message.channel, id);
+                displayName = await this.main.ghostStore.getNullGhostDisplayName(message.channel, id);
                 // If the user is not in the room, we cant pills them, we have to just plain text mention them.
                 text = text.replace(USER_ID_REGEX_FIRST, displayName);
             } else {

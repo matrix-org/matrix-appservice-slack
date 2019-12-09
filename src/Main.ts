@@ -42,6 +42,7 @@ import PQueue from "p-queue";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
+import { SlackGhostStore } from "./SlackGhostStore";
 
 const log = Logging.get("Main");
 
@@ -75,6 +76,10 @@ export class Main {
         return this.clientfactory;
     }
 
+    public get ghostStore(): SlackGhostStore {
+        return this.ghosts;
+    }
+
     public readonly oauth2: OAuth2|null = null;
 
     public datastore!: Datastore;
@@ -83,8 +88,8 @@ export class Main {
     private mostRecentEventIdIdx = 0;
 
     public readonly rooms: SlackRoomStore = new SlackRoomStore();
+    private ghosts!: SlackGhostStore; // Defined in .run
 
-    private ghostsByUserId: QuickLRU<string, SlackGhost>;
     private matrixUsersById: QuickLRU<string, MatrixUser>;
 
     private bridge: Bridge;
@@ -120,7 +125,6 @@ export class Main {
 
         config.caching = { ...CACHING_DEFAULTS, ...config.caching };
 
-        this.ghostsByUserId = new QuickLRU({ maxSize: config.caching.ghostUserCache });
         this.matrixUsersById = new QuickLRU({ maxSize: config.caching.matrixUserCache });
 
         if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
@@ -241,7 +245,7 @@ export class Main {
                 remoteRoomsByAge,
 
                 matrixUsersByAge: countAges(this.matrixUsersById),
-                remoteUsersByAge: countAges(this.ghostsByUserId),
+                remoteUsersByAge: countAges(this.ghosts.cached),
             };
         });
 
@@ -309,78 +313,6 @@ export class Main {
         if (team) {
             return team.domain;
         }
-    }
-
-    public getUserId(id: string, teamDomain: string) {
-        const localpart = `${this.userIdPrefix}${teamDomain.toLowerCase()}_${id.toUpperCase()}`;
-        return `@${localpart}:${this.config.homeserver.server_name}`;
-    }
-
-    public async getGhostForSlackMessage(message: any, teamId?: string): Promise<SlackGhost> {
-        // Slack ghost IDs need to be constructed from user IDs, not usernames,
-        // because users can change their names
-        // TODO if the team_domain is changed, we will recreate all users.
-        // TODO(paul): Steal MatrixIdTemplate from matrix-appservice-gitter
-
-        // team_domain is gone, so we have to actually get the domain from a friendly object.
-        const teamDomain = (await this.getTeamDomainForMessage(message, teamId)).toLowerCase();
-        return this.getGhostForSlack(message.user_id, teamDomain, teamId);
-    }
-
-    public async getGhostForSlack(slackUserId: string, teamDomain?: string, teamId?: string): Promise<SlackGhost> {
-        let domain: string;
-        if (!teamDomain && !teamId) {
-            throw Error("Must provide either a teamDomain or a teamId");
-        }
-
-        domain = teamDomain || await this.getTeamDomainForMessage({team_id: teamId});
-
-        const userId = this.getUserId(
-            slackUserId.toUpperCase(),
-            domain,
-        );
-        const existing = this.ghostsByUserId.get(userId);
-        if (existing) {
-            log.debug("Getting existing ghost from cache for", userId);
-            return existing;
-        }
-
-        const intent = this.bridge.getIntent(userId);
-        const entry = await this.datastore.getUser(userId);
-        await intent._ensureRegistered();
-
-        let ghost: SlackGhost;
-        if (entry) {
-            log.debug("Getting existing ghost for", userId);
-            ghost = SlackGhost.fromEntry(this, entry, intent);
-        } else {
-            log.debug("Creating new ghost for", userId);
-            ghost = new SlackGhost(
-                this,
-                slackUserId,
-                teamId,
-                userId,
-                intent,
-            );
-            await this.datastore.upsertUser(ghost);
-        }
-
-        this.ghostsByUserId.set(userId, ghost);
-        return ghost;
-    }
-
-    public async getExistingSlackGhost(userId: string): Promise<SlackGhost|null> {
-        if (!this.bridge.getBot().isRemoteUser(userId)) {
-            // Catch this early.
-            return null;
-        }
-        const entry = await this.datastore.getUser(userId);
-        log.debug("Getting existing ghost for", userId);
-        if (!entry) {
-            return null;
-        }
-        const intent = this.bridge.getIntent(userId);
-        return SlackGhost.fromEntry(this, entry, intent);
     }
 
     public getOrCreateMatrixUser(id: string) {
@@ -673,7 +605,7 @@ export class Main {
             return;
         }
 
-        const slackGhost = await this.getExistingSlackGhost(recipient);
+        const slackGhost = await this.ghosts.getExisting(recipient);
         if (!slackGhost || !slackGhost.teamId) {
             // TODO: Create users dynamically who have never spoken.
             // https://github.com/matrix-org/matrix-appservice-slack/issues/211
@@ -801,6 +733,8 @@ export class Main {
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
         }
+
+        this.ghosts = new SlackGhostStore(this.rooms, this.datastore, this.config, this.bridge);
 
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
             this.incRemoteCallCounter(method);
@@ -1114,15 +1048,6 @@ export class Main {
         }
         const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
         return accounts.find((acct) => acct.team_id === teamId);
-    }
-
-    public async getNullGhostDisplayName(channel: string, userId: string): Promise<string> {
-        const room = this.rooms.getBySlackChannelId(channel);
-        const nullGhost = new SlackGhost(this, userId, room!.SlackTeamId!, userId, undefined);
-        if (!room || !room.SlackClient) {
-            return userId;
-        }
-        return (await nullGhost.getDisplayname(room!.SlackClient!)) || userId;
     }
 
     public async killBridge() {

@@ -209,7 +209,7 @@ export class TeamSyncer {
 
     public async syncUser(teamId: string, domain: string, item: ISlackUser) {
         log.info(`Syncing user ${teamId} ${item.id}`);
-        const slackGhost = await this.main.getGhostForSlack(item.id, domain, teamId);
+        const slackGhost = await this.main.ghostStore.get(item.id, domain, teamId);
         if (item.deleted !== true) {
             await slackGhost.updateFromISlackUser(item);
             return;
@@ -312,7 +312,7 @@ export class TeamSyncer {
         // Finally, sync membership for the channel.
         const members = await client.conversations.members({channel: channelId}) as ConversationsMembersResponse;
         // Ghosts will exist already: We joined them in the user sync.
-        const ghosts = await Promise.all(members.members.map((slackUserId) => this.main.getGhostForSlack(slackUserId, teamInfo.domain, teamId)));
+        const ghosts = await Promise.all(members.members.map((slackUserId) => this.main.ghostStore.get(slackUserId, teamInfo.domain, teamId)));
 
         const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.userId)); // Skip users that are joined.
         const leftUsers = existingGhosts.filter((userId) => !ghosts.find((g) => g.userId === userId ));
@@ -385,7 +385,7 @@ export class TeamSyncer {
         let intent;
         let creatorUserId: string|undefined;
         try {
-            creatorUserId = (await this.main.getGhostForSlack(creator, undefined, teamId)).userId;
+            creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).userId;
             intent = this.main.getIntent(creatorUserId);
         } catch (ex) {
             // Couldn't get the creator's mxid, using the bot.
