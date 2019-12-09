@@ -646,8 +646,8 @@ export class Main {
                 } catch (e) {
                     log.error("Failed processing matrix edit: ", e);
                     endTimer({outcome: "fail"});
-                    return;
                 }
+                return;
             }
         } // Allow this to fall through, so we can handle replies.
 
