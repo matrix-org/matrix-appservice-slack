@@ -649,7 +649,7 @@ export class Main {
                     return;
                 }
             }
-        } // Allow this to fall through, so we can handle edits.
+        } // Allow this to fall through, so we can handle replies.
 
         try {
             log.info(`Handling matrix room message ${ev.event_id} ${ev.room_id}`);
