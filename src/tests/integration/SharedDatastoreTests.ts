@@ -57,7 +57,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 team_id: "BARBAZ",
             }, null);
             await ds().upsertUser(user);
-            (user as any).displayName = "A changed displayname";
+            (user as any).displayname = "A changed displayname";
             await ds().upsertUser(user);
             const userEntry = await ds().getUser("someid3");
             expect(userEntry).to.deep.equal({

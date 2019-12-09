@@ -53,6 +53,7 @@ describe("SlackToMatrix", () => {
     it("will drop slack events that have an unknown type", async () => {
         let called = false;
         await harness.eventHandler.handle({
+            user_id: "foo",
             type: "faketype",
             channel: "fakechannel",
             ts: "12345",
@@ -74,10 +75,12 @@ describe("SlackToMatrix", () => {
         } as unknown as BridgedRoom);
         let called = false;
         await harness.eventHandler.handle({
+            user_id: "foo",
             type: "message",
             subtype: "message_changed",
             hidden: true,
             message: {
+              user_id: "foo",
               channel: "foo",
               type: "message",
               subtype: "tombstone",
@@ -98,6 +101,7 @@ describe("SlackToMatrix", () => {
     it("will no-op slack events when using RTM API and is an Event API request", async () => {
         let called = false;
         await harness.eventHandler.handle({
+            user_id: "foo",
             type: "faketype",
             channel: "fakechannel",
             ts: "12345",

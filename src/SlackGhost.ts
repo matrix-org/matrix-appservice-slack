@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { Logging, Intent } from "matrix-appservice-bridge";
 import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
@@ -22,7 +21,7 @@ import { BridgedRoom } from "./BridgedRoom";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
-import { UserEntry } from "./datastore/Models";
+import { UserEntry, Datastore } from "./datastore/Models";
 
 const log = Logging.get("SlackGhost");
 
@@ -44,9 +43,9 @@ export class SlackGhost {
         return this.atime;
     }
 
-    public static fromEntry(main: Main, entry: UserEntry, intent: Intent) {
+    public static fromEntry(datastore: Datastore, entry: UserEntry, intent: Intent) {
         return new SlackGhost(
-            main,
+            datastore,
             entry.slack_id,
             entry.team_id,
             entry.id,
@@ -61,17 +60,21 @@ export class SlackGhost {
     private userInfoLoading?: Promise<UsersInfoResponse>;
     private updateInProgress: boolean = false;
     constructor(
-        private main: Main,
+        private datastore: Datastore,
         public readonly slackId: string,
         public readonly teamId: string|undefined,
         public readonly userId: string,
         public readonly intent: Intent,
-        private displayName?: string,
+        private displayname?: string,
         private avatarHash?: string) {
         this.slackId = slackId.toUpperCase();
         if (teamId) {
             this.teamId = teamId.toUpperCase();
         }
+    }
+
+    public get displayName(): string|undefined {
+        return this.displayname;
     }
 
     public toEntry(): UserEntry {
@@ -119,7 +122,7 @@ export class SlackGhost {
         let changed = false;
         if (slackUser.profile.display_name && this.displayName !== slackUser.profile.display_name) {
             await this.intent.setDisplayName(slackUser.profile.display_name);
-            this.displayName = slackUser.profile.display_name;
+            this.displayname = slackUser.profile.display_name;
             changed = true;
         }
 
@@ -144,7 +147,7 @@ export class SlackGhost {
             return;
         }
 
-        return this.main.datastore.upsertUser(this);
+        return this.datastore.upsertUser(this);
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
@@ -166,8 +169,8 @@ export class SlackGhost {
         log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
 
         await this.intent.setDisplayName(displayName);
-        this.displayName = displayName;
-        return this.main.datastore.upsertUser(this);
+        this.displayname = displayName;
+        return this.datastore.upsertUser(this);
     }
 
     public async lookupAvatarUrl(clientOrUser: WebClient|ISlackUser) {
@@ -280,7 +283,7 @@ export class SlackGhost {
         }, response.body);
         await this.intent.setAvatarUrl(contentUri);
         this.avatarHash = hash;
-        await this.main.datastore.upsertUser(this);
+        await this.datastore.upsertUser(this);
     }
 
     public prepareBody(body: string) {
@@ -314,9 +317,8 @@ export class SlackGhost {
 
     public async sendMessage(roomId: string, msg: {}, slackRoomId: string, slackEventTs: string) {
         const matrixEvent = await this.intent.sendMessage(roomId, msg);
-        this.main.incCounter(METRIC_SENT_MESSAGES, {side: "matrix"});
 
-        await this.main.datastore.upsertEvent(
+        await this.datastore.upsertEvent(
             roomId,
             matrixEvent.event_id,
             slackRoomId,
@@ -339,7 +341,7 @@ export class SlackGhost {
         const matrixEvent = await this.intent.sendEvent(roomId, "m.reaction", content);
 
         // Add this event to the eventStore
-        await this.main.datastore.upsertEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
+        await this.datastore.upsertEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
 
         return matrixEvent;
     }

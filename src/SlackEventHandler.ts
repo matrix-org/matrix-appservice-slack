@@ -231,7 +231,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (msg.subtype === "file_comment" && msg.comment) {
             msg.user_id = msg.comment.user;
         } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
-            msg.user_id = msg.message.user;
+            msg.user_id = msg.message.user!;
             msg.text = msg.message.text;
             msg.previous_message.text = (await this.doChannelUserReplacements(
                 msg, msg.previous_message!.text!, room.SlackClient)
@@ -243,7 +243,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                 if (msg.message.bot_id === team.bot_id) {
                     return;
                 } else {
-                    msg.user_id = msg.bot_id;
+                    msg.user_id = msg.bot_id!;
                 }
             }
         } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {

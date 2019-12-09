@@ -146,7 +146,7 @@ class Substitutions {
             }
             for (const user of mentions.users) {
                 // This also checks if the user is a slack user.
-                const ghost = await main.getExistingSlackGhost(user.id);
+                const ghost = await main.ghostStore.getExisting(user.id);
                 if (ghost && ghost.slackId) {
                     // We need to replace the user's displayname with the slack mention, but we need to
                     // ensure to do it only on whitespace wrapped strings.
