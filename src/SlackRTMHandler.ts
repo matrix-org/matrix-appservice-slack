@@ -7,6 +7,8 @@ import { ConversationsInfoResponse, ConversationsMembersResponse } from "./Slack
 import { ISlackMessageEvent } from "./BaseSlackHandler";
 import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
+import * as HttpsProxyAgent from 'https-proxy-agent'
+import {HttpsProxyAgentOptions} from 'https-proxy-agent'
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -116,6 +118,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (!botToken.startsWith("xoxb")) {
             throw Error("Bot token invalid, must start with xoxb");
         }
+
         const rtm = this.createRtmClient(botToken, expectedTeam);
 
         // For each event that SlackEventHandler supports, register
@@ -149,7 +152,8 @@ export class SlackRTMHandler extends SlackEventHandler {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
         const connLog = Logging.get(`RTM-${logLabel.substr(0, LOG_TEAM_LEN)}`);
         const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm!.log_level || "silent");
-        const rtm = new RTMClient(token, {
+
+        let rtmOpts = {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
                 getLevel: () => LogLevel.DEBUG,
@@ -160,7 +164,21 @@ export class SlackRTMHandler extends SlackEventHandler {
                 info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
                 error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
             } as Logger,
-        });
+        }
+
+        if (this.main.config.proxy.enable) {
+            const opts: HttpsProxyAgentOptions = {
+                "host": this.main.config.proxy.host,
+                "port": this.main.config.proxy.port,
+                "protocol": this.main.config.proxy.protocol,
+                "headers": this.main.config.proxy.headers
+            }
+
+            const agent = new HttpsProxyAgent(opts);
+            rtmOpts["agent"] = agent;
+        }
+
+        const rtm = new RTMClient(token, rtmOpts);
 
         rtm.on("error", (error) => {
             // We must handle this lest the process be killed.

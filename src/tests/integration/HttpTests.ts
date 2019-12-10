@@ -43,6 +43,13 @@ function constructHarness() {
         rtm: {
             enable: true,
         },
+        proxy: {
+            enable: true,
+            host: "proxyHost",
+            port: 8118,
+            protocol: "http",
+            headers: {"foo": "bar"}
+        },
     }, reg);
     (main as any).bridge.getBot = () => ({
        getJoinedRooms: () => Promise.resolve([]),

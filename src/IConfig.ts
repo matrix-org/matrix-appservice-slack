@@ -76,4 +76,14 @@ export interface IConfig {
     };
 
     dbdir: string;
+
+    proxy: {
+        enable: boolean;
+        host: string;
+        port: number;
+        protocol: string;
+        headers?: {
+            [key: string]: string
+        };
+    }
 }
