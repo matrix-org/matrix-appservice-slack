@@ -1,5 +1,6 @@
 import { Main } from "../Main";
 import { Logging } from "matrix-appservice-bridge";
+import { UsersInfoResponse } from "../SlackResponses";
 
 const log = Logging.get("UserAdminRoom");
 
@@ -19,7 +20,7 @@ export class UserAdminRoom {
 
     }
 
-    public async handleEvent(ev: any) {
+    public async handleEvent(ev: {type: string, content: {msgtype: string, body: string}}) {
         if (ev.type !== "m.room.message" || ev.content.msgtype !== "m.text" || !ev.content.body) {
             return;
         }
@@ -31,6 +32,9 @@ export class UserAdminRoom {
         }
         if (command === "login") {
             return this.handleLogin();
+        }
+        if (command === "whoami") {
+            return this.handleWhoAmI();
         }
         return this.sendNotice(
             "Command not understood",
@@ -60,6 +64,30 @@ export class UserAdminRoom {
             `Follow ${authUri} to connect your account.`,
             `Follow <a href="${authUri}">this link</a> to connect your account.`,
         );
+    }
+
+    public async handleWhoAmI() {
+        const puppets = await this.main.datastore.getPuppetsByMatrixId(this.userId);
+        if (puppets.length === 0) {
+            return this.sendNotice("You are not logged into Slack. You may talk in public rooms only.");
+        }
+        let body = "List of connected accounts:\n";
+        let formattedBody = "<p>List of connected accounts:</p><ul>";
+        for (const puppet of puppets) {
+            const cli = await this.main.clientFactory.getClientForUser(puppet.teamId, puppet.matrixId);
+            const team = await this.main.datastore.getTeam(puppet.teamId);
+            if (cli === null) {
+                continue;
+            }
+            const { user } = await cli.users.info({user: puppet.slackId}) as UsersInfoResponse;
+            if (user === undefined) {
+                continue;
+            }
+            body += `You are logged in as ${user.name} (${team!.name})\n`;
+            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team!.name}) </li>`;
+        }
+        formattedBody += "</ul>";
+        return this.sendNotice(body, formattedBody);
     }
 
     private async sendNotice(body: string, formattedBody?: string) {
