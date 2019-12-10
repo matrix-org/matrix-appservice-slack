@@ -444,7 +444,7 @@ export class BridgedRoom {
     }
 
     public async onSlackUserLeft(slackId: string) {
-        const ghost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+        const ghost = await this.main.ghostStore.get(slackId, undefined, this.slackTeamId);
         await ghost.intent.leave(this.matrixRoomId);
     }
 
@@ -458,10 +458,10 @@ export class BridgedRoom {
         // 6 - Matrix user has joined
 
         const recipientPuppet = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId!, slackId);
-        const recipientGhost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+        const recipientGhost = await this.main.ghostStore.get(slackId, undefined, this.slackTeamId);
 
         const senderPuppet = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId!, slackId);
-        const senderGhost = await this.main.getGhostForSlack(slackId, undefined, this.slackTeamId);
+        const senderGhost = await this.main.ghostStore.get(slackId, undefined, this.slackTeamId);
         const mxid = await this.main.datastore.getPuppetMatrixUserBySlackId(this.slackTeamId!, slackId);
 
         if (!wasInvitedBy) {
@@ -520,7 +520,7 @@ export class BridgedRoom {
             log.debug("No client");
             return;
         }
-        const ghost = await this.main.getExistingSlackGhost(invitee);
+        const ghost = await this.main.ghostStore.get(invitee);
         if (!ghost) {
             log.debug("No ghost");
             return;
@@ -543,7 +543,7 @@ export class BridgedRoom {
         // Dedupe across RTM/Event streams
         this.addRecentSlackMessage(message.ts);
         try {
-            const ghost = await this.main.getGhostForSlackMessage(message, this.slackTeamId!);
+            const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId!);
             await ghost.update(message, this);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             this.slackSendLock = this.slackSendLock.finally(async () => {
@@ -568,7 +568,7 @@ export class BridgedRoom {
             // We sent this, ignore.
             return;
         }
-        const ghost = await this.main.getGhostForSlackMessage(message, teamId);
+        const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
         await ghost.update(message, this);
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
@@ -582,7 +582,7 @@ export class BridgedRoom {
     }
 
     public async onSlackTyping(event: ISlackEvent, teamId: string) {
-        const ghost = await this.main.getGhostForSlackMessage(event, teamId);
+        const ghost = await this.main.ghostStore.getForSlackMessage(event, teamId);
         await ghost.sendTyping(this.MatrixRoomId);
     }
 

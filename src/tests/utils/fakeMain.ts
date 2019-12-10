@@ -4,7 +4,8 @@ import { FakeDatastore } from "./fakeDatastore";
 import { TeamEntry, UserEntry } from "../../datastore/Models";
 import { FakeIntent } from "./fakeIntent";
 import { SlackGhost } from "../../SlackGhost";
-import { Main } from "../../Main";
+import { SlackGhostStore } from "../../SlackGhostStore";
+import { IConfig } from "../../IConfig";
 
 const DEFAULT_OPTS = {
     oauth2: false,
@@ -20,6 +21,7 @@ export class FakeMain {
     public oauth2?: OAuth2;
     public rooms: SlackRoomStore = new SlackRoomStore();
     public datastore: FakeDatastore;
+    private ghostStore: SlackGhostStore;
     constructor(opts: Opts = DEFAULT_OPTS) {
         if (opts.oauth2) {
             this.oauth2 = new OAuth2({
@@ -31,6 +33,8 @@ export class FakeMain {
             });
         }
         this.datastore = new FakeDatastore(opts.teams, opts.usersInTeam);
+        this.ghostStore = new SlackGhostStore(this.rooms, this.datastore, {} as unknown as IConfig, null);
+        this.ghostStore.getExisting = this.getExistingSlackGhost.bind(this);
     }
     public readonly timerFinished: {[eventName: string]: string } = {};
     public readonly counters: {[type: string]: [{side: string}] } = {};
@@ -57,12 +61,12 @@ export class FakeMain {
         return new FakeIntent();
     }
 
-    public async getExistingSlackGhost(userId: string) {
+    private async getExistingSlackGhost(userId: string) {
         if (userId === "@stranger:localhost") {
-            return new SlackGhost(this as unknown as Main, "12345", undefined, "@stranger:localhost", undefined);
+            return new SlackGhost(this.datastore, "12345", undefined, "@stranger:localhost", undefined);
         }
         if (userId === "@thing:localhost") {
-            return new SlackGhost(this as unknown as Main, "54321", undefined, "@thing:localhost", undefined);
+            return new SlackGhost(this.datastore, "54321", undefined, "@thing:localhost", undefined);
         }
         return null;
     }
