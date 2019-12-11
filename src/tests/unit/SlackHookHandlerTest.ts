@@ -33,21 +33,21 @@ describe("SlackHookHandler", () => {
     });
     it("getUrlParts should accept a id followed by a path and parameters", () => {
         const { inboundId, path } = SlackHookHandler.getUrlParts(
-            "0337a838-2fec-4b79-8186-8111f781/authorize?code=123123123.213123&state=123123-asdasd-21"
+            "0337a838-2fec-4b79-8186-8111f781/authorize?code=123123123.213123&state=123123-asdasd-21",
         );
         expect(inboundId).to.equal("0337a838-2fec-4b79-8186-8111f781");
         expect(path).to.equal("authorize?code=123123123.213123&state=123123-asdasd-21");
     });
     it("getUrlParts should accept a id with a prefix", () => {
         const { inboundId, path } = SlackHookHandler.getUrlParts(
-            "/my/slack/prefix/0337a838-2fec-4b79-8186-8111f781/authorize?code=123123123.213123&state=123123-asdasd-21"
+            "/my/slack/prefix/0337a838-2fec-4b79-8186-8111f781/authorize?code=123123123.213123&state=123123-asdasd-21",
         );
         expect(inboundId).to.equal("0337a838-2fec-4b79-8186-8111f781");
         expect(path).to.equal("authorize?code=123123123.213123&state=123123-asdasd-21");
     });
     it("getUrlParts should accept a id with a prefix without a slash", () => {
         const { inboundId, path } = SlackHookHandler.getUrlParts(
-            "my/slack/prefix/0337a838-2fec-4b79-8186-8111f781/authorize?code=123123123.213123&state=123123-asdasd-21"
+            "my/slack/prefix/0337a838-2fec-4b79-8186-8111f781/authorize?code=123123123.213123&state=123123-asdasd-21",
         );
         expect(inboundId).to.equal("0337a838-2fec-4b79-8186-8111f781");
         expect(path).to.equal("authorize?code=123123123.213123&state=123123-asdasd-21");
