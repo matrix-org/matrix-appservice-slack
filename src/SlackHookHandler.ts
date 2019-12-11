@@ -27,7 +27,6 @@ import { Main } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
-import { TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("SlackHookHandler");
 
@@ -148,6 +147,14 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
+    public static getUrlParts(url: string) {
+        const urlMatch = url.match(/^(\/?.*\/)*(.{32})(?:\/(.*))?$/);
+        if (!urlMatch) {
+            throw Error("URL is in incorrect format");
+        }
+        return {inboundId: urlMatch[2], path: urlMatch[3] || "post"};
+    }
+
     /**
      * Handles a slack webhook request.
      *
@@ -161,9 +168,14 @@ export class SlackHookHandler extends BaseSlackHandler {
                                 response: ServerResponse) {
         log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
-        const urlMatch = url.match(/^\/(.{32})(?:\/(.*))?$/);
 
-        if (!urlMatch) {
+        let inboundId: string;
+        let path: string;
+        try {
+            const res = SlackHookHandler.getUrlParts(url);
+            inboundId = res.inboundId;
+            path = res.path;
+        } catch (ex) {
             log.error("Ignoring message with bad slackhook URL " + url);
 
             response.writeHead(HTTP_CODES.NOT_FOUND, {"Content-Type": "text/plain"});
@@ -172,9 +184,6 @@ export class SlackHookHandler extends BaseSlackHandler {
             endTimer({outcome: "dropped"});
             return;
         }
-
-        const inboundId = urlMatch[1];
-        let path = urlMatch[2] || "post";
 
         // GET requests (e.g. authorize) have params in query string
         if (method === "GET") {
