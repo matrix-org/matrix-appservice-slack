@@ -198,7 +198,7 @@ export class TeamSyncer {
                 slack_team_id: teamId,
                 slack_channel_id: channelItem.id,
                 is_private: true,
-            }, undefined, undefined);
+            }, undefined, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
             await this.main.datastore.upsertRoom(room);

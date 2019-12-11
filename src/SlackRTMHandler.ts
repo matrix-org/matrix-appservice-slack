@@ -3,10 +3,11 @@ import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { Logging } from "matrix-appservice-bridge";
 import { PuppetEntry } from "./datastore/Models";
-import { ConversationsInfoResponse, ConversationsMembersResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo } from "./SlackResponses";
 import { ISlackMessageEvent } from "./BaseSlackHandler";
 import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
+import { SlackGhost } from "./SlackGhost";
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -197,15 +198,27 @@ export class SlackRTMHandler extends SlackEventHandler {
 
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
         log.debug("Received slack user event:", puppet.matrixId, event);
+        let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        if (room) {
+            return this.handleMessageEvent(event, puppet.teamId);
+        }
+
+        // This could be a new private room, check in on it.
+        if (this.main.teamSyncer && chanInfo.channel.is_group) {
+            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            return this.handleMessageEvent(event, puppet.teamId);
+        }
+
         const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
         const ghosts = await Promise.all(channelMembersRes.members.map(
             // tslint:disable-next-line: no-any
             (id) => this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId)),
         );
         const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
-        let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
-        if (!room && chanInfo.channel.is_im) {
+        if (chanInfo.channel.is_im || chanInfo.channel.is_mpim) {
             log.info(`Creating new DM room for ${event.channel}`);
+            const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId)!;
+            const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
             // Create a new DM room.
             const { room_id } = await ghost.intent.createRoom({
                 createAsClient: true,
@@ -213,6 +226,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                     invite: [puppet.matrixId].concat(ghosts.map((g) => g.userId!)),
                     preset: "private_chat",
                     is_direct: true,
+                    name,
                 },
             });
             const team = (await this.main.datastore.getTeam(puppet.teamId))!;
@@ -228,9 +242,21 @@ export class SlackRTMHandler extends SlackEventHandler {
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);
-        } else if (!room) {
-            log.warn(`No room found for ${event.channel} and not sure how to create one`);
+            await Promise.all(otherGhosts.map((g) => g.intent.join(room_id)));
+            return this.handleMessageEvent(event, puppet.teamId);
         }
-        return this.handleMessageEvent(event, puppet.teamId);
+        log.warn(`No room found for ${event.channel} and not sure how to create one`);
+        return;
+    }
+
+    private async determineRoomName(chan: ConversationsInfo, otherGhosts: SlackGhost[],
+                                    puppet: PuppetEntry, client: WebClient): Promise<string|undefined> {
+        if (chan.is_mpim) {
+            return undefined; // allow the client to decide.
+        }
+        if (otherGhosts.length) {
+            return await otherGhosts[0].getDisplayname(client);
+        }
+        // No other ghosts, leave it undefined.
     }
 }
