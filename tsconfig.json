@@ -6,6 +6,7 @@
     "outDir": "./lib",
     "rootDir": "./src",
     "strict": true,
+    "incremental": true,
     "noImplicitAny": false,
   },
   "include": [
