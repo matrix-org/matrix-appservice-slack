@@ -657,7 +657,7 @@ export class Main {
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
         await this.datastore.upsertRoom(room);
-        await slackGhost.intent.joinRoom(roomId);
+        await slackGhost.intent.join(roomId);
     }
 
     public async onMatrixAdminMessage(ev) {
