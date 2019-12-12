@@ -203,12 +203,9 @@ export class SlackRTMHandler extends SlackEventHandler {
             return this.handleMessageEvent(event, puppet.teamId);
         }
 
-        // This could be a new private room, check in on it.
-        if (this.main.teamSyncer && chanInfo.channel.is_group) {
-            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
-            return this.handleMessageEvent(event, puppet.teamId);
-        }
-        if (chanInfo.channel.is_im || chanInfo.channel.is_mpim) {
+        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
+
+        if (isIm) {
             const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
             const ghosts = await Promise.all(channelMembersRes.members.map(
                 // tslint:disable-next-line: no-any
@@ -243,6 +240,9 @@ export class SlackRTMHandler extends SlackEventHandler {
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);
             await Promise.all(otherGhosts.map((g) => g.intent.join(room_id)));
+            return this.handleMessageEvent(event, puppet.teamId);
+        } else if (this.main.teamSyncer && chanInfo.channel.is_group) {
+            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
             return this.handleMessageEvent(event, puppet.teamId);
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);
