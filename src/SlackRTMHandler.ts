@@ -208,14 +208,14 @@ export class SlackRTMHandler extends SlackEventHandler {
             await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
             return this.handleMessageEvent(event, puppet.teamId);
         }
-
-        const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
-        const ghosts = await Promise.all(channelMembersRes.members.map(
-            // tslint:disable-next-line: no-any
-            (id) => this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId)),
-        );
-        const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
         if (chanInfo.channel.is_im || chanInfo.channel.is_mpim) {
+            const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
+            const ghosts = await Promise.all(channelMembersRes.members.map(
+                // tslint:disable-next-line: no-any
+                (id) => this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId)),
+            );
+            const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
+
             log.info(`Creating new DM room for ${event.channel}`);
             const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId)!;
             const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
@@ -246,6 +246,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             return this.handleMessageEvent(event, puppet.teamId);
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);
+        log.info("Failing channel info:", chanInfo.channel);
         return;
     }
 
