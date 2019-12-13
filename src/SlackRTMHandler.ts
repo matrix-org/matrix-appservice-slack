@@ -248,7 +248,8 @@ export class SlackRTMHandler extends SlackEventHandler {
             await this.main.datastore.upsertRoom(room);
             await Promise.all(otherGhosts.map((g) => g.intent.join(room_id)));
             return this.handleMessageEvent(event, puppet.teamId);
-        } else if (this.main.teamSyncer && chanInfo.channel.is_group) {
+        } else if (this.main.teamSyncer) {
+            // A private channel may not have is_group set if it's an older channel.
             await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
             return this.handleMessageEvent(event, puppet.teamId);
         }
