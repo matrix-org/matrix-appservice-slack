@@ -66,9 +66,10 @@ export class SlackRTMHandler extends SlackEventHandler {
     private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
         const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.
-        chanInfo.channel.is_private = chanInfo.channel.is_im || chanInfo.channel.is_group;
-        if (chanInfo.channel.is_channel || !chanInfo.channel.is_private) {
+        chanInfo.channel.is_private = chanInfo.channel.is_private || chanInfo.channel.is_im || chanInfo.channel.is_group;
+        if (!chanInfo.channel.is_private) {
             // Never forward messages on from the users workspace if it's public
+            return;
         }
         // Sneaky hack to set the domain on messages.
         e.team_id = teamInfo.id;
@@ -203,14 +204,20 @@ export class SlackRTMHandler extends SlackEventHandler {
             return this.handleMessageEvent(event, puppet.teamId);
         }
 
+        if (!event.user) {
+            log.debug("No `user` field on event, not creating a new room");
+            return;
+        }
+
         const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
         if (isIm) {
             const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
-            const ghosts = await Promise.all(channelMembersRes.members.map(
+            const ghosts = (await Promise.all(channelMembersRes.members.map(
                 // tslint:disable-next-line: no-any
-                (id) => this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId)),
-            );
+                async (id) =>
+                    id ? this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId) : null,
+            ))).filter((g) => g !== null) as SlackGhost[];
             const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
 
             log.info(`Creating new DM room for ${event.channel}`);
@@ -247,7 +254,6 @@ export class SlackRTMHandler extends SlackEventHandler {
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);
         log.info("Failing channel info:", chanInfo.channel);
-        return;
     }
 
     private async determineRoomName(chan: ConversationsInfo, otherGhosts: SlackGhost[],
