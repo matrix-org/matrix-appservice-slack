@@ -1,0 +1,1 @@
+Create private rooms on demand if it doesn't exist

@@ -198,7 +198,7 @@ export class TeamSyncer {
                 slack_team_id: teamId,
                 slack_channel_id: channelItem.id,
                 is_private: true,
-            }, undefined, undefined);
+            }, undefined, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
             await this.main.datastore.upsertRoom(room);
@@ -232,10 +232,6 @@ export class TeamSyncer {
         return;
     }
 
-    private async preSyncChannel() {
-
-    }
-
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
@@ -264,6 +260,9 @@ export class TeamSyncer {
 
         try {
             // Always sync membership for rooms.
+            if (channelItem.is_private === false) {
+                await this.ensureBotInChannel(channelItem.id, teamId);
+            }
             await this.syncMembershipForRoom(roomId, channelItem.id, teamId, client);
         } catch (ex) {
             log.error("Failed to sync membership to room:", ex);
@@ -464,5 +463,36 @@ export class TeamSyncer {
             }
         }
         return matrixIds;
+    }
+
+    private async ensureBotInChannel(channel: string, teamId: string) {
+        log.debug(`Ensuring the bot is in ${channel}`);
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!team) {
+            throw Error("Team not found");
+        }
+        const botClient = await this.main.clientFactory.getTeamClient(teamId);
+        const memberList = await botClient.conversations.members({channel, limit: 1000}) as ConversationsMembersResponse;
+        if (memberList.members.includes(team.user_id)) {
+            log.debug(`Already in ${channel}`);
+            return;
+        }
+        // User NOT in room, let's try to invite them.
+        let client: {client: WebClient, id: string}|null = null;
+        for (const member of (memberList.members)) {
+            client = await this.main.clientFactory.getClientForSlackUser(teamId, member);
+            if (client) {
+                break;
+            }
+        }
+        if (!client) {
+            throw Error("Could not find a client to invite the user");
+        }
+        try {
+            await client.client.conversations.invite({ channel, users: team.user_id });
+            log.info(`Bot joined to ${channel}`);
+        } catch (ex) {
+            throw Error("Failed to invite the bot to the room");
+        }
     }
 }
