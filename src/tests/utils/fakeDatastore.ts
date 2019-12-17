@@ -9,11 +9,11 @@ export class FakeDatastore implements Datastore {
     }
 
     public async upsertUser(user: SlackGhost): Promise<void> {
-        throw Error("Method not implemented.");
+        this.usersInTeam.push(user.toEntry());
     }
 
     public async getUser(id: string): Promise<UserEntry | null> {
-        throw Error("Method not implemented.");
+        return this.usersInTeam.find((i) => i.id === id) || null;
     }
 
     public async getMatrixUser(userId: string): Promise<any> {
