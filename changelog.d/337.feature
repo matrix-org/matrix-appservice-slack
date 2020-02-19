@@ -1,1 +1,0 @@
-Add `whoami` user command.

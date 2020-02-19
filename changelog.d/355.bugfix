@@ -1,1 +1,0 @@
-Fix issue where slack bot actions may fail (such as listing channels). Also increase the number of channels returned when provisioning

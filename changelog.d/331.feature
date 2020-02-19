@@ -1,1 +1,0 @@
-Add ability to sync Slack channels and users automatically to Matrix

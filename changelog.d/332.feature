@@ -1,1 +1,0 @@
-Sync Slack membership changes to Matrix

@@ -1,4 +1,35 @@
- 1.0.2 (2019-11-13)
+ 1.1.0-rc1 (2020-02-19)
+===================
+
+Features
+--------
+
+- Add ability to sync Slack channels and users automatically to Matrix ([\#331](https://github.com/matrix-org/matrix-appservice-slack/issues/331))
+- Sync Slack membership changes to Matrix ([\#332](https://github.com/matrix-org/matrix-appservice-slack/issues/332))
+- Add `whoami` user command. ([\#337](https://github.com/matrix-org/matrix-appservice-slack/issues/337))
+- Create private rooms on demand if it doesn't exist ([\#340](https://github.com/matrix-org/matrix-appservice-slack/issues/340))
+
+
+Bugfixes
+--------
+
+- Fix edits from Matrix appearing as fallback text. ([\#324](https://github.com/matrix-org/matrix-appservice-slack/issues/324))
+- Fix issue where Slack edits would sometimes not appear as Matrix edits. ([\#325](https://github.com/matrix-org/matrix-appservice-slack/issues/325))
+- Fix issue where messages from the bot would be interpreted as commands. ([\#329](https://github.com/matrix-org/matrix-appservice-slack/issues/329))
+- Fix matrix replies not showing up on slack ([\#336](https://github.com/matrix-org/matrix-appservice-slack/issues/336))
+- Allow webhook/oauth/event requests with prefixes. ([\#339](https://github.com/matrix-org/matrix-appservice-slack/issues/339))
+- Fix issue where slack bot actions may fail (such as listing channels). Also increase the number of channels returned when provisioning ([\#355](https://github.com/matrix-org/matrix-appservice-slack/issues/355))
+
+
+Internal Changes
+----------------
+
+- SIGTERM now causes a clean exit ([\#330](https://github.com/matrix-org/matrix-appservice-slack/issues/330))
+- Move ghost handing to `SlackGhostStore` ([\#335](https://github.com/matrix-org/matrix-appservice-slack/issues/335))
+- New installations should use a "Classic Slack app" rather than a new Slack App for OAuth. More details in README.md ([\#356](https://github.com/matrix-org/matrix-appservice-slack/issues/356))
+
+
+1.0.2 (2019-11-13)
 ===================
 
 Features
