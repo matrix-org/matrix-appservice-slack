@@ -18,6 +18,8 @@ Hosting this bridge requires you to have a Matrix homeserver. In order to
 connect a Slack Workspace to your bridge, you will need permission to add bots
 to it. You will also need Node.JS 10+ or Docker on your system.
 
+**NOTE:** Slack has introduced a new type of 'Slack App', which is not compatible with this bridge. Instead, you will need a "Classic Slack App" for this bridge. You can set one up by going to [this page](https://api.slack.com/apps?new_classic_app=1). Existing installations will not need to modify their setups, as all pre-existing Slack apps became Classic Slack apps. We are looking to make the bridge compatible with both types, but in the meantime please only use Classic Slack Apps.
+
 ## Setting up
 
 See [the getting started docs](https://matrix-appservice-slack.rtfd.io/en/stable/getting_started)
