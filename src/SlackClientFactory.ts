@@ -222,7 +222,6 @@ export class SlackClientFactory {
             log.debug("Created new team client for", teamInfo.team.name);
             return { slackClient, team: teamInfo.team, auth, user };
         } catch (ex) {
-            console.log(ex);
             throw Error("Could not create team client: " + ex.data.error);
         }
     }

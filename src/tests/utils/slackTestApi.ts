@@ -42,7 +42,6 @@ export class SlackTestApi {
         let body = "";
         req.on("data", (chunk) => body += chunk);
         req.on("end", () => {
-            console.log(req.method, req.url);
             const query = qs.decode(body);
             if (req.method === "POST" && req.url === "/team.info") {
                 this.onTeamInfo(query, res);
@@ -112,8 +111,8 @@ export class SlackTestApi {
                     is_bot: true,
                     profile: {
                         bot_id: "12345",
-                    }
-                }
+                    },
+                },
             } as UsersInfoResponse));
         } else {
             res.write(JSON.stringify({
