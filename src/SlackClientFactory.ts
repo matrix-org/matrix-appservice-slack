@@ -64,16 +64,25 @@ export class SlackClientFactory {
         if (this.teamClients.has(teamId)) {
             const set = this.teamClients.get(teamId);
             // Check the auth on the client every AUTH_INTERVAL_MS, and if it fails, refetch the team.
-            if (set && Date.now() >= AUTH_INTERVAL_MS) {
+            if (set && Date.now() - set.lastTestTs < AUTH_INTERVAL_MS) {
+                // set has not expired
+                return set.client;
+            } else if (set) {
+                // set has expired
                 try {
-                    await set.client.auth.test();
+                    const testRes = await set.client.auth.test();
+                    if (!testRes.ok) {
+                        throw Error(testRes.error);
+                    }
+                    set.lastTestTs = Date.now();
+                    this.teamClients.set(teamId, set);
+                    return set.client;
                 } catch (ex) {
                     // Fall through.
                     log.error(`Failed to authenticate ${teamId}: ${ex}`);
                 }
-            } else if (set) {
-                return set.client;
             }
+            // no set, or invalid client
         }
 
         const teamEntry = await this.datastore.getTeam(teamId);
