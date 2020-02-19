@@ -29,6 +29,7 @@ function createFactory() {
     const calls: string[] = [];
     const factory = new SlackClientFactory(fakeDatastore, {
         slack_client_opts: testApi.opts,
+        auth_interval_ms: 1,
         }
     , (method: string) => {
         calls.push(method);
@@ -113,6 +114,27 @@ describe("SlackClientFactory", () => {
         } as TeamEntry);
         expect(calls).to.be.empty;
         try {
+            await factory.getTeamClient("faketeam");
+            throw Error("Call didn't throw as expected");
+        } catch (ex) {
+            expect(ex.message).to.equal("Could not create team client: Team not allowed for test");
+            expect(ds.teams[0].status).to.equal("bad_auth");
+        }
+    });
+
+    it("should create a team client, and then reauthenticate after some time", async () => {
+        const { factory, calls, ds } = createFactory();
+        ds.teams.push({
+            id: "faketeam",
+            status: "ok",
+            bot_token: "one_time_token",
+        } as TeamEntry);
+        expect(calls).to.be.empty;
+        testApi.allowAuthFor.add("one_time_token");
+        await factory.getTeamClient("faketeam");
+        testApi.allowAuthFor.delete("one_time_token");
+        try {
+            await new Promise((res) => setTimeout(res, 2));
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {

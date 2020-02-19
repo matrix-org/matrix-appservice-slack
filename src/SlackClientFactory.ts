@@ -7,18 +7,29 @@ const webLog = Logging.get("slack-api");
 const log = Logging.get("SlackClientFactory");
 
 /**
+ * How long should we wait before checking if a token is still valid.
+ */
+const AUTH_INTERVAL_MS = 5 * 60000;
+
+/**
  * This class holds clients for slack teams and individuals users
  * who are puppeting their accounts.
  */
 
 interface RequiredConfigOptions {
     slack_client_opts?: WebClientOptions;
+    auth_interval_ms?: number;
+}
+
+interface StoredClient {
+    lastTestTs: number;
+    client: WebClient;
 }
 
 export class SlackClientFactory {
-    private teamClients: Map<string, WebClient> = new Map();
+    private teamClients: Map<string, StoredClient> = new Map();
     private puppets: Map<string, {client: WebClient, id: string}> = new Map();
-    constructor(private datastore: Datastore, private config?: RequiredConfigOptions, private onRemoteCall?: (method: string) => void) {
+    constructor(private datastore: Datastore, private config: RequiredConfigOptions = {}, private onRemoteCall?: (method: string) => void) {
 
     }
 
@@ -52,10 +63,33 @@ export class SlackClientFactory {
      */
     public async getTeamClient(teamId: string): Promise<WebClient> {
         if (this.teamClients.has(teamId)) {
-            return this.teamClients.get(teamId)!;
+            const set = this.teamClients.get(teamId);
+            // Check the auth on the client every AUTH_INTERVAL_MS, and if it fails, refetch the team.
+            if (set && Date.now() - set.lastTestTs < (this.config.auth_interval_ms || AUTH_INTERVAL_MS)) {
+                // set has not expired
+                return set.client;
+            } else if (set) {
+                // set has expired
+                try {
+                    const testRes = await set.client.auth.test();
+                    if (!testRes.ok) {
+                        throw Error(testRes.error);
+                    }
+                    set.lastTestTs = Date.now();
+                    this.teamClients.set(teamId, set);
+                    return set.client;
+                } catch (ex) {
+                    // Fall through.
+                    log.error(`Failed to authenticate ${teamId}: ${ex}`);
+                }
+            }
+            // no set, or invalid client
         }
+
         const teamEntry = await this.datastore.getTeam(teamId);
         if (!teamEntry) {
+            // We might have cached this in the past, throw it away.
+            this.teamClients.delete(teamId);
             throw Error(`No team found in store for ${teamId}`);
         }
         // Check that the team is actually usable.
@@ -70,7 +104,10 @@ export class SlackClientFactory {
             teamEntry.bot_id = user.user!.profile!.bot_id!;
             teamEntry.user_id = user.user!.id!;
             teamEntry.status = "ok";
-            this.teamClients.set(teamId, slackClient);
+            this.teamClients.set(teamId, {
+                client: slackClient,
+                lastTestTs: Date.now(),
+            });
             return slackClient;
         } catch (ex) {
             log.warn(`Failed to authenticate for ${teamId}`, ex);
@@ -155,7 +192,7 @@ export class SlackClientFactory {
     }
 
     private async createTeamClient(token: string) {
-        const opts = this.config ? this.config.slack_client_opts : undefined;
+        const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {
                 getLevel: () => LogLevel.DEBUG,

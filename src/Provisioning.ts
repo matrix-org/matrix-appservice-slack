@@ -151,25 +151,29 @@ commands.channels = new Command({
             throw Error("No team token for this team_id");
         }
         const cli = await main.clientFactory.getTeamClient(teamId);
-        const response = (await cli.conversations.list({
-            exclude_archived: true,
-            limit: 100, // TODO: Pagination
-            types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
-        })) as ConversationsListResponse;
-        if (!response.ok) {
-            log.error(`Failed trying to fetch channels for ${teamId}.`, response.error);
+        try {
+            const response = (await cli.conversations.list({
+                exclude_archived: true,
+                limit: 1000, // TODO: Pagination
+                types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
+            })) as ConversationsListResponse;
+            if (!response.ok) {
+                throw Error(response.error);
+            }
+
+            res.json({
+                channels: response.channels.map((chan) => ({
+                    // We deliberately filter out extra information about a channel here
+                    id: chan.id,
+                    name: chan.name,
+                    purpose: chan.purpose,
+                    topic: chan.topic,
+                })),
+            });
+        } catch (ex) {
+            log.error(`Failed trying to fetch channels for ${teamId} ${ex}.`);
             res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
-            return;
         }
-        res.json({
-            channels: response.channels.map((chan) => ({
-                // We deliberately filter out extra information about a channel here
-                id: chan.id,
-                name: chan.name,
-                purpose: chan.purpose,
-                topic: chan.topic,
-            })),
-        });
     },
 });
 
