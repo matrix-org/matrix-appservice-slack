@@ -18,6 +18,7 @@ const AUTH_INTERVAL_MS = 5 * 60000;
 
 interface RequiredConfigOptions {
     slack_client_opts?: WebClientOptions;
+    auth_interval_ms?: number;
 }
 
 interface StoredClient {
@@ -28,7 +29,7 @@ interface StoredClient {
 export class SlackClientFactory {
     private teamClients: Map<string, StoredClient> = new Map();
     private puppets: Map<string, {client: WebClient, id: string}> = new Map();
-    constructor(private datastore: Datastore, private config?: RequiredConfigOptions, private onRemoteCall?: (method: string) => void) {
+    constructor(private datastore: Datastore, private config: RequiredConfigOptions = {}, private onRemoteCall?: (method: string) => void) {
 
     }
 
@@ -64,7 +65,7 @@ export class SlackClientFactory {
         if (this.teamClients.has(teamId)) {
             const set = this.teamClients.get(teamId);
             // Check the auth on the client every AUTH_INTERVAL_MS, and if it fails, refetch the team.
-            if (set && Date.now() - set.lastTestTs < AUTH_INTERVAL_MS) {
+            if (set && Date.now() - set.lastTestTs < (this.config.auth_interval_ms || AUTH_INTERVAL_MS)) {
                 // set has not expired
                 return set.client;
             } else if (set) {
@@ -191,7 +192,7 @@ export class SlackClientFactory {
     }
 
     private async createTeamClient(token: string) {
-        const opts = this.config ? this.config.slack_client_opts : undefined;
+        const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {
                 getLevel: () => LogLevel.DEBUG,
@@ -221,6 +222,7 @@ export class SlackClientFactory {
             log.debug("Created new team client for", teamInfo.team.name);
             return { slackClient, team: teamInfo.team, auth, user };
         } catch (ex) {
+            console.log(ex);
             throw Error("Could not create team client: " + ex.data.error);
         }
     }
