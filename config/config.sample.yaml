@@ -99,3 +99,6 @@ team_sync:
   #     alias_prefix: "slack_"
   #   users:
   #     enabled: true
+
+provisioning:
+  enabled: true
