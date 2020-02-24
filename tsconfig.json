@@ -8,6 +8,7 @@
     "strict": true,
     "incremental": true,
     "noImplicitAny": false,
+    "experimentalDecorators": true,
   },
   "include": [
     "src/**/*"

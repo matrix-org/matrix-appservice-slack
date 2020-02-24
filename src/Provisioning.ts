@@ -23,87 +23,77 @@ import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
 
 const log = Logging.get("Provisioning");
 
-type CommandFunc = (main: Main, req: Request, res: Response, ...params: string[]) => void|Promise<void>;
-export const commands: {[verb: string]: Command} = {};
+interface DecoratedCommandFunc {
+    (req: Request, res: Response, ...params: string[]): void|Promise<void>;
+    params: Param[];
+}
 
 type Param = string | { param: string, required: boolean};
+type Verbs = "getbotid"|"authurl"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
-export class Command {
-    private params: Param[];
-    private func: CommandFunc;
-    constructor(opts: {params: Param[], func: CommandFunc}) {
-        this.params = opts.params;
-        this.func = opts.func;
+// Decorator
+function command(...params: Param[]) {
+    return (target: any, propertyKey: string) => {
+        target[propertyKey].params = params;
+    };
+}
+
+export class Provisioner {
+    // tslint:disable-next-line: no-any
+    constructor(private main: Main, private bridge: any) { }
+
+    public addAppServicePath() {
+        this.bridge.addAppServicePath({
+            handler: async (req: Request, res: Response) => {
+                const verb = req.params.verb;
+                await this.handleProvisioningRequest(verb as Verbs, req, res);
+            },
+            method: "POST",
+            path: "/_matrix/provision/:verb",
+        });
     }
 
-    public async run(main: Main, req: Request, res: Response) {
+    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response) {
+        const provisioningCommand = this[verb] as DecoratedCommandFunc;
+        if (!provisioningCommand || !provisioningCommand.params) {
+            return res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
+        }
+
         const body = req.body;
-        const args: [Main, Request, Response, ...string[]] = [main, req, res];
-        for (const param of this.params) {
+        const args: [Request, Response, ...string[]] = [req, res];
+        for (const param of provisioningCommand.params) {
             const paramName = typeof(param) === "string" ? param : param.param;
             const paramRequired = typeof(param) === "string" ? true : param.required;
             if (!(paramName in body) && paramRequired) {
-                res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
-                return;
+                return res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
             }
 
             args.push(body[paramName]);
         }
 
         try {
-            await this.func.apply(this, args);
+            return await provisioningCommand.call(this, ...args);
         } catch (err) {
             log.error("Provisioning command threw an error:", err);
             res.status(err.code || HTTP_CODES.SERVER_ERROR).json({error: err.text || err.message || err});
         }
     }
-}
 
-export async function handle(main: Main, verb: string, req: Request, res: Response) {
-    const prov = commands[verb];
-
-    if (!prov) {
-        res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
-        return;
+    @command()
+    private getbotid(_, res) {
+        res.json({bot_user_id: this.main.botUserId});
     }
-    try {
-        await prov.run(main, req, res);
-    } catch (e) {
-        log.error("Provisioning command failed:", e);
-        res.status(HTTP_CODES.SERVER_ERROR).json({error: "Provisioning command failed " + e});
-    }
-}
 
-export function addAppServicePath(bridge: Bridge, main: Main) {
-    bridge.addAppServicePath({
-        handler: async (req: Request, res: Response) => {
-            const verb = req.params.verb;
-            log.info("Received a _matrix/provision request for " + verb);
-            await handle(main, verb, req, res);
-        },
-        method: "POST",
-        path: "/_matrix/provision/:verb",
-    });
-}
-
-commands.getbotid = new Command({
-    params: [],
-    func(main, req, res) {
-        res.json({bot_user_id: main.botUserId});
-    },
-});
-
-commands.authurl = new Command({
-    params: ["user_id", { param: "puppeting", required: false}],
-    func(main, req, res, userId, puppeting) {
-        if (!main.oauth2) {
+    @command("user_id", { param: "puppeting", required: false})
+    private authurl(_, res, userId, puppeting) {
+        if (!this.main.oauth2) {
             res.status(HTTP_CODES.CLIENT_ERROR).json({
                 error: "OAuth2 not configured on this bridge",
             });
             return;
         }
-        const token = main.oauth2.getPreauthToken(userId);
-        const authUri = main.oauth2.makeAuthorizeURL(
+        const token = this.main.oauth2.getPreauthToken(userId);
+        const authUri = this.main.oauth2.makeAuthorizeURL(
             token,
             token,
             puppeting === "true",
@@ -111,33 +101,29 @@ commands.authurl = new Command({
         res.json({
             auth_uri: authUri,
         });
-    },
-});
+    }
 
-commands.logout = new Command({
-    params: ["user_id", "slack_id"],
-    async func(main, req, res, userId, slackId) {
-        if (!main.oauth2) {
+    @command("user_id", "slack_id")
+    private async logout(req, res, userId, slackId) {
+        if (!this.main.oauth2) {
             res.status(HTTP_CODES.NOT_FOUND).json({
                 error: "OAuth2 not configured on this bridge",
             });
             return;
         }
-        let matrixUser = await main.datastore.getMatrixUser(userId);
+        let matrixUser = await this.main.datastore.getMatrixUser(userId);
         matrixUser = matrixUser ? matrixUser : new MatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
         delete accounts[slackId];
         matrixUser.set("accounts", accounts);
-        await main.datastore.storeMatrixUser(matrixUser);
+        await this.main.datastore.storeMatrixUser(matrixUser);
         log.info(`Removed account ${slackId} from ${slackId}`);
-    },
-});
+    }
 
-commands.channels = new Command({
-    params: ["user_id", "team_id"],
-    async func(main, req, res, userId, teamId) {
+    @command("user_id", "team_id")
+    private async channels(req, res, userId, teamId) {
         log.debug(`${userId} for ${teamId} requested their channels`);
-        const matrixUser = await main.datastore.getMatrixUser(userId);
+        const matrixUser = await this.main.datastore.getMatrixUser(userId);
         const isAllowed = matrixUser !== null &&
             Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
                 acct.team_id === teamId,
@@ -146,11 +132,11 @@ commands.channels = new Command({
             res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
             throw undefined;
         }
-        const team = await main.datastore.getTeam(teamId);
+        const team = await this.main.datastore.getTeam(teamId);
         if (team === null) {
             throw Error("No team token for this team_id");
         }
-        const cli = await main.clientFactory.getTeamClient(teamId);
+        const cli = await this.main.clientFactory.getTeamClient(teamId);
         try {
             const response = (await cli.conversations.list({
                 exclude_archived: true,
@@ -174,14 +160,12 @@ commands.channels = new Command({
             log.error(`Failed trying to fetch channels for ${teamId} ${ex}.`);
             res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
         }
-    },
-});
+    }
 
-commands.teams = new Command({
-    params: ["user_id"],
-    async func(main, req, res, userId) {
+    @command("user_id")
+    private async teams(req, res, userId) {
         log.debug(`${userId} requested their teams`);
-        const matrixUser = await main.datastore.getMatrixUser(userId);
+        const matrixUser = await this.main.datastore.getMatrixUser(userId);
         if (matrixUser === null) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
             return;
@@ -189,7 +173,7 @@ commands.teams = new Command({
         const accounts = matrixUser.get("accounts");
         const results = await Promise.all(Object.keys(accounts).map(async (slackId) => {
             const account = accounts[slackId];
-            return main.datastore.getTeam(account.team_id).then(
+            return this.main.datastore.getTeam(account.team_id).then(
                 (team) => ({team, slack_id: slackId}),
             );
         }));
@@ -199,19 +183,17 @@ commands.teams = new Command({
             slack_id: account.slack_id,
         }));
         res.json({ teams });
-    },
-});
+    }
 
-commands.accounts = new Command({
-    params: ["user_id"],
-    async func(main, _, res, userId) {
+    @command("user_id")
+    private async accounts(_, res, userId) {
         log.debug(`${userId} requested their puppeted accounts`);
-        const allPuppets = await main.datastore.getPuppetedUsers();
+        const allPuppets = await this.main.datastore.getPuppetedUsers();
         const accts = allPuppets.filter((p) => p.matrixId === userId);
         // tslint:disable-next-line: no-any
         const accounts = await Promise.all(accts.map(async (acct: any) => {
             delete acct.token;
-            const client = await main.clientFactory.getClientForUser(acct.teamId, acct.matrixId);
+            const client = await this.main.clientFactory.getClientForUser(acct.teamId, acct.matrixId);
             if (client) {
                 try {
                     const identity = (await client.auth.test()) as AuthTestResponse;
@@ -227,36 +209,33 @@ commands.accounts = new Command({
             return acct;
         }));
         res.json({ accounts });
-    },
-});
+    }
 
-commands.removeaccount = new Command({
-    params: ["user_id", "team_id"],
-    async func(main, _, res, userId, teamId) {
+    @command("user_id", "team_id")
+    private async removeaccount(_, res, userId, teamId) {
         log.debug(`${userId} is removing their account on ${teamId}`);
-        const isLast = (await main.datastore.getPuppetedUsers()).filter((t) => t.teamId).length < 2;
+        const isLast = (await this.main.datastore.getPuppetedUsers()).filter((t) => t.teamId).length < 2;
         if (isLast) {
             log.warn("This is the last user on the workspace which means we will lose access to the team token!");
         }
-        const client = await main.clientFactory.getClientForUser(teamId, userId);
+        const client = await this.main.clientFactory.getClientForUser(teamId, userId);
         if (client) {
             await client.auth.revoke();
         }
-        await main.datastore.removePuppetTokenByMatrixId(teamId, userId);
+        await this.main.datastore.removePuppetTokenByMatrixId(teamId, userId);
         res.json({ });
-    },
-});
-commands.getlink = new Command({
-    params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrixRoomId, userId) {
-        const room = main.rooms.getByMatrixRoomId(matrixRoomId);
+    }
+
+    @command("matrix_room_id", "user_id")
+    private async getlink(req, res, matrixRoomId, userId) {
+        const room = this.main.rooms.getByMatrixRoomId(matrixRoomId);
         if (!room) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "Link not found"});
             return;
         }
 
         log.info(`Need to enquire if ${userId} is allowed get links for ${matrixRoomId}`);
-        const allowed = await main.checkLinkPermission(matrixRoomId, userId);
+        const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
             throw {
                 code: HTTP_CODES.FORBIDDEN,
@@ -280,13 +259,13 @@ commands.getlink = new Command({
         let stordTeamExists = room.SlackTeamId !== undefined;
 
         if (room.SlackTeamId) {
-            stordTeamExists = (await main.datastore.getTeam(room.SlackTeamId)) !== null;
+            stordTeamExists = (await this.main.datastore.getTeam(room.SlackTeamId)) !== null;
         }
 
-        if (main.oauth2 && !stordTeamExists) {
+        if (this.main.oauth2 && !stordTeamExists) {
             // We don't have an auth token but we do have the ability
             // to ask for one
-            authUri = main.oauth2.makeAuthorizeURL(
+            authUri = this.main.oauth2.makeAuthorizeURL(
                 room,
                 room.InboundId,
             );
@@ -294,7 +273,7 @@ commands.getlink = new Command({
 
         res.json({
             auth_uri: authUri,
-            inbound_uri: main.getInboundUrlForRoom(room),
+            inbound_uri: this.main.getInboundUrlForRoom(room),
             isWebhook: room.SlackWebhookUri !== undefined,
             matrix_room_id: matrixRoomId,
             slack_channel_id: room.SlackChannelId,
@@ -303,16 +282,14 @@ commands.getlink = new Command({
             status,
             team_id: room.SlackTeamId,
         });
-    },
-});
+    }
 
-commands.link = new Command({
-    params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrixRoomId, userId) {
+    @command("matrix_room_id", "user_id")
+    private async link(req, res, matrixRoomId, userId) {
         log.info(`Need to enquire if ${userId} is allowed to link ${matrixRoomId}`);
 
         // Ensure we are in the room.
-        await main.botIntent.join(matrixRoomId);
+        await this.main.botIntent.join(matrixRoomId);
 
         const params = req.body;
         const opts = {
@@ -324,19 +301,19 @@ commands.link = new Command({
         };
 
         // Check if the user is in the team.
-        if (opts.team_id && !(await main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
+        if (opts.team_id && !(await this.main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
             return Promise.reject({
                 code: HTTP_CODES.FORBIDDEN,
                 text: `${userId} is not in this team.`,
             });
         }
-        if (!(await main.checkLinkPermission(matrixRoomId, userId))) {
+        if (!(await this.main.checkLinkPermission(matrixRoomId, userId))) {
             return Promise.reject({
                 code: HTTP_CODES.FORBIDDEN,
                 text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             });
         }
-        const room = await main.actionLink(opts);
+        const room = await this.main.actionLink(opts);
         // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();
         if (status === "ready") {
@@ -350,28 +327,26 @@ commands.link = new Command({
         }
         log.info(`Result of link for ${matrixRoomId} -> ${status} ${opts.slack_channel_id}`);
         res.json({
-            inbound_uri: main.getInboundUrlForRoom(room),
+            inbound_uri: this.main.getInboundUrlForRoom(room),
             matrix_room_id: matrixRoomId,
             slack_channel_name: room.SlackChannelName,
             slack_webhook_uri: room.SlackWebhookUri,
             status,
         });
-    },
-});
+    }
 
-commands.unlink = new Command({
-    params: ["matrix_room_id", "user_id"],
-    async func(main, req, res, matrixRoomId, userId) {
+    @command("matrix_room_id", "user_id")
+    private async unlink(_, res, matrixRoomId, userId) {
         log.info(`Need to enquire if ${userId} is allowed to unlink ${matrixRoomId}`);
 
-        const allowed = await main.checkLinkPermission(matrixRoomId, userId);
+        const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
             throw {
                 code: HTTP_CODES.FORBIDDEN,
                 text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             };
         }
-        await main.actionUnlink({matrix_room_id: matrixRoomId});
+        await this.main.actionUnlink({matrix_room_id: matrixRoomId});
         res.json({});
-    },
-});
+    }
+}

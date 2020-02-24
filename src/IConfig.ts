@@ -79,4 +79,9 @@ export interface IConfig {
     team_sync?: {[teamId: string]: ITeamSyncConfig};
 
     dbdir: string;
+
+    provisioning?: {
+        enable: boolean;
+        auth_callbck: string;
+    }
 }

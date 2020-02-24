@@ -27,7 +27,7 @@ import { SlackGhost } from "./SlackGhost";
 import { MatrixUser } from "./MatrixUser";
 import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
-import * as Provisioning from "./Provisioning";
+import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
@@ -109,6 +109,8 @@ export class Main {
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
 
+    private provisioner: Provisioner;
+
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         if (config.oauth2) {
             if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
@@ -166,6 +168,8 @@ export class Main {
             ...bridgeStores,
             disableContext: true,
         });
+
+        this.provisioner = new Provisioner(this, this.bridge);
 
         if (!usingNeDB) {
             // If these are undefined in the constructor, default names
@@ -766,7 +770,12 @@ export class Main {
             path: "/health",
         });
 
-        Provisioning.addAppServicePath(this.bridge, this);
+        const provisioningEnabled = this.config.provisioning?.enable;
+
+        // Previously, this was always true.
+        if (provisioningEnabled === undefined ? true : provisioningEnabled) {
+            this.provisioner.addAppServicePath();
+        }
 
         // TODO(paul): see above; we had to defer this until now
         this.stateStorage = new StateLookup({
