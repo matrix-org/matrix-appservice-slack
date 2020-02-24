@@ -33,7 +33,7 @@ function createProvisioner(mainCfg?: any) {
 describe("Provisioning", () => {
     describe("commands.authurl", () => {
         it ("should not handle command with missing body parameters", async () => {
-            const { prov } = createProvisioner()
+            const { prov } = createProvisioner();
             const req = {
                 body: { },
             };

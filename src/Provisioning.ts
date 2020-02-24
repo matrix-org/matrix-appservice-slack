@@ -79,6 +79,11 @@ export class Provisioner {
         }
     }
 
+    private async userIsAllowedAction(actionVerb: "link"|"unlink"|"puppet") {
+        // Hit an endpoint, and wait for a response.
+
+    }
+
     @command()
     private getbotid(_, res) {
         res.json({bot_user_id: this.main.botUserId});
