@@ -56,7 +56,7 @@ ever stuck, you can post a question in the
    firewalls appropriately. This ports will be notated as `$MATRIX_PORT` in
    the remaining instructions.
 
-3. Create a `config.yaml` file for global configuration. There is a sample
+3. Create a `config/config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml`. You should copy and
    edit as appropriate. The required and optional values are flagged in the config.
 
@@ -78,7 +78,7 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
 
 6. Start the actual application service:
 
-    `$ npm start -- -c config.yaml -p $MATRIX_PORT`
+    `$ npm start -- -c config/config.yaml -p $MATRIX_PORT`
    or with docker:
    
     `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
