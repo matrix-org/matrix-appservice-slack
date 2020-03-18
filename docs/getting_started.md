@@ -78,7 +78,7 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
 
 6. Start the actual application service:
 
-    `$ npm start -- -c config.yaml -p $MATRIX_PORT`
+    `$ npm start -- -c config/config.yaml -p $MATRIX_PORT`
    or with docker:
    
     `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
