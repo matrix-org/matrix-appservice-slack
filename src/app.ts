@@ -30,7 +30,7 @@ const cli = new Cli({
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
         reg.setSenderLocalpart("slackbot");
-        reg.addRegexPattern("users", `@${config.username_prefix}.*`, true);
+        reg.addRegexPattern("users", `@${config.username_prefix}.*:${config.homeserver.server_name}`, true);
         callback(reg);
     },
     run(port: number, config: IConfig, registration: any) {
