@@ -49,11 +49,11 @@ ever stuck, you can post a question in the
 ## Setup
 
 1. Create a new Matrix room to act as the administration control room. Note its
-   internal room ID (EX: !abcdefg12345hijk:coolserver.com).
+   internal room ID (Example: !abcdefg12345hijk:coolserver.com).
 
 2. Decide on a spare local TCP port number to use. It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
-   firewalls appropriately. This ports will be notated as `$MATRIX_PORT` in
+   firewalls appropriately. This port will be notated as `$MATRIX_PORT` in
    the remaining instructions.
 
 3. Create a `config.yaml` file for global configuration. There is a sample
