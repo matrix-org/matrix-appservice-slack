@@ -29,7 +29,7 @@ This is the newer and recommended way to use the bridge.
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
 
-   2. Invite the Matrix bot user to the Matrix room you would like to bridge.
+   1. Invite the Matrix bot user to the Matrix room you would like to bridge.
 
        ```
        /invite @slackbot:my.server.here
@@ -38,7 +38,7 @@ This is the newer and recommended way to use the bridge.
        This is the same command used to invite the bot to the Admin Control Room. Note
        that you may have to wait for the Slackbot to accept the invitation.
 
-   3. Invite the Slack bot user to the Slack channel you would like to bridge.
+   1. Invite the Slack bot user to the Slack channel you would like to bridge.
 
        ```
        /invite @bot-user-name
@@ -49,7 +49,7 @@ This is the newer and recommended way to use the bridge.
        The channel id is the last argument in the url
        (`https://XXX.slack.com/messages/<channel id>/`)
 
-   4. Issue a ``link`` command in the administration control room with these
+   1. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
 
       ```
