@@ -13,7 +13,7 @@ permission on the bridge:
 ```sql
 CREATE DATABASE slack_bridge;
 CREATE USER slackbridge_user WITH PASSWORD 'somethingverysecret';
-GRANT ALL PRIVILEGES ON DATABASE "slack" to slackbridge_user;
+GRANT ALL PRIVILEGES ON DATABASE "slack_bridge" to slackbridge_user;
 ```
 
 You should then update the config with details about the new database.
