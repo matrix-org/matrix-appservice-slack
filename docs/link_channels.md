@@ -13,24 +13,26 @@ The Real Time Messaging (RTM) API is the newer and recommended way to use the br
 1. Add a custom app to your Slack team/workspace by visiting https://api.slack.com/apps
    and clicking on `Create New App`.
 
-2. Name the app & select the team/workspace this app will belong to.
+1. Name the app & select the team/workspace this app will belong to.
 
-3. Click on `bot users` and add a new bot user. We will use this account to bridge the
+1. Click on `Bots` and `Add Legacy Bot User`. We will use this account to bridge the
    the rooms.
 
-6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
-   You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
+1. Click on `Install App` in the sidebar and `Install App to Workspace`.
+
+1. Click on `OAuth & Permissions` in the sidebar and note the access tokens shown.
+   You will need the `Bot User OAuth Access Token` and if you want to bridge files and the
    `OAuth Access Token` whenever you link a room.
 
-7. For each channel you would like to bridge, perform the following steps:
+1. For each channel you would like to bridge, perform the following steps:
 
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
 
-   2. Invite the Matrix bot user to the Matrix channel you would like to bridge.
+   2. Invite the Matrix bot user to the Matrix room you would like to bridge.
 
        ```
-       /invite @Slackbot:my.server.here
+       /invite @slackbot:my.server.here
        ```
 
        This is the same command used to invite the bot to the Admin Control Room. Note
@@ -45,7 +47,7 @@ The Real Time Messaging (RTM) API is the newer and recommended way to use the br
        You will also need to determine the "channel ID" that Slack uses to identify
        the channel. Right-click your channel name in Slack and select "Copy Link".
        The channel id is the last argument in the url
-       (`https://XXX.Slack.com/messages/<channel id>/`)
+       (`https://XXX.slack.com/messages/<channel id>/`)
 
    4. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
