@@ -121,6 +121,9 @@ The bridge itself should now be running. Congrats!
 To actually use it, you will need to configure some linked channels, see
 [linking channels](link_channels.md).
 
+Once a Slack Workspace is connected, you can offer automatic hints on how
+to bridge existing and new channels by enabling [Workspace Sync](team_sync.md).
+
 ## Proxying
 
 If you want to host this bridge on a different server than your homeserver, you will have
