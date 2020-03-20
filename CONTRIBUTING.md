@@ -24,7 +24,7 @@ This project follows "git flow" semantics. In practice, this means:
  (We follow the same rules as the Synapse project for the last two steps)
 
 ## Coding notes
-The Slack bridge uses Typescript as it's language, which is then compiled into JavaScript using `npm run build`.
+The Slack bridge uses Typescript as its language, which is then compiled into JavaScript using `npm run build`.
 Developers should be aware that we are currently targetting Node 10, which means we can support any features from
 `ES2017`. The Typescript compiler should ensure you do not use unsupported features for the version of Node targetted.
  

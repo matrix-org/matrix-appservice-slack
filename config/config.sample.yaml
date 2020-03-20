@@ -78,27 +78,27 @@ enable_metrics: true
 # Sync team users and channels
 team_sync:
   # Entry for a single team
-  # TABCDEF:
+  # T0123ABCDEF:
   #   channels:
   #     enabled: true
-  #     # Channels to whitelist. If undefined, not used.
+  #     # Optional blacklist for channel ids. Trumps the whitelist.
+  #     # blacklist: ['CVCCPEY9X', 'C0108F9K37X']
+  #     # Optional whitelist for channel ids.
   #     # whitelist: []
-  #     # Channels to blacklist
-  #     # blacklist: []
-  #     # Prefix for aliases 
+  #     # Prefix for room aliases in Matrix
   #     # alias_prefix: "slack_"
   #   # Should sync *all* team users to Matrix
   #   users:
   #     enabled: true
   # Defaults for all other teams
-  # all:
-  #   channels:
-  #     enabled: true
-  #     whitelist: []
-  #     blacklist: []
-  #     alias_prefix: "slack_"
-  #   users:
-  #     enabled: true
+  all:
+    channels:
+      enabled: false
+  #   whitelist: []
+  #   blacklist: []
+  #   alias_prefix: "slack_"
+  users:
+    enabled: false
 
 provisioning:
   enabled: true
