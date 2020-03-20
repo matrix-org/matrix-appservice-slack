@@ -47,7 +47,7 @@ team_sync:
 
 If not all channels shall be replicated, one may define an optional blacklist or whitelist of channel ids. If both a blacklist and a whitelist are defined, the blacklist takes precedence.
 
-The display name of the Matrix room will be identical to the one in Slack. Use the optional key `alias_prefix` to prevent conflicts with existing Matrix room aliases. Given the example above, a channel `#general` would get the alias address TODO.
+The display name of the Matrix room will be identical to the one in Slack. Use the optional key `alias_prefix` to prevent conflicts with existing Matrix room aliases. Given the example above, a channel `#general` would get the alias address `#slack_general:your-homeserver.org`.
 
 ## For channel admins
 
