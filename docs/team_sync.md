@@ -3,11 +3,7 @@ Workspace Sync
 
 The term Team is synonymously used for a Slack Workspace.
 
-The configuration option `team_sync` allows to replicate channels and users from Slack to Matrix before a user writes a message.
-
-To have a consistent experience across both sides of the bridge, it is recommended to have this feature enabled.
-
-TODO: Why would you not have this enabled?
+The configuration option `team_sync` allows to replicate channels and users from Slack to Matrix before a user writes a message. To have a consistent experience across both sides of the bridge, it is recommended to have this feature enabled.
 
 ## Table of supported events
 
@@ -15,7 +11,10 @@ TODO: Why would you not have this enabled?
 |---|---|---|
 | A channel gets created | not replicated | the channel admin gets a message on how to bridge the channel |
 | A channel gets deleted | not replicated | immediately replicated |
-| User updates profile (e.g. Display name) | updated on their next message | immediately replicated |
+| A user joins a channel | added on their first message | immediately replicated |
+| A user leaves a channel | not replicated | immediately replicated |
+| A user's profile gets updated (e.g. Display name) | updated on their next message | immediately replicated |
+
 
 ## Configuration
 
