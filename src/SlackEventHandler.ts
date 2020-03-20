@@ -197,9 +197,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         this.main.incCounter("received_messages", {side: "remote"});
 
         if (event.type === "channel_join") {
-            await room.onSlackUserJoin(event.user, event.inviter!);
+            await room.onSlackUserJoin(event.user!, event.inviter!);
         } else if (event.type === "channel_leave") {
-            await room.onSlackUserLeft(event.user);
+            await room.onSlackUserLeft(event.user!);
         }
 
         const msg = Object.assign({}, event, {

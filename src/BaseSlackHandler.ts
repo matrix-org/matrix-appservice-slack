@@ -60,7 +60,7 @@ export interface ISlackEventMessageAttachment {
 
 export interface ISlackMessageEvent extends ISlackEvent {
     team_domain?: string;
-    user: string;
+    user?: string;
     user_id: string;
     inviter?: string;
     item?: {
