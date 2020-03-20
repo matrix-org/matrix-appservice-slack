@@ -18,8 +18,6 @@ import { Logging } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
-import { UserEntry } from "./datastore/Models";
-import { ConversationsMembersResponse } from "./SlackResponses";
 import * as escapeStringRegexp from "escape-string-regexp";
 
 const log = Logging.get("substitutions");
@@ -33,10 +31,6 @@ const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\
  */
 export function getFallbackForMissingEmoji(name): string {
     return `:${name}:`;
-}
-
-interface IDisplayMap {
-    [name: string]: string;
 }
 
 interface PillItem {
@@ -321,10 +315,10 @@ export default substitutions;
 /**
  * Replace plain text form of @displayname mentions with the slack mention syntax.
  *
- * @param {Main} main the toplevel main instance
- * @param {String} string The string to perform replacements on.
- * @param {String} room_id The room the message was sent in.
- * @return {String} The string with replacements performed.
+ * @param main the toplevel main instance
+ * @param string The string to perform replacements on.
+ * @param room_id The room the message was sent in.
+ * @return The string with replacements performed.
  */
 async function plainTextSlackMentions(main: Main, body: string, teamId: string) {
     let users = await main.datastore.getAllUsersForTeam(teamId);
