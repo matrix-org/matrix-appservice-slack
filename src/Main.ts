@@ -102,7 +102,6 @@ export class Main {
     private slackHookHandler?: SlackHookHandler;
     private slackRtm?: SlackRTMHandler;
 
-    // tslint:disable-next-line: no-any
     private metrics: PrometheusMetrics;
 
     private adminCommands = new AdminCommands(this);

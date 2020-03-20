@@ -18,8 +18,6 @@ import { expect } from "chai";
 import { constructHarness } from "../utils/harness";
 import { FakeDatastore } from "../utils/fakeDatastore";
 
-// tslint:disable: no-unused-expression no-any
-
 let harness: { main: Main };
 
 describe("AdminCommandTest", () => {
@@ -44,6 +42,7 @@ describe("AdminCommandTest", () => {
             },
             type: "m.room.message",
         });
+        // tslint:disable-next-line: no-unused-expression
         expect(called).to.be.false;
     });
 

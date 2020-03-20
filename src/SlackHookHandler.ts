@@ -137,7 +137,6 @@ export class SlackHookHandler extends BaseSlackHandler {
         const isUsingRtm = this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase());
         this.eventHandler.handle(
             // The event can take many forms.
-            // tslint:disable-next-line: no-any
             eventPayload.event as any,
             eventPayload.team_id,
             eventsResponse,
@@ -385,7 +384,6 @@ export class SlackHookHandler extends BaseSlackHandler {
      *     formatted as a float.
      */
     private async lookupMessage(channelID: string, timestamp: string, client: WebClient): Promise<{
-        // tslint:disable-next-line: no-any
         message: ISlackMessageEvent, content: Buffer|undefined}> {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.

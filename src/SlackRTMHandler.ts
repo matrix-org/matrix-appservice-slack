@@ -62,7 +62,6 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.debug(`Started RTM client for user ${key}`, team);
     }
 
-    // tslint:disable-next-line: no-any
     private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
         const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.
