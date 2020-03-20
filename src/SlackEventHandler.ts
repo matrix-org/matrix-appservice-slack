@@ -20,33 +20,43 @@ import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
 const log = Logging.get("SlackEventHandler");
 
+/**
+ * https://api.slack.com/events/channel_rename
+ */
 interface ISlackEventChannelRename extends ISlackEvent {
-    // https://api.slack.com/events/channel_rename
     id: string;
     name: string;
     created: number;
 }
 
+/**
+ * https://api.slack.com/events/team_domain_change
+ */
 interface ISlackEventTeamDomainChange extends ISlackEvent {
-    // https://api.slack.com/events/team_domain_change
     url: string;
     domain: string;
 }
 
+/**
+ * https://api.slack.com/events/reaction_added
+ */
 interface ISlackEventReaction extends ISlackEvent {
-    // https://api.slack.com/events/reaction_added
     reaction: string;
     item: ISlackMessage;
     user: string;
 }
 
+/**
+ * https://api.slack.com/events/user_typing
+ */
 interface ISlackEventUserTyping extends ISlackEvent {
-    // https://api.slack.com/events/user_typing
     user: string;
 }
 
+/**
+ * https://api.slack.com/events/channel_created
+ */
 interface ISlackEventChannelCreated {
-    // https://api.slack.com/events/channel_created
     type: string;
     channel: {
         id: string;
@@ -56,6 +66,10 @@ interface ISlackEventChannelCreated {
     };
 }
 
+/**
+ * A container for multiple event types which we only handle,
+ * if team_sync is enabled.
+ */
 interface ISlackTeamSyncEvent extends ISlackEvent {
     user?: ISlackUser;
 }
