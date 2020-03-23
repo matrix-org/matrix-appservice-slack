@@ -49,7 +49,6 @@ export interface ISlackEvent {
     type: string;
     channel: string;
     ts: string;
-    user?: string;
     bot_id?: string;
     team_domain?: string;
     user_id: string;
@@ -61,6 +60,7 @@ export interface ISlackEventMessageAttachment {
 
 export interface ISlackMessageEvent extends ISlackEvent {
     team_domain?: string;
+    user?: string;
     user_id: string;
     inviter?: string;
     item?: {
