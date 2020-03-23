@@ -48,6 +48,7 @@ const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
 const STARTUP_TEAM_INIT_CONCURRENCY = 10;
+export const METRIC_RECEIVED_MESSAGE = "received_messages";
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
 export interface ISlackTeam {
@@ -255,7 +256,7 @@ export class Main {
         this.metrics.addCounter({
             help: "count of received messages",
             labels: ["side"],
-            name: "received_messages",
+            name: METRIC_RECEIVED_MESSAGE,
         });
         this.metrics.addCounter({
             help: "count of sent messages",
@@ -426,7 +427,7 @@ export class Main {
         this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % RECENT_EVENTID_SIZE;
         recents[this.mostRecentEventIdIdx] = ev.event_id;
 
-        this.incCounter("received_messages", {side: "matrix"});
+        this.incCounter(METRIC_RECEIVED_MESSAGE, {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
 
         if (UserAdminRoom.IsAdminRoomInvite(ev, this.botUserId)) {

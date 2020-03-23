@@ -23,7 +23,7 @@ import { Logging } from "matrix-appservice-bridge";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { BaseSlackHandler, HTTP_CODES, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
-import { Main } from "./Main";
+import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
@@ -207,7 +207,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.warn("Ignoring message from unrecognised inbound ID: %s (%s.#%s)",
                 inboundId, params.team_domain, params.channel_name,
             );
-            this.main.incCounter("received_messages", {side: "remote"});
+            this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
             response.writeHead(HTTP_CODES.OK, {"Content-Type": "text/plain"});
             response.end();
@@ -262,7 +262,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
 
         // Only count received messages that aren't self-reflections
-        this.main.incCounter("received_messages", {side: "remote"});
+        this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
         if (!room.SlackClient) {
             // If we can't look up more details about the message

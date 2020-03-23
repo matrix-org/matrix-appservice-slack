@@ -16,7 +16,7 @@ limitations under the License.
 
 import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackUser } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
-import { Main } from "./Main";
+import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
 const log = Logging.get("SlackEventHandler");
 
@@ -162,12 +162,12 @@ export class SlackEventHandler extends BaseSlackHandler {
             } else if (err.message === "unknown_channel") {
                 const chanIdMix = `${event.channel} (${teamId})`;
                 log.warn(`Ignoring message from unrecognised slack channel id: ${chanIdMix}`);
-                this.main.incCounter("received_messages", {side: "remote"});
+                this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
             } else if (err.message === "unknown_team") {
                 log.warn(`Ignoring message from unrecognised slack team id: ${teamId}`);
-                this.main.incCounter("received_messages", {side: "remote"});
+                this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
                 endTimer({outcome: "dropped"});
                 return;
             } else if (err.message === "unknown_message") {
@@ -208,7 +208,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             throw Error("ignored");
         }
         // Only count received messages that aren't self-reflections
-        this.main.incCounter("received_messages", {side: "remote"});
+        this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
         if (event.type === "channel_join") {
             await room.onSlackUserJoin(event.user!, event.inviter!);
