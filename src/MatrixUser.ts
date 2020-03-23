@@ -16,6 +16,16 @@ limitations under the License.
 
 import { Main } from "./Main";
 
+/**
+ * A Matrix event `m.room.member` indicating a user's presence in a room.
+ */
+interface IMatrixMemberEvent {
+    content?: {
+        avatar_url?: string;
+        displayname?: string;
+    };
+}
+
 /*
  * Represents a user we have seen from Matrix; i.e. a real Matrix user.
  */
@@ -33,49 +43,35 @@ export class MatrixUser {
      * @param roomId The roomId to calculate the user's displayname for.
      */
     public getDisplaynameForRoom(roomId: string) {
-        const myMemberEvent = this.main.getStoredEvent(
+        const myMemberEvent: IMatrixMemberEvent = this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         );
 
-        let displayname: string|null = null;
-
-        if (myMemberEvent && myMemberEvent.content && myMemberEvent.content.displayname) {
-            displayname = myMemberEvent.content.displayname;
-        } else {
+        if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.displayname) {
             return this.userId;
         }
 
-        // To work out what displayname we can show requires us to work out if
-        // the displayname is unique among them all. Which means we need to find
-        // them all
+        const displayname = myMemberEvent.content.displayname;
 
-        const memberEvents = this.main.getStoredEvent(
-            roomId, "m.room.member",
+        // Is this name used more than once in this room?
+        const memberEvents = this.main.getStoredEvent(roomId, "m.room.member");
+        const matches: string[] = memberEvents.filter(
+            (ev: IMatrixMemberEvent) => ev.content && ev.content.displayname === displayname,
         );
 
-        const matching: string[] = memberEvents.filter(
-            // tslint:disable-next-line:no-any
-            (ev: any) => ev.content && ev.content.displayname === displayname,
-        );
-
-        if (matching.length > 1) {
-            // Disambiguate
-            return `${displayname} (${this.userId})`;
-        }
-
-        return displayname;
+        // Disambiguate, if the display name is used more than once.
+        return (matches.length > 1) ? `${displayname} (${this.userId})` : displayname;
     }
 
     public getAvatarUrlForRoom(roomId: string) {
-        const myMemberEvent = this.main.getStoredEvent(
+        const myMemberEvent: IMatrixMemberEvent = this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         );
 
-        if (myMemberEvent && myMemberEvent.content && myMemberEvent.content.avatar_url) {
-            return myMemberEvent.content.avatar_url;
-        } else {
+        if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.avatar_url) {
             return null;
         }
+        return myMemberEvent.content.avatar_url;
     }
 
     public get aTime() {
