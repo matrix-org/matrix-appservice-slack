@@ -293,10 +293,8 @@ export class Provisioner {
     private async link(req, res, matrixRoomId, userId) {
         log.info(`Need to enquire if ${userId} is allowed to link ${matrixRoomId}`);
 
-        // Ensure we are in the room.
-        await this.main.botIntent.join(matrixRoomId);
-
         const params = req.body;
+
         const opts = {
             matrix_room_id: matrixRoomId,
             slack_channel_id: params.channel_id,
@@ -304,6 +302,9 @@ export class Provisioner {
             team_id: params.team_id,
             user_id: params.user_id,
         };
+
+        // Ensure we are in the room.
+        await this.main.botIntent.join(matrixRoomId);
 
         // Check if the user is in the team.
         if (opts.team_id && !(await this.main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
@@ -318,6 +319,16 @@ export class Provisioner {
                 text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             });
         }
+
+        const userAllowedToLink = await this.main.authCallbackProvisioner.canLinkChannel(userId, params.team_id, params.channel_id);
+
+        if (!userAllowedToLink) {
+            return Promise.reject({
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
+            });
+        }
+
         const room = await this.main.actionLink(opts);
         // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();

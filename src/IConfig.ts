@@ -82,6 +82,6 @@ export interface IConfig {
 
     provisioning?: {
         enable: boolean;
-        auth_callbck: string;
+        auth_callback: string;
     };
 }

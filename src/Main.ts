@@ -43,6 +43,7 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
+import { AuthCallback, AuthCallbackProvider, dummyAuthCallback } from "./AuthCallback";
 
 const log = Logging.get("Main");
 
@@ -110,6 +111,7 @@ export class Main {
     public readonly teamSyncer?: TeamSyncer;
 
     private provisioner: Provisioner;
+    public readonly authCallbackProvisioner: AuthCallbackProvider;
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         if (config.oauth2) {
@@ -206,6 +208,12 @@ export class Main {
             homeserverToken,
             httpMaxSizeBytes: 0, // This field is optional.
         });
+
+        if (config.provisioning?.auth_callback) {
+            this.authCallbackProvisioner = new AuthCallback(config.provisioning.auth_callback, homeserverToken);
+        } else {
+            this.authCallbackProvisioner = dummyAuthCallback;
+        }
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
