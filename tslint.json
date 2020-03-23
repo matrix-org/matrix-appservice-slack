@@ -58,7 +58,7 @@
   "overrides": [
     {
       "files": [
-        "test_*.ts"
+        "src/tests/**/*.ts"
       ],
       "rules": {
         "no-unused-expressions": "off"
