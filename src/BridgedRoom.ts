@@ -50,6 +50,11 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 const RECENT_MESSAGE_MAX = 10;
 const PUPPET_INCOMING_DELAY_MS = 1500;
 
+/**
+ * A BridgedRoom is a 1-to-1 connection of a Matrix room and a Slack channel.
+ * It adds, updates and removes ghosts on both sides to represent users from the other side.
+ * It also posts as these ghosts.
+ */
 export class BridgedRoom {
     public get isDirty() {
         return this.dirty;
