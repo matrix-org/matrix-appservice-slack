@@ -48,6 +48,8 @@ const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
 const STARTUP_TEAM_INIT_CONCURRENCY = 10;
+export const METRIC_ACTIVE_USERS = "active_users";
+export const METRIC_ACTIVE_ROOMS = "active_rooms";
 export const METRIC_RECEIVED_MESSAGE = "received_messages";
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
@@ -277,6 +279,16 @@ export class Main {
             help: "Histogram of processing durations of received remote messages",
             labels: ["outcome"],
             name: "remote_request_seconds",
+        });
+        this.metrics.addGauge({
+            help: "count of active users",
+            labels: ['remote', 'puppeted'],
+            name: METRIC_ACTIVE_USERS,
+        });
+        this.metrics.addGauge({
+            help: "count of active bridged rooms",
+            labels: ['type'],
+            name: METRIC_ACTIVE_ROOMS,
         });
     }
 
