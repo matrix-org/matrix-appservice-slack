@@ -282,12 +282,12 @@ export class Main {
         });
         this.metrics.addGauge({
             help: "count of active users",
-            labels: ['remote', 'puppeted'],
+            labels: ["remote", "puppeted"],
             name: METRIC_ACTIVE_USERS,
         });
         this.metrics.addGauge({
             help: "count of active bridged rooms",
-            labels: ['type'],
+            labels: ["type"],
             name: METRIC_ACTIVE_ROOMS,
         });
     }
