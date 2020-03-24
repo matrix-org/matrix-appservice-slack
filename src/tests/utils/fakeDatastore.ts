@@ -112,4 +112,16 @@ export class FakeDatastore implements Datastore {
     public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
         throw Error("Method not implemented.");
     }
+
+    public async upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean): Promise<void> {
+        return;
+    }
+
+    public async upsertRoomMetrics(roomId: string, type: RoomType): Promise<void> {
+        return;
+    }
+
+    public async upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void> {
+        return;
+    }
 }
