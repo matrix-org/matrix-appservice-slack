@@ -50,6 +50,7 @@ const RECENT_EVENTID_SIZE = 20;
 const STARTUP_TEAM_INIT_CONCURRENCY = 10;
 export const METRIC_ACTIVE_USERS = "active_users";
 export const METRIC_ACTIVE_ROOMS = "active_rooms";
+export const METRIC_PUPPETS = "remote_puppets";
 export const METRIC_RECEIVED_MESSAGE = "received_messages";
 export const METRIC_SENT_MESSAGES = "sent_messages";
 
@@ -280,16 +281,33 @@ export class Main {
             labels: ["outcome"],
             name: "remote_request_seconds",
         });
-        this.metrics.addGauge({
-            help: "count of active users",
-            labels: ["remote", "puppeted"],
+        const teamId1 = "ABCDEFGHIJ";
+        const teamId2 = "ZYXWVUTSRQ";
+        const activeUsers = this.metrics.addGauge({
+            help: "Count of active users",
+            labels: ["remote", "team_id"],
             name: METRIC_ACTIVE_USERS,
         });
-        this.metrics.addGauge({
-            help: "count of active bridged rooms",
-            labels: ["type"],
+        activeUsers.set({ remote: false, team_id: teamId1 }, 23);
+        activeUsers.set({ remote: true, team_id: teamId1 }, 14);
+        activeUsers.set({ remote: false, team_id: teamId2 }, 56);
+        activeUsers.set({ remote: true, team_id: teamId2 }, 10);
+        const puppets = this.metrics.addGauge({
+            help: "Amount of puppeted users on the remote side of the bridge",
+            labels: ["team_id"],
+            name: METRIC_PUPPETS,
+        });
+        puppets.set({ team_id: teamId1 }, 0);
+        puppets.set({ team_id: teamId2 }, 23);
+        const activeRooms = this.metrics.addGauge({
+            help: "Count of active bridged rooms (types are 'channel' and 'user')",
+            labels: ["team_id", "type"],
             name: METRIC_ACTIVE_ROOMS,
         });
+        activeRooms.set({ team_id: teamId1, type: "channel" }, 23);
+        activeRooms.set({ team_id: teamId1, type: "user" }, 14);
+        activeRooms.set({ team_id: teamId2, type: "channel" }, 56);
+        activeRooms.set({ team_id: teamId2, type: "user" }, 10);
     }
 
     public incCounter(name: string, labels: MetricsLabels = {}) {
