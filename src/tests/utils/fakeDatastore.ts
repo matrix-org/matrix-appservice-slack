@@ -121,7 +121,7 @@ export class FakeDatastore implements Datastore {
         return;
     }
 
-    public async upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(matrixId: string, room: BridgedRoom, date?: Date): Promise<void> {
         return;
     }
 }

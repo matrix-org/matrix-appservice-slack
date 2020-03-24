@@ -300,8 +300,36 @@ export class PgDatastore implements Datastore {
         return;
     }
 
-    public async upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(userId: string, room: BridgedRoom, date?: Date): Promise<void> {
+        date = date || new Date();
+
+        const roomId = `${room.MatrixRoomId}|${room.SlackChannelId}`;
+        await this.postgresDb.none("INSERT INTO metrics_user_room_activities VALUES(${userId}, ${roomId}, ${date})", {
+            userId,
+            roomId,
+            date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+        });
         return;
+    }
+
+    public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
+        // return (await this.postgresDb.manyOrNone(
+        //     "SELECT team_id, COUNT(*) AS activeRooms" +
+        //     "FROM metrics_user_room_activities" +
+        //     "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
+        //     "GROUP BY team_id" ,
+        //     { activityThreshholdInDays, historyLengthInDays },
+        // )).map((u) => ({
+        //     teamId: u.matrixuser,
+        //     activeRooms: u.activeRooms,
+        // }));
+        return {
+            "ABCDEFGH": [
+                "#general:localhost|ABCDEFG",
+                "#random:localhost|BCDEFGH",
+                "#finances:localhost|CDEFGHI",
+            ]
+        };
     }
 
     private async updateSchemaVersion(version: number) {

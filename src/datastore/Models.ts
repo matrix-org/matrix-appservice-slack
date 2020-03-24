@@ -115,5 +115,5 @@ export interface Datastore {
     // Metrics
     upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean);
     upsertRoomMetrics(roomId: string, type: RoomType);
-    upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void>;
+    upsertActivityMetrics(matrixId: string, room: BridgedRoom, date?: Date): Promise<void>;
 }
