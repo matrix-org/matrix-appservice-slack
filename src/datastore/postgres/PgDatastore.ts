@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -290,6 +290,18 @@ export class PgDatastore implements Datastore {
     public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
         const statement = PgDatastore.BuildUpsertStatement("user_admin_rooms", "matrixuser", {matrixuser, roomid});
         await this.postgresDb.none(statement, {matrixuser, roomid});
+    }
+
+    public async upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean): Promise<void> {
+        return;
+    }
+
+    public async upsertRoomMetrics(roomId: string, type: RoomType): Promise<void> {
+        return;
+    }
+
+    public async upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void> {
+        return;
     }
 
     private async updateSchemaVersion(version: number) {

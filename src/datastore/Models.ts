@@ -32,6 +32,8 @@ export interface RoomEntry {
     };
 }
 
+export type RoomType = "user" | "channel";
+
 export interface UserEntry {
     id: string;
     display_name: string;
@@ -73,25 +75,30 @@ export interface PuppetEntry {
 }
 
 export interface Datastore {
+    // Users
     upsertUser(user: SlackGhost): Promise<void>;
     getUser(id: string): Promise<UserEntry|null>;
     getMatrixUser(userId: string): Promise<MatrixUser|null>;
     storeMatrixUser(user: MatrixUser): Promise<void>;
     getAllUsersForTeam(teamId: string): Promise<UserEntry[]>;
 
+    // Rooms
     upsertRoom(room: BridgedRoom): Promise<void>;
     deleteRoom(id: string): Promise<void>;
     getAllRooms(): Promise<RoomEntry[]>;
 
+    // Events
     upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<void>;
     upsertEvent(roomIdOrEntry: EventEntry): Promise<void>;
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;
     getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null>;
 
+    // Teams
     upsertTeam(entry: TeamEntry);
     getTeam(teamId: string): Promise<TeamEntry|null>;
     getAllTeams(): Promise<TeamEntry[]>;
 
+    // Puppets
     setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
     getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null>;
     getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string|null>;
@@ -100,7 +107,13 @@ export interface Datastore {
     getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]>;
     getPuppetedUsers(): Promise<PuppetEntry[]>;
 
+    // Admin rooms
     getUserAdminRoom(matrixId: string): Promise<string|null>;
     getUserForAdminRoom(roomId: string): Promise<string|null>;
     setUserAdminRoom(matrixuser: string, roomId: string): Promise<void>;
+
+    // Metrics
+    upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean);
+    upsertRoomMetrics(roomId: string, type: RoomType);
+    upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void>;
 }

@@ -19,7 +19,7 @@ import {
     MatrixUser,
     EventStore, RoomStore, UserStore,
     StoredEvent } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry } from "./Models";
+import { Datastore, UserEntry, RoomEntry, RoomType, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry } from "./Models";
 import * as NedbDb from "nedb";
 
 export class NedbDatastore implements Datastore {
@@ -228,5 +228,17 @@ export class NedbDatastore implements Datastore {
 
     public async setUserAdminRoom(): Promise<void> {
         throw Error("Not supported on NeDB");
+    }
+
+    public async upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean): Promise<void> {
+        return;
+    }
+
+    public async upsertRoomMetrics(roomId: string, type: RoomType): Promise<void> {
+        return;
+    }
+
+    public async upsertActivityMetrics(matrixId: string, roomId: string, date?: Date): Promise<void> {
+        return;
     }
 }
