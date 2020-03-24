@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import * as querystring from "querystring";
-import * as uuid from "uuid/v4";
+import { v4 as uuid } from "uuid";
 import { Logging } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
