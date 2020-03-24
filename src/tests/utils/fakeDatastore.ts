@@ -1,6 +1,6 @@
-import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry } from "../../datastore/Models";
-import { SlackGhost } from "../../SlackGhost";
 import { MatrixUser } from "matrix-appservice-bridge";
+import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry, RoomType } from "../../datastore/Models";
+import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
 export class FakeDatastore implements Datastore {
