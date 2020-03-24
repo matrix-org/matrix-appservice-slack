@@ -313,23 +313,24 @@ export class PgDatastore implements Datastore {
     }
 
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
-        // return (await this.postgresDb.manyOrNone(
-        //     "SELECT team_id, COUNT(*) AS activeRooms" +
-        //     "FROM metrics_user_room_activities" +
-        //     "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
-        //     "GROUP BY team_id" ,
-        //     { activityThreshholdInDays, historyLengthInDays },
-        // )).map((u) => ({
-        //     teamId: u.matrixuser,
-        //     activeRooms: u.activeRooms,
-        // }));
-        return {
-            "ABCDEFGH": [
-                "#general:localhost|ABCDEFG",
-                "#random:localhost|BCDEFGH",
-                "#finances:localhost|CDEFGHI",
-            ]
-        };
+        return (await this.postgresDb.manyOrNone(
+            "SELECT team_id, room_id, COUNT(*) AS active_days" +
+            "FROM metrics_user_room_activities" +
+            "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
+            "INNER JOIN metrics_rooms ON metrics_user_room_activities.room_id = metrics_rooms.room_id" +
+            "GROUP BY team_id",
+            { activityThreshholdInDays, historyLengthInDays },
+        )).map((u) => ({
+            teamId: u.matrixuser,
+            activeRooms: u.activeRooms,
+        }));
+        // return {
+        //     "ABCDEFGH": [
+        //         "#general:localhost|ABCDEFG",
+        //         "#random:localhost|BCDEFGH",
+        //         "#finances:localhost|CDEFGHI",
+        //     ]
+        // };
     }
 
     private async updateSchemaVersion(version: number) {
