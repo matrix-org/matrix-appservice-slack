@@ -297,7 +297,7 @@ export class PgDatastore implements Datastore {
 
         const roomId = `${room.MatrixRoomId}|${room.SlackChannelId}`;
 
-        await this.postgresDb.none("INSERT INTO metrics_user_room_activities VALUES(${userId}, ${roomId}, ${date})", {
+        await this.postgresDb.none("INSERT INTO metrics_activities VALUES(${userId}, ${roomId}, ${date})", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
             roomId,
             userId,
@@ -312,11 +312,11 @@ export class PgDatastore implements Datastore {
      */
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
-            "SELECT team_id, room_id, COUNT(*) AS active_days" +
-            "FROM metrics_user_room_activities" +
+            "SELECT rooms.json::json->slack_team_id AS team_id, room_id, COUNT(date) AS active_days" +
+            "FROM metrics_activities" +
             "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
-            "INNER JOIN metrics_rooms ON metrics_user_room_activities.room_id = metrics_rooms.room_id" +
-            "GROUP BY team_id, room_id" +
+            "INNER JOIN rooms ON metrics_activities.room_id = metrics_rooms.room_id" +
+            "GROUP BY team_id" +
             "HAVING active_days > ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
@@ -339,11 +339,11 @@ export class PgDatastore implements Datastore {
      */
     public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
-            "SELECT team_id, user_id, COUNT(*) AS active_days" +
-            "FROM metrics_user_room_activities" +
+            "SELECT users.json::json->team_id AS team_id, user_id, COUNT(date) AS active_days" +
+            "FROM metrics_activities" +
             "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
-            "INNER JOIN metrics_users ON metrics_user_room_activities.user_id = metrics_users.user_id" +
-            "GROUP BY team_id, user_id" +
+            "INNER JOIN users ON metrics_activities.user_id = users.userid" +
+            "GROUP BY team_id" +
             "HAVING active_days > ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
