@@ -292,26 +292,24 @@ export class PgDatastore implements Datastore {
         await this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
-    public async upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean): Promise<void> {
-        return;
-    }
-
-    public async upsertRoomMetrics(roomId: string, type: RoomType): Promise<void> {
-        return;
-    }
-
     public async upsertActivityMetrics(userId: string, room: BridgedRoom, date?: Date): Promise<void> {
         date = date || new Date();
 
         const roomId = `${room.MatrixRoomId}|${room.SlackChannelId}`;
+
         await this.postgresDb.none("INSERT INTO metrics_user_room_activities VALUES(${userId}, ${roomId}, ${date})", {
-            userId,
-            roomId,
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+            roomId,
+            userId,
         });
         return;
     }
 
+    /**
+     * Returns active rooms grouped by their team.
+     * @param activityThreshholdInDays How many days of activity make a room count as active?
+     * @param historyLengthInDays How many days of history shall be taken into account?
+     */
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
             "SELECT team_id, room_id, COUNT(*) AS active_days" +
@@ -322,7 +320,7 @@ export class PgDatastore implements Datastore {
             "HAVING active_days > ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
-            teamId: u.matrixuser,
+            teamId: u.team_id,
             activeRooms: u.activeRooms,
         }));
         // return {
@@ -334,6 +332,11 @@ export class PgDatastore implements Datastore {
         // };
     }
 
+    /**
+     * Returns active users grouped by their team.
+     * @param activityThreshholdInDays How many days of activity make a user count as active?
+     * @param historyLengthInDays How many days of history shall be taken into account?
+     */
     public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
             "SELECT team_id, user_id, COUNT(*) AS active_days" +
@@ -344,7 +347,7 @@ export class PgDatastore implements Datastore {
             "HAVING active_days > ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
-            teamId: u.matrixuser,
+            teamId: u.team_id,
             activeRooms: u.activeRooms,
         }));
         // return {

@@ -21,7 +21,8 @@ import { Main } from "../../Main";
 import { expect } from "chai";
 
 /**
- * Given an array of users, this function creates an array of join events.
+ * Given an array of users, this function mocks `Main.getStoredEvent()` by
+ * returning join events for these users.
  */
 const getStoredEventGenerator = (users: {
     id?: string,

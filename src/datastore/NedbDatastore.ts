@@ -240,16 +240,6 @@ export class NedbDatastore implements Datastore {
         return;
     }
 
-    public async upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean): Promise<void> {
-        // no-op; activity metrics are not implemented for NeDB
-        return;
-    }
-
-    public async upsertRoomMetrics(roomId: string, type: RoomType): Promise<void> {
-        // no-op; activity metrics are not implemented for NeDB
-        return;
-    }
-
     public async upsertActivityMetrics(matrixId: string, room: BridgedRoom, date?: Date): Promise<void> {
         // no-op; activity metrics are not implemented for NeDB
         return;
