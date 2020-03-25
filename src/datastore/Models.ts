@@ -113,6 +113,8 @@ export interface Datastore {
     setUserAdminRoom(matrixuser: string, roomId: string): Promise<void>;
 
     // Metrics
+    getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<any>;
+    getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<any>;
     upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean);
     upsertRoomMetrics(roomId: string, type: RoomType);
     upsertActivityMetrics(matrixId: string, room: BridgedRoom, date?: Date): Promise<void>;

@@ -113,6 +113,14 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
+    public async getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<any> {
+        return;
+    }
+
+    public async getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<any> {
+        return;
+    }
+
     public async upsertUserMetrics(matrixId: string, remote: boolean, puppeted: boolean): Promise<void> {
         return;
     }

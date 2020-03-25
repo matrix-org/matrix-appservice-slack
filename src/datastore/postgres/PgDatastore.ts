@@ -318,7 +318,8 @@ export class PgDatastore implements Datastore {
             "FROM metrics_user_room_activities" +
             "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
             "INNER JOIN metrics_rooms ON metrics_user_room_activities.room_id = metrics_rooms.room_id" +
-            "GROUP BY team_id",
+            "GROUP BY team_id, room_id" +
+            "HAVING active_days > ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
             teamId: u.matrixuser,
