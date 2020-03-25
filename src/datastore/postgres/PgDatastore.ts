@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 4;
+    public static readonly LATEST_SCHEMA = 5;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -330,6 +330,27 @@ export class PgDatastore implements Datastore {
         //         "#general:localhost|ABCDEFG",
         //         "#random:localhost|BCDEFGH",
         //         "#finances:localhost|CDEFGHI",
+        //     ]
+        // };
+    }
+
+    public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
+        return (await this.postgresDb.manyOrNone(
+            "SELECT team_id, user_id, COUNT(*) AS active_days" +
+            "FROM metrics_user_room_activities" +
+            "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
+            "INNER JOIN metrics_users ON metrics_user_room_activities.user_id = metrics_users.user_id" +
+            "GROUP BY team_id, user_id" +
+            "HAVING active_days > ${activityThreshholdInDays}",
+            { activityThreshholdInDays, historyLengthInDays },
+        )).map((u) => ({
+            teamId: u.matrixuser,
+            activeRooms: u.activeRooms,
+        }));
+        // return {
+        //     "ABCDEFGH": [
+        //         "@alice:localhost",
+        //         "@bob:localhost",
         //     ]
         // };
     }
