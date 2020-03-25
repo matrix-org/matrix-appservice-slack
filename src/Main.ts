@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Bridge, PrometheusMetrics, StateLookup,
+import { Bridge, PrometheusMetrics, Gauge, StateLookup,
     Logging, Intent, MatrixUser as BridgeMatrixUser,
     Request } from "matrix-appservice-bridge";
 import * as path from "path";
@@ -107,6 +107,7 @@ export class Main {
     private slackRtm?: SlackRTMHandler;
 
     private metrics: PrometheusMetrics;
+    private metricPuppets: Gauge;
 
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
@@ -292,13 +293,15 @@ export class Main {
         activeUsers.set({ remote: true, team_id: teamId1 }, 14);
         activeUsers.set({ remote: false, team_id: teamId2 }, 56);
         activeUsers.set({ remote: true, team_id: teamId2 }, 10);
-        const puppets = this.metrics.addGauge({
+        this.metricPuppets = this.metrics.addGauge({
             help: "Amount of puppeted users on the remote side of the bridge",
             labels: ["team_id"],
             name: METRIC_PUPPETS,
-        });
-        puppets.set({ team_id: teamId1 }, 0);
-        puppets.set({ team_id: teamId2 }, 23);
+        }) as Gauge;
+        this.metricPuppets.set({ team_id: teamId1 }, 0);
+        this.metricPuppets.set({ team_id: teamId2 }, 23);
+        this.metricPuppets.reset({ team_id: teamId1 });
+        this.metricPuppets.set({ team_id: teamId2 }, 1);
         const activeRooms = this.metrics.addGauge({
             help: "Count of active bridged rooms (types are 'channel' and 'user')",
             labels: ["team_id", "type"],
@@ -318,6 +321,13 @@ export class Main {
     public incRemoteCallCounter(type: string) {
         if (!this.metrics) { return; }
         this.metrics.incCounter("remote_api_calls", {method: type});
+    }
+
+    /**
+     * Update the amount of active puppets.
+     */
+    public setPuppetMetric(amount: number) {
+
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}) {
