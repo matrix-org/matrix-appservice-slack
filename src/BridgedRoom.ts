@@ -364,7 +364,7 @@ export class BridgedRoom {
         return true;
     }
 
-    public async onMatrixMessage(message: { event_id: string, room_id: string, user_id: string }) {
+    public async onMatrixMessage(message: any) {
         const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
         if (!this.slackWebhookUri && !this.botClient && !puppetedClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
