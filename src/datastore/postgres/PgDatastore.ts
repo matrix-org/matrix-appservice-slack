@@ -312,16 +312,17 @@ export class PgDatastore implements Datastore {
      */
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
-            "SELECT rooms.json::json->>'slack_team_id' AS team_id, room_id, COUNT(date) AS active_days" +
+            "SELECT room_id, rooms.json::json->>'slack_team_id' AS team_id, rooms.json::json->>'slack_type' AS slack_type, COUNT(DISTINCT date) AS active_days" +
             "FROM metrics_activities" +
             "INNER JOIN rooms ON metrics_activities.room_id = rooms.id" +
             "WHERE date_part('days', age(date)) < ${historyLengthInDays}" +
-            "GROUP BY team_id, room_id" +
-            "HAVING COUNT(date) >= ${activityThreshholdInDays};",
+            "GROUP BY room_id, team_id, room_id, slack_type" +
+            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays};",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
             teamId: u.team_id,
             roomId: u.room_id,
+            roomType: u.slack_type as RoomType,
             activeDays: u.active_days,
         }));
         // return {
@@ -340,16 +341,17 @@ export class PgDatastore implements Datastore {
      */
     public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
-            "SELECT users.json::json->>'team_id' AS team_id, user_id, COUNT(date) AS active_days" +
+            "SELECT user_id, users.json::json->>'team_id' AS team_id, users.isremote AS remote, COUNT(DISTINCT date) AS active_days" +
             "FROM metrics_activities" +
             "INNER JOIN users ON metrics_activities.user_id = users.userid" +
             "WHERE date_part('days', age(date)) < ${historyLengthInDays}" +
-            "GROUP BY team_id, user_id" +
-            "HAVING COUNT(date) >= ${activityThreshholdInDays};",
+            "GROUP BY user_id, team_id, remote" +
+            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays};",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
-            teamId: u.team_id,
             userId: u.user_id,
+            teamId: u.team_id,
+            remote: u.remote,
             activeDays: u.active_days,
         }));
         // return {
