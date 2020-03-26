@@ -312,16 +312,17 @@ export class PgDatastore implements Datastore {
      */
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
-            "SELECT rooms.json::json->slack_team_id AS team_id, room_id, COUNT(date) AS active_days" +
+            "SELECT rooms.json::json->>'slack_team_id' AS team_id, room_id, COUNT(date) AS active_days" +
             "FROM metrics_activities" +
-            "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
-            "INNER JOIN rooms ON metrics_activities.room_id = metrics_rooms.room_id" +
-            "GROUP BY team_id" +
-            "HAVING active_days > ${activityThreshholdInDays}",
+            "INNER JOIN rooms ON metrics_activities.room_id = rooms.id" +
+            "WHERE date_part('days', age(date)) < ${historyLengthInDays}" +
+            "GROUP BY team_id, room_id" +
+            "HAVING COUNT(date) >= ${activityThreshholdInDays};",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
             teamId: u.team_id,
-            activeRooms: u.activeRooms,
+            roomId: u.room_id,
+            activeDays: u.active_days,
         }));
         // return {
         //     "ABCDEFGH": [
@@ -339,16 +340,17 @@ export class PgDatastore implements Datastore {
      */
     public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
-            "SELECT users.json::json->team_id AS team_id, user_id, COUNT(date) AS active_days" +
+            "SELECT users.json::json->>'team_id' AS team_id, user_id, COUNT(date) AS active_days" +
             "FROM metrics_activities" +
-            "WHERE date >= DATE_SUB(CURRENT_DATE, INTERVAL ${historyLengthInDays} DAYS)" +
             "INNER JOIN users ON metrics_activities.user_id = users.userid" +
-            "GROUP BY team_id" +
-            "HAVING active_days > ${activityThreshholdInDays}",
+            "WHERE date_part('days', age(date)) < ${historyLengthInDays}" +
+            "GROUP BY team_id, user_id" +
+            "HAVING COUNT(date) >= ${activityThreshholdInDays};",
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
             teamId: u.team_id,
-            activeRooms: u.activeRooms,
+            userId: u.user_id,
+            activeDays: u.active_days,
         }));
         // return {
         //     "ABCDEFGH": [
