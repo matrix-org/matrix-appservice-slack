@@ -8,6 +8,8 @@ slack-registration.yaml
 # Logs
 logs
 *.log
+/debug.log.*
+/error.log.*
 
 # Runtime data
 pids
