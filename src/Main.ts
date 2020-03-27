@@ -107,6 +107,8 @@ export class Main {
     private slackRtm?: SlackRTMHandler;
 
     private metrics: PrometheusMetrics;
+    private metricActiveRooms: Gauge;
+    private metricActiveUsers: Gauge;
     private metricPuppets: Gauge;
 
     private adminCommands = new AdminCommands(this);
@@ -282,35 +284,21 @@ export class Main {
             labels: ["outcome"],
             name: "remote_request_seconds",
         });
-        const teamId1 = "ABCDEFGHIJ";
-        const teamId2 = "ZYXWVUTSRQ";
-        const activeUsers = this.metrics.addGauge({
+        this.metricActiveUsers = this.metrics.addGauge({
             help: "Count of active users",
             labels: ["remote", "team_id"],
             name: METRIC_ACTIVE_USERS,
         });
-        activeUsers.set({ remote: false, team_id: teamId1 }, 23);
-        activeUsers.set({ remote: true, team_id: teamId1 }, 14);
-        activeUsers.set({ remote: false, team_id: teamId2 }, 56);
-        activeUsers.set({ remote: true, team_id: teamId2 }, 10);
+        this.metricActiveRooms = this.metrics.addGauge({
+            help: "Count of active bridged rooms (types are 'channel' and 'user')",
+            labels: ["team_id", "type"],
+            name: METRIC_ACTIVE_ROOMS,
+        });
         this.metricPuppets = this.metrics.addGauge({
             help: "Amount of puppeted users on the remote side of the bridge",
             labels: ["team_id"],
             name: METRIC_PUPPETS,
         }) as Gauge;
-        this.metricPuppets.set({ team_id: teamId1 }, 0);
-        this.metricPuppets.set({ team_id: teamId2 }, 23);
-        this.metricPuppets.reset({ team_id: teamId1 });
-        this.metricPuppets.set({ team_id: teamId2 }, 1);
-        const activeRooms = this.metrics.addGauge({
-            help: "Count of active bridged rooms (types are 'channel' and 'user')",
-            labels: ["team_id", "type"],
-            name: METRIC_ACTIVE_ROOMS,
-        });
-        activeRooms.set({ team_id: teamId1, type: "channel" }, 23);
-        activeRooms.set({ team_id: teamId1, type: "user" }, 14);
-        activeRooms.set({ team_id: teamId2, type: "channel" }, 56);
-        activeRooms.set({ team_id: teamId2, type: "user" }, 10);
     }
 
     public incCounter(name: string, labels: MetricsLabels = {}) {
@@ -324,10 +312,39 @@ export class Main {
     }
 
     /**
-     * Update the amount of active puppets.
+     * Reset all metrics for a team, e.g. because the team permanently disconnected.
      */
-    public setPuppetMetric(amount: number) {
+    public resetMetricsForTeam(teamId: string) {
+        this.metricPuppets.reset({ team_id: teamId });
+        this.metricActiveRooms.reset({ team_id: teamId, remote: false });
+        this.metricActiveRooms.reset({ team_id: teamId, remote: true });
+        this.metricActiveUsers.reset({ team_id: teamId, type: "channel" });
+        this.metricActiveUsers.reset({ team_id: teamId, type: "user" });
+    }
 
+    /**
+     * Gathers the active rooms and users from the database and updates the metrics.
+     * This function should be called on a regular interval or after an important
+     * change to the metrics has happened.
+     */
+    public updateActivityMetrics() {
+        const activeRooms = this.datastore.getActiveRoomsPerTeam();
+        const activeUsers = this.datastore.getActiveUsersPerTeam();
+        // TODO: Add up the active rooms/users per team
+
+        // Add some fake data (TODO remove this)
+        const teamId1 = "ABCDEFGHIJ";
+        const teamId2 = "ZYXWVUTSRQ";
+        this.metricActiveUsers.set({ remote: false, team_id: teamId1 }, 23);
+        this.metricActiveUsers.set({ remote: true, team_id: teamId1 }, 14);
+        this.metricActiveUsers.set({ remote: false, team_id: teamId2 }, 56);
+        this.metricActiveUsers.set({ remote: true, team_id: teamId2 }, 10);
+        this.metricPuppets.set({ team_id: teamId1 }, 0);
+        this.metricPuppets.set({ team_id: teamId2 }, 23);
+        this.metricActiveRooms.set({ team_id: teamId1, type: "channel" }, 23);
+        this.metricActiveRooms.set({ team_id: teamId1, type: "user" }, 14);
+        this.metricActiveRooms.set({ team_id: teamId2, type: "channel" }, 56);
+        this.metricActiveRooms.set({ team_id: teamId2, type: "user" }, 10);
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}) {
