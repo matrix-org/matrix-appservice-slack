@@ -121,7 +121,7 @@ export class FakeDatastore implements Datastore {
         return [];
     }
 
-    public async upsertActivityMetrics(user: SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
         return;
     }
 }

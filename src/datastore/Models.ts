@@ -146,5 +146,5 @@ export interface Datastore {
      * @param room The room an action was taken in
      * @param date The date of the action (defaults to the current date)
      */
-    upsertActivityMetrics(user: SlackGhost, room: BridgedRoom, date?: Date): Promise<void>;
+    upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void>;
 }

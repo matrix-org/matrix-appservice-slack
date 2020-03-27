@@ -292,13 +292,14 @@ export class PgDatastore implements Datastore {
         await this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
-    public async upsertActivityMetrics(user: SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
         date = date || new Date();
+        const userId = (user instanceof SlackGhost) ? user.toEntry().id : user.userId;
 
         await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
             roomId: room.toEntry().id,
-            userId: user.toEntry().id,
+            userId,
         });
     }
 

@@ -438,10 +438,9 @@ export class BridgedRoom {
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         // Log activity, but don't await the answer or throw errors
-        // TODO: Matrix users don't seem to be included in the `users` table.
-        // this.main.datastore.upsertActivityMetrics(ghost, this).catch((error) => {
-        //     log.warn(error);
-        // });
+        this.main.datastore.upsertActivityMetrics(user, this).catch((error) => {
+            log.warn(error);
+        });
 
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
