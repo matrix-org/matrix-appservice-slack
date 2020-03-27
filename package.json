@@ -42,7 +42,7 @@
     "node-emoji": "^1.10.0",
     "p-queue": "^6.3.0",
     "pg-promise": "^9.0.2",
-    "quick-lru": "^4.0.1",
+    "quick-lru": "^5.0.0",
     "randomstring": "^1",
     "request-promise-native": "^1.0.8",
     "uuid": "^7.0.2",
