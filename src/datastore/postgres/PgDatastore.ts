@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry, ActiveRoomEntry, ActiveUserEntry } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -295,17 +295,14 @@ export class PgDatastore implements Datastore {
     public async upsertActivityMetrics(user: SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
         date = date || new Date();
 
-        const roomId = `${room.MatrixRoomId}|${room.SlackChannelId}`;
-
         await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
             roomId: room.toEntry().id,
             userId: user.toEntry().id,
         });
-        return;
     }
 
-    public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
+    public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<ActiveRoomEntry[]> {
         return (await this.postgresDb.manyOrNone(
             "SELECT room_id, rooms.json::json->>'slack_team_id' AS team_id, rooms.json::json->>'slack_type' AS slack_type, COUNT(DISTINCT date) AS active_days" +
             "FROM metrics_activities" +
@@ -320,16 +317,9 @@ export class PgDatastore implements Datastore {
             roomType: u.slack_type as RoomType,
             activeDays: u.active_days,
         }));
-        // return {
-        //     "ABCDEFGH": [
-        //         "#general:localhost|ABCDEFG",
-        //         "#random:localhost|BCDEFGH",
-        //         "#finances:localhost|CDEFGHI",
-        //     ]
-        // };
     }
 
-    public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
+    public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<ActiveUserEntry[]> {
         return (await this.postgresDb.manyOrNone(
             "SELECT user_id, users.json::json->>'team_id' AS team_id, users.isremote AS remote, COUNT(DISTINCT date) AS active_days" +
             "FROM metrics_activities" +
@@ -344,12 +334,6 @@ export class PgDatastore implements Datastore {
             remote: u.remote,
             activeDays: u.active_days,
         }));
-        // return {
-        //     "ABCDEFGH": [
-        //         "@alice:localhost",
-        //         "@bob:localhost",
-        //     ]
-        // };
     }
 
     private async updateSchemaVersion(version: number) {
