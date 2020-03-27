@@ -40,7 +40,7 @@
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",
     "p-queue": "^6.3.0",
-    "pg-promise": "^9.0.2",
+    "pg-promise": "^10.4.4",
     "quick-lru": "^5.0.0",
     "randomstring": "^1",
     "request-promise-native": "^1.0.8",
