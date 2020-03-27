@@ -31,7 +31,7 @@ import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
-import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
+import { Datastore, TeamEntry, RoomEntry, RoomType } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -43,6 +43,7 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
+import { stringify } from "querystring";
 
 const log = Logging.get("Main");
 
@@ -299,6 +300,12 @@ export class Main {
             labels: ["team_id"],
             name: METRIC_PUPPETS,
         }) as Gauge;
+
+        const ONE_HOUR = 60 * 60 * 1000;
+        setInterval(() => {
+            log.info("Recalculating activity metrics...");
+            this.updateActivityMetrics().catch(log.error);
+        }, ONE_HOUR);
     }
 
     public incCounter(name: string, labels: MetricsLabels = {}) {
@@ -316,10 +323,6 @@ export class Main {
      */
     public resetMetricsForTeam(teamId: string) {
         this.metricPuppets.reset({ team_id: teamId });
-        this.metricActiveRooms.reset({ team_id: teamId, remote: false });
-        this.metricActiveRooms.reset({ team_id: teamId, remote: true });
-        this.metricActiveUsers.reset({ team_id: teamId, type: "channel" });
-        this.metricActiveUsers.reset({ team_id: teamId, type: "user" });
     }
 
     /**
@@ -327,24 +330,56 @@ export class Main {
      * This function should be called on a regular interval or after an important
      * change to the metrics has happened.
      */
-    public updateActivityMetrics() {
-        const activeRooms = this.datastore.getActiveRoomsPerTeam();
-        const activeUsers = this.datastore.getActiveUsersPerTeam();
-        // TODO: Add up the active rooms/users per team
+    public async updateActivityMetrics() {
+        const activeRooms = await this.datastore.getActiveRoomsPerTeam();
+        const activeUsers = await this.datastore.getActiveUsersPerTeam();
+
+        const roomsByTeamAndType: Map<string, Map<RoomType, number>> = new Map();
+        for (const activeRoom of activeRooms) {
+            if (!roomsByTeamAndType.has(activeRoom.teamId)) {
+                roomsByTeamAndType.set(activeRoom.teamId, new Map());
+            }
+            const teamData = roomsByTeamAndType.get(activeRoom.teamId)!;
+            // We found a new active user for this team and room type -> Increment counter!
+            teamData.set(activeRoom.roomType, (teamData.get(activeRoom.roomType) || 0) + 1);
+        }
+
+        const usersByTeamAndRemote: Map<string, Map<boolean, number>> = new Map();
+        for (const activeUser of activeUsers) {
+            if (!usersByTeamAndRemote.has(activeUser.teamId)) {
+                usersByTeamAndRemote.set(activeUser.teamId, new Map());
+            }
+            const teamData = usersByTeamAndRemote.get(activeUser.teamId)!;
+            // We found a new active user for this team and remote state -> Increment counter!
+            teamData.set(activeUser.remote, (teamData.get(activeUser.remote) || 0) + 1);
+        }
+
+        this.metricActiveRooms.reset();
+        for (const [teamId, teamData] of roomsByTeamAndType.entries()) {
+            for (const [roomType, numberOfActiveRooms] of teamData.entries()) {
+                this.metricActiveRooms.set({ team_id: teamId, type: roomType }, numberOfActiveRooms);
+            }
+        }
+
+        this.metricActiveUsers.reset();
+        for (const [teamId, teamData] of usersByTeamAndRemote.entries()) {
+            this.metricActiveUsers.set({ team_id: teamId, remote: true }, teamData.get(true) || 0);
+            this.metricActiveUsers.set({ team_id: teamId, remote: false }, teamData.get(false) || 0);
+        }
 
         // Add some fake data (TODO remove this)
-        const teamId1 = "ABCDEFGHIJ";
-        const teamId2 = "ZYXWVUTSRQ";
-        this.metricActiveUsers.set({ remote: false, team_id: teamId1 }, 23);
-        this.metricActiveUsers.set({ remote: true, team_id: teamId1 }, 14);
-        this.metricActiveUsers.set({ remote: false, team_id: teamId2 }, 56);
-        this.metricActiveUsers.set({ remote: true, team_id: teamId2 }, 10);
-        this.metricPuppets.set({ team_id: teamId1 }, 0);
-        this.metricPuppets.set({ team_id: teamId2 }, 23);
-        this.metricActiveRooms.set({ team_id: teamId1, type: "channel" }, 23);
-        this.metricActiveRooms.set({ team_id: teamId1, type: "user" }, 14);
-        this.metricActiveRooms.set({ team_id: teamId2, type: "channel" }, 56);
-        this.metricActiveRooms.set({ team_id: teamId2, type: "user" }, 10);
+        // const teamId1 = "ABCDEFGHIJ";
+        // const teamId2 = "ZYXWVUTSRQ";
+        // this.metricActiveUsers.set({ remote: false, team_id: teamId1 }, 23);
+        // this.metricActiveUsers.set({ remote: true, team_id: teamId1 }, 14);
+        // this.metricActiveUsers.set({ remote: false, team_id: teamId2 }, 56);
+        // this.metricActiveUsers.set({ remote: true, team_id: teamId2 }, 10);
+        // this.metricPuppets.set({ team_id: teamId1 }, 0);
+        // this.metricPuppets.set({ team_id: teamId2 }, 23);
+        // this.metricActiveRooms.set({ team_id: teamId1, type: "channel" }, 23);
+        // this.metricActiveRooms.set({ team_id: teamId1, type: "user" }, 14);
+        // this.metricActiveRooms.set({ team_id: teamId2, type: "channel" }, 56);
+        // this.metricActiveRooms.set({ team_id: teamId2, type: "user" }, 10);
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}) {
