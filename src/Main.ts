@@ -299,13 +299,7 @@ export class Main {
             help: "Amount of puppeted users on the remote side of the bridge",
             labels: ["team_id"],
             name: METRIC_PUPPETS,
-        }) as Gauge;
-
-        const ONE_HOUR = 60 * 60 * 1000;
-        setInterval(() => {
-            log.info("Recalculating activity metrics...");
-            this.updateActivityMetrics().catch(log.error);
-        }, ONE_HOUR);
+        });
     }
 
     public incCounter(name: string, labels: MetricsLabels = {}) {
@@ -316,13 +310,6 @@ export class Main {
     public incRemoteCallCounter(type: string) {
         if (!this.metrics) { return; }
         this.metrics.incCounter("remote_api_calls", {method: type});
-    }
-
-    /**
-     * Reset all metrics for a team, e.g. because the team permanently disconnected.
-     */
-    public resetMetricsForTeam(teamId: string) {
-        this.metricPuppets.reset({ team_id: teamId });
     }
 
     /**
@@ -366,20 +353,6 @@ export class Main {
             this.metricActiveUsers.set({ team_id: teamId, remote: true }, teamData.get(true) || 0);
             this.metricActiveUsers.set({ team_id: teamId, remote: false }, teamData.get(false) || 0);
         }
-
-        // Add some fake data (TODO remove this)
-        // const teamId1 = "ABCDEFGHIJ";
-        // const teamId2 = "ZYXWVUTSRQ";
-        // this.metricActiveUsers.set({ remote: false, team_id: teamId1 }, 23);
-        // this.metricActiveUsers.set({ remote: true, team_id: teamId1 }, 14);
-        // this.metricActiveUsers.set({ remote: false, team_id: teamId2 }, 56);
-        // this.metricActiveUsers.set({ remote: true, team_id: teamId2 }, 10);
-        // this.metricPuppets.set({ team_id: teamId1 }, 0);
-        // this.metricPuppets.set({ team_id: teamId2 }, 23);
-        // this.metricActiveRooms.set({ team_id: teamId1, type: "channel" }, 23);
-        // this.metricActiveRooms.set({ team_id: teamId1, type: "user" }, 14);
-        // this.metricActiveRooms.set({ team_id: teamId2, type: "channel" }, 56);
-        // this.metricActiveRooms.set({ team_id: teamId2, type: "user" }, 10);
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}) {
@@ -836,6 +809,8 @@ export class Main {
 
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
             this.incRemoteCallCounter(method);
+        }, (teamId: string, delta: number) => {
+            this.metricPuppets.inc({ team_id: teamId }, delta);
         });
         let puppetsWaiting: Promise<unknown> = Promise.resolve();
         if (this.slackRtm) {
@@ -927,6 +902,15 @@ export class Main {
 
         if (this.metrics) {
             this.metrics.addAppServicePath(this.bridge);
+
+            // Regularly update the metrics for active rooms and users
+            const ONE_HOUR = 60 * 60 * 1000;
+            setInterval(() => {
+                log.info("Recalculating activity metrics...");
+                this.updateActivityMetrics().catch(error => { log.error(error) });
+            }, ONE_HOUR);
+            await this.updateActivityMetrics();
+
             // Send process stats again just to make the counters update sooner after
             // startup
             this.metrics.refresh();

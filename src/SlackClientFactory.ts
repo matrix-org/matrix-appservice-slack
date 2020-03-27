@@ -29,7 +29,12 @@ interface StoredClient {
 export class SlackClientFactory {
     private teamClients: Map<string, StoredClient> = new Map();
     private puppets: Map<string, {client: WebClient, id: string}> = new Map();
-    constructor(private datastore: Datastore, private config: RequiredConfigOptions = {}, private onRemoteCall?: (method: string) => void) {
+    constructor(
+        private datastore: Datastore,
+        private config: RequiredConfigOptions = {},
+        private onRemoteCall?: (method: string) => void,
+        private updatePuppetCount?: (teamId: string, delta: number) => void
+    ) {
 
     }
 
@@ -220,6 +225,9 @@ export class SlackClientFactory {
             const auth = (await slackClient.auth.test()) as AuthTestResponse;
             const user = (await slackClient.users.info({user: auth.user_id})) as UsersInfoResponse;
             log.debug("Created new team client for", teamInfo.team.name);
+            if (this.updatePuppetCount) {
+                this.updatePuppetCount(teamInfo.team.id, 1);
+            }
             return { slackClient, team: teamInfo.team, auth, user };
         } catch (ex) {
             throw Error("Could not create team client: " + ex.data.error);
