@@ -437,6 +437,11 @@ export class BridgedRoom {
         this.addRecentSlackMessage(res.ts);
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
+        // Log activity, but don't await the answer or throw errors
+        // TODO: Matrix users don't seem to be included in the `users` table.
+        // this.main.datastore.upsertActivityMetrics(ghost, this).catch((error) => {
+        //     log.warn(error);
+        // });
 
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
@@ -634,6 +639,11 @@ export class BridgedRoom {
         this.slackATime = Date.now() / 1000;
 
         const subtype = message.subtype;
+
+        // Log activity, but don't await the answer or throw errors
+        this.main.datastore.upsertActivityMetrics(ghost, this).catch((error) => {
+            log.warn(error);
+        });
 
         // Transform the text if it is present.
         if (message.text) {
