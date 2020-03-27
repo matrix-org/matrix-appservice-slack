@@ -113,7 +113,24 @@ export interface Datastore {
     setUserAdminRoom(matrixuser: string, roomId: string): Promise<void>;
 
     // Metrics
+    /**
+     * Returns active rooms grouped by their team.
+     * @param activityThreshholdInDays How many days of activity make a room count as active?
+     * @param historyLengthInDays How many days of history shall be taken into account?
+     */
     getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<any>;
+    /**
+     * Returns active users grouped by their team.
+     * @param activityThreshholdInDays How many days of activity make a user count as active?
+     * @param historyLengthInDays How many days of history shall be taken into account?
+     */
     getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<any>;
-    upsertActivityMetrics(matrixId: string, room: BridgedRoom, date?: Date): Promise<void>;
+    /**
+     * Records an activity taken by a user inside a room on a specific date.
+     * This will be used for the metrics of active users and rooms.
+     * @param user The user who took an action
+     * @param room The room an action was taken in
+     * @param date The date of the action (defaults to the current date)
+     */
+    upsertActivityMetrics(user: SlackGhost, room: BridgedRoom, date?: Date): Promise<void>;
 }

@@ -292,24 +292,19 @@ export class PgDatastore implements Datastore {
         await this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
-    public async upsertActivityMetrics(userId: string, room: BridgedRoom, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(user: SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
         date = date || new Date();
 
         const roomId = `${room.MatrixRoomId}|${room.SlackChannelId}`;
 
-        await this.postgresDb.none("INSERT INTO metrics_activities VALUES(${userId}, ${roomId}, ${date})", {
+        await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
-            roomId,
-            userId,
+            roomId: room.toEntry().id,
+            userId: user.toEntry().id,
         });
         return;
     }
 
-    /**
-     * Returns active rooms grouped by their team.
-     * @param activityThreshholdInDays How many days of activity make a room count as active?
-     * @param historyLengthInDays How many days of history shall be taken into account?
-     */
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
             "SELECT room_id, rooms.json::json->>'slack_team_id' AS team_id, rooms.json::json->>'slack_type' AS slack_type, COUNT(DISTINCT date) AS active_days" +
@@ -334,11 +329,6 @@ export class PgDatastore implements Datastore {
         // };
     }
 
-    /**
-     * Returns active users grouped by their team.
-     * @param activityThreshholdInDays How many days of activity make a user count as active?
-     * @param historyLengthInDays How many days of history shall be taken into account?
-     */
     public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<any> {
         return (await this.postgresDb.manyOrNone(
             "SELECT user_id, users.json::json->>'team_id' AS team_id, users.isremote AS remote, COUNT(DISTINCT date) AS active_days" +
