@@ -9,6 +9,7 @@
     "incremental": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
+    "sourceMap": true
   },
   "include": [
     "src/**/*"
