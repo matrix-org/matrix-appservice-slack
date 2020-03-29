@@ -331,7 +331,7 @@ export class PgDatastore implements Datastore {
             { activityThreshholdInDays, historyLengthInDays },
         )).map((u) => ({
             userId: u.user_id,
-            teamId: u.team_id || "no team id",
+            teamId: u.team_id || "noteam",
             remote: u.remote,
             activeDays: u.active_days,
         }));
