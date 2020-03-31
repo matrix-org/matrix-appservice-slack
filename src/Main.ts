@@ -889,7 +889,7 @@ export class Main {
             this.metricsCollectorInterval = setInterval(() => {
                 log.info("Recalculating activity metrics...");
                 this.updateActivityMetrics().catch((err) => {
-                    log.error(`Error updating activity metrics`, err)
+                    log.error(`Error updating activity metrics`, err);
                 });
             }, ONE_HOUR);
             await this.updateActivityMetrics();

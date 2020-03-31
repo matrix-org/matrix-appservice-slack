@@ -438,8 +438,8 @@ export class BridgedRoom {
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         // Log activity, but don't await the answer or throw errors
-        this.main.datastore.upsertActivityMetrics(user, this).catch((error) => {
-            log.warn(error);
+        this.main.datastore.upsertActivityMetrics(user, this).catch((err) => {
+            log.error(`Error storing activity metrics`, err);
         });
 
         if (!res.ok) {
@@ -640,8 +640,8 @@ export class BridgedRoom {
         const subtype = message.subtype;
 
         // Log activity, but don't await the answer or throw errors
-        this.main.datastore.upsertActivityMetrics(ghost, this).catch((error) => {
-            log.warn(error);
+        this.main.datastore.upsertActivityMetrics(ghost, this).catch((err) => {
+            log.error(`Error storing activity metrics`, err);
         });
 
         // Transform the text if it is present.
