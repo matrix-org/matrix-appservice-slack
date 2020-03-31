@@ -39,7 +39,6 @@ function command(...params: Param[]) {
 }
 
 export class Provisioner {
-    // tslint:disable-next-line: no-any
     constructor(private main: Main, private bridge: any) { }
 
     public addAppServicePath() {
@@ -195,7 +194,6 @@ export class Provisioner {
         log.debug(`${userId} requested their puppeted accounts`);
         const allPuppets = await this.main.datastore.getPuppetedUsers();
         const accts = allPuppets.filter((p) => p.matrixId === userId);
-        // tslint:disable-next-line: no-any
         const accounts = await Promise.all(accts.map(async (acct: any) => {
             delete acct.token;
             const client = await this.main.clientFactory.getClientForUser(acct.teamId, acct.matrixId);

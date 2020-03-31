@@ -52,7 +52,6 @@ export class AdminCommands {
                     return yg.options(cmd.options);
                 }
             // TODO: Fix typing
-            // tslint:disable-next-line: no-any
             }) as any, cmd.handler.bind(cmd));
         });
     }

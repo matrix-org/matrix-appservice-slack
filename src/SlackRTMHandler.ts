@@ -13,8 +13,9 @@ const log = Logging.get("SlackRTMHandler");
 
 const LOG_TEAM_LEN = 12;
 /**
- * This handler connects to Slack using the RTM API (events API, but websockets).
+ * This handler connects to Slack using the Real Time Messaging (RTM) API.
  * It reuses the SlackEventHandler to handle events.
+ * The RTM API works like the Events API, but uses websockets. https://api.slack.com/rtm
  */
 export class SlackRTMHandler extends SlackEventHandler {
     private rtmTeamClients: Map<string, Promise<RTMClient>>; // team -> client
@@ -62,7 +63,6 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.debug(`Started RTM client for user ${key}`, team);
     }
 
-    // tslint:disable-next-line: no-any
     private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
         const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.

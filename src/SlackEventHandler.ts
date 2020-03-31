@@ -20,25 +20,43 @@ import { Main } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
 const log = Logging.get("SlackEventHandler");
 
-interface ISlackEventChannelRenamed extends ISlackEvent {
-    // https://api.slack.com/events/channel_rename
+/**
+ * https://api.slack.com/events/channel_rename
+ */
+interface ISlackEventChannelRename extends ISlackEvent {
     id: string;
     name: string;
     created: number;
 }
 
-interface ISlackEventTeamDomainChanged extends ISlackEvent {
+/**
+ * https://api.slack.com/events/team_domain_change
+ */
+interface ISlackEventTeamDomainChange extends ISlackEvent {
     url: string;
     domain: string;
 }
 
+/**
+ * https://api.slack.com/events/reaction_added
+ */
 interface ISlackEventReaction extends ISlackEvent {
-    // https://api.slack.com/events/reaction_added
     reaction: string;
     item: ISlackMessage;
+    user: string;
 }
 
-interface ISlackChannelAdded {
+/**
+ * https://api.slack.com/events/user_typing
+ */
+interface ISlackEventUserTyping extends ISlackEvent {
+    user: string;
+}
+
+/**
+ * https://api.slack.com/events/channel_created
+ */
+interface ISlackEventChannelCreated {
     type: string;
     channel: {
         id: string;
@@ -46,6 +64,14 @@ interface ISlackChannelAdded {
         created: number;
         creator: string;
     };
+}
+
+/**
+ * A container for multiple event types which we only handle,
+ * if team_sync is enabled.
+ */
+interface ISlackTeamSyncEvent extends ISlackEvent {
+    user?: ISlackUser;
 }
 
 const HTTP_OK = 200;
@@ -59,7 +85,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * to events in order to handle them.
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
-    "team_domain_change", "channel_rename", "user_typing"];
+    "team_domain_change", "channel_rename", "user_change", "user_typing"];
     constructor(main: Main) {
         super(main);
     }
@@ -104,19 +130,19 @@ export class SlackEventHandler extends BaseSlackHandler {
                         await this.handleReaction(event as ISlackEventReaction, teamId);
                         break;
                     case "channel_rename":
-                        await this.handleChannelRenameEvent(event as ISlackEventChannelRenamed);
+                        await this.handleChannelRenameEvent(event as ISlackEventChannelRename);
                         break;
                     case "team_domain_change":
-                        await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChanged, teamId);
+                        await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChange, teamId);
                         break;
                     case "user_typing":
-                        await this.handleTyping(event, teamId);
+                        await this.handleTyping(event as ISlackEventUserTyping, teamId);
                         break;
                     case "channel_created":
                     case "channel_deleted":
                     case "user_change":
                     case "team_join":
-                        await this.handleTeamSyncEvent(event, teamId);
+                        await this.handleTeamSyncEvent(event as ISlackTeamSyncEvent, teamId);
                         break;
                     // XXX: Unused?
                     case "file_comment_added":
@@ -313,7 +339,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         } */
     }
 
-    private async handleDomainChangeEvent(event: ISlackEventTeamDomainChanged, teamId: string) {
+    private async handleDomainChangeEvent(event: ISlackEventTeamDomainChange, teamId: string) {
         const team = await this.main.datastore.getTeam(teamId);
         if (team) {
             team.domain = event.domain;
@@ -321,7 +347,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
-    private async handleChannelRenameEvent(event: ISlackEventChannelRenamed) {
+    private async handleChannelRenameEvent(event: ISlackEventChannelRename) {
         // TODO test me. and do we even need this? doesn't appear to be used anymore
         const room = this.main.rooms.getBySlackChannelId(event.id);
         if (!room) { throw new Error("unknown_channel"); }
@@ -333,7 +359,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
-    private async handleTyping(event: ISlackEvent, teamId: string) {
+    private async handleTyping(event: ISlackEventUserTyping, teamId: string) {
         const room = this.main.rooms.getBySlackChannelId(event.channel);
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
@@ -347,18 +373,18 @@ export class SlackEventHandler extends BaseSlackHandler {
         await room.onSlackTyping(typingEvent, teamId);
     }
 
-    private async handleTeamSyncEvent(event: ISlackEvent, teamId: string) {
+    private async handleTeamSyncEvent(event: ISlackTeamSyncEvent, teamId: string) {
         if (!this.main.teamSyncer) {
             throw Error("ignored");
         }
         if (event.type === "channel_created") {
             // Note: Slack violates the usual stringness of 'channel' here.
-            const eventDetails = event as unknown as ISlackChannelAdded;
+            const eventDetails = event as unknown as ISlackEventChannelCreated;
             await this.main.teamSyncer.onChannelAdded(teamId, eventDetails.channel.id, eventDetails.channel.name, eventDetails.channel.creator);
         } else if (event.type === "channel_deleted") {
             await this.main.teamSyncer.onChannelDeleted(teamId, event.channel);
         } else if (event.type === "team_join" || event.type === "user_change") {
-            const user = event.user as unknown as ISlackUser;
+            const user = event.user!;
             const domain = (await this.main.datastore.getTeam(teamId))!.domain;
             await this.main.teamSyncer.syncUser(teamId, domain, user);
         }

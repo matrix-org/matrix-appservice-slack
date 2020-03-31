@@ -8,9 +8,9 @@ to the bridge's database.
 
 ## RTM API
 
-This is the newer and recommended way to use the bridge.
+The Real Time Messaging (RTM) API is the newer and recommended way to use the bridge.
 
-1. Add a custom app to your Slack team/workspace by visiting https://api.Slack.com/apps
+1. Add a custom app to your Slack team/workspace by visiting https://api.slack.com/apps
    and clicking on `Create New App`.
 
 2. Name the app & select the team/workspace this app will belong to.

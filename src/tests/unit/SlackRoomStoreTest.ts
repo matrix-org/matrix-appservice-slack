@@ -19,7 +19,6 @@ describe("SlackRoomStore", () => {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
 
         expect(roomStore.getByInboundId("foo")).to.equal(room);
@@ -37,7 +36,6 @@ describe("SlackRoomStore", () => {
             inbound_id: "foo",
             slack_channel_id: "bar",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
 
         expect(roomStore.getByInboundId("foo")).to.equal(room);
@@ -56,7 +54,6 @@ describe("SlackRoomStore", () => {
             inbound_id: "foo",
             slack_channel_id: "bar",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
         roomStore.upsertRoom(room);
         roomStore.upsertRoom(room);
@@ -103,7 +100,6 @@ describe("SlackRoomStore", () => {
             inbound_id: "foo",
             slack_channel_id: "bar",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
         room.SlackChannelId = "baz";
         roomStore.upsertRoom(room);
@@ -123,7 +119,6 @@ describe("SlackRoomStore", () => {
             inbound_id: "foo",
             slack_channel_id: "bar",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
         room.InboundId = "baz";
         roomStore.upsertRoom(room);
@@ -142,7 +137,6 @@ describe("SlackRoomStore", () => {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
         roomStore.removeRoom(room);
         expect(roomStore.getByInboundId("foo")).to.be.undefined;
@@ -160,7 +154,6 @@ describe("SlackRoomStore", () => {
             inbound_id: "foo",
             slack_channel_id: "bar",
         });
-        // tslint:disable-next-line: no-any
         roomStore.upsertRoom(room);
         roomStore.removeRoom(room);
         expect(roomStore.getByInboundId("foo")).to.be.undefined;
