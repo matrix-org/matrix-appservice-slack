@@ -908,7 +908,9 @@ export class Main {
             const ONE_HOUR = 60 * 60 * 1000;
             this.metricsCollectorInterval = setInterval(() => {
                 log.info("Recalculating activity metrics...");
-                this.updateActivityMetrics().catch(error => { log.error(error) });
+                this.updateActivityMetrics().catch((err) => {
+                    log.error(`Error updating activity metrics`, err)
+                });
             }, ONE_HOUR);
             await this.updateActivityMetrics();
 
