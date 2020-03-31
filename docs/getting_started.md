@@ -68,7 +68,7 @@ ever stuck, you can post a question in the
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
    
-    `$ npm start -- -r -c config.yaml -u "http://$HOST:$MATRIX_PORT"`
+    `$ npm start -- -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
 ```sh

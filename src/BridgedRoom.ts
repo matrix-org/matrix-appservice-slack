@@ -50,6 +50,11 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 const RECENT_MESSAGE_MAX = 10;
 const PUPPET_INCOMING_DELAY_MS = 1500;
 
+/**
+ * A BridgedRoom is a 1-to-1 connection of a Matrix room and a Slack channel.
+ * It adds, updates and removes ghosts on both sides to represent users from the other side.
+ * It also posts as these ghosts.
+ */
 export class BridgedRoom {
     public get isDirty() {
         return this.dirty;
@@ -432,6 +437,10 @@ export class BridgedRoom {
         this.addRecentSlackMessage(res.ts);
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
+        // Log activity, but don't await the answer or throw errors
+        this.main.datastore.upsertActivityMetrics(user, this).catch((err) => {
+            log.error(`Error storing activity metrics`, err);
+        });
 
         if (!res.ok) {
             log.error("HTTP Error: ", res.error);
@@ -629,6 +638,11 @@ export class BridgedRoom {
         this.slackATime = Date.now() / 1000;
 
         const subtype = message.subtype;
+
+        // Log activity, but don't await the answer or throw errors
+        this.main.datastore.upsertActivityMetrics(ghost, this).catch((err) => {
+            log.error(`Error storing activity metrics`, err);
+        });
 
         // Transform the text if it is present.
         if (message.text) {

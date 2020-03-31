@@ -1,0 +1,1 @@
+Add metrics for active users and rooms

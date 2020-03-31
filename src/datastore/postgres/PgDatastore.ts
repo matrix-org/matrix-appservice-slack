@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 4;
+    public static readonly LATEST_SCHEMA = 5;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -290,6 +290,63 @@ export class PgDatastore implements Datastore {
     public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
         const statement = PgDatastore.BuildUpsertStatement("user_admin_rooms", "matrixuser", {matrixuser, roomid});
         await this.postgresDb.none(statement, {matrixuser, roomid});
+    }
+
+    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
+        date = date || new Date();
+        const userId = (user instanceof SlackGhost) ? user.toEntry().id : user.userId;
+
+        await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
+            date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+            roomId: room.toEntry().id,
+            userId,
+        });
+    }
+
+    public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<Map<string, Map<RoomType, number>>> {
+        const roomsByTeamAndType: Map<string, Map<RoomType, number>> = new Map();
+        (await this.postgresDb.manyOrNone(
+            "SELECT room_id, rooms.json::json->>'slack_team_id' AS team_id, rooms.json::json->>'slack_type' AS slack_type " +
+            "FROM metrics_activities " +
+            "LEFT JOIN rooms ON metrics_activities.room_id = rooms.id " +
+            "WHERE date_part('days', age(date)) < ${historyLengthInDays} " +
+            "GROUP BY room_id, team_id, room_id, slack_type " +
+            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays};",
+            { activityThreshholdInDays, historyLengthInDays },
+        )).forEach((activeRoom) => {
+            activeRoom.team_id = activeRoom.team_id || "noteam";
+            if (!roomsByTeamAndType.has(activeRoom.team_id)) {
+                roomsByTeamAndType.set(activeRoom.team_id, new Map());
+            }
+            const teamData = roomsByTeamAndType.get(activeRoom.team_id)!;
+            // We found a new active room for this team and room type -> Increment counter!
+            teamData.set(activeRoom.slack_type, (teamData.get(activeRoom.slack_type) || 0) + 1);
+        });
+        return roomsByTeamAndType;
+    }
+
+    public async getActiveUsersPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<Map<string, Map<boolean, number>>> {
+        const usersByTeamAndRemote: Map<string, Map<boolean, number>> = new Map();
+        (await this.postgresDb.manyOrNone(
+            "SELECT user_id, users.json::json->>'team_id' AS team_id, users.isremote AS remote " +
+            "FROM metrics_activities " +
+            "LEFT JOIN users ON metrics_activities.user_id = users.userid " +
+            "WHERE date_part('days', age(date)) < ${historyLengthInDays} " +
+            "GROUP BY user_id, team_id, remote " +
+            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays};",
+            { activityThreshholdInDays, historyLengthInDays },
+        )).forEach((activeUser) => {
+            activeUser.team_id = activeUser.team_id || "noteam";
+            // The lack of a user being in the users table means they aren't a slack user (= not remote).
+            activeUser.remote = activeUser.remote || false;
+            if (!usersByTeamAndRemote.has(activeUser.team_id)) {
+                usersByTeamAndRemote.set(activeUser.team_id, new Map());
+            }
+            const teamData = usersByTeamAndRemote.get(activeUser.team_id)!;
+            // We found a new active user for this team and remote state -> Increment counter!
+            teamData.set(activeUser.remote, (teamData.get(activeUser.remote) || 0) + 1);
+        });
+        return usersByTeamAndRemote;
     }
 
     private async updateSchemaVersion(version: number) {
