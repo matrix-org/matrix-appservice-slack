@@ -95,7 +95,7 @@ app_service_config_files:
 
    Don't forget - it has to be a YAML list of strings, not just a single string.
 
-   Restart your homeserver to have it reread the config file an establish a
+   Restart your homeserver to have it reread the config file and establish a
    connection to the bridge.
 
 8. Invite the bridge bot user into the admin room, so it can actually see and
