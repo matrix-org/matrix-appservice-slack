@@ -108,6 +108,7 @@ export class Main {
     private slackRtm?: SlackRTMHandler;
 
     private metrics: PrometheusMetrics;
+    private metricsCollectorInterval: NodeJS.Timeout;
     private metricActiveRooms: Gauge;
     private metricActiveUsers: Gauge;
     private metricPuppets: Gauge;
@@ -905,7 +906,7 @@ export class Main {
 
             // Regularly update the metrics for active rooms and users
             const ONE_HOUR = 60 * 60 * 1000;
-            setInterval(() => {
+            this.metricsCollectorInterval = setInterval(() => {
                 log.info("Recalculating activity metrics...");
                 this.updateActivityMetrics().catch(error => { log.error(error) });
             }, ONE_HOUR);
@@ -1139,6 +1140,9 @@ export class Main {
 
     public async killBridge() {
         log.info("Killing bridge");
+        if (this.metricsCollectorInterval) {
+            clearInterval(this.metricsCollectorInterval);
+        }
         if (this.slackRtm) {
             log.info("Closing RTM connections");
             await this.slackRtm.disconnectAll();
