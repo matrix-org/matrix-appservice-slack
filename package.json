@@ -36,6 +36,7 @@
     "escape-string-regexp": "^2.0.0",
     "matrix-appservice": "^0.4.1",
     "matrix-appservice-bridge": "^1.11.1",
+    "matrix-slack-parser": "0.0.1",
     "minimist": "^1.2.5",
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",
