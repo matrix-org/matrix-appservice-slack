@@ -108,7 +108,7 @@ export class Main {
     private slackRtm?: SlackRTMHandler;
 
     private metrics: PrometheusMetrics;
-    private metricsCollectorInterval: NodeJS.Timeout;
+    private metricsCollectorInterval?: NodeJS.Timeout;
     private metricActiveRooms: Gauge;
     private metricActiveUsers: Gauge;
     private metricPuppets: Gauge;
