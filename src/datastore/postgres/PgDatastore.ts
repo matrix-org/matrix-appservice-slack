@@ -337,6 +337,8 @@ export class PgDatastore implements Datastore {
             { activityThreshholdInDays, historyLengthInDays },
         )).forEach((activeUser) => {
             activeUser.team_id = activeUser.team_id || "noteam";
+            // The lack of a user being in the users table means they aren't a slack user (= not remote).
+            activeUser.remote = activeUser.remote || false;
             if (!usersByTeamAndRemote.has(activeUser.team_id)) {
                 usersByTeamAndRemote.set(activeUser.team_id, new Map());
             }
