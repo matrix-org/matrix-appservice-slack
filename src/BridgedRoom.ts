@@ -16,6 +16,7 @@ limitations under the License.
 
 import * as rp from "request-promise-native";
 import { Logging, Intent } from "matrix-appservice-bridge";
+import { SlackMessageParser, ISlackMessage, ISlackMessageParserOpts } from "matrix-slack-parser";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
@@ -630,10 +631,19 @@ export class BridgedRoom {
 
         const subtype = message.subtype;
 
-        // Transform the text if it is present.
         if (message.text) {
-            message.text = substitutions.slackToMatrix(message.text,
-                subtype === "file_comment" ? message.file : undefined);
+            const parser = new SlackMessageParser();
+            const opts = {
+                callbacks: {
+                    getUser: async (id: string, name: string) => null,
+                    getChannel: async (id: string, name: string) => null,
+                    getUsergroup: async (id: string, name: string) => null,
+                    getTeam: async (id: string, name: string) => null,
+                    urlToMxc: async (url: string) => null,
+                },
+            } as ISlackMessageParserOpts;
+            const result = await parser.FormatMessage(opts, message as ISlackMessage);
+            await ghost.sendMessage(this.matrixRoomId, result, channelId, eventTS);
         }
 
         if (message.thread_ts !== undefined && message.text) {
