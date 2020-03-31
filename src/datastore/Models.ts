@@ -74,20 +74,6 @@ export interface PuppetEntry {
 
 export type RoomType = "user" | "channel";
 
-export interface ActiveRoomEntry {
-    roomId: string;
-    teamId: string;
-    roomType: RoomType;
-    activeDays: number;
-}
-
-export interface ActiveUserEntry {
-    userId: string;
-    teamId: string;
-    remote: boolean;
-    activeDays: number;
-}
-
 export interface Datastore {
     // Users
     upsertUser(user: SlackGhost): Promise<void>;
@@ -132,13 +118,13 @@ export interface Datastore {
      * @param activityThreshholdInDays How many days of activity make a room count as active?
      * @param historyLengthInDays How many days of history shall be taken into account?
      */
-    getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<ActiveRoomEntry[]>;
+    getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<Map<string, Map<RoomType, number>>>;
     /**
      * Returns active users grouped by their team.
      * @param activityThreshholdInDays How many days of activity make a user count as active?
      * @param historyLengthInDays How many days of history shall be taken into account?
      */
-    getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<ActiveUserEntry[]>;
+    getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<Map<string, Map<boolean, number>>>;
     /**
      * Records an activity taken by a user inside a room on a specific date.
      * This will be used for the metrics of active users and rooms.

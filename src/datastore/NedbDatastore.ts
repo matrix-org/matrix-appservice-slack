@@ -19,7 +19,7 @@ import {
     MatrixUser,
     EventStore, RoomStore, UserStore,
     StoredEvent } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, RoomType, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry, ActiveRoomEntry, ActiveUserEntry } from "./Models";
+import { Datastore, UserEntry, RoomEntry, RoomType, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry } from "./Models";
 import * as NedbDb from "nedb";
 
 export class NedbDatastore implements Datastore {
@@ -230,14 +230,14 @@ export class NedbDatastore implements Datastore {
         throw Error("Not supported on NeDB");
     }
 
-    public async getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<ActiveRoomEntry[]> {
+    public async getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<Map<string, Map<RoomType, number>>> {
         // no-op; activity metrics are not implemented for NeDB
-        return [];
+        return new Map();
     }
 
-    public async getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<ActiveUserEntry[]> {
+    public async getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<Map<string, Map<boolean, number>>> {
         // no-op; activity metrics are not implemented for NeDB
-        return [];
+        return new Map();
     }
 
     public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {

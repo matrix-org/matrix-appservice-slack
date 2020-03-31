@@ -319,28 +319,8 @@ export class Main {
      * change to the metrics has happened.
      */
     public async updateActivityMetrics() {
-        const activeRooms = await this.datastore.getActiveRoomsPerTeam();
-        const activeUsers = await this.datastore.getActiveUsersPerTeam();
-
-        const roomsByTeamAndType: Map<string, Map<RoomType, number>> = new Map();
-        for (const activeRoom of activeRooms) {
-            if (!roomsByTeamAndType.has(activeRoom.teamId)) {
-                roomsByTeamAndType.set(activeRoom.teamId, new Map());
-            }
-            const teamData = roomsByTeamAndType.get(activeRoom.teamId)!;
-            // We found a new active user for this team and room type -> Increment counter!
-            teamData.set(activeRoom.roomType, (teamData.get(activeRoom.roomType) || 0) + 1);
-        }
-
-        const usersByTeamAndRemote: Map<string, Map<boolean, number>> = new Map();
-        for (const activeUser of activeUsers) {
-            if (!usersByTeamAndRemote.has(activeUser.teamId)) {
-                usersByTeamAndRemote.set(activeUser.teamId, new Map());
-            }
-            const teamData = usersByTeamAndRemote.get(activeUser.teamId)!;
-            // We found a new active user for this team and remote state -> Increment counter!
-            teamData.set(activeUser.remote, (teamData.get(activeUser.remote) || 0) + 1);
-        }
+        const roomsByTeamAndType = await this.datastore.getActiveRoomsPerTeam();
+        const usersByTeamAndRemote = await this.datastore.getActiveUsersPerTeam();
 
         this.metricActiveRooms.reset();
         for (const [teamId, teamData] of roomsByTeamAndType.entries()) {
