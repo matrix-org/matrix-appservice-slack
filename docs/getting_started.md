@@ -51,18 +51,23 @@ ever stuck, you can post a question in the
 1. Create a new Matrix room to act as the administration control room. Note its
    internal room ID (Example: !abcdefg12345hijk:coolserver.com).
 
-2. Decide on a spare local TCP port number to use. It will listen for messages
+1. Decide on a spare local TCP port number to use. It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
    firewalls appropriately. This port will be notated as `$MATRIX_PORT` in
    the remaining instructions.
 
-3. Create a `config/config.yaml` file for global configuration. There is a sample
+1. Create a `config/config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml`. You should copy and
    edit as appropriate. The required and optional values are flagged in the config.
 
-4. See [datastores](datastores.md) on how to setup a database with the bridge.
+  1. For `homeserver.server_name`, enter the server name, e.g. `matrix.example.com` or `localhost`.
 
-5. Generate the appservice registration file. This will be used by the
+  1. For `db`, see [datastores](datastores.md) on how to set up a database with the bridge.
+  
+  1. For `matrix_admin_room`, enter the internal room ID of the administration control
+     room (Example: !abcdefg12345hijk:coolserver.com).
+
+1. Generate the appservice registration file. This will be used by the
    Matrix homeserver. Here, you must specify the direct link the
    **Matrix Homserver** can use to access the bridge, including the Matrix
    port it will send messages through (if this bridge runs on the same
@@ -76,14 +81,14 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
     -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
 ```
 
-6. Start the actual application service:
+1. Start the actual application service:
 
     `$ npm start -- -c config/config.yaml -p $MATRIX_PORT`
    or with docker:
    
     `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
 
-7. Copy the newly-generated `slack-registration.yaml` file to your Matrix
+1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
    `homeserver.yaml`):
    
@@ -98,7 +103,7 @@ app_service_config_files:
    Restart your homeserver to have it reread the config file and establish a
    connection to the bridge.
 
-8. Invite the bridge bot user into the admin room, so it can actually see and
+1. Invite the bridge bot user into the admin room, so it can actually see and
    respond to commands. The bot's user ID is formed from the `sender_localpart`
    field of the registration file, and the homeserver's domain name. For example:
 
