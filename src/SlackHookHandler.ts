@@ -108,6 +108,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                 }
             } catch (e) {
                 log.error("SlackHookHandler failed:", e);
+                // Do not send error if HTTP connection is closed
                 if (res.finished) {
                     return;
                 }
