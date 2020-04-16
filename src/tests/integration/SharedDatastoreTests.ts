@@ -277,4 +277,28 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             });
         });
     });
+
+    describe("metrics", () => {
+        it("should not throw when an activity is upserted twice", async () => {
+            const user = SlackGhost.fromEntry(null as any, {
+                display_name: "A displayname",
+                avatar_url: "Some avatar",
+                id: "someid1",
+                slack_id: "FOOBAR",
+                team_id: "BARBAZ",
+            }, null);
+            const room = new BridgedRoom({} as any, {
+                inbound_id: "a_remote_id",
+                matrix_room_id: "a_matrix_id",
+                slack_channel_id: "a_channel_id",
+                slack_channel_name: "a_channel_name",
+                slack_team_id: "a_team_id",
+                slack_webhook_uri: "a_webhook_uri",
+                puppet_owner: undefined,
+            }, {} as any);
+            const date = new Date();
+            await ds().upsertActivityMetrics(user, room, date);
+            await ds().upsertActivityMetrics(user, room, date);
+        });
+    });
 };
