@@ -90,6 +90,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         const HTTP_SERVER_ERROR = 500;
         let body = "";
         req.on("data", (chunk) => body += chunk);
+        req.on("error", (err) => log.error(`Error handling request: ${req.url}: ${err}`));
         req.on("end", () => {
             log.debug(`${req.method} ${req.url} bodyLen=${body.length}`);
 
@@ -107,6 +108,10 @@ export class SlackHookHandler extends BaseSlackHandler {
                 }
             } catch (e) {
                 log.error("SlackHookHandler failed:", e);
+                // Do not send error if HTTP connection is closed
+                if (res.finished) {
+                    return;
+                }
                 res.writeHead(HTTP_SERVER_ERROR, {"Content-Type": "text/plain"});
                 if (req.method !== "HEAD") {
                     res.write("Internal Server Error");
