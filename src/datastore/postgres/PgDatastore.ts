@@ -296,11 +296,19 @@ export class PgDatastore implements Datastore {
         date = date || new Date();
         const userId = (user instanceof SlackGhost) ? user.toEntry().id : user.userId;
 
-        await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
-            date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
-            roomId: room.toEntry().id,
-            userId,
-        });
+        try {
+            await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
+                date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+                roomId: room.toEntry().id,
+                userId,
+            });
+        } catch (error) {
+            if (error.message === "duplicate key value violates unique constraint \"cons_activities_unique\"") {
+                // The user already had an action in this room today. That's no problem.
+                return;
+            }
+            throw error;
+        }
     }
 
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<Map<string, Map<RoomType, number>>> {
