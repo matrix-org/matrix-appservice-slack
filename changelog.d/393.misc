@@ -1,0 +1,1 @@
+Silence PostgreSQL errors when a metric activity is recorded twice
