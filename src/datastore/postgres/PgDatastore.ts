@@ -299,7 +299,7 @@ export class PgDatastore implements Datastore {
         await this.postgresDb.none(
             "INSERT INTO metrics_activities (user_id, room_id, date) " +
             "VALUES(${userId}, ${roomId}, ${date}) " +
-            "ON CONFLICT cons_activities_unique DO NOTHING;", {
+            "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING;", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
             roomId: room.toEntry().id,
             userId,
