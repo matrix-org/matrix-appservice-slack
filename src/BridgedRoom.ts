@@ -400,7 +400,7 @@ export class BridgedRoom {
 
         const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
 
-        if (avatarUrl && avatarUrl.indexOf("mxc://") === 0) {
+        if (avatarUrl && avatarUrl.startsWith("mxc://")) {
             body.icon_url = this.main.getUrlForMxc(avatarUrl);
         }
 
@@ -866,7 +866,7 @@ export class BridgedRoom {
 
         if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
             const formattedBody = event.content.formatted_body;
-            if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
+            if (formattedBody.startsWith("<mx-reply>") && formattedBody.includes("</mx-reply>")) {
                 const parts = formattedBody.split("</mx-reply>");
                 realHtml = parts[1];
                 event.content.formatted_body = realHtml.trim();
