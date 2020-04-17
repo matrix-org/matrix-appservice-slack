@@ -1,1 +1,0 @@
-Fix occasional crash if an error occurs handling a Slack event.
