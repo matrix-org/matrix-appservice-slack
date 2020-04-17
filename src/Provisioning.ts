@@ -48,6 +48,7 @@ export class Provisioner {
                 await this.handleProvisioningRequest(verb as Verbs, req, res);
             },
             method: "POST",
+            checkToken: true,
             path: "/_matrix/provision/:verb",
         });
     }

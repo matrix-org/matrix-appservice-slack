@@ -1,0 +1,1 @@
+**SECURITY FIX** The bridge now requires authentication on the /_matrix/provision set of endpoints. It requires either an `access_token` query parameter or a `Authorization` header containing the `hs_token` provided in the registration file.

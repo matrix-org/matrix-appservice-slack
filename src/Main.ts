@@ -816,6 +816,7 @@ export class Main {
             handler: this.onHealth.bind(this.bridge),
             method: "GET",
             path: "/health",
+            checkToken: false,
         });
 
         const provisioningEnabled = this.config.provisioning?.enable;
