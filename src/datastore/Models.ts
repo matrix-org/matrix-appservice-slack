@@ -133,4 +133,9 @@ export interface Datastore {
      * @param date The date of the action (defaults to the current date)
      */
     upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void>;
+
+    /**
+     * Get the number of connected rooms on this instance.
+     */
+    getRoomCount(): Promise<number>;
 }
