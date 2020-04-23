@@ -79,8 +79,14 @@ export class Provisioner {
         }
     }
 
-    private async userIsAllowedAction(actionVerb: "link"|"unlink"|"puppet") {
-        // Hit an endpoint, and wait for a response.
+    private async reachedRoomLimit() {
+        if (!this.main.config.limits?.room_count) {
+            // No limit applied
+            return false;
+        }
+        const currentCount = await this.main.datastore.getRoomCount();
+        return (currentCount >= this.main.config.limits?.room_count);
+    }
 
     }
 

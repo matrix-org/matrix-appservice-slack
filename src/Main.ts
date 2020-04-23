@@ -1121,6 +1121,15 @@ export class Main {
         return accounts.find((acct) => acct.team_id === teamId);
     }
 
+    public async willReachTeamLimit(teamId: string) {
+        // First, check if we are limited
+        if (!this.config.limits?.team_count) {
+            return false;
+        }
+        const idSet = new Set((await this.datastore.getAllTeams()).map((t) => t.id));
+        return idSet.add(teamId).size > this.config.limits?.team_count;
+    }
+
     public async killBridge() {
         log.info("Killing bridge");
         if (this.metricsCollectorInterval) {

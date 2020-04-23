@@ -84,4 +84,9 @@ export interface IConfig {
         enable: boolean;
         auth_callbck: string;
     };
+
+    limits?: {
+        team_count?: number;
+        room_count?: number;
+    }
 }
