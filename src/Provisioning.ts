@@ -88,11 +88,17 @@ export class Provisioner {
         return (currentCount >= this.main.config.limits?.room_count);
     }
 
+    @command()
+    private async getconfig(_, res) {
+        res.json({
+            bot_user_id: this.main.botUserId,
+            reachedRoomLimit: await this.reachedRoomLimit(),
+        })
     }
 
     @command()
-    private getbotid(_, res) {
-        res.json({bot_user_id: this.main.botUserId});
+    private async getbotid(_, res) {
+        return this.getconfig(_, res);
     }
 
     @command("user_id", { param: "puppeting", required: false})
@@ -224,15 +230,7 @@ export class Provisioner {
     @command("user_id", "team_id")
     private async removeaccount(_, res, userId, teamId) {
         log.debug(`${userId} is removing their account on ${teamId}`);
-        const isLast = (await this.main.datastore.getPuppetedUsers()).filter((t) => t.teamId).length < 2;
-        if (isLast) {
-            log.warn("This is the last user on the workspace which means we will lose access to the team token!");
-        }
-        const client = await this.main.clientFactory.getClientForUser(teamId, userId);
-        if (client) {
-            await client.auth.revoke();
-        }
-        await this.main.datastore.removePuppetTokenByMatrixId(teamId, userId);
+        await this.main.clientFactory.removeClient(userId, teamId);
         res.json({ });
     }
 
@@ -323,6 +321,14 @@ export class Provisioner {
                 text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             });
         }
+
+        if (await this.reachedRoomLimit()) {
+            throw {
+                code: HTTP_CODES.FORBIDDEN,
+                text: `You have reached the maximum number of bridged rooms.`,
+            };
+        }
+
         const room = await this.main.actionLink(opts);
         // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();
