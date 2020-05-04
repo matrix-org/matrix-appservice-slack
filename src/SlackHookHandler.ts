@@ -342,7 +342,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                 // XXX: We no longer support setting tokens for webhooks
             } else if (user) { // New event api
                 // Ensure that we can support another team.
-                if (await this.main.willReachTeamLimit(response.team_id)) {
+                if (await this.main.willExceedTeamLimit(response.team_id)) {
                     log.warn(`User ${response.user_id} tried to add a new team ${response.team_id} but the team limit was reached`);
                     try {
                         const tempClient = await this.main.clientFactory.createTeamClient(response.access_token);

@@ -1121,7 +1121,7 @@ export class Main {
         return accounts.find((acct) => acct.team_id === teamId);
     }
 
-    public async willReachTeamLimit(teamId: string) {
+    public async willExceedTeamLimit(teamId: string) {
         // First, check if we are limited
         if (!this.config.limits?.team_count) {
             return false;

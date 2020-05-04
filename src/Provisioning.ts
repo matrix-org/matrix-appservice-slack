@@ -227,13 +227,6 @@ export class Provisioner {
         res.json({ accounts });
     }
 
-    @command("user_id", "team_id")
-    private async removeaccount(_, res, userId, teamId) {
-        log.debug(`${userId} is removing their account on ${teamId}`);
-        await this.main.clientFactory.removeClient(userId, teamId);
-        res.json({ });
-    }
-
     @command("matrix_room_id", "user_id")
     private async getlink(req, res, matrixRoomId, userId) {
         const room = this.main.rooms.getByMatrixRoomId(matrixRoomId);
