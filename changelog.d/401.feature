@@ -1,0 +1,1 @@
+Check if a channel is linked to another room, and unauthorize the link if so.
