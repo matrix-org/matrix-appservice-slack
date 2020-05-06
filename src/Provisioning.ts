@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, Bridge, MatrixUser } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
+import { Logging, MatrixUser } from "matrix-appservice-bridge";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
@@ -80,20 +79,31 @@ export class Provisioner {
     }
 
     private async reachedRoomLimit() {
-        if (!this.main.config.limits?.room_count) {
+        if (!this.main.config.provisioning?.limits?.room_count) {
             // No limit applied
             return false;
         }
         const currentCount = await this.main.datastore.getRoomCount();
-        return (currentCount >= this.main.config.limits?.room_count);
+        return (currentCount >= this.main.config.provisioning?.limits?.room_count);
     }
 
     @command()
     private async getconfig(_, res) {
+        const hasRoomLimit = this.main.config.provisioning?.limits?.room_count;
+        const hasTeamLimit = this.main.config.provisioning?.limits?.team_count;
         res.json({
             bot_user_id: this.main.botUserId,
-            reachedRoomLimit: await this.reachedRoomLimit(),
-        })
+            require_public_room: this.main.config.provisioning?.require_public_room || false,
+            instance_name: this.main.config.homeserver.server_name,
+            room_limit: hasRoomLimit ? {
+                quota: this.main.config.provisioning?.limits?.room_count,
+                current: await this.main.datastore.getRoomCount(),
+            } : null,
+            team_limit: hasTeamLimit ? {
+                quota: this.main.config.provisioning?.limits?.team_count,
+                current: await this.main.clientFactory.teamClientCount,
+            } : null,
+        });
     }
 
     @command()
