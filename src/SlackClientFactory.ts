@@ -60,6 +60,10 @@ export class SlackClientFactory {
         }
     }
 
+    public get teamClientCount() {
+        return this.teamClients.size;
+    }
+
     /**
      * Gets a WebClient for a given teamId. If one has already been
      * created, the cached client is returned.
