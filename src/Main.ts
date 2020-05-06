@@ -170,6 +170,12 @@ export class Main {
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
             },
+            roomUpgradeOpts: {
+                consumeEvent: true,
+                migrateGhosts: true,
+                onRoomMigrated: this.onRoomUpgrade.bind(this),
+                migrateStoreEntries: false,
+            },
             domain: config.homeserver.server_name,
             homeserverUrl: config.homeserver.url,
             registration,
@@ -1134,6 +1140,23 @@ export class Main {
         await this.appservice.close();
         log.info("Bridge killed");
     }
+
+    private async onRoomUpgrade(oldRoomId: string, newRoomId: string) {
+        log.info(`Room has been upgraded from ${oldRoomId} to ${newRoomId}`);
+        const bridgedroom = this.rooms.getByMatrixRoomId(oldRoomId);
+        const adminRoomUser = await this.datastore.getUserForAdminRoom(oldRoomId);
+        if (bridgedroom) {
+            log.info("Migrating channel");
+            this.rooms.removeRoom(bridgedroom);
+            bridgedroom.migrateToNewRoomId(newRoomId);
+            this.rooms.upsertRoom(bridgedroom);
+            await this.datastore.upsertRoom(bridgedroom);
+        } else if (adminRoomUser) {
+            log.info("Migrating admin room");
+            this.datastore.setUserAdminRoom(adminRoomUser, newRoomId);
+        } // Otherwise, not a known room.
+    }
+
 
     private onHealth(_, res: Response) {
         res.status(201).send("");
