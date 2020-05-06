@@ -957,7 +957,12 @@ export class Main {
         let teamId: string = opts.team_id!;
 
         const matrixRoomId = opts.matrix_room_id;
+        const existingChannel = opts.slack_channel_id ? this.rooms.getBySlackChannelId(opts.slack_channel_id) : null;
         const existingRoom = this.rooms.getByMatrixRoomId(matrixRoomId);
+
+        if (existingChannel) {
+            throw Error("Channel is already bridged! Unbridge the channel first.");
+        }
 
         if (!opts.team_id && !opts.slack_bot_token) {
             if (!opts.slack_webhook_uri) {
