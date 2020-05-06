@@ -1153,7 +1153,7 @@ export class Main {
             await this.datastore.upsertRoom(bridgedroom);
         } else if (adminRoomUser) {
             log.info("Migrating admin room");
-            this.datastore.setUserAdminRoom(adminRoomUser, newRoomId);
+            await this.datastore.setUserAdminRoom(adminRoomUser, newRoomId);
         } // Otherwise, not a known room.
     }
 
