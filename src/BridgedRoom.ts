@@ -122,7 +122,6 @@ export class BridgedRoom {
 
     public migrateToNewRoomId(newRoomId: string) {
         this.matrixRoomId = newRoomId;
-        thi
     }
 
     public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient) {
