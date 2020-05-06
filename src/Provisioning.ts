@@ -101,7 +101,7 @@ export class Provisioner {
             } : null,
             team_limit: hasTeamLimit ? {
                 quota: this.main.config.provisioning?.limits?.team_count,
-                current: await this.main.clientFactory.teamClientCount,
+                current: this.main.clientFactory.teamClientCount,
             } : null,
         });
     }

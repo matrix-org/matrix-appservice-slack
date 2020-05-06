@@ -353,7 +353,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async getRoomCount(): Promise<number> {
-        return Number.parseInt((await this.postgresDb.one("SELECT COUNT(*) FROM rooms")).count);
+        return Number.parseInt((await this.postgresDb.one("SELECT COUNT(*) FROM rooms")).count, 10);
     }
 
     private async updateSchemaVersion(version: number) {
