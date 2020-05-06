@@ -102,3 +102,9 @@ team_sync:
 
 provisioning:
   enabled: true
+  # Should the bridge allow public rooms to be bridged
+  require_public_room: true
+  limits:
+    room_count: 20
+    team_count: 1
+

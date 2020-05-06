@@ -104,3 +104,18 @@ properties:
           properties:
             enabled:
               type: boolean
+  provisioning:
+    type: object
+    required: ["enabled"]
+    properties:
+      enabled:
+        type: boolean
+      require_public_room:
+        type: boolean
+      enabled:
+        type: object
+        properties:
+          room_count:
+            type: number
+          team_count:
+            type: number
