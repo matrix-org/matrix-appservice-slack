@@ -49,6 +49,7 @@ const log = Logging.get("Main");
 
 const RECENT_EVENTID_SIZE = 20;
 const STARTUP_TEAM_INIT_CONCURRENCY = 10;
+const STARTUP_RETRY_TIME_MS = 5000;
 export const METRIC_ACTIVE_USERS = "active_users";
 export const METRIC_ACTIVE_ROOMS = "active_rooms";
 export const METRIC_PUPPETS = "remote_puppets";
@@ -810,7 +811,20 @@ export class Main {
         }
         const port = this.config.homeserver.appservice_port || cliPort;
         this.bridge.run(port, this.config, this.appservice);
-        const roomListPromise = this.bridge.getBot().getJoinedRooms() as Promise<string[]>;
+        let joinedRooms: string[]|null = null;
+        while(joinedRooms === null) {
+            try {
+                joinedRooms = await this.bridge.getBot().getJoinedRooms() as string[];
+            } catch (ex) {
+                if (ex.errcode === 'M_UNKNOWN_TOKEN') {
+                    log.error("The homeserver doesn't recognise this bridge, have you configured the homeserver with the appservice registration file?");
+                } else {
+                    log.error("Failed to fetch room list:", ex);
+                }
+                log.error(`Waiting ${STARTUP_RETRY_TIME_MS}ms before retrying`);
+                await new Promise(((resolve) => setTimeout(resolve, STARTUP_RETRY_TIME_MS)));
+            }
+        }
 
         this.bridge.addAppServicePath({
             handler: this.onHealth.bind(this.bridge),
@@ -868,13 +882,12 @@ export class Main {
 
         const entries = await this.datastore.getAllRooms();
         log.info(`Found ${entries.length} room entries in store`);
-        const joinedRooms = await roomListPromise;
         i = 0;
         await Promise.all(entries.map(async (entry) => {
             i++;
             log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
-                await this.startupLoadRoomEntry(entry, joinedRooms, teamClients);
+                await this.startupLoadRoomEntry(entry, joinedRooms as string[], teamClients);
             } catch (ex) {
                 log.error(`Failed to load entry ${entry.matrix_id}, exception thrown`, ex);
             }
@@ -1123,11 +1136,11 @@ export class Main {
 
     public async willExceedTeamLimit(teamId: string) {
         // First, check if we are limited
-        if (!this.config.limits?.team_count) {
+        if (!this.config.provisioning?.limits?.team_count) {
             return false;
         }
         const idSet = new Set((await this.datastore.getAllTeams()).map((t) => t.id));
-        return idSet.add(teamId).size > this.config.limits?.team_count;
+        return idSet.add(teamId).size > this.config.provisioning?.limits?.team_count;
     }
 
     public async killBridge() {
