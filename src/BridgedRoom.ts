@@ -120,6 +120,10 @@ export class BridgedRoom {
         return this.slackType;
     }
 
+    public migrateToNewRoomId(newRoomId: string) {
+        this.matrixRoomId = newRoomId;
+    }
+
     public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient) {
         return new BridgedRoom(main, {
             inbound_id: entry.remote_id,
