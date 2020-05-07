@@ -104,6 +104,8 @@ provisioning:
   enabled: true
   # Should the bridge deny users bridging channels to private rooms.
   require_public_room: true
+  # Should the bridge allow usesr to bridge private channels.
+  allow_private_channels: true
   limits:
     room_count: 20
     team_count: 1
