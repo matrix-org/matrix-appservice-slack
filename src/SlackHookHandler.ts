@@ -382,7 +382,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                 // Not using templates to avoid newline awfulness.
                 // tslint:disable-next-line: prefer-template
                 html: "<h2>Integration Failed</h2>\n" +
-                `<p>Unfortunately your ${room ? "channel integration" : "account" } did not go as expected...</p>`,
+                `<p>Unfortunately, your ${room ? "channel integration" : "account" } did not go as expected...</p>`,
             };
         }
         return {
