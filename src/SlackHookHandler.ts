@@ -379,10 +379,10 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.error("Error during handling of an oauth token:", err);
             return {
                 code: 403,
-                // Not using templaes to avoid newline awfulness.
+                // Not using templates to avoid newline awfulness.
                 // tslint:disable-next-line: prefer-template
                 html: "<h2>Integration Failed</h2>\n" +
-                `<p>Unfortunately your ${room ? "channel integration" : "account" } did not go as expected...</p>`,
+                `<p>Unfortunately, your ${room ? "channel integration" : "account" } did not go as expected...</p>`,
             };
         }
         return {
