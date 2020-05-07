@@ -352,7 +352,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                     }
                     return {
                         code: 403,
-                        // Not using templaes to avoid newline awfulness.
+                        // Not using templates to avoid newline awfulness.
                         // tslint:disable-next-line: prefer-template
                         html: "<h2>Integration Failed</h2>\n" +
                         `<p>You have reached the limit of Slack teams that can be bridged to Matrix. Please contact your admin.</p>`,
