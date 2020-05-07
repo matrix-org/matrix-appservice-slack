@@ -112,7 +112,7 @@ properties:
         type: boolean
       require_public_room:
         type: boolean
-      enabled:
+      limits:
         type: object
         properties:
           room_count:
