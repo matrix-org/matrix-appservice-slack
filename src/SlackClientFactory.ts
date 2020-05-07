@@ -60,6 +60,10 @@ export class SlackClientFactory {
         }
     }
 
+    public get teamClientCount() {
+        return this.teamClients.size;
+    }
+
     /**
      * Gets a WebClient for a given teamId. If one has already been
      * created, the cached client is returned.
@@ -196,7 +200,7 @@ export class SlackClientFactory {
         return res !== null ? res.client : null;
     }
 
-    private async createTeamClient(token: string) {
+    public async createTeamClient(token: string) {
         const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
         const slackClient = new WebClient(token, {
             logger: {

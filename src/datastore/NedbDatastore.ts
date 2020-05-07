@@ -244,4 +244,8 @@ export class NedbDatastore implements Datastore {
         // no-op; activity metrics are not implemented for NeDB
         return;
     }
+
+    public async getRoomCount(): Promise<number> {
+        return (await this.getAllRooms()).length;
+    }
 }

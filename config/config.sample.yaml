@@ -102,3 +102,9 @@ team_sync:
 
 provisioning:
   enabled: true
+  # Should the bridge deny users bridging channels to private rooms.
+  require_public_room: true
+  limits:
+    room_count: 20
+    team_count: 1
+

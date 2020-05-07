@@ -352,6 +352,10 @@ export class PgDatastore implements Datastore {
         return usersByTeamAndRemote;
     }
 
+    public async getRoomCount(): Promise<number> {
+        return Number.parseInt((await this.postgresDb.one("SELECT COUNT(*) FROM rooms")).count, 10);
+    }
+
     private async updateSchemaVersion(version: number) {
         log.debug(`updateSchemaVersion: ${version}`);
         await this.postgresDb.none("UPDATE schema SET version = ${version};", {version});

@@ -341,6 +341,23 @@ export class SlackHookHandler extends BaseSlackHandler {
             if (room) { // Legacy webhook
                 // XXX: We no longer support setting tokens for webhooks
             } else if (user) { // New event api
+                // Ensure that we can support another team.
+                if (await this.main.willExceedTeamLimit(response.team_id)) {
+                    log.warn(`User ${response.user_id} tried to add a new team ${response.team_id} but the team limit was reached`);
+                    try {
+                        const tempClient = await this.main.clientFactory.createTeamClient(response.access_token);
+                        await tempClient.slackClient.auth.revoke();
+                    } catch (ex) {
+                        log.warn(`Additionally failed to revoke the token:`, ex);
+                    }
+                    return {
+                        code: 403,
+                        // Not using templates to avoid newline awfulness.
+                        // tslint:disable-next-line: prefer-template
+                        html: "<h2>Integration Failed</h2>\n" +
+                        `<p>You have reached the limit of Slack teams that can be bridged to Matrix. Please contact your admin.</p>`,
+                    };
+                }
                 // We always get a user access token, but if we set certain
                 // fancy scopes we might not get a bot one.
                 await this.main.setUserAccessToken(
@@ -362,10 +379,10 @@ export class SlackHookHandler extends BaseSlackHandler {
             log.error("Error during handling of an oauth token:", err);
             return {
                 code: 403,
-                // Not using templaes to avoid newline awfulness.
+                // Not using templates to avoid newline awfulness.
                 // tslint:disable-next-line: prefer-template
                 html: "<h2>Integration Failed</h2>\n" +
-                "<p>Unfortunately your channel integration did not go as expected...</p>",
+                `<p>Unfortunately, your ${room ? "channel integration" : "account" } did not go as expected...</p>`,
             };
         }
         return {
