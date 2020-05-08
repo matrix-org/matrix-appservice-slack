@@ -234,7 +234,7 @@ export class SlackClientFactory {
             }
             return { slackClient, team: teamInfo.team, auth, user };
         } catch (ex) {
-            throw Error("Could not create team client: " + ex.data.error);
+            throw Error("Could not create team client: " + (ex.data?.error || ex));
         }
     }
 }
