@@ -89,8 +89,9 @@ export class Provisioner {
 
     private async determineSlackIdForRequest(matrixUserId, teamId) {
         const matrixUser = await this.main.datastore.getMatrixUser(matrixUserId);
-        if (matrixUser === null) {
-            throw Error('No users found');
+        if (!matrixUser) {
+            // No Slack user entry found for MXID
+            return null;
         }
         const accounts: {[userId: string]: {team_id: string}} = matrixUser.get("accounts");
         for (const [key, value] of Object.entries(accounts)) {
@@ -175,6 +176,7 @@ export class Provisioner {
         const cli = await this.main.clientFactory.getTeamClient(teamId);
         try {
             let types = "public_channel";
+            // Unless we *explicity* set this to false, allow it.
             if (this.main.config.provisioning?.allow_private_channels !== false) {
                 types = `public_channel,private_channel`;
             }
