@@ -4,7 +4,7 @@
   "description": "A Matrix <--> Slack bridge",
   "main": "app.js",
   "scripts": {
-    "postinstall": "npm run build",
+    "prepare": "npm run build",
     "start": "node ./lib/app.js",
     "build": "tsc",
     "test": "npm run test:unit && npm run test:integration",
@@ -40,7 +40,7 @@
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",
     "p-queue": "^6.3.0",
-    "pg-promise": "^10.4.4",
+    "pg-promise": "^10.5.3",
     "quick-lru": "^5.0.0",
     "randomstring": "^1",
     "request-promise-native": "^1.0.8",

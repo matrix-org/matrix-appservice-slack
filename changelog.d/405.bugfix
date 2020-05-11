@@ -1,0 +1,1 @@
+Fix postgress configurations failing to start when using the offical docker image.
