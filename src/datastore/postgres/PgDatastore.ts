@@ -47,7 +47,7 @@ export class PgDatastore implements Datastore {
         });
     }
 
-    public async getUser(id: string): Promise<UserEntry | null> {
+    public async getUser(id: string): Promise<UserEntry|null> {
         const dbEntry = await this.postgresDb.oneOrNone("SELECT * FROM users WHERE userId = ${id}", { id });
         if (!dbEntry) {
             return null;
@@ -55,7 +55,7 @@ export class PgDatastore implements Datastore {
         return JSON.parse(dbEntry.json);
     }
 
-    public async getMatrixUser(userId: string): Promise<MatrixUser|undefined> {
+    public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         userId = new MatrixUser(userId).getId(); // Ensure ID correctness
         const userData = await this.getUser(userId);
         return userData !== null ? new MatrixUser(userId, userData) : null;

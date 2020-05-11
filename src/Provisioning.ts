@@ -87,6 +87,21 @@ export class Provisioner {
         return (currentCount >= this.main.config.provisioning?.limits?.room_count);
     }
 
+    private async determineSlackIdForRequest(matrixUserId, teamId) {
+        const matrixUser = await this.main.datastore.getMatrixUser(matrixUserId);
+        if (!matrixUser) {
+            // No Slack user entry found for MXID
+            return null;
+        }
+        const accounts: {[userId: string]: {team_id: string}} = matrixUser.get("accounts");
+        for (const [key, value] of Object.entries(accounts)) {
+            if (value.team_id === teamId) {
+                return key;
+            }
+        }
+        return null;
+    }
+
     @command()
     private async getconfig(_, res) {
         const hasRoomLimit = this.main.config.provisioning?.limits?.room_count;
@@ -150,14 +165,9 @@ export class Provisioner {
     @command("user_id", "team_id")
     private async channels(req, res, userId, teamId) {
         log.debug(`${userId} for ${teamId} requested their channels`);
-        const matrixUser = await this.main.datastore.getMatrixUser(userId);
-        const isAllowed = matrixUser !== null &&
-            Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
-                acct.team_id === teamId,
-            );
-        if (!isAllowed) {
-            res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
-            throw undefined;
+        const slackUserId = await this.determineSlackIdForRequest(userId, teamId);
+        if (!slackUserId) {
+            return res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
         }
         const team = await this.main.datastore.getTeam(teamId);
         if (team === null) {
@@ -165,10 +175,16 @@ export class Provisioner {
         }
         const cli = await this.main.clientFactory.getTeamClient(teamId);
         try {
-            const response = (await cli.conversations.list({
+            let types = "public_channel";
+            // Unless we *explicity* set this to false, allow it.
+            if (this.main.config.provisioning?.allow_private_channels !== false) {
+                types = `public_channel,private_channel`;
+            }
+            const response = (await cli.users.list({
                 exclude_archived: true,
                 limit: 1000, // TODO: Pagination
-                types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
+                user: slackUserId,  // In order to show private channels, we need the identity of the caller.
+                types,
             })) as ConversationsListResponse;
             if (!response.ok) {
                 throw Error(response.error);

@@ -83,6 +83,7 @@ export interface IConfig {
     provisioning?: {
         enable: boolean;
         require_public_room?: boolean;
+        allow_private_channels?: boolean;
         limits?: {
             team_count?: number;
             room_count?: number;

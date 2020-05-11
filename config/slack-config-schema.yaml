@@ -112,6 +112,8 @@ properties:
         type: boolean
       require_public_room:
         type: boolean
+      allow_private_channels:
+        type: boolean
       limits:
         type: object
         properties:
