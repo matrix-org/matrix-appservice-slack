@@ -1,4 +1,15 @@
- 1.2.0 (2020-05-07)
+ 1.3.0 (2020-05-12)
+===================
+
+Features
+--------
+
+- Add ability to limit the number of teams and rooms via the config ([\#397](https://github.com/matrix-org/matrix-appservice-slack/issues/397))
+- Check if a channel is linked to another room, and unauthorize the link if so. ([\#401](https://github.com/matrix-org/matrix-appservice-slack/issues/401))
+- Support automatically bridging to the new room on room upgrade ([\#402](https://github.com/matrix-org/matrix-appservice-slack/issues/402))
+
+
+1.2.0 (2020-05-07)
 ===================
 
 No significant changes.
