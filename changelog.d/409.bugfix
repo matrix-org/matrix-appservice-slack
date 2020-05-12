@@ -1,0 +1,1 @@
+Fix bridge mistakenly calling the wrong slack endpoint on /channels
