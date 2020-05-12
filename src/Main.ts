@@ -798,7 +798,9 @@ export class Main {
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
             this.incRemoteCallCounter(method);
         }, (teamId: string, delta: number) => {
-            this.metricPuppets.inc({ team_id: teamId }, delta);
+            if (this.metricPuppets) {
+                this.metricPuppets.inc({ team_id: teamId }, delta);
+            }
         });
         let puppetsWaiting: Promise<unknown> = Promise.resolve();
         if (this.slackRtm) {
