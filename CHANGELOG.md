@@ -8,6 +8,19 @@ Features
 - Check if a channel is linked to another room, and unauthorize the link if so. ([\#401](https://github.com/matrix-org/matrix-appservice-slack/issues/401))
 - Support automatically bridging to the new room on room upgrade ([\#402](https://github.com/matrix-org/matrix-appservice-slack/issues/402))
 
+Bugfixes
+--------
+
+- Allow bridging to private channels via the provisioner ([\#403](https://github.com/matrix-org/matrix-appservice-slack/issues/403))
+- Fix postgress configurations failing to start when using the offical docker image. ([\#405](https://github.com/matrix-org/matrix-appservice-slack/issues/405))
+- Bridge will no longer update user's displayname with a bots name when a bot is modified ([\#408](https://github.com/matrix-org/matrix-appservice-slack/issues/408))
+
+
+Internal Changes
+----------------
+
+- Fix exception on missing `error` in createTeamClient ([\#404](https://github.com/matrix-org/matrix-appservice-slack/issues/404))
+
 
 1.2.0 (2020-05-07)
 ===================

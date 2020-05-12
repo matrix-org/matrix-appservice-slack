@@ -1,1 +1,0 @@
-Fix exception on missing `error` in createTeamClient
