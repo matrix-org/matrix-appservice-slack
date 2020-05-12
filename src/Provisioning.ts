@@ -180,7 +180,7 @@ export class Provisioner {
             if (this.main.config.provisioning?.allow_private_channels !== false) {
                 types = `public_channel,private_channel`;
             }
-            const response = (await cli.users.list({
+            const response = (await cli.users.conversations({
                 exclude_archived: true,
                 limit: 1000, // TODO: Pagination
                 user: slackUserId,  // In order to show private channels, we need the identity of the caller.
