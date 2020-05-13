@@ -1,4 +1,13 @@
- 1.3.0 (2020-05-12)
+ 1.3.1 (2020-05-13)
+===================
+
+Bugfixes
+--------
+
+- Fix bridge mistakenly calling the wrong slack endpoint on /channels ([\#409](https://github.com/matrix-org/matrix-appservice-slack/issues/409))
+
+
+1.3.0 (2020-05-12)
 ===================
 
 Features
