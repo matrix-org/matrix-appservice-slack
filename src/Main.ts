@@ -841,7 +841,7 @@ export class Main {
             checkToken: false,
         });
 
-        const provisioningEnabled = this.config.provisioning?.enable;
+        const provisioningEnabled = this.config.provisioning?.enabled;
 
         // Previously, this was always true.
         if (provisioningEnabled === undefined ? true : provisioningEnabled) {
