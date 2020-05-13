@@ -110,3 +110,6 @@ provisioning:
     room_count: 20
     team_count: 1
 
+puppeting:
+  # Should the bridge allow users to puppet their accounts
+  enabled: false

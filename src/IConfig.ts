@@ -89,4 +89,8 @@ export interface IConfig {
             room_count?: number;
         }
     };
+
+    puppeting?: {
+        enabled: boolean;
+    }
 }
