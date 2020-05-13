@@ -1,4 +1,13 @@
- 1.3.1 (2020-05-13)
+ 1.3.2 (2020-05-13)
+===================
+
+Internal Changes
+----------------
+
+- Update to `pg-promise` 10.5.5 ([\#410](https://github.com/matrix-org/matrix-appservice-slack/issues/410))
+
+
+1.3.1 (2020-05-13)
 ===================
 
 Bugfixes
