@@ -50,7 +50,7 @@ export class UserAdminRoom {
     }
 
     public async handleLogin() {
-        if (!this.main.oauth2 || !this.main.config.rtm) {
+        if (!this.main.oauth2 || this.main.config.puppeting?.enabled) {
             await this.sendNotice("This bridge is not configured to allow logging into Slack accounts.");
             return;
         }

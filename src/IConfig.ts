@@ -81,7 +81,7 @@ export interface IConfig {
     dbdir: string;
 
     provisioning?: {
-        enable: boolean;
+        enabled: boolean;
         require_public_room?: boolean;
         allow_private_channels?: boolean;
         limits?: {
@@ -89,4 +89,8 @@ export interface IConfig {
             room_count?: number;
         }
     };
+
+    puppeting?: {
+        enabled: boolean;
+    }
 }

@@ -143,6 +143,10 @@ export class Main {
             "The bridge must define a listener in order to run");
         }
 
+        if ((!config.rtm?.enable || !config.oauth2) && config.puppeting?.enabled) {
+            throw Error("Either rtm and/or oaurh2 is not enabled, but puppeting is enabled. Both need to be enabled for puppeting to work");
+        }
+
         let bridgeStores = {};
         const usingNeDB = config.db === undefined;
         if (usingNeDB) {
@@ -841,7 +845,7 @@ export class Main {
             checkToken: false,
         });
 
-        const provisioningEnabled = this.config.provisioning?.enable;
+        const provisioningEnabled = this.config.provisioning?.enabled;
 
         // Previously, this was always true.
         if (provisioningEnabled === undefined ? true : provisioningEnabled) {
