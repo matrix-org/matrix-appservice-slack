@@ -94,11 +94,11 @@ team_sync:
   all:
     channels:
       enabled: false
-  #   whitelist: []
-  #   blacklist: []
-  #   alias_prefix: "slack_"
-  users:
-    enabled: false
+    # whitelist: []
+    # blacklist: []
+    # alias_prefix: "slack_"
+    users:
+      enabled: false
 
 provisioning:
   enabled: true
