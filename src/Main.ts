@@ -31,7 +31,7 @@ import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
-import { Datastore, TeamEntry, RoomEntry, RoomType } from "./datastore/Models";
+import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -43,7 +43,6 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
-import { stringify } from "querystring";
 
 const log = Logging.get("Main");
 
@@ -1120,15 +1119,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
-        let matrixUser = await this.datastore.getMatrixUser(userId);
-        matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
-        const accounts = matrixUser.get("accounts") || {};
-        accounts[slackId] = {
-            access_token: accessToken,
-            team_id: teamId,
-        };
-        matrixUser.set("accounts", accounts);
-        await this.datastore.storeMatrixUser(matrixUser);
+        await this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
             // Store it here too for puppeting.
             await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
@@ -1139,16 +1130,11 @@ export class Main {
                 token: accessToken,
             });
         }
-        log.info(`Set new access token for ${userId} (team: ${teamId})`);
+        log.info(`Set new access token for ${userId} (team: ${teamId}, puppeting: ${puppeting})`);
     }
 
     public async matrixUserInSlackTeam(teamId: string, userId: string) {
-        const matrixUser = await this.datastore.getMatrixUser(userId);
-        if (matrixUser === null) {
-            return false;
-        }
-        const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
-        return accounts.find((acct) => acct.team_id === teamId);
+        return (await this.datastore.getAccountsForMatrixUser(userId)).find((a) => a.teamId === teamId);
     }
 
     public async willExceedTeamLimit(teamId: string) {
@@ -1158,6 +1144,41 @@ export class Main {
         }
         const idSet = new Set((await this.datastore.getAllTeams()).map((t) => t.id));
         return idSet.add(teamId).size > this.config.provisioning?.limits?.team_count;
+    }
+
+    public async logoutAccount(userId: string, slackId: string) {
+        const acct = (await this.datastore.getAccountsForMatrixUser(userId)).find((s) => s.slackId === slackId);
+        if (!acct) {
+            // Account not found
+            return { deleted: false, msg: "Account not found"};
+        }
+
+        const isLastAccountForTeam = !acct.teamId || (await this.datastore.getAccountsForTeam(acct.teamId)).length <= 1;
+        const teamHasRooms = this.rooms.getBySlackTeamId(acct.teamId).length > 0;
+
+        if (isLastAccountForTeam) {
+            if (teamHasRooms) {
+                // If this is the last account for a team and rooms are bridged, we must preserve
+                // the team until all rooms are removed.
+                return { deleted: false, msg: "You are the only user connected to Slack. You must unlink your rooms before you can unlink your account"};
+            }
+            // Last account, but no bridged rooms. We can delete the team safely.
+            await this.clientFactory.dropTeamClient(acct.teamId);
+            await this.datastore.deleteTeam(acct.teamId);
+            log.info(`Removed team ${acct.teamId}`);
+        } // or not even the last account, we can safely remove the team
+
+        try {
+            const client = await this.clientFactory.createClient(acct.accessToken);
+            await client.auth.revoke();
+        } catch (ex) {
+            log.warn('Tried to revoke auth token, but got:', ex);
+            // Even if this fails, we remove the token locally.
+        }
+
+        await this.datastore.deleteAccount(userId, slackId);
+        log.info(`Removed account ${slackId} from ${slackId}`);
+        return { deleted: true };
     }
 
     public async killBridge() {

@@ -345,8 +345,8 @@ export class SlackHookHandler extends BaseSlackHandler {
                 if (await this.main.willExceedTeamLimit(response.team_id)) {
                     log.warn(`User ${response.user_id} tried to add a new team ${response.team_id} but the team limit was reached`);
                     try {
-                        const tempClient = await this.main.clientFactory.createTeamClient(response.access_token);
-                        await tempClient.slackClient.auth.revoke();
+                        const slackClient = await this.main.clientFactory.createClient(response.access_token);
+                        await slackClient.auth.revoke();
                     } catch (ex) {
                         log.warn(`Additionally failed to revoke the token:`, ex);
                     }
