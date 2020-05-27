@@ -78,7 +78,6 @@ export class PgDatastore implements Datastore {
 
     public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
         log.debug(`insertAccount: ${userId}`);
-        console.log(...arguments);
         await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken})", {
             userId, slackId, teamId, accessToken,
         });
