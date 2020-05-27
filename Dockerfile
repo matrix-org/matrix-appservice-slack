@@ -15,6 +15,7 @@ COPY package.json /usr/src/app/
 COPY package-lock.json /usr/src/app/
 
 COPY --from=BUILD /src/config /usr/src/app/config
+COPY --from=BUILD /src/templates /usr/src/app/templates
 COPY --from=BUILD /src/lib /usr/src/app/lib
 
 WORKDIR /usr/src/app
