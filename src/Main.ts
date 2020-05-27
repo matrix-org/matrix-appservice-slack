@@ -1120,15 +1120,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
-        let matrixUser = await this.datastore.getMatrixUser(userId);
-        matrixUser = matrixUser ? matrixUser : new BridgeMatrixUser(userId);
-        const accounts = matrixUser.get("accounts") || {};
-        accounts[slackId] = {
-            access_token: accessToken,
-            team_id: teamId,
-        };
-        matrixUser.set("accounts", accounts);
-        await this.datastore.storeMatrixUser(matrixUser);
+        this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
             // Store it here too for puppeting.
             await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
@@ -1139,16 +1131,11 @@ export class Main {
                 token: accessToken,
             });
         }
-        log.info(`Set new access token for ${userId} (team: ${teamId})`);
+        log.info(`Set new access token for ${userId} (team: ${teamId}, puppeting: ${puppeting})`);
     }
 
     public async matrixUserInSlackTeam(teamId: string, userId: string) {
-        const matrixUser = await this.datastore.getMatrixUser(userId);
-        if (matrixUser === null) {
-            return false;
-        }
-        const accounts: {team_id: string}[] = Object.values(matrixUser.get("accounts"));
-        return accounts.find((acct) => acct.team_id === teamId);
+        return (await this.datastore.getAccountsForMatrixUser(userId)).find((a) => a.teamId === teamId);
     }
 
     public async willExceedTeamLimit(teamId: string) {
