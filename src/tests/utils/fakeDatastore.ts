@@ -8,19 +8,23 @@ export class FakeDatastore implements Datastore {
 
     }
 
-    insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+    async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
         throw new Error("Method not implemented.");
     }
-    getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
+
+    async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
         throw new Error("Method not implemented.");
     }
-    getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+
+    async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
         throw new Error("Method not implemented.");
     }
-    deleteAccount(userId: string, slackId: string): Promise<void> {
+
+    async deleteAccount(userId: string, slackId: string): Promise<void> {
         throw new Error("Method not implemented.");
     }
-    deleteTeam(teamId: string): Promise<void> {
+
+    async deleteTeam(teamId: string): Promise<void> {
         throw new Error("Method not implemented.");
     }
 

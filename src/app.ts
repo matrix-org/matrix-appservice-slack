@@ -17,11 +17,12 @@ limitations under the License.
 import { Logging, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { IConfig } from "./IConfig";
+import * as path from "path";
 
 const cli = new Cli({
     bridgeConfig: {
         affectsRegistration: true,
-        schema: "config/slack-config-schema.yaml",
+        schema: path.join(__dirname, "../config/slack-config-schema.yaml"),
     },
     registrationPath: "slack-registration.yaml",
     generateRegistration(reg, callback) {

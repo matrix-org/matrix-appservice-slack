@@ -1123,7 +1123,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
-        this.datastore.insertAccount(userId, slackId, teamId, accessToken);
+        await this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
             // Store it here too for puppeting.
             await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
@@ -1167,14 +1167,14 @@ export class Main {
                 return { deleted: false, msg: "You are the only user connected to Slack. You must unlink your rooms before you can unlink your account"};
             }
             // Last account, but no bridged rooms. We can delete the team safely.
-            this.clientFactory.dropTeamClient(acct.teamId);
-            this.datastore.deleteTeam(acct.teamId);
+            await this.clientFactory.dropTeamClient(acct.teamId);
+            await this.datastore.deleteTeam(acct.teamId);
             log.info(`Removed team ${acct.teamId}`);
         } // or not even the last account, we can safely remove the team
 
         try {
             const client = await this.clientFactory.createClient(acct.accessToken);
-            await client.auth.revoke();    
+            await client.auth.revoke();
         } catch (ex) {
             log.warn('Tried to revoke auth token, but got:', ex);
             // Even if this fails, we remove the token locally.
