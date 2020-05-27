@@ -200,7 +200,7 @@ export class SlackHookHandler extends BaseSlackHandler {
 
         if (method === "GET" && path === "authorize") {
             // We may or may not have a room bound to the inboundId.
-            const result = await this.handleAuthorize(room || inboundId, params);
+            const result = await this.handleAuthorize(inboundId, params);
             response.writeHead(result.code || HTTP_CODES.OK, {"Content-Type": "text/html"});
             response.write(result.html);
             response.end();
@@ -304,7 +304,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         return room.onSlackMessage(lookupRes.message, lookupRes.content);
     }
 
-    private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {
+    private async handleAuthorize(token: string, params: {[key: string]: string|string[]}) {
         const oauth2 = this.main.oauth2;
         if (!oauth2) {
             log.warn("Wasn't expecting to receive /authorize without OAuth2 configured");
@@ -313,67 +313,53 @@ export class SlackHookHandler extends BaseSlackHandler {
                 html: `OAuth is not configured on this bridge.`,
             };
         }
-        let room: BridgedRoom|null = null;
-        let user: string|null = null;
-        if (typeof roomOrToken === "string") {
-            user = oauth2.getUserIdForPreauthToken(roomOrToken);
-            // This might be a user token.
-            if (!user) {
-                return {
-                    code: 500,
-                    html: "Token not known.",
-                };
-            }
-        } else {
-            room = roomOrToken;
+
+        const user = oauth2.getUserIdForPreauthToken(token);
+        // This might be a user token.
+        if (!user) {
+            return {
+                code: 500,
+                html: "Token not known.",
+            };
         }
 
-        log.debug("Exchanging temporary code for full OAuth2 token " +
-            (user ? user : room!.InboundId),
-        );
+        log.debug(`"Exchanging temporary code for full OAuth2 token ${user}`);
 
         try {
-            const { response, access_scopes } = await oauth2.exchangeCodeForToken(
-                params.code as string,
-                roomOrToken,
-            );
+            const { response, access_scopes } = await oauth2.exchangeCodeForToken(params.code as string, token);
             log.debug("Got a full OAuth2 token");
-            if (room) { // Legacy webhook
-                // XXX: We no longer support setting tokens for webhooks
-            } else if (user) { // New event api
-                // Ensure that we can support another team.
-                if (await this.main.willExceedTeamLimit(response.team_id)) {
-                    log.warn(`User ${response.user_id} tried to add a new team ${response.team_id} but the team limit was reached`);
-                    try {
-                        const tempClient = await this.main.clientFactory.createTeamClient(response.access_token);
-                        await tempClient.slackClient.auth.revoke();
-                    } catch (ex) {
-                        log.warn(`Additionally failed to revoke the token:`, ex);
-                    }
-                    return {
-                        code: 403,
-                        // Not using templates to avoid newline awfulness.
-                        // tslint:disable-next-line: prefer-template
-                        html: "<h2>Integration Failed</h2>\n" +
-                        `<p>You have reached the limit of Slack teams that can be bridged to Matrix. Please contact your admin.</p>`,
-                    };
+            // Ensure that we can support another team.
+            if (await this.main.willExceedTeamLimit(response.team_id)) {
+                log.warn(`User ${response.user_id} tried to add a new team ${response.team_id} but the team limit was reached`);
+                try {
+                    const tempClient = await this.main.clientFactory.createTeamClient(response.access_token);
+                    await tempClient.slackClient.auth.revoke();
+                } catch (ex) {
+                    log.warn(`Additionally failed to revoke the token:`, ex);
                 }
-                // We always get a user access token, but if we set certain
-                // fancy scopes we might not get a bot one.
-                await this.main.setUserAccessToken(
-                    user,
-                    response.team_id,
-                    response.user_id,
-                    response.access_token,
-                    response.bot === undefined,
+                return {
+                    code: 403,
+                    // Not using templates to avoid newline awfulness.
+                    // tslint:disable-next-line: prefer-template
+                    html: "<h2>Integration Failed</h2>\n" +
+                    `<p>You have reached the limit of Slack teams that can be bridged to Matrix. Please contact your admin.</p>`,
+                };
+            }
+            // We always get a user access token, but if we set certain
+            // fancy scopes we might not get a bot one.
+            await this.main.setUserAccessToken(
+                user,
+                response.team_id,
+                response.user_id,
+                response.access_token,
+                response.bot === undefined,
+            );
+            if (response.bot) {
+                // Rather than upsert the values we were given, use the
+                // access token to validate and make additional requests
+                await this.main.clientFactory.upsertTeamByToken(
+                    response.bot.bot_access_token,
                 );
-                if (response.bot) {
-                    // Rather than upsert the values we were given, use the
-                    // access token to validate and make additional requests
-                    await this.main.clientFactory.upsertTeamByToken(
-                        response.bot.bot_access_token,
-                    );
-                }
             }
         } catch (err) {
             log.error("Error during handling of an oauth token:", err);
@@ -382,14 +368,14 @@ export class SlackHookHandler extends BaseSlackHandler {
                 // Not using templates to avoid newline awfulness.
                 // tslint:disable-next-line: prefer-template
                 html: "<h2>Integration Failed</h2>\n" +
-                `<p>Unfortunately, your ${room ? "channel integration" : "account" } did not go as expected...</p>`,
+                `<p>Unfortunately, your account did not go as expected...</p>`,
             };
         }
         return {
             // Not using templaes to avoid newline awfulness.
             // tslint:disable-next-line: prefer-template
             html: `<h2>Integration Successful!</h2>\n` +
-                  `<p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>`,
+                  `<p>Your Matrix-Slack account is now correctly authorized.</p>`,
         };
     }
 

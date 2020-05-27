@@ -58,8 +58,8 @@ export class OAuth2 {
         this.client = new WebClient();
     }
 
-    public makeAuthorizeURL(room: string|BridgedRoom, state: string, isPuppeting: boolean = false): string {
-        const redirectUri = this.makeRedirectURL(room);
+    public makeAuthorizeURL(token: string, state: string, isPuppeting: boolean = false): string {
+        const redirectUri = this.makeRedirectURL(token);
         const scopes = isPuppeting ? PUPPET_SCOPES : REQUIRED_SCOPES;
 
         const qs = querystring.stringify({
@@ -72,9 +72,9 @@ export class OAuth2 {
         return "https://slack.com/oauth/authorize?" + qs;
     }
 
-    public async exchangeCodeForToken(code: string, room: string|BridgedRoom)
+    public async exchangeCodeForToken(code: string, token: string)
     : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
-        const redirectUri = this.makeRedirectURL(room);
+        const redirectUri = this.makeRedirectURL(token);
         this.main.incRemoteCallCounter("oauth.access");
         const response = (await this.client.oauth.access({
             client_id: this.clientId,
@@ -114,10 +114,7 @@ export class OAuth2 {
         return v || null;
     }
 
-    private makeRedirectURL(roomOrString: string| BridgedRoom): string {
-        if (typeof roomOrString !== "string") {
-            roomOrString = roomOrString.InboundId;
-        }
-        return `${this.redirectPrefix}${roomOrString}/authorize`;
+    private makeRedirectURL(token: string| BridgedRoom): string {
+        return `${this.redirectPrefix}${token}/authorize`;
     }
 }
