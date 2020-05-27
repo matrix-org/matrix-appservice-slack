@@ -22,7 +22,7 @@ import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { OAuthAccessResponse } from "./SlackResponses";
 import { Template, compile } from "nunjucks";
-import { promises as fs } from "fs"; 
+import { promises as fs } from "fs";
 import * as path from "path";
 
 const log = Logging.get("OAuth2");
