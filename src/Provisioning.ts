@@ -269,24 +269,14 @@ export class Provisioner {
             status = "unknown";
         }
 
-        let authUri;
-        let stordTeamExists = room.SlackTeamId !== undefined;
 
         if (room.SlackTeamId) {
-            stordTeamExists = (await this.main.datastore.getTeam(room.SlackTeamId)) !== null;
-        }
-
-        if (this.main.oauth2 && !stordTeamExists) {
-            // We don't have an auth token but we do have the ability
-            // to ask for one
-            authUri = this.main.oauth2.makeAuthorizeURL(
-                room,
-                room.InboundId,
-            );
+            if ((await this.main.datastore.getTeam(room.SlackTeamId)) === null) {
+                log.warn("Missing team for new slack channel!");
+            }
         }
 
         res.json({
-            auth_uri: authUri,
             inbound_uri: this.main.getInboundUrlForRoom(room),
             isWebhook: room.SlackWebhookUri !== undefined,
             matrix_room_id: matrixRoomId,

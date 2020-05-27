@@ -18,7 +18,6 @@ import * as querystring from "querystring";
 import { v4 as uuid } from "uuid";
 import { Logging } from "matrix-appservice-bridge";
 import { Main } from "./Main";
-import { BridgedRoom } from "./BridgedRoom";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { OAuthAccessResponse } from "./SlackResponses";
@@ -65,11 +64,12 @@ export class OAuth2 {
         // Precompile oauth templates
     }
 
-    public makeAuthorizeURL(room: string|BridgedRoom, state: string, isPuppeting: boolean = false): string {
-        const redirectUri = this.makeRedirectURL(room);
     public async compileTemplates() {
         this.oauthTemplate = compile(await fs.readFile(path.resolve(this.templateFile), "utf-8"));
     }
+
+    public makeAuthorizeURL(token: string, state: string, isPuppeting: boolean = false): string {
+        const redirectUri = this.makeRedirectURL(token);
         const scopes = isPuppeting ? PUPPET_SCOPES : REQUIRED_SCOPES;
 
         const qs = querystring.stringify({
@@ -82,9 +82,9 @@ export class OAuth2 {
         return "https://slack.com/oauth/authorize?" + qs;
     }
 
-    public async exchangeCodeForToken(code: string, room: string|BridgedRoom)
+    public async exchangeCodeForToken(code: string, token: string)
     : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
-        const redirectUri = this.makeRedirectURL(room);
+        const redirectUri = this.makeRedirectURL(token);
         this.main.incRemoteCallCounter("oauth.access");
         const response = (await this.client.oauth.access({
             client_id: this.clientId,
@@ -124,11 +124,6 @@ export class OAuth2 {
         return v || null;
     }
 
-    private makeRedirectURL(roomOrString: string| BridgedRoom): string {
-        if (typeof roomOrString !== "string") {
-            roomOrString = roomOrString.InboundId;
-        }
-        return `${this.redirectPrefix}${roomOrString}/authorize`;
     public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known") {
         return this.oauthTemplate.render({
             success,
@@ -137,5 +132,8 @@ export class OAuth2 {
             code,
         });
     }
+
+    private makeRedirectURL(token: string): string {
+        return `${this.redirectPrefix}${token}/authorize`;
     }
 }
