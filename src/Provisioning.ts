@@ -269,13 +269,6 @@ export class Provisioner {
             status = "unknown";
         }
 
-
-        if (room.SlackTeamId) {
-            if ((await this.main.datastore.getTeam(room.SlackTeamId)) === null) {
-                log.warn("Missing team for new slack channel!");
-            }
-        }
-
         res.json({
             inbound_uri: this.main.getInboundUrlForRoom(room),
             isWebhook: room.SlackWebhookUri !== undefined,
