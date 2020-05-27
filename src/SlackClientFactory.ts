@@ -38,6 +38,32 @@ export class SlackClientFactory {
 
     }
 
+    public async createClient(token: string) {
+        const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
+        return new WebClient(token, {
+            logger: {
+                getLevel: () => LogLevel.DEBUG,
+                setLevel: () => {}, // We don't care about these.
+                setName: () => {},
+                debug: (msg: string) => {
+                    // non-ideal way to detect calls to slack.
+                    webLog.debug.bind(webLog);
+                    if (!this.onRemoteCall) { return; }
+                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg);
+                    if (match && match[1]) {
+                        this.onRemoteCall(match[1]);
+                    }
+                    webLog.debug(msg);
+                },
+                warn: webLog.warn.bind(webLog),
+                info: webLog.info.bind(webLog),
+                error: webLog.error.bind(webLog),
+            } as Logger,
+            logLevel: LogLevel.DEBUG,
+            ...opts,
+        });
+    }
+
     /**
      * Gets a team entry from the datastore and checks if the token
      * is safe to use.
@@ -201,30 +227,8 @@ export class SlackClientFactory {
     }
 
     public async createTeamClient(token: string) {
-        const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
-        const slackClient = new WebClient(token, {
-            logger: {
-                getLevel: () => LogLevel.DEBUG,
-                setLevel: () => {}, // We don't care about these.
-                setName: () => {},
-                debug: (msg: string) => {
-                    // non-ideal way to detect calls to slack.
-                    webLog.debug.bind(webLog);
-                    if (!this.onRemoteCall) { return; }
-                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg);
-                    if (match && match[1]) {
-                        this.onRemoteCall(match[1]);
-                    }
-                    webLog.debug(msg);
-                },
-                warn: webLog.warn.bind(webLog),
-                info: webLog.info.bind(webLog),
-                error: webLog.error.bind(webLog),
-            } as Logger,
-            logLevel: LogLevel.DEBUG,
-            ...opts,
-        });
         try {
+            const slackClient = await this.createClient(token);
             const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
             const auth = (await slackClient.auth.test()) as AuthTestResponse;
             const user = (await slackClient.users.info({user: auth.user_id})) as UsersInfoResponse;
@@ -237,5 +241,9 @@ export class SlackClientFactory {
             log.error("Could not create team client: " + (ex.data?.error || ex));
             throw Error("Could not create team client");
         }
+    }
+
+    public async dropTeamClient(teamId: string) {
+        this.teamClients.delete(teamId);
     }
 }

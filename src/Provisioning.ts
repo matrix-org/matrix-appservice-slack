@@ -88,15 +88,9 @@ export class Provisioner {
     }
 
     private async determineSlackIdForRequest(matrixUserId, teamId) {
-        const matrixUser = await this.main.datastore.getMatrixUser(matrixUserId);
-        if (!matrixUser) {
-            // No Slack user entry found for MXID
-            return null;
-        }
-        const accounts: {[userId: string]: {team_id: string}} = matrixUser.get("accounts");
-        for (const [key, value] of Object.entries(accounts)) {
-            if (value.team_id === teamId) {
-                return key;
+        for (const account of await this.main.datastore.getAccountsForMatrixUser(matrixUserId)) {
+            if (account.teamId === teamId) {
+                return account.slackId;
             }
         }
         return null;
@@ -146,20 +140,15 @@ export class Provisioner {
     }
 
     @command("user_id", "slack_id")
-    private async logout(req, res, userId, slackId) {
+    private async logout(req: Request, res: Response, userId: string, slackId: string) {
         if (!this.main.oauth2) {
             res.status(HTTP_CODES.NOT_FOUND).json({
                 error: "OAuth2 not configured on this bridge",
             });
             return;
         }
-        let matrixUser = await this.main.datastore.getMatrixUser(userId);
-        matrixUser = matrixUser ? matrixUser : new MatrixUser(userId);
-        const accounts = matrixUser.get("accounts") || {};
-        delete accounts[slackId];
-        matrixUser.set("accounts", accounts);
-        await this.main.datastore.storeMatrixUser(matrixUser);
-        log.info(`Removed account ${slackId} from ${slackId}`);
+        const logoutResult = await this.main.logoutAccount(userId, slackId);
+        res.json({logoutResult});
     }
 
     @command("user_id", "team_id")
@@ -208,18 +197,16 @@ export class Provisioner {
     @command("user_id")
     private async teams(req, res, userId) {
         log.debug(`${userId} requested their teams`);
-        const matrixUser = await this.main.datastore.getMatrixUser(userId);
-        if (matrixUser === null) {
+        const accounts = await this.main.datastore.getAccountsForMatrixUser(userId);
+        if (accounts.length === 0) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
             return;
         }
-        const accounts = matrixUser.get("accounts");
-        const results = await Promise.all(Object.keys(accounts).map(async (slackId) => {
-            const account = accounts[slackId];
-            return this.main.datastore.getTeam(account.team_id).then(
-                (team) => ({team, slack_id: slackId}),
-            );
-        }));
+        const results = await Promise.all(accounts.map(async (account) => {
+                const team = await this.main.datastore.getTeam(account.teamId)
+                return {team, slack_id: account.slackId};
+            })
+        );
         const teams = results.map((account) => ({
             id: account.team!.id,
             name: account.team!.name,

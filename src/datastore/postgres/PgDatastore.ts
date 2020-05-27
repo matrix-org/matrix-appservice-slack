@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry, SlackAccount } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -74,6 +74,39 @@ export class PgDatastore implements Datastore {
             id: user.getId(),
             json: user.serialize(),
         });
+    }
+
+    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+        log.debug(`insertAccount: ${userId}`);
+        await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken})", {
+            userId, slackId, teamId, accessToken,
+        });
+    }
+    public async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
+        log.debug(`getAccountsForMatrixUser: ${userId}`);
+        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE user_id = ${userId}", { userId });
+        return accounts.map((a) => ({
+            matrixId: a.user_id,
+            slackId: a.slack_id,
+            teamId: a.team_id,
+            accessToken: a.access_token,
+        }));
+    }
+
+    public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+        log.debug(`getAccountsForTeam: ${teamId}`);
+        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE team_id = ${teamId}", { teamId });
+        return accounts.map((a) => ({
+            matrixId: a.user_id,
+            slackId: a.slack_id,
+            teamId: a.team_id,
+            accessToken: a.access_token,
+        }));
+    }
+
+    public async deleteAccount(userId: string, slackId: string): Promise<void> {
+        log.info(`deleteAccount: ${userId} ${slackId}`);
+        await this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry, eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra) {
@@ -209,6 +242,10 @@ export class PgDatastore implements Datastore {
             return null;
         }
         return PgDatastore.teamEntryForRow(doc);
+    }
+
+    public async deleteTeam(teamId: string): Promise<void> {
+        await this.postgresDb.none("DELETE FROM teams WHERE id = ${teamId}", { teamId });
     }
 
     public async getAllTeams(): Promise<TeamEntry[]> {
