@@ -10,7 +10,6 @@ export async function runSchema(db: IDatabase<any>) {
             user_id TEXT NOT NULL,
             slack_id TEXT NOT NULL,
             team_id TEXT NOT NULL,
-            team_name TEXT NOT NULL,
             access_token TEXT NOT NULL,
             CONSTRAINT cons_linked_accounts_unique UNIQUE(user_id, slack_id)
         );
@@ -18,8 +17,8 @@ export async function runSchema(db: IDatabase<any>) {
     // Insert entries from users table.
     const users = await db.manyOrNone("SELECT userid, json FROM users WHERE isremote = false;");
     const pgInstance = pgp();
-    const cs = new pgInstance.helpers.ColumnSet(['user_id', 'slack_id', 'team_id', 'team_name'], {table: 'linked_accounts'});
-    const values: {user_id: string, slack_id: string, team_id: string, team_name: string}[] = [];
+    const cs = new pgInstance.helpers.ColumnSet(['user_id', 'slack_id', 'team_id', 'access_token'], {table: 'linked_accounts'});
+    const values: {user_id: string, slack_id: string, team_id: string, access_token: string}[] = [];
     for (const userData of users) {
         const user = new MatrixUser(userData.userid, JSON.parse(userData.json));
         if (!user.get("accounts")) {
@@ -32,7 +31,7 @@ export async function runSchema(db: IDatabase<any>) {
                 user_id: userData.userid,
                 slack_id: slackId,
                 team_id: account.team_id,
-                team_name: account.team_name,
+                access_token: account.access_token,
             });
         }
     }
