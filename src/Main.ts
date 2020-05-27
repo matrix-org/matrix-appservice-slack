@@ -1156,7 +1156,14 @@ export class Main {
         if (!this.config.provisioning?.limits?.team_count) {
             return false;
         }
-        const idSet = new Set((await this.datastore.getAllTeams()).map((t) => t.id));
+        const idSet = new Set(
+            (await this.datastore.getAllTeams())
+            .map((t) => t.id)
+            // Only count teams with at least one room.
+            .filter((t) => this.rooms.getBySlackTeamId(t).length > 0)
+        );
+        
+        
         return idSet.add(teamId).size > this.config.provisioning?.limits?.team_count;
     }
 
