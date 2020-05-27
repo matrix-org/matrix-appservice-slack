@@ -34,5 +34,7 @@ export async function runSchema(db: pgp.IDatabase<any>) {
             });
         }
     }
-    await db.none(pgInstance.helpers.insert(values, cs));
+    if (values.length) {
+        await db.none(pgInstance.helpers.insert(values, cs));
+    }
 }
