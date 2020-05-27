@@ -22,6 +22,9 @@ import { BridgedRoom } from "./BridgedRoom";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { OAuthAccessResponse } from "./SlackResponses";
+import { Template, compile } from "nunjucks";
+import { promises as fs } from "fs"; 
+import * as path from "path";
 
 const log = Logging.get("OAuth2");
 
@@ -48,18 +51,25 @@ export class OAuth2 {
     private readonly clientSecret: string;
     private readonly redirectPrefix: string;
     private readonly client: WebClient;
+    private readonly templateFile: string;
+    private oauthTemplate!: Template;
 
-    constructor(opts: {main: Main, client_id: string, client_secret: string, redirect_prefix: string}) {
+    constructor(opts: {main: Main, client_id: string, client_secret: string, redirect_prefix: string, template_file: string}) {
         this.main = opts.main;
         this.userTokensWaiting = new Map(); // token -> userId
         this.clientId = opts.client_id;
         this.clientSecret = opts.client_secret;
         this.redirectPrefix = opts.redirect_prefix;
         this.client = new WebClient();
+        this.templateFile = opts.template_file;
+        // Precompile oauth templates
     }
 
     public makeAuthorizeURL(room: string|BridgedRoom, state: string, isPuppeting: boolean = false): string {
         const redirectUri = this.makeRedirectURL(room);
+    public async compileTemplates() {
+        this.oauthTemplate = compile(await fs.readFile(path.resolve(this.templateFile), "utf-8"));
+    }
         const scopes = isPuppeting ? PUPPET_SCOPES : REQUIRED_SCOPES;
 
         const qs = querystring.stringify({
@@ -119,5 +129,13 @@ export class OAuth2 {
             roomOrString = roomOrString.InboundId;
         }
         return `${this.redirectPrefix}${roomOrString}/authorize`;
+    public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known") {
+        return this.oauthTemplate.render({
+            success,
+            userId,
+            reason,
+            code,
+        });
+    }
     }
 }

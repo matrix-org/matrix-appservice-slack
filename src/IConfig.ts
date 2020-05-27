@@ -60,6 +60,7 @@ export interface IConfig {
         client_id: string;
         client_secret: string;
         redirect_prefix?: string;
+        html_template?: string;
     };
 
     rtm?: {
