@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<style>
+main {
+    font-family: "Helvetica Neue", "Helvetica", Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    font-size: 16px;
+    margin-left: 25%;
+    margin-top: 5%;
+    width: 50%;
+    display: grid;
+}
+
+h1 {
+    margin-top: 3%;
+}
+
+h2 {
+    color: grey;
+}
+
+img {
+    float: left;
+    width: 20%;
+    min-width: 200px;
+    padding: 25px;
+}
+
+section {
+    padding: 10px 0;
+}
+
+p {
+    font-size: 18pt;
+    line-height: 1.5em;
+}
+
+small {
+    font-size: 16pt;
+    color: grey;
+}
+
+</style>
+<title>Slack Integration {{"Successful" if success else "Failed"}}</title>
+<main>
+    <section>
+        <img alt="" title="Matrix logo" src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNzUiIGhlaWdodD0iMzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGcgZmlsbD0iIzJEMkQyRCIgZmlsbC1ydWxlPSJub256ZXJvIj4KICAgIDxwYXRoIGQ9Ik0uOTM2LjczMlYzMS4yNUgzLjEzdi43MzJILjA5NVYwaDMuMDM0di43MzJ6TTkuMzg2IDEwLjQwN3YxLjU0NGguMDQ0YTQuNDYxIDQuNDYxIDAgMCAxIDEuNDg3LTEuMzY4Yy41OC0uMzIzIDEuMjQ1LS40ODUgMS45OTMtLjQ4NS43MiAwIDEuMzc3LjE0IDEuOTcyLjQyLjU5NS4yNzkgMS4wNDcuNzcxIDEuMzU1IDEuNDc3LjMzOC0uNS43OTYtLjk0MSAxLjM3Ny0xLjMyMy41OC0uMzgzIDEuMjY2LS41NzQgMi4wNi0uNTc0LjYwMiAwIDEuMTYuMDc0IDEuNjc0LjIyLjUxNC4xNDguOTU0LjM4MyAxLjMyMi43MDcuMzY2LjMyMy42NTMuNzQ2Ljg1OSAxLjI2OC4yMDUuNTIyLjMwOCAxLjE1LjMwOCAxLjg4N3Y3LjYzM0gyMC43MXYtNi40NjRjMC0uMzgzLS4wMTUtLjc0My0uMDQ0LTEuMDgyYTIuMzA1IDIuMzA1IDAgMCAwLS4yNDItLjg4MiAxLjQ3MyAxLjQ3MyAwIDAgMC0uNTg0LS41OTZjLS4yNTctLjE0Ni0uNjA2LS4yMi0xLjA0Ny0uMjItLjQ0IDAtLjc5Ni4wODUtMS4wNjguMjUzLS4yNzIuMTctLjQ4NS4zOS0uNjM5LjY2MmEyLjY1NCAyLjY1NCAwIDAgMC0uMzA4LjkyNyA3LjA3NCA3LjA3NCAwIDAgMC0uMDc4IDEuMDQ4djYuMzU0aC0zLjEyOHYtNi4zOThjMC0uMzM4LS4wMDctLjY3My0uMDIxLTEuMDA0YTIuODI1IDIuODI1IDAgMCAwLS4xODgtLjkxNiAxLjQxMSAxLjQxMSAwIDAgMC0uNTUtLjY3M2MtLjI1OC0uMTY4LS42MzYtLjI1My0xLjEzNS0uMjUzYTIuMzMgMi4zMyAwIDAgMC0uNTg0LjEgMS45NCAxLjk0IDAgMCAwLS43MDUuMzc0Yy0uMjI4LjE4NC0uNDIyLjQ0OS0uNTg0Ljc5NC0uMTYxLjM0Ni0uMjQyLjc5OC0uMjQyIDEuMzU3djYuNjE5SDYuNDM0VjEwLjQwN2gyLjk1MnpNMjUuODQyIDEyLjA4NGEzLjc1MSAzLjc1MSAwIDAgMSAxLjIzMy0xLjE3IDUuMzcgNS4zNyAwIDAgMSAxLjY4NS0uNjI5IDkuNTc5IDkuNTc5IDAgMCAxIDEuODg0LS4xODdjLjU3MyAwIDEuMTUzLjA0IDEuNzQuMTIxLjU4OC4wODEgMS4xMjQuMjQgMS42MDkuNDc1LjQ4NC4yMzUuODguNTYyIDEuMTkuOTgxLjMwOC40Mi40NjIuOTc1LjQ2MiAxLjY2NnY1LjkzNGMwIC41MTYuMDMgMS4wMDguMDg4IDEuNDc4LjA1OC40NzEuMTYxLjgyNC4zMDggMS4wNkgzMi44N2E0LjQzNSA0LjQzNSAwIDAgMS0uMjItMS4xMDRjLS41LjUxNS0xLjA4Ny44NzYtMS43NjIgMS4wODFhNy4wODQgNy4wODQgMCAwIDEtMi4wNzEuMzFjLS41NDQgMC0xLjA1LS4wNjctMS41Mi0uMmEzLjQ3MiAzLjQ3MiAwIDAgMS0xLjIzNC0uNjE3IDIuODcgMi44NyAwIDAgMS0uODI2LTEuMDU5Yy0uMTk5LS40MjYtLjI5OC0uOTM0LS4yOTgtMS41MjIgMC0uNjQ3LjExNC0xLjE4LjM0Mi0xLjYuMjI3LS40MTkuNTItLjc1My44ODEtMS4wMDQuMzYtLjI1Ljc3MS0uNDM3IDEuMjM0LS41NjIuNDYyLS4xMjUuOTI5LS4yMjQgMS4zOTktLjI5OC40Ny0uMDczLjkzMi0uMTMyIDEuMzg3LS4xNzYuNDU2LS4wNDQuODYtLjExIDEuMjEyLS4xOTkuMzUzLS4wODguNjMxLS4yMTcuODM3LS4zODYuMjA2LS4xNjkuMzAxLS40MTUuMjg3LS43NCAwLS4zMzctLjA1NS0uNjA2LS4xNjYtLjgwNGExLjIxNyAxLjIxNyAwIDAgMC0uNDQtLjQ2NCAxLjczNyAxLjczNyAwIDAgMC0uNjM5LS4yMiA1LjI5MiA1LjI5MiAwIDAgMC0uNzgyLS4wNTVjLS42MTcgMC0xLjEwMS4xMzItMS40NTQuMzk3LS4zNTIuMjY0LS41NTguNzA2LS42MTcgMS4zMjNoLTMuMTI4Yy4wNDQtLjczNS4yMjctMS4zNDUuNTUtMS44M3ptNi4xNzkgNC40MjNhNS4wOTUgNS4wOTUgMCAwIDEtLjYzOS4xNjUgOS42OCA5LjY4IDAgMCAxLS43MTYuMTFjLS4yNS4wMy0uNS4wNjctLjc0OS4xMWE1LjYxNiA1LjYxNiAwIDAgMC0uNjk0LjE3NyAyLjA1NyAyLjA1NyAwIDAgMC0uNTk0LjI5OGMtLjE3LjEyNS0uMzA1LjI4NC0uNDA4LjQ3NC0uMTAzLjE5Mi0uMTU0LjQzNC0uMTU0LjcyOCAwIC4yOC4wNTEuNTE1LjE1NC43MDYuMTAzLjE5Mi4yNDIuMzQyLjQxOS40NTMuMTc2LjExLjM4MS4xODcuNjE3LjIzMS4yMzQuMDQ0LjQ3Ny4wNjYuNzI2LjA2Ni42MTcgMCAxLjA5NC0uMTAyIDEuNDMyLS4zMDkuMzM4LS4yMDUuNTg3LS40NTIuNzUtLjczOS4xNi0uMjg2LjI2LS41NzYuMjk3LS44Ny4wMzYtLjI5NS4wNTUtLjUzLjA1NS0uNzA3di0xLjE3YTEuNCAxLjQgMCAwIDEtLjQ5Ni4yNzd6TTQzLjg4NCAxMC40MDd2Mi4wOTZoLTIuMjkxdjUuNjQ3YzAgLjUzLjA4OC44ODMuMjY0IDEuMDU5LjE3Ni4xNzcuNTI5LjI2NSAxLjA1Ny4yNjUuMTc3IDAgLjM0NS0uMDA3LjUwNy0uMDIyLjE2MS0uMDE1LjMxNi0uMDM3LjQ2My0uMDY2djIuNDI2YTcuNDkgNy40OSAwIDAgMS0uODgyLjA4OSAyMS42NyAyMS42NyAwIDAgMS0uOTQ3LjAyMmMtLjQ4NCAwLS45NDQtLjAzNC0xLjM3Ny0uMWEzLjIzMyAzLjIzMyAwIDAgMS0xLjE0NS0uMzg2IDIuMDQgMi4wNCAwIDAgMS0uNzgyLS44MTZjLS4xOTEtLjM1My0uMjg3LS44MTYtLjI4Ny0xLjM5di02LjcyOEgzNi41N3YtMi4wOTZoMS44OTR2LTMuNDJoMy4xMjl2My40MmgyLjI5ek00OC4zNTUgMTAuNDA3djIuMTE4aC4wNDRhMy45MDcgMy45MDcgMCAwIDEgMS40NTQtMS43NTQgNC4yMTMgNC4yMTMgMCAwIDEgMS4wMzYtLjQ5NyAzLjczNCAzLjczNCAwIDAgMSAxLjE0NS0uMTc2Yy4yMDYgMCAuNDMzLjAzNy42ODMuMTF2Mi45MTJhNS44NjIgNS44NjIgMCAwIDAtLjUyOC0uMDc3IDUuNTY2IDUuNTY2IDAgMCAwLS41OTUtLjAzM2MtLjU3MyAwLTEuMDU4LjA5Ni0xLjQ1NC4yODdhMi41MiAyLjUyIDAgMCAwLS45NTguNzgzIDMuMTQzIDMuMTQzIDAgMCAwLS41MTggMS4xNTggNi4zMiA2LjMyIDAgMCAwLS4xNTQgMS40MzR2NS4xNGgtMy4xMjhWMTAuNDA3aDIuOTczek01NC4wMzkgOC42NDJWNi4wNmgzLjEyOHYyLjU4Mkg1NC4wNHptMy4xMjggMS43NjV2MTEuNDA1SDU0LjA0VjEwLjQwN2gzLjEyOHpNNTguNzk3IDEwLjQwN2gzLjU2OWwyLjAwNSAyLjk3OCAxLjk4Mi0yLjk3OGgzLjQ1OWwtMy43NDUgNS4zMzkgNC4yMDggNi4wNjdoLTMuNTdsLTIuMzc4LTMuNTk2LTIuMzggMy41OTZoLTMuNTAybDQuMDk3LTYuMDAxek03NC4wOTQgMzEuMjVWLjczMkg3MS45VjBoMy4wMzV2MzEuOTgySDcxLjl2LS43MzJ6Ii8+CiAgPC9nPgo8L3N2Zz4=" />
+        <h1>Slack Integration {{"Successful" if success else "Failed"}} </h1>
+        <h2><code>{{ code }}</code></h2>
+    </section>
+    <section>
+        {% if success %}
+        <p>Your account (<code>{{ userId }}</code>) has been successfully connected to the Slack bridge.</p>
+        {% else %}
+            {% if reason === "token-not-known" %}
+                <p>The bridge cannot handle this request because the token provided is not known.</p>
+                <small>This can happen if the bridge was recently restarted. Try running the oauth process again.</small>
+            {% elif reason === "limit-reached" %}
+                <p>You have reached the maximum number of connected teams on this bridge instance.</p>
+                <small>Please contact your bridge administrator</small>
+            {% elif reason === "error" %}
+                <p>Your account (<code>{{ userId }}</code>) could not be connected to the Slack bridge.</p>
+            {% endif %}
+        {% endif %}
+    </section>
+</main>
