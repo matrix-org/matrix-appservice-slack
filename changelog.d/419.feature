@@ -1,0 +1,1 @@
+Move matrix<->slack account links to a seperate table, and properly logout users.
