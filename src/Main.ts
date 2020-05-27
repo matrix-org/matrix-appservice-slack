@@ -31,7 +31,7 @@ import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
-import { Datastore, TeamEntry, RoomEntry, RoomType } from "./datastore/Models";
+import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -43,7 +43,6 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
-import { stringify } from "querystring";
 
 const log = Logging.get("Main");
 
@@ -1145,6 +1144,41 @@ export class Main {
         }
         const idSet = new Set((await this.datastore.getAllTeams()).map((t) => t.id));
         return idSet.add(teamId).size > this.config.provisioning?.limits?.team_count;
+    }
+
+    public async logoutAccount(userId: string, slackId: string) {
+        const acct = (await this.datastore.getAccountsForMatrixUser(userId)).find((s) => s.slackId === slackId);
+        if (!acct) {
+            // Account not found
+            return { deleted: false, msg: "Account not found"};
+        }
+
+        const isLastAccountForTeam = !acct.teamId || (await this.datastore.getAccountsForTeam(acct.teamId)).length <= 1;
+        const teamHasRooms = this.rooms.getBySlackTeamId(acct.teamId).length > 0;
+
+        if (isLastAccountForTeam) {
+            if (teamHasRooms) {
+                // If this is the last account for a team and rooms are bridged, we must preserve
+                // the team until all rooms are removed.
+                return { deleted: false, msg: "You are the only user connected to Slack. You must unlink your rooms before you can unlink your account"};
+            }
+            // Last account, but no bridged rooms. We can delete the team safely.
+            this.clientFactory.dropTeamClient(acct.teamId);
+            this.datastore.deleteTeam(acct.teamId);
+            log.info(`Removed team ${acct.teamId}`);
+        } // or not even the last account, we can safely remove the team
+
+        try {
+            const client = await this.clientFactory.createClient(acct.accessToken);
+            await client.auth.revoke();    
+        } catch (ex) {
+            log.warn('Tried to revoke auth token, but got:', ex);
+            // Even if this fails, we remove the token locally.
+        }
+
+        await this.datastore.deleteAccount(userId, slackId);
+        log.info(`Removed account ${slackId} from ${slackId}`);
+        return { deleted: true };
     }
 
     public async killBridge() {
