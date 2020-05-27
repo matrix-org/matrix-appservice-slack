@@ -12,6 +12,7 @@
     <section>
         {% if success %}
         <p>Your account (<code>{{ userId }}</code>) has been successfully connected to the Slack bridge.</p>
+        <small>You can safely close this window</small>
         {% else %}
             {% if reason === "token-not-known" %}
                 <p>The bridge cannot handle this request because the token provided is not known.</p>
