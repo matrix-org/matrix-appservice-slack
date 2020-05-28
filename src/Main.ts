@@ -764,6 +764,21 @@ export class Main {
         });
     }
 
+    private async applyBotProfile() {
+        log.info("Ensuring the bridge bot is registered");
+        const intent = this.botIntent;
+        // The bot believes itelf to always be registered, even when it isn't.
+        intent.opts.registered = false;
+        await intent._ensureRegistered();
+        const profile = await intent.getProfileInfo(this.botUserId);
+        if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile?.displayname) {
+            await intent.setDisplayName(this.config.bot_profile?.displayname);
+        }
+        if (this.config.bot_profile?.avatar_url && profile.avatar_url !== this.config.bot_profile?.avatar_url) {
+            await intent.setAvatarUrl(this.config.bot_profile?.avatar_url);
+        }
+    }
+
     public async run(cliPort: number) {
         log.info("Loading databases");
         if (this.oauth2) {
@@ -848,6 +863,7 @@ export class Main {
             checkToken: false,
         });
 
+        await this.applyBotProfile();
         const provisioningEnabled = this.config.provisioning?.enabled;
 
         // Previously, this was always true.

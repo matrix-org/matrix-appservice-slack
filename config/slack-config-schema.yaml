@@ -127,3 +127,10 @@ properties:
     properties:
       enabled:
         type: boolean
+  bot_profile:
+    type: object
+    properties:
+      displayname:
+        type: string
+      avatar_url:
+        type: string
