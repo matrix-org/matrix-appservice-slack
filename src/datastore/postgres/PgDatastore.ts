@@ -78,7 +78,7 @@ export class PgDatastore implements Datastore {
 
     public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
         log.debug(`insertAccount: ${userId}`);
-        await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " + 
+        await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " +
         "ON CONFLICT ON CONSTRAINT cons_linked_accounts_unique DO UPDATE SET access_token = ${accessToken}", {
             userId, slackId, teamId, accessToken,
         });
