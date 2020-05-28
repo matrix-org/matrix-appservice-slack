@@ -241,9 +241,21 @@ export class BridgedRoom {
         return entry;
     }
 
-    public async onMatrixReaction(message: any) {
-        if (!this.botClient) { return; }
+    public async getClientForRequest(user_id: string) {
+        const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, user_id);
+        if (puppet) {
+            return puppet;
+        }
+        if (this.botClient) {
+            return {
+                id: "BOT",
+                client: this.botClient,
+            };
+        }
+        return null;
+    }
 
+    public async onMatrixReaction(message: any) {
         const relatesTo = message.content["m.relates_to"];
         const eventStore = this.main.datastore;
         const event = await eventStore.getEventByMatrixId(message.room_id, relatesTo.event_id);
@@ -266,18 +278,18 @@ export class BridgedRoom {
                 emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
             }
         }
-        let client: WebClient = this.botClient;
-        const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, message.sender);
-        if (puppet) {
-            client = puppet.client;
-            // We must do this before sending to avoid racing
-            // Use the unicode key for uniqueness
-            this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${puppet.id}:${event.slackTs}`);
+        const client = await this.getClientForRequest(message.sender);
+        if (!client) {
+            log.warn("No client to handle reaction");
+            return;
         }
+        // We must do this before sending to avoid racing
+        // Use the unicode key for uniqueness
+        this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${client.id}:${event.slackTs}`);
 
         // TODO: This only works once from matrix if we are sending the event as the
         // bot user.
-        const res = await client.reactions.add({
+        const res = await client.client.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
@@ -295,7 +307,12 @@ export class BridgedRoom {
     }
 
     public async onMatrixRedaction(message: any) {
-        if (!this.botClient) { return; }
+        const client = await this.getClientForRequest(message.sender);
+        if (!client) {
+            log.warn("No client to handle redaction");
+            return;
+        }
+
         const event = await this.main.datastore.getEventByMatrixId(message.room_id, message.redacts);
 
         // If we don't get an event then exit
@@ -304,8 +321,7 @@ export class BridgedRoom {
             return;
         }
 
-        const client = (await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.sender)) || this.botClient;
-        const res = await client.chat.delete({
+        const res = await client.client.chat.delete({
             as_user: false,
             channel: this.slackChannelId!,
             ts: event.slackTs,
@@ -319,7 +335,11 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        if (!this.botClient) { return false; }
+        const client = await this.getClientForRequest(message.user_id);
+        if (!client) {
+            log.warn("No client to handle edit");
+            return false;
+        }
 
         const event = await this.main.datastore.getEventByMatrixId(
             message.room_id,
@@ -343,7 +363,7 @@ export class BridgedRoom {
             return false;
         }
 
-        const res = (await this.botClient.chat.update({
+        const res = (await client.client.chat.update({
             ts: event.slackTs,
             as_user: false,
             channel: this.slackChannelId!,
