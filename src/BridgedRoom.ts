@@ -241,8 +241,8 @@ export class BridgedRoom {
         return entry;
     }
 
-    public async getClientForRequest(user_id: string) {
-        const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, user_id);
+    public async getClientForRequest(userId: string) {
+        const puppet = await this.main.clientFactory.getClientForUserWithId(this.SlackTeamId!, userId);
         if (puppet) {
             return puppet;
         }
