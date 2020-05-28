@@ -30,6 +30,7 @@ export class FakeMain {
                 client_id: "fakeid",
                 client_secret: "fakesecret",
                 redirect_prefix: "redir_prefix",
+                template_file: "",
             });
         }
         this.datastore = new FakeDatastore(opts.teams, opts.usersInTeam);

@@ -130,6 +130,7 @@ export class Main {
                 client_secret: config.oauth2.client_secret,
                 main: this,
                 redirect_prefix: redirectPrefix!,
+                template_file: config.oauth2.html_template || path.join(__dirname, ".." , "templates/oauth_result.html.njk") ,
             });
         }
 
@@ -765,6 +766,9 @@ export class Main {
 
     public async run(cliPort: number) {
         log.info("Loading databases");
+        if (this.oauth2) {
+            await this.oauth2.compileTemplates();
+        }
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
             const postgresDb = new PgDatastore(this.config.db!.connectionString);
