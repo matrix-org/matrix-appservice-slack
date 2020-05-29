@@ -1,4 +1,33 @@
- 1.3.2 (2020-05-13)
+ 1.4.0-rc1 (2020-05-29)
+=======================
+
+Features
+--------
+
+- Move matrix<->slack account links to a seperate table, and properly logout users. ([\#419](https://github.com/matrix-org/matrix-appservice-slack/issues/419))
+- Add bot profile information on startup. ([\#423](https://github.com/matrix-org/matrix-appservice-slack/issues/423))
+- Add /ready endpoint ([\#425](https://github.com/matrix-org/matrix-appservice-slack/issues/425))
+
+
+Bugfixes
+--------
+
+- Fix issue which breaks setting up puppeting ([\#418](https://github.com/matrix-org/matrix-appservice-slack/issues/418))
+- Fix issue where puppets could not be registered for the same team or mxid twice. ([\#420](https://github.com/matrix-org/matrix-appservice-slack/issues/420))
+- Fix bug where puppeted users couldn't edit their own messages ([\#424](https://github.com/matrix-org/matrix-appservice-slack/issues/424))
+- Fix bug where users could not become puppeted if they had already logged in via oauth ([\#426](https://github.com/matrix-org/matrix-appservice-slack/issues/426))
+
+
+Internal Changes
+----------------
+
+- Fix `provisioning.enabled` config flag to be recognised in the code, and add ability to disable puppeting from the config. ([\#411](https://github.com/matrix-org/matrix-appservice-slack/issues/411))
+- Load configuration schema using absolute path to make it possible to start the service from any directory. ([\#415](https://github.com/matrix-org/matrix-appservice-slack/issues/415))
+- Fix `team_sync` indentation in the sample config. ([\#416](https://github.com/matrix-org/matrix-appservice-slack/issues/416))
+- Drop leftover code for oauth with webhooks, as it's not been supported for a long time. ([\#422](https://github.com/matrix-org/matrix-appservice-slack/issues/422))
+
+
+1.3.2 (2020-05-13)
 ===================
 
 Internal Changes

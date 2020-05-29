@@ -1,1 +1,0 @@
-Load configuration schema using absolute path to make it possible to start the service from any directory.

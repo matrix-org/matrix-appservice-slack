@@ -1,1 +1,0 @@
-Fix issue where puppets could not be registered for the same team or mxid twice.

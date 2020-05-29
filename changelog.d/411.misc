@@ -1,1 +1,0 @@
-Fix `provisioning.enabled` config flag to be recognised in the code, and add ability to disable puppeting from the config.
