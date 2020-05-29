@@ -767,7 +767,7 @@ export class Main {
     private async applyBotProfile() {
         log.info("Ensuring the bridge bot is registered");
         const intent = this.botIntent;
-        // The bot believes itelf to always be registered, even when it isn't.
+        // The bot believes itself to always be registered, even when it isn't.
         intent.opts.registered = false;
         await intent._ensureRegistered();
         const profile = await intent.getProfileInfo(this.botUserId);
