@@ -278,18 +278,19 @@ export class BridgedRoom {
                 emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
             }
         }
-        const client = await this.getClientForRequest(message.sender);
-        if (!client) {
+        const clientForRequest = await this.getClientForRequest(message.sender);
+        if (!clientForRequest) {
             log.warn("No client to handle reaction");
             return;
         }
+        const { client, id } = clientForRequest;
         // We must do this before sending to avoid racing
         // Use the unicode key for uniqueness
-        this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${client.id}:${event.slackTs}`);
+        this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${id}:${event.slackTs}`);
 
         // TODO: This only works once from matrix if we are sending the event as the
         // bot user.
-        const res = await client.client.reactions.add({
+        const res = await client.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
@@ -307,11 +308,12 @@ export class BridgedRoom {
     }
 
     public async onMatrixRedaction(message: any) {
-        const client = await this.getClientForRequest(message.sender);
-        if (!client) {
+        const clientForRequest = await this.getClientForRequest(message.sender);
+        if (!clientForRequest) {
             log.warn("No client to handle redaction");
             return;
         }
+        const { client } = clientForRequest;
 
         const event = await this.main.datastore.getEventByMatrixId(message.room_id, message.redacts);
 
@@ -321,7 +323,7 @@ export class BridgedRoom {
             return;
         }
 
-        const res = await client.client.chat.delete({
+        const res = await client.chat.delete({
             as_user: false,
             channel: this.slackChannelId!,
             ts: event.slackTs,
@@ -335,11 +337,12 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        const client = await this.getClientForRequest(message.user_id);
-        if (!client) {
+        const clientForRequest = await this.getClientForRequest(message.user_id);
+        if (!clientForRequest) {
             log.warn("No client to handle edit");
             return false;
         }
+        const { client } = clientForRequest;
 
         const event = await this.main.datastore.getEventByMatrixId(
             message.room_id,
@@ -363,7 +366,7 @@ export class BridgedRoom {
             return false;
         }
 
-        const res = (await client.client.chat.update({
+        const res = (await client.chat.update({
             ts: event.slackTs,
             as_user: false,
             channel: this.slackChannelId!,
