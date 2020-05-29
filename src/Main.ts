@@ -765,6 +765,21 @@ export class Main {
         });
     }
 
+    private async applyBotProfile() {
+        log.info("Ensuring the bridge bot is registered");
+        const intent = this.botIntent;
+        // The bot believes itself to always be registered, even when it isn't.
+        intent.opts.registered = false;
+        await intent._ensureRegistered();
+        const profile = await intent.getProfileInfo(this.botUserId);
+        if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile?.displayname) {
+            await intent.setDisplayName(this.config.bot_profile?.displayname);
+        }
+        if (this.config.bot_profile?.avatar_url && profile.avatar_url !== this.config.bot_profile?.avatar_url) {
+            await intent.setAvatarUrl(this.config.bot_profile?.avatar_url);
+        }
+    }
+
     public async run(cliPort: number) {
         log.info("Loading databases");
         if (this.oauth2) {
@@ -862,6 +877,12 @@ export class Main {
                 log.error(`Waiting ${STARTUP_RETRY_TIME_MS}ms before retrying`);
                 await new Promise(((resolve) => setTimeout(resolve, STARTUP_RETRY_TIME_MS)));
             }
+        }
+
+        try {
+            await this.applyBotProfile();
+        } catch (ex) {
+            log.warn(`Failed to set bot profile on startup: ${ex}`);
         }
 
         const provisioningEnabled = this.config.provisioning?.enabled;

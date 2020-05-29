@@ -44,6 +44,11 @@ export interface IConfig {
         crt_file: string;
     };
 
+    bot_profile?: {
+        displayname?: string;
+        avatar_url?: string;
+    }
+
     caching?: {
         ghostUserCache: number,
         matrixUserCache: number,
