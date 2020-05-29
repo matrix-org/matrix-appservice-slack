@@ -99,6 +99,7 @@ export class Main {
 
     private bridge: Bridge;
     private appservice: AppService;
+    private ready: boolean = false;
 
     // TODO(paul): ugh. this.getBotIntent() doesn't work before .run time
     // So we can't create the StateLookup instance yet
@@ -784,6 +785,7 @@ export class Main {
         if (this.oauth2) {
             await this.oauth2.compileTemplates();
         }
+
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
             const postgresDb = new PgDatastore(this.config.db!.connectionString);
@@ -841,6 +843,27 @@ export class Main {
         }
         const port = this.config.homeserver.appservice_port || cliPort;
         this.bridge.run(port, this.config, this.appservice);
+
+        this.bridge.addAppServicePath({
+            handler: this.onHealthProbe.bind(this.bridge),
+            method: "GET",
+            path: "/health",
+            checkToken: false,
+        });
+
+        this.bridge.addAppServicePath({
+            handler: this.onReadyProbe.bind(this.bridge),
+            method: "GET",
+            path: "/ready",
+            checkToken: false,
+        });
+
+        this.stateStorage = new StateLookup({
+            client: this.bridge.getIntent().client,
+            eventTypes: ["m.room.member", "m.room.power_levels"],
+        });
+
+
         let joinedRooms: string[]|null = null;
         while(joinedRooms === null) {
             try {
@@ -856,18 +879,12 @@ export class Main {
             }
         }
 
-        this.bridge.addAppServicePath({
-            handler: this.onHealth.bind(this.bridge),
-            method: "GET",
-            path: "/health",
-            checkToken: false,
-        });
-
         try {
             await this.applyBotProfile();
         } catch (ex) {
             log.warn(`Failed to set bot profile on startup: ${ex}`);
         }
+
         const provisioningEnabled = this.config.provisioning?.enabled;
 
         // Previously, this was always true.
@@ -875,11 +892,6 @@ export class Main {
             this.provisioner.addAppServicePath();
         }
 
-        // TODO(paul): see above; we had to defer this until now
-        this.stateStorage = new StateLookup({
-            client: this.bridge.getIntent().client,
-            eventTypes: ["m.room.member", "m.room.power_levels"],
-        });
         log.info("Fetching teams");
         const teams = await this.datastore.getAllTeams();
         log.info(`Loaded ${teams.length} teams`);
@@ -949,7 +961,8 @@ export class Main {
         }
         await puppetsWaiting;
         await teamSyncPromise;
-        log.info("Bridge initialised.");
+        log.info("Bridge initialised");
+        this.ready = true;
     }
 
     private async startupLoadRoomEntry(entry: RoomEntry, joinedRooms: string[], teamClients: {[teamId: string]: WebClient}) {
@@ -1235,8 +1248,11 @@ export class Main {
         } // Otherwise, not a known room.
     }
 
-
-    private onHealth(_, res: Response) {
+    private onHealthProbe(_, res: Response) {
         res.status(201).send("");
+    }
+
+    private onReadyProbe(_, res: Response) {
+        res.status(this.ready ? 201 : 425).send("");
     }
 }
