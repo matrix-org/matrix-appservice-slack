@@ -863,7 +863,11 @@ export class Main {
             checkToken: false,
         });
 
-        await this.applyBotProfile();
+        try {
+            await this.applyBotProfile();
+        } catch (ex) {
+            log.warn(`Failed to set bot profile on startup: ${ex}`);
+        }
         const provisioningEnabled = this.config.provisioning?.enabled;
 
         // Previously, this was always true.
