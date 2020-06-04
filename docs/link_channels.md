@@ -10,19 +10,24 @@ to the bridge's database.
 
 The Real Time Messaging (RTM) API is the newer and recommended way to use the bridge.
 
-1. Add a custom app to your Slack team/workspace by visiting https://api.slack.com/apps
+1. Add a custom app to your Slack team/workspace by visiting
+   [https://api.slack.com/apps?new\_classic\_app=1](https://api.slack.com/apps?new_classic_app=1)
    and clicking on `Create New App`.
+
+   ![Screenshot](link-create-legacy-app.png)
 
 2. Name the app & select the team/workspace this app will belong to.
 
-3. Click on `bot users` and add a new bot user. We will use this account to bridge the
-   the rooms.
+3. Click on `App Home` in the sidebar and `Add Legacy Bot User`. We will use this
+   account to bridge the the rooms.
 
-6. Click on `Install App` and `Install App to Workspace`. Note the access tokens show.
+   ![Screenshot](link-add-legacy-bot-user.png)
+
+4. Click on `Install App` and `Install App to Workspace`. Note the access tokens shown.
    You will need the `Bot User OAuth Access Token` and if you want to bridge files, the
    `OAuth Access Token` whenever you link a room.
 
-7. For each channel you would like to bridge, perform the following steps:
+5. For each channel you would like to bridge, perform the following steps:
 
    1. Create a Matrix room in the usual manner for your client. Take a note of its
       Matrix room ID - it will look something like `!aBcDeF:example.com`.
