@@ -41,10 +41,7 @@ export class PgDatastore implements Datastore {
     public async upsertUser(user: SlackGhost): Promise<void> {
         const entry = user.toEntry();
         log.debug(`upsertUser: ${entry.id}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${id}, true, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {
-            id: entry.id,
-            json: JSON.stringify(entry),
-        });
+        await this.postgresDb.none("INSERT INTO users VALUES(${id}, true, ${this}) ON CONFLICT (userId) DO UPDATE SET json = ${this}", entry);
     }
 
     public async getUser(id: string): Promise<UserEntry|null> {
@@ -70,10 +67,7 @@ export class PgDatastore implements Datastore {
 
     public async storeMatrixUser(user: MatrixUser): Promise<void> {
         log.debug(`storeMatrixUser: ${user.getId()}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${id}, false, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {
-            id: user.getId(),
-            json: user.serialize(),
-        });
+        await this.postgresDb.none("INSERT INTO users VALUES(${getId}, false, ${serialize}) ON CONFLICT (userId) DO UPDATE SET json = ${serialize}", user);
     }
 
     public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
@@ -85,24 +79,22 @@ export class PgDatastore implements Datastore {
     }
     public async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
         log.debug(`getAccountsForMatrixUser: ${userId}`);
-        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE user_id = ${userId}", { userId });
-        return accounts.map((a) => ({
+        return this.postgresDb.map("SELECT * FROM linked_accounts WHERE user_id = ${userId}", { userId }, a => {
             matrixId: a.user_id,
             slackId: a.slack_id,
             teamId: a.team_id,
-            accessToken: a.access_token,
-        }));
+            accessToken: a.access_token,            
+        });
     }
 
     public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
         log.debug(`getAccountsForTeam: ${teamId}`);
-        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE team_id = ${teamId}", { teamId });
-        return accounts.map((a) => ({
+        return this.postgresDb.map("SELECT * FROM linked_accounts WHERE team_id = ${teamId}", { teamId }, a => {
             matrixId: a.user_id,
             slackId: a.slack_id,
             teamId: a.team_id,
             accessToken: a.access_token,
-        }));
+        });
     }
 
     public async deleteAccount(userId: string, slackId: string): Promise<void> {
