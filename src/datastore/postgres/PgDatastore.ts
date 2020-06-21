@@ -124,7 +124,7 @@ export class PgDatastore implements Datastore {
     public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
         return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE roomId = ${roomId} AND eventId = ${eventId}",
-            { roomId, eventId }, e && e => {
+            { roomId, eventId }, e => e && {
               roomId,
               eventId,
               slackChannelId: e.slackchannel,
@@ -136,7 +136,7 @@ export class PgDatastore implements Datastore {
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
         return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
-            { slackChannel, slackTs }, e && e => {
+            { slackChannel, slackTs }, e => e && {
                 roomId: e.roomid,
                 eventId: e.eventid,
                 slackChannelId: slackChannel,
