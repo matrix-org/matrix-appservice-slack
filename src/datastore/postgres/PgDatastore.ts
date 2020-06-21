@@ -65,14 +65,14 @@ export class PgDatastore implements Datastore {
         return users.map((dbEntry) => JSON.parse(dbEntry.json) as UserEntry);
     }
 
-    public async storeMatrixUser(user: MatrixUser): Promise<void> {
+    public async storeMatrixUser(user: MatrixUser): Promise<null> {
         log.debug(`storeMatrixUser: ${user.getId()}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${getId}, false, ${serialize}) ON CONFLICT (userId) DO UPDATE SET json = ${serialize}", user);
+        return this.postgresDb.none("INSERT INTO users VALUES(${getId}, false, ${serialize}) ON CONFLICT (userId) DO UPDATE SET json = ${serialize}", user);
     }
 
-    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<null> {
         log.debug(`insertAccount: ${userId}`);
-        await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " +
+        return this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " +
         "ON CONFLICT ON CONSTRAINT cons_linked_accounts_unique DO UPDATE SET access_token = ${accessToken}", {
             userId, slackId, teamId, accessToken,
         });
@@ -97,9 +97,9 @@ export class PgDatastore implements Datastore {
         });
     }
 
-    public async deleteAccount(userId: string, slackId: string): Promise<void> {
+    public async deleteAccount(userId: string, slackId: string): Promise<null> {
         log.info(`deleteAccount: ${userId} ${slackId}`);
-        await this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
+        return this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry, eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra) {
@@ -114,7 +114,7 @@ export class PgDatastore implements Datastore {
             };
         }
         log.debug(`upsertEvent: ${entry.roomId} ${entry.eventId} ${entry.slackChannelId} ${entry.slackTs}`);
-        await this.postgresDb.none("INSERT INTO events VALUES(${roomId}, ${eventId}, ${slackChannelId}, ${slackTs}, ${jsonExtras}) " +
+        return this.postgresDb.none("INSERT INTO events VALUES(${roomId}, ${eventId}, ${slackChannelId}, ${slackTs}, ${jsonExtras}) " +
                            "ON CONFLICT ON CONSTRAINT cons_events_unique DO UPDATE SET extras = ${jsonExtras}", {
             ...entry,
             jsonExtras: JSON.stringify(entry._extras),
@@ -122,35 +122,27 @@ export class PgDatastore implements Datastore {
     }
 
     public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
-        const dbEntry = await this.postgresDb.oneOrNone(
+        return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE roomId = ${roomId} AND eventId = ${eventId}",
-            { roomId, eventId });
-        if (!dbEntry) {
-            return null;
-        }
-        return {
-            roomId,
-            eventId,
-            slackChannelId: dbEntry.slackchannel,
-            slackTs: dbEntry.slackts,
-            _extras: JSON.parse(dbEntry.extras),
-        };
+            { roomId, eventId }, e && e => {
+              roomId,
+              eventId,
+              slackChannelId: e.slackchannel,
+              slackTs: e.slackts,
+              _extras: JSON.parse(e.extras),
+        });
     }
 
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
-        const dbEntry = await this.postgresDb.oneOrNone(
+        return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
-            { slackChannel, slackTs });
-        if (!dbEntry) {
-            return null;
-        }
-        return {
-            roomId: dbEntry.roomid,
-            eventId: dbEntry.eventid,
-            slackChannelId: slackChannel,
-            slackTs,
-            _extras: JSON.parse(dbEntry.extras),
-        };
+            { slackChannel, slackTs }, e && e => {
+                roomId: e.roomid,
+                eventId: e.eventid,
+                slackChannelId: slackChannel,
+                slackTs,
+                _extras: JSON.parse(e.extras),
+        });
     }
 
     public async ensureSchema() {
