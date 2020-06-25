@@ -19,7 +19,7 @@ import {
     MatrixUser,
     EventStore, RoomStore, UserStore,
     StoredEvent } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, RoomType, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry } from "./Models";
+import { Datastore, UserEntry, RoomEntry, RoomType, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry, SlackAccount } from "./Models";
 import * as NedbDb from "nedb";
 
 export class NedbDatastore implements Datastore {
@@ -60,6 +60,53 @@ export class NedbDatastore implements Datastore {
     public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
         const users = await this.getAllUsers(false);
         return users.filter((u) => u.team_id === teamId);
+    }
+
+    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string) {
+        let matrixUser = await this.getMatrixUser(userId);
+        matrixUser = matrixUser ? matrixUser : new MatrixUser(userId);
+        const accounts = matrixUser.get("accounts") || {};
+        accounts[slackId] = {
+            access_token: accessToken,
+            team_id: teamId,
+        };
+        matrixUser.set("accounts", accounts);
+        await this.storeMatrixUser(matrixUser);
+    }
+
+    public async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
+        const matrixUser = await this.getMatrixUser(userId);
+        if (matrixUser === null) {
+            return [];
+        }
+        const accounts: {[slackId: string]: {team_id: string, access_token: string}} = matrixUser.get("accounts");
+        return Object.entries(accounts).map(([slackId, o]) => ({
+            matrixId: userId,
+            slackId,
+            teamId: o.team_id,
+            accessToken: o.access_token,
+        }))
+    }
+
+    public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+        // TODO: Can we implement this?
+        return [];
+    }
+
+    public async deleteAccount(userId: string, slackId: string): Promise<void> {
+        const matrixUser = await this.getMatrixUser(userId);
+        if (!matrixUser) {
+            return;
+        }
+        const accounts = matrixUser.get("accounts") || {};
+        if (!accounts[slackId]) {
+            return;
+        }
+        const teamId = accounts[slackId].team_id;
+        // Identify if this is the only account.
+        delete accounts[slackId];
+        matrixUser.set("accounts", accounts);
+        await this.storeMatrixUser(matrixUser);
     }
 
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
@@ -156,6 +203,11 @@ export class NedbDatastore implements Datastore {
         return this.teamStore.update({id: entry.id}, entry, {upsert: true});
     }
 
+    public async deleteTeam(teamId: string): Promise<void> {
+        return this.teamStore.remove({id: teamId});
+    }
+
+
     public async getTeam(teamId: string): Promise<TeamEntry|null> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless
@@ -243,5 +295,9 @@ export class NedbDatastore implements Datastore {
     public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
         // no-op; activity metrics are not implemented for NeDB
         return;
+    }
+
+    public async getRoomCount(): Promise<number> {
+        return (await this.getAllRooms()).length;
     }
 }

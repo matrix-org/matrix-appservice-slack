@@ -104,3 +104,33 @@ properties:
           properties:
             enabled:
               type: boolean
+  provisioning:
+    type: object
+    required: ["enabled"]
+    properties:
+      enabled:
+        type: boolean
+      require_public_room:
+        type: boolean
+      allow_private_channels:
+        type: boolean
+      limits:
+        type: object
+        properties:
+          room_count:
+            type: number
+          team_count:
+            type: number
+  puppeting:
+    type: object
+    required: ["enabled"]
+    properties:
+      enabled:
+        type: boolean
+  bot_profile:
+    type: object
+    properties:
+      displayname:
+        type: string
+      avatar_url:
+        type: string

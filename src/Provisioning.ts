@@ -14,8 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, Bridge, MatrixUser } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
+import { Logging, MatrixUser } from "matrix-appservice-bridge";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
@@ -48,6 +47,7 @@ export class Provisioner {
                 await this.handleProvisioningRequest(verb as Verbs, req, res);
             },
             method: "POST",
+            checkToken: true,
             path: "/_matrix/provision/:verb",
         });
     }
@@ -78,14 +78,46 @@ export class Provisioner {
         }
     }
 
-    private async userIsAllowedAction(actionVerb: "link"|"unlink"|"puppet") {
-        // Hit an endpoint, and wait for a response.
+    private async reachedRoomLimit() {
+        if (!this.main.config.provisioning?.limits?.room_count) {
+            // No limit applied
+            return false;
+        }
+        const currentCount = await this.main.datastore.getRoomCount();
+        return (currentCount >= this.main.config.provisioning?.limits?.room_count);
+    }
 
+    private async determineSlackIdForRequest(matrixUserId, teamId) {
+        for (const account of await this.main.datastore.getAccountsForMatrixUser(matrixUserId)) {
+            if (account.teamId === teamId) {
+                return account.slackId;
+            }
+        }
+        return null;
     }
 
     @command()
-    private getbotid(_, res) {
-        res.json({bot_user_id: this.main.botUserId});
+    private async getconfig(_, res) {
+        const hasRoomLimit = this.main.config.provisioning?.limits?.room_count;
+        const hasTeamLimit = this.main.config.provisioning?.limits?.team_count;
+        res.json({
+            bot_user_id: this.main.botUserId,
+            require_public_room: this.main.config.provisioning?.require_public_room || false,
+            instance_name: this.main.config.homeserver.server_name,
+            room_limit: hasRoomLimit ? {
+                quota: this.main.config.provisioning?.limits?.room_count,
+                current: await this.main.datastore.getRoomCount(),
+            } : null,
+            team_limit: hasTeamLimit ? {
+                quota: this.main.config.provisioning?.limits?.team_count,
+                current: this.main.clientFactory.teamClientCount,
+            } : null,
+        });
+    }
+
+    @command()
+    private async getbotid(_, res) {
+        return this.getconfig(_, res);
     }
 
     @command("user_id", { param: "puppeting", required: false})
@@ -108,33 +140,23 @@ export class Provisioner {
     }
 
     @command("user_id", "slack_id")
-    private async logout(req, res, userId, slackId) {
+    private async logout(req: Request, res: Response, userId: string, slackId: string) {
         if (!this.main.oauth2) {
             res.status(HTTP_CODES.NOT_FOUND).json({
                 error: "OAuth2 not configured on this bridge",
             });
             return;
         }
-        let matrixUser = await this.main.datastore.getMatrixUser(userId);
-        matrixUser = matrixUser ? matrixUser : new MatrixUser(userId);
-        const accounts = matrixUser.get("accounts") || {};
-        delete accounts[slackId];
-        matrixUser.set("accounts", accounts);
-        await this.main.datastore.storeMatrixUser(matrixUser);
-        log.info(`Removed account ${slackId} from ${slackId}`);
+        const logoutResult = await this.main.logoutAccount(userId, slackId);
+        res.json({logoutResult});
     }
 
     @command("user_id", "team_id")
     private async channels(req, res, userId, teamId) {
         log.debug(`${userId} for ${teamId} requested their channels`);
-        const matrixUser = await this.main.datastore.getMatrixUser(userId);
-        const isAllowed = matrixUser !== null &&
-            Object.values(matrixUser.get("accounts") as {[key: string]: {team_id: string}}).find((acct) =>
-                acct.team_id === teamId,
-            );
-        if (!isAllowed) {
-            res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
-            throw undefined;
+        const slackUserId = await this.determineSlackIdForRequest(userId, teamId);
+        if (!slackUserId) {
+            return res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
         }
         const team = await this.main.datastore.getTeam(teamId);
         if (team === null) {
@@ -142,10 +164,16 @@ export class Provisioner {
         }
         const cli = await this.main.clientFactory.getTeamClient(teamId);
         try {
-            const response = (await cli.conversations.list({
+            let types = "public_channel";
+            // Unless we *explicity* set this to false, allow it.
+            if (this.main.config.provisioning?.allow_private_channels !== false) {
+                types = `public_channel,private_channel`;
+            }
+            const response = (await cli.users.conversations({
                 exclude_archived: true,
                 limit: 1000, // TODO: Pagination
-                types: "public_channel", // TODO: In order to show private channels, we need the identity of the caller.
+                user: slackUserId,  // In order to show private channels, we need the identity of the caller.
+                types,
             })) as ConversationsListResponse;
             if (!response.ok) {
                 throw Error(response.error);
@@ -169,18 +197,16 @@ export class Provisioner {
     @command("user_id")
     private async teams(req, res, userId) {
         log.debug(`${userId} requested their teams`);
-        const matrixUser = await this.main.datastore.getMatrixUser(userId);
-        if (matrixUser === null) {
+        const accounts = await this.main.datastore.getAccountsForMatrixUser(userId);
+        if (accounts.length === 0) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
             return;
         }
-        const accounts = matrixUser.get("accounts");
-        const results = await Promise.all(Object.keys(accounts).map(async (slackId) => {
-            const account = accounts[slackId];
-            return this.main.datastore.getTeam(account.team_id).then(
-                (team) => ({team, slack_id: slackId}),
-            );
-        }));
+        const results = await Promise.all(accounts.map(async (account) => {
+                const team = await this.main.datastore.getTeam(account.teamId)
+                return {team, slack_id: account.slackId};
+            })
+        );
         const teams = results.map((account) => ({
             id: account.team!.id,
             name: account.team!.name,
@@ -214,21 +240,6 @@ export class Provisioner {
         res.json({ accounts });
     }
 
-    @command("user_id", "team_id")
-    private async removeaccount(_, res, userId, teamId) {
-        log.debug(`${userId} is removing their account on ${teamId}`);
-        const isLast = (await this.main.datastore.getPuppetedUsers()).filter((t) => t.teamId).length < 2;
-        if (isLast) {
-            log.warn("This is the last user on the workspace which means we will lose access to the team token!");
-        }
-        const client = await this.main.clientFactory.getClientForUser(teamId, userId);
-        if (client) {
-            await client.auth.revoke();
-        }
-        await this.main.datastore.removePuppetTokenByMatrixId(teamId, userId);
-        res.json({ });
-    }
-
     @command("matrix_room_id", "user_id")
     private async getlink(req, res, matrixRoomId, userId) {
         const room = this.main.rooms.getByMatrixRoomId(matrixRoomId);
@@ -258,24 +269,7 @@ export class Provisioner {
             status = "unknown";
         }
 
-        let authUri;
-        let stordTeamExists = room.SlackTeamId !== undefined;
-
-        if (room.SlackTeamId) {
-            stordTeamExists = (await this.main.datastore.getTeam(room.SlackTeamId)) !== null;
-        }
-
-        if (this.main.oauth2 && !stordTeamExists) {
-            // We don't have an auth token but we do have the ability
-            // to ask for one
-            authUri = this.main.oauth2.makeAuthorizeURL(
-                room,
-                room.InboundId,
-            );
-        }
-
         res.json({
-            auth_uri: authUri,
             inbound_uri: this.main.getInboundUrlForRoom(room),
             isWebhook: room.SlackWebhookUri !== undefined,
             matrix_room_id: matrixRoomId,
@@ -316,6 +310,14 @@ export class Provisioner {
                 text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
             });
         }
+
+        if (await this.reachedRoomLimit()) {
+            throw {
+                code: HTTP_CODES.FORBIDDEN,
+                text: `You have reached the maximum number of bridged rooms.`,
+            };
+        }
+
         const room = await this.main.actionLink(opts);
         // Convert the room 'status' into a integration manager 'status'
         let status = room.getStatus();

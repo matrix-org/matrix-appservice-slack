@@ -44,6 +44,11 @@ export interface IConfig {
         crt_file: string;
     };
 
+    bot_profile?: {
+        displayname?: string;
+        avatar_url?: string;
+    }
+
     caching?: {
         ghostUserCache: number,
         matrixUserCache: number,
@@ -60,6 +65,7 @@ export interface IConfig {
         client_id: string;
         client_secret: string;
         redirect_prefix?: string;
+        html_template?: string;
     };
 
     rtm?: {
@@ -81,7 +87,16 @@ export interface IConfig {
     dbdir: string;
 
     provisioning?: {
-        enable: boolean;
-        auth_callbck: string;
+        enabled: boolean;
+        require_public_room?: boolean;
+        allow_private_channels?: boolean;
+        limits?: {
+            team_count?: number;
+            room_count?: number;
+        }
     };
+
+    puppeting?: {
+        enabled: boolean;
+    }
 }

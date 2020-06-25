@@ -1,11 +1,31 @@
 import { MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry, RoomType } from "../../datastore/Models";
+import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry, RoomType, SlackAccount } from "../../datastore/Models";
 import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
 export class FakeDatastore implements Datastore {
     constructor(public teams: TeamEntry[] = [], public usersInTeam: UserEntry[] = []) {
 
+    }
+
+    async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+        throw new Error("Method not implemented.");
+    }
+
+    async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
+        throw new Error("Method not implemented.");
+    }
+
+    async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+        throw new Error("Method not implemented.");
+    }
+
+    async deleteAccount(userId: string, slackId: string): Promise<void> {
+        throw new Error("Method not implemented.");
+    }
+
+    async deleteTeam(teamId: string): Promise<void> {
+        throw new Error("Method not implemented.");
     }
 
     public async upsertUser(user: SlackGhost): Promise<void> {
@@ -123,5 +143,9 @@ export class FakeDatastore implements Datastore {
 
     public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
         return;
+    }
+
+    public async getRoomCount() {
+        return 0;
     }
 }

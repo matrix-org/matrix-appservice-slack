@@ -155,7 +155,11 @@ export class SlackGhost {
         let displayName = message.username || message.user_name;
 
         if (room.SlackClient) { // We can be smarter if we have the bot.
-            if (message.bot_id) {
+            if (message.bot_id && message.user_id) {
+                // In the case of operations on bots, we will have both a bot_id and a user_id.
+                // Ignore updating the displayname in this case.
+                return;
+            } else if (message.bot_id) {
                 displayName = await this.getBotName(message.bot_id, room.SlackClient);
             } else if (message.user_id) {
                 displayName = await this.getDisplayname(room.SlackClient);
@@ -245,7 +249,11 @@ export class SlackGhost {
         }
         let avatarUrl;
         let hash: string|undefined;
-        if (message.bot_id) {
+        if (message.bot_id && message.user_id) {
+            // In the case of operations on bots, we will have both a bot_id and a user_id.
+            // Ignore updating the displayname in this case.
+            return;
+        } else if (message.bot_id) {
             avatarUrl = await this.getBotAvatarUrl(message.bot_id, room.SlackClient);
             hash = avatarUrl;
         } else if (message.user_id) {

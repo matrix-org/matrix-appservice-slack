@@ -27,7 +27,6 @@ import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
-
 const log = Logging.get("SlackHookHandler");
 
 const PRESERVE_KEYS = [
@@ -90,6 +89,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         const HTTP_SERVER_ERROR = 500;
         let body = "";
         req.on("data", (chunk) => body += chunk);
+        req.on("error", (err) => log.error(`Error handling request: ${req.url}: ${err}`));
         req.on("end", () => {
             log.debug(`${req.method} ${req.url} bodyLen=${body.length}`);
 
@@ -107,6 +107,10 @@ export class SlackHookHandler extends BaseSlackHandler {
                 }
             } catch (e) {
                 log.error("SlackHookHandler failed:", e);
+                // Do not send error if HTTP connection is closed
+                if (res.finished) {
+                    return;
+                }
                 res.writeHead(HTTP_SERVER_ERROR, {"Content-Type": "text/plain"});
                 if (req.method !== "HEAD") {
                     res.write("Internal Server Error");
@@ -191,17 +195,17 @@ export class SlackHookHandler extends BaseSlackHandler {
             params = qs.parse(result![2]);
         }
 
-        const room = this.main.rooms.getByInboundId(inboundId);
-
         if (method === "GET" && path === "authorize") {
             // We may or may not have a room bound to the inboundId.
-            const result = await this.handleAuthorize(room || inboundId, params);
+            const result = await this.handleAuthorize(inboundId, params);
             response.writeHead(result.code || HTTP_CODES.OK, {"Content-Type": "text/html"});
             response.write(result.html);
             response.end();
             endTimer({outcome: "success"});
             return;
         }
+
+        const room = this.main.rooms.getByInboundId(inboundId);
 
         if (!room) {
             log.warn("Ignoring message from unrecognised inbound ID: %s (%s.#%s)",
@@ -299,7 +303,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         return room.onSlackMessage(lookupRes.message, lookupRes.content);
     }
 
-    private async handleAuthorize(roomOrToken: BridgedRoom|string, params: {[key: string]: string|string[]}) {
+    private async handleAuthorize(token: string, params: {[key: string]: string|string[]}) {
         const oauth2 = this.main.oauth2;
         if (!oauth2) {
             log.warn("Wasn't expecting to receive /authorize without OAuth2 configured");
@@ -308,66 +312,62 @@ export class SlackHookHandler extends BaseSlackHandler {
                 html: `OAuth is not configured on this bridge.`,
             };
         }
-        let room: BridgedRoom|null = null;
-        let user: string|null = null;
-        if (typeof roomOrToken === "string") {
-            user = oauth2.getUserIdForPreauthToken(roomOrToken);
-            // This might be a user token.
-            if (!user) {
-                return {
-                    code: 500,
-                    html: "Token not known.",
-                };
-            }
-        } else {
-            room = roomOrToken;
+        const user = oauth2.getUserIdForPreauthToken(token);
+        // This might be a user token.
+        if (!user) {
+            return {
+                code: 500,
+                html: oauth2.getHTMLForResult(false, 500, null, "token-not-known"),
+            };
         }
 
-        log.debug("Exchanging temporary code for full OAuth2 token " +
-            (user ? user : room!.InboundId),
-        );
+        log.debug(`Exchanging temporary code for full OAuth2 token ${user}`);
 
         try {
             const { response, access_scopes } = await oauth2.exchangeCodeForToken(
                 params.code as string,
-                roomOrToken,
+                token,
             );
             log.debug("Got a full OAuth2 token");
-            if (room) { // Legacy webhook
-                // XXX: We no longer support setting tokens for webhooks
-            } else if (user) { // New event api
-                // We always get a user access token, but if we set certain
-                // fancy scopes we might not get a bot one.
-                await this.main.setUserAccessToken(
-                    user,
-                    response.team_id,
-                    response.user_id,
-                    response.access_token,
-                    response.bot === undefined,
-                );
-                if (response.bot) {
-                    // Rather than upsert the values we were given, use the
-                    // access token to validate and make additional requests
-                    await this.main.clientFactory.upsertTeamByToken(
-                        response.bot.bot_access_token,
-                    );
+            // Ensure that we can support another team.
+            if (await this.main.willExceedTeamLimit(response.team_id)) {
+                log.warn(`User ${response.user_id} tried to add a new team ${response.team_id} but the team limit was reached`);
+                try {
+                    const slackClient = await this.main.clientFactory.createClient(response.access_token);
+                    await slackClient.auth.revoke();
+                } catch (ex) {
+                    log.warn(`Additionally failed to revoke the token:`, ex);
                 }
+                return {
+                    code: 403,
+                    html: oauth2.getHTMLForResult(false, 403, user, "limit-reached"),
+                };
+            }
+            // We always get a user access token, but if we set certain
+            // fancy scopes we might not get a bot one.
+            await this.main.setUserAccessToken(
+                user,
+                response.team_id,
+                response.user_id,
+                response.access_token,
+                response.bot === undefined,
+            );
+            if (response.bot) {
+                // Rather than upsert the values we were given, use the
+                // access token to validate and make additional requests
+                await this.main.clientFactory.upsertTeamByToken(
+                    response.bot.bot_access_token,
+                );
             }
         } catch (err) {
             log.error("Error during handling of an oauth token:", err);
             return {
                 code: 403,
-                // Not using templaes to avoid newline awfulness.
-                // tslint:disable-next-line: prefer-template
-                html: "<h2>Integration Failed</h2>\n" +
-                "<p>Unfortunately your channel integration did not go as expected...</p>",
+                html: oauth2.getHTMLForResult(false, 403, user, "error"),
             };
         }
         return {
-            // Not using templaes to avoid newline awfulness.
-            // tslint:disable-next-line: prefer-template
-            html: `<h2>Integration Successful!</h2>\n` +
-                  `<p>Your Matrix-Slack ${room ? "channel integration" : "account" } is now correctly authorized.</p>`,
+            html: oauth2.getHTMLForResult(true, 200, user),
         };
     }
 

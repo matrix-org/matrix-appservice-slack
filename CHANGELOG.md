@@ -1,4 +1,136 @@
- 1.1.0 (2020-02-21)
+ 1.4.0 (2020-06-23)
+===================
+
+No significant changes.
+
+
+1.4.0-rc1 (2020-05-29)
+=======================
+
+Features
+--------
+
+- Move matrix<->slack account links to a seperate table, and properly logout users. ([\#419](https://github.com/matrix-org/matrix-appservice-slack/issues/419))
+- Add bot profile information on startup. ([\#423](https://github.com/matrix-org/matrix-appservice-slack/issues/423))
+- Add /ready endpoint ([\#425](https://github.com/matrix-org/matrix-appservice-slack/issues/425))
+
+
+Bugfixes
+--------
+
+- Fix issue which breaks setting up puppeting ([\#418](https://github.com/matrix-org/matrix-appservice-slack/issues/418))
+- Fix issue where puppets could not be registered for the same team or mxid twice. ([\#420](https://github.com/matrix-org/matrix-appservice-slack/issues/420))
+- Fix bug where puppeted users couldn't edit their own messages ([\#424](https://github.com/matrix-org/matrix-appservice-slack/issues/424))
+- Fix bug where users could not become puppeted if they had already logged in via oauth ([\#426](https://github.com/matrix-org/matrix-appservice-slack/issues/426))
+
+
+Internal Changes
+----------------
+
+- Fix `provisioning.enabled` config flag to be recognised in the code, and add ability to disable puppeting from the config. ([\#411](https://github.com/matrix-org/matrix-appservice-slack/issues/411))
+- Load configuration schema using absolute path to make it possible to start the service from any directory. ([\#415](https://github.com/matrix-org/matrix-appservice-slack/issues/415))
+- Fix `team_sync` indentation in the sample config. ([\#416](https://github.com/matrix-org/matrix-appservice-slack/issues/416))
+- Drop leftover code for oauth with webhooks, as it's not been supported for a long time. ([\#422](https://github.com/matrix-org/matrix-appservice-slack/issues/422))
+
+
+1.3.2 (2020-05-13)
+===================
+
+Internal Changes
+----------------
+
+- Update to `pg-promise` 10.5.5 ([\#410](https://github.com/matrix-org/matrix-appservice-slack/issues/410))
+
+
+1.3.1 (2020-05-13)
+===================
+
+Bugfixes
+--------
+
+- Fix bridge mistakenly calling the wrong slack endpoint on /channels ([\#409](https://github.com/matrix-org/matrix-appservice-slack/issues/409))
+
+
+1.3.0 (2020-05-12)
+===================
+
+Features
+--------
+
+- Add ability to limit the number of teams and rooms via the config ([\#397](https://github.com/matrix-org/matrix-appservice-slack/issues/397))
+- Check if a channel is linked to another room, and unauthorize the link if so. ([\#401](https://github.com/matrix-org/matrix-appservice-slack/issues/401))
+- Support automatically bridging to the new room on room upgrade ([\#402](https://github.com/matrix-org/matrix-appservice-slack/issues/402))
+
+Bugfixes
+--------
+
+- Allow bridging to private channels via the provisioner ([\#403](https://github.com/matrix-org/matrix-appservice-slack/issues/403))
+- Fix postgress configurations failing to start when using the offical docker image. ([\#405](https://github.com/matrix-org/matrix-appservice-slack/issues/405))
+- Bridge will no longer update user's displayname with a bots name when a bot is modified ([\#408](https://github.com/matrix-org/matrix-appservice-slack/issues/408))
+
+
+Internal Changes
+----------------
+
+- Fix exception on missing `error` in createTeamClient ([\#404](https://github.com/matrix-org/matrix-appservice-slack/issues/404))
+
+
+1.2.0 (2020-05-07)
+===================
+
+No significant changes.
+
+
+1.2.0-rc1 (2020-04-17)
+=======================
+
+**BREAKING CHANGE** - Note that this release requires requests to /_matrix/provision are authenticated with the `hs_token`.
+
+Features
+--------
+
+- Add metrics for active users and rooms ([\#380](https://github.com/matrix-org/matrix-appservice-slack/issues/380))
+
+
+Bugfixes
+--------
+
+- Include server name in the Matrix users regex ([\#368](https://github.com/matrix-org/matrix-appservice-slack/issues/368))
+- Fix Slack user updates (e.g. to their Display name) not getting immediately synced with Workspace Sync enabled ([\#377](https://github.com/matrix-org/matrix-appservice-slack/issues/377))
+- Fix occasional crash if an error occurs handling a Slack event. ([\#392](https://github.com/matrix-org/matrix-appservice-slack/issues/392))
+- **SECURITY FIX** The bridge now requires authentication on the /_matrix/provision set of endpoints. It requires either an `access_token` query parameter or a `Authorization` header containing the `hs_token` provided in the registration file. ([\#395](https://github.com/matrix-org/matrix-appservice-slack/issues/395))
+
+
+Improved Documentation
+----------------------
+
+- Change NPM instructions to use the path config/config.yaml ([\#364](https://github.com/matrix-org/matrix-appservice-slack/issues/364))
+- Correct database name in a code example to slack_bridge ([\#365](https://github.com/matrix-org/matrix-appservice-slack/issues/365))
+- Minor wording changes in `getting_started.md` ([\#366](https://github.com/matrix-org/matrix-appservice-slack/issues/366))
+- Use a descriptive label for a link in README.md ([\#367](https://github.com/matrix-org/matrix-appservice-slack/issues/367))
+- Add documentation for Team Sync ([\#372](https://github.com/matrix-org/matrix-appservice-slack/issues/372))
+
+
+Internal Changes
+----------------
+
+- Add decorators to provisioning functions ([\#358](https://github.com/matrix-org/matrix-appservice-slack/issues/358))
+- Bump minimist from 1.2.0 to 1.2.2 ([\#362](https://github.com/matrix-org/matrix-appservice-slack/issues/362))
+- Correct ISlackEvent.user type; remove unused declarations ([\#374](https://github.com/matrix-org/matrix-appservice-slack/issues/374))
+- Enable code linting for no-any where it does matter ([\#375](https://github.com/matrix-org/matrix-appservice-slack/issues/375))
+- Fix read the docs and add new page to nav bar ([\#379](https://github.com/matrix-org/matrix-appservice-slack/issues/379))
+- Upgrade various low-risk dependencies ([\#381](https://github.com/matrix-org/matrix-appservice-slack/issues/381))
+- Upgrade uuid dependency ([\#382](https://github.com/matrix-org/matrix-appservice-slack/issues/382))
+- Upgrade quick-lru dependency (requires NodeJS >=10) ([\#383](https://github.com/matrix-org/matrix-appservice-slack/issues/383))
+- Add Launch config for VS Code and enable SourceMaps ([\#384](https://github.com/matrix-org/matrix-appservice-slack/issues/384))
+- Add error and debug logs to .gitignore ([\#385](https://github.com/matrix-org/matrix-appservice-slack/issues/385))
+- Remove chalk as a direct dependency ([\#386](https://github.com/matrix-org/matrix-appservice-slack/issues/386))
+- Upgrade dependency pg-promise 10, which requires PostgreSQL 11 ([\#387](https://github.com/matrix-org/matrix-appservice-slack/issues/387))
+- Fix PostgreSQL errors when a metric activity is recorded twice ([\#393](https://github.com/matrix-org/matrix-appservice-slack/issues/393))
+- Updated dependency `matrix-appservice-bridge` to `1.12.2` ([\#396](https://github.com/matrix-org/matrix-appservice-slack/issues/396))
+
+
+1.1.0 (2020-02-21)
 ===================
 
 No significant changes.

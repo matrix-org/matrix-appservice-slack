@@ -72,6 +72,13 @@ export interface PuppetEntry {
     token: string;
 }
 
+export interface SlackAccount {
+    matrixId: string;
+    teamId: string;
+    slackId: string;
+    accessToken: string;
+}
+
 export type RoomType = "user" | "channel";
 
 export interface Datastore {
@@ -81,6 +88,11 @@ export interface Datastore {
     getMatrixUser(userId: string): Promise<MatrixUser|null>;
     storeMatrixUser(user: MatrixUser): Promise<void>;
     getAllUsersForTeam(teamId: string): Promise<UserEntry[]>;
+
+    insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void>;
+    getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]>;
+    getAccountsForTeam(teamId: string): Promise<SlackAccount[]>;
+    deleteAccount(userId: string, slackId: string): Promise<void>;
 
     // Rooms
     upsertRoom(room: BridgedRoom): Promise<void>;
@@ -97,6 +109,7 @@ export interface Datastore {
     upsertTeam(entry: TeamEntry);
     getTeam(teamId: string): Promise<TeamEntry|null>;
     getAllTeams(): Promise<TeamEntry[]>;
+    deleteTeam(teamId: string): Promise<void>;
 
     // Puppets
     setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
@@ -133,4 +146,9 @@ export interface Datastore {
      * @param date The date of the action (defaults to the current date)
      */
     upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void>;
+
+    /**
+     * Get the number of connected rooms on this instance.
+     */
+    getRoomCount(): Promise<number>;
 }

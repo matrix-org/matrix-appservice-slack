@@ -19,7 +19,7 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry } from "../Models";
+import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry, SlackAccount } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 5;
+    public static readonly LATEST_SCHEMA = 7;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -47,7 +47,7 @@ export class PgDatastore implements Datastore {
         });
     }
 
-    public async getUser(id: string): Promise<UserEntry | null> {
+    public async getUser(id: string): Promise<UserEntry|null> {
         const dbEntry = await this.postgresDb.oneOrNone("SELECT * FROM users WHERE userId = ${id}", { id });
         if (!dbEntry) {
             return null;
@@ -55,7 +55,7 @@ export class PgDatastore implements Datastore {
         return JSON.parse(dbEntry.json);
     }
 
-    public async getMatrixUser(userId: string): Promise<MatrixUser|undefined> {
+    public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         userId = new MatrixUser(userId).getId(); // Ensure ID correctness
         const userData = await this.getUser(userId);
         return userData !== null ? new MatrixUser(userId, userData) : null;
@@ -74,6 +74,40 @@ export class PgDatastore implements Datastore {
             id: user.getId(),
             json: user.serialize(),
         });
+    }
+
+    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+        log.debug(`insertAccount: ${userId}`);
+        await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " +
+        "ON CONFLICT ON CONSTRAINT cons_linked_accounts_unique DO UPDATE SET access_token = ${accessToken}", {
+            userId, slackId, teamId, accessToken,
+        });
+    }
+    public async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
+        log.debug(`getAccountsForMatrixUser: ${userId}`);
+        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE user_id = ${userId}", { userId });
+        return accounts.map((a) => ({
+            matrixId: a.user_id,
+            slackId: a.slack_id,
+            teamId: a.team_id,
+            accessToken: a.access_token,
+        }));
+    }
+
+    public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+        log.debug(`getAccountsForTeam: ${teamId}`);
+        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE team_id = ${teamId}", { teamId });
+        return accounts.map((a) => ({
+            matrixId: a.user_id,
+            slackId: a.slack_id,
+            teamId: a.team_id,
+            accessToken: a.access_token,
+        }));
+    }
+
+    public async deleteAccount(userId: string, slackId: string): Promise<void> {
+        log.info(`deleteAccount: ${userId} ${slackId}`);
+        await this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry, eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra) {
@@ -211,6 +245,10 @@ export class PgDatastore implements Datastore {
         return PgDatastore.teamEntryForRow(doc);
     }
 
+    public async deleteTeam(teamId: string): Promise<void> {
+        await this.postgresDb.none("DELETE FROM teams WHERE id = ${teamId}", { teamId });
+    }
+
     public async getAllTeams(): Promise<TeamEntry[]> {
         return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map(PgDatastore.teamEntryForRow);
     }
@@ -296,7 +334,10 @@ export class PgDatastore implements Datastore {
         date = date || new Date();
         const userId = (user instanceof SlackGhost) ? user.toEntry().id : user.userId;
 
-        await this.postgresDb.none("INSERT INTO metrics_activities (user_id, room_id, date) VALUES(${userId}, ${roomId}, ${date})", {
+        await this.postgresDb.none(
+            "INSERT INTO metrics_activities (user_id, room_id, date) " +
+            "VALUES(${userId}, ${roomId}, ${date}) " +
+            "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING;", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
             roomId: room.toEntry().id,
             userId,
@@ -347,6 +388,10 @@ export class PgDatastore implements Datastore {
             teamData.set(activeUser.remote, (teamData.get(activeUser.remote) || 0) + 1);
         });
         return usersByTeamAndRemote;
+    }
+
+    public async getRoomCount(): Promise<number> {
+        return Number.parseInt((await this.postgresDb.one("SELECT COUNT(*) FROM rooms")).count, 10);
     }
 
     private async updateSchemaVersion(version: number) {

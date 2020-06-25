@@ -1,1 +1,0 @@
-Fix Slack user updates (e.g. to their Display name) not getting immediately synced with Workspace Sync enabled

@@ -1,10 +1,7 @@
 homeserver: # Required
   # The domain name of your homeserver
   server_name: my.server.here
-  # The URL which the bridge server can reach the homeserver on.
-  # You can use localhost so long as the bridge and homeserver are
-  # hosted on the same machine
-  # 8008 is assumed to be the port the homeserver listens on
+  # The URL for connecting to your homeserver
   url: http://localhost:8008
   # The public facing url for media on your homeserver.
   # This is usually the public url of your homeserver.
@@ -104,3 +101,18 @@ team_sync:
 
 provisioning:
   enabled: true
+  # Should the bridge deny users bridging channels to private rooms.
+  require_public_room: true
+  # Should the bridge allow usesr to bridge private channels.
+  allow_private_channels: true
+  limits:
+    room_count: 20
+    team_count: 1
+
+puppeting:
+  # Should the bridge allow users to puppet their accounts
+  enabled: false
+
+bot_profile: # Set the bot's profile on startup, optional
+  displayname: Slack Bridge # Set the displayname, optional
+  avatar_url: "mxc://half-shot.uk/ea64c71ee946ca2f61379abefe2c7d977d276fbb" # Set the avatar, optional

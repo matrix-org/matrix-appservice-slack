@@ -125,7 +125,7 @@ describe("SlackClientFactory", () => {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {
-            expect(ex.message).to.equal("Could not create team client: Team not allowed for test");
+            expect(ex.message).to.equal("Could not create team client");
             expect(ds.teams[0].status).to.equal("bad_auth");
         }
     });
@@ -146,7 +146,7 @@ describe("SlackClientFactory", () => {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
         } catch (ex) {
-            expect(ex.message).to.equal("Could not create team client: Team not allowed for test");
+            expect(ex.message).to.equal("Could not create team client");
             expect(ds.teams[0].status).to.equal("bad_auth");
         }
     });
