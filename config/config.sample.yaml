@@ -33,6 +33,7 @@ username_prefix: "slack_" # Required
   # key_file: /path/to/tls.key
   # crt_file: /path/to/tls.crt
 
+# Real Time Messaging API (RTM)
 # Optional if slack_hook_port and inbound_uri_prefix are defined, required otherwise.
 rtm:
   # Use the RTM API to listen for requests, which does not require
@@ -42,16 +43,14 @@ rtm:
   enable: true
   logging: "silent" # Logging level specific to RTM traffic.
 
-## Start: Optional options if using RTM API, required otherwise.
-
 # Port for incoming slack requests from webhooks and event API messages
+# Optional if using RTM API, required otherwise.
 slack_hook_port: 9898
-# Prefix of incoming requests to strip when handing. This is NOT the bind host
-# NOTE: Unlike most of the other urls, this one cannot use localhost,
-# as this one must be publicly visible to the slack API
+# Prefix of incoming requests to strip. This is NOT the bind host.
+# Unlike most of the other urls, this one cannot use localhost,
+# as this one must be publicly visible to the Slack API.
+# Optional if using RTM API, required otherwise.
 inbound_uri_prefix: "https://my.server.here:9898/"
-
-## End: Optional options if using RTM API, required otherwise.
 
 # Allow users to add channels dynamically by using oauth, or puppet themselves.
 # Optional
