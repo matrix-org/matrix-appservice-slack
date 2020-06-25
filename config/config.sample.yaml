@@ -20,15 +20,13 @@ db:
   # A postgres connection string (unused if using nedb)
   connectionString: "postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge"
 
-# Use a matrix room to issue link and unlink commands to the bridge
-# Optional
+# Optional. Use a matrix room to issue link and unlink commands to the bridge
 matrix_admin_room: "!aBcDeF:matrix.org"
 
 # The prefix to give Slack users on the Matrix server
 username_prefix: "slack_"
 
-# TLS files to be used when handling Slack requests
-# Optional
+# Optional. TLS files to be used when handling Slack requests
 # tls:
   # key_file: /path/to/tls.key
   # crt_file: /path/to/tls.crt
@@ -52,8 +50,7 @@ slack_hook_port: 9898
 # Optional if using RTM API, required otherwise.
 inbound_uri_prefix: "https://my.server.here:9898/"
 
-# Allow users to add channels dynamically by using oauth, or puppet themselves.
-# Optional
+# Optional. Allow users to add channels dynamically by using oauth, or puppet themselves.
 # oauth2:
   # client_id: ""
   # client_secret: ""
@@ -69,8 +66,7 @@ logging:
       "./debug.log": "info"
       "./error.log": "error"
 
-# Enable metrics reporting on http://0.0.0.0:bridgePort/metrics which can be scraped by prometheus
-# Optional
+# Optional. Enable metrics reporting on http://0.0.0.0:bridgePort/metrics which can be scraped by prometheus
 enable_metrics: true
 
 # Sync team users and channels
@@ -79,9 +75,9 @@ team_sync:
   # T0123ABCDEF:
   #   channels:
   #     enabled: true
-  #     # Optional blacklist for channel ids. Trumps the whitelist.
+  #     # Optional. blacklist for channel ids. Trumps the whitelist.
   #     # blacklist: ['CVCCPEY9X', 'C0108F9K37X']
-  #     # Optional whitelist for channel ids.
+  #     # Optional. whitelist for channel ids.
   #     # whitelist: []
   #     # Prefix for room aliases in Matrix
   #     # alias_prefix: "slack_"
