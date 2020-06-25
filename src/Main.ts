@@ -603,7 +603,7 @@ export class Main {
             try {
                 await room.onMatrixRedaction(ev);
             } catch (e) {
-                log.error("Failed procesing matrix redaction message: ", e);
+                log.error("Failed processing matrix redaction message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
@@ -616,7 +616,7 @@ export class Main {
             try {
                 await room.onMatrixReaction(ev);
             } catch (e) {
-                log.error("Failed procesing reaction message: ", e);
+                log.error("Failed processing reaction message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
