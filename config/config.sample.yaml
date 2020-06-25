@@ -16,8 +16,8 @@ homeserver: # Required
 # Settings for database connection
 db:
   # Which database engine to use
-  engine: "postgres" # "postgres" or "nedb". If using "nedb", do not define connectionString
-  # A postgres connection string
+  engine: "postgres" # "postgres" or "nedb".
+  # A postgres connection string (unused if using nedb)
   connectionString: "postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge"
 
 # Use a matrix room to issue link and unlink commands to the bridge
@@ -25,7 +25,7 @@ db:
 matrix_admin_room: "!aBcDeF:matrix.org"
 
 # The prefix to give Slack users on the Matrix server
-username_prefix: "slack_" # Required
+username_prefix: "slack_"
 
 # TLS files to be used when handling Slack requests
 # Optional
@@ -43,7 +43,7 @@ rtm:
   enable: true
   logging: "silent" # Logging level specific to RTM traffic.
 
-# Port for incoming slack requests from webhooks and event API messages
+# Port for incoming Slack requests from webhooks and event API messages
 # Optional if using RTM API, required otherwise.
 slack_hook_port: 9898
 # Prefix of incoming requests to strip. This is NOT the bind host.
