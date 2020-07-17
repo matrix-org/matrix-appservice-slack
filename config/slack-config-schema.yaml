@@ -59,6 +59,8 @@ properties:
         type: string
   username_prefix:
     type: string
+  display_name_suffix:
+    type: string
   matrix_admin_room:
     type: string
   enable_metrics:

@@ -28,6 +28,7 @@ export const CACHING_DEFAULTS = {
 export interface IConfig {
     inbound_uri_prefix?: string;
     username_prefix: string;
+    display_name_suffix?: string;
 
     matrix_admin_room?: string;
 

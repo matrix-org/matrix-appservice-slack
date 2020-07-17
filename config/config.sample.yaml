@@ -33,6 +33,7 @@ oauth2:
 
 # The prefix to give slack users 
 username_prefix: "slack_" # Required
+display_name_suffix: "[s]" # Optional
 
 homeserver: # Required
   # The domain name of your homeserver
