@@ -37,6 +37,13 @@ const cli = new Cli({
     run(cliPort: number, config: IConfig, registration: any) {
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
+        // Format config
+        if (config.puppeting?.dms_deny?.slack) {
+            config.puppeting.dms_deny.slack = config.puppeting.dms_deny.slack.map((r) => new RegExp(r));
+        }
+        if (config.puppeting?.dms_deny?.matrix) {
+            config.puppeting.dms_deny.matrix = config.puppeting.dms_deny.matrix.map((r) => new RegExp(r));
+        }
         const main = new Main(config, registration);
         main.run(cliPort).then((port) => {
             log.info("Matrix-side listening on port", port);

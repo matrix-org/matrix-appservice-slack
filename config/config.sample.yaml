@@ -113,7 +113,12 @@ provisioning:
 puppeting:
   # Should the bridge allow users to puppet their accounts
   enabled: false
-
+  dms_deny:
+    slack: 
+      - "U0156TG3W48"
+    matrix: 
+      - "@badactor:badhost"
+      - "@.*:badhost"
 bot_profile: # Set the bot's profile on startup, optional
   displayname: Slack Bridge # Set the displayname, optional
   avatar_url: "mxc://half-shot.uk/ea64c71ee946ca2f61379abefe2c7d977d276fbb" # Set the avatar, optional

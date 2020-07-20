@@ -668,6 +668,20 @@ export class Main {
             return;
         }
 
+        // Check if the user is denied slack DMs
+        if (this.config.puppeting?.dms_deny?.matrix) {
+            const banned = this.config.puppeting.dms_deny.matrix.find((r) => r.test(sender));
+            if (banned) {
+                log.debug(`Matrix user '${sender}' is disallowed from DMing, not creating room.`);
+            }
+            await intent.sendEvent(roomId, "m.room.message", {
+                body: "The administer of this bridge has denied you access to create DMs with Slack users.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
+
         const slackGhost = await this.ghosts.getExisting(recipient);
         if (!slackGhost || !slackGhost.teamId) {
             // TODO: Create users dynamically who have never spoken.

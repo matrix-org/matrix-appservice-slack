@@ -98,5 +98,9 @@ export interface IConfig {
 
     puppeting?: {
         enabled: boolean;
+        dms_deny?: {
+            slack?: RegExp[];
+            matrix?: RegExp[];
+        }
     }
 }
