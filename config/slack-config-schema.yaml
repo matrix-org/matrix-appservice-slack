@@ -127,6 +127,11 @@ properties:
     properties:
       enabled:
         type: boolean
+      dms_deny:
+        slack: 
+          type: string
+        matrix: 
+          type: string
   bot_profile:
     type: object
     properties:

@@ -218,6 +218,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 if (banned) {
                     log.debug(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room.`);
                 }
+                return;
             }
         }
 
