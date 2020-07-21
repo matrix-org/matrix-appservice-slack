@@ -48,7 +48,7 @@ slack_hook_port: 9898
 # Unlike most of the other urls, this one cannot use localhost,
 # as this one must be publicly visible to the Slack API.
 # Optional if using RTM API, required otherwise.
-inbound_uri_prefix: "https://my.server.here:9898/"
+# inbound_uri_prefix: "https://my.server.here:9898/"
 
 # Optional. Allow users to add channels dynamically by using oauth, or puppet themselves.
 # oauth2:
