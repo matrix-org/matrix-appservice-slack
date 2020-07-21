@@ -50,7 +50,7 @@ homeserver: # Required
   # max_upload_size: 104857600
   # Optional. Used to specify the port of the appservice in the config, rather than the cli.
   # If this is defined, it will **override** the port given in the process arguments.
-  # appservice_port: 9999
+  # appservice_port: 5858
 
 # Optional
 logging:
