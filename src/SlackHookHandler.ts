@@ -100,7 +100,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                 if (isEvent) {
                     this.handleEvent(body, res);
                 } else {
-                    const params = qs.parse(body);
+                    const params = qs.parse(body) as {[key: string]: string};
                     this.handleWebhook(req.method!, req.url!, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
@@ -192,7 +192,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         if (method === "GET") {
             const result = path.match(/^([^?]+)(?:\?(.*))$/);
             path = result![1];
-            params = qs.parse(result![2]);
+            params = qs.parse(result![2]) as {[key: string]: string};
         }
 
         if (method === "GET" && path === "authorize") {
