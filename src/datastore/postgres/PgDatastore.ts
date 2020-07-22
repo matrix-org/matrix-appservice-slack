@@ -38,13 +38,10 @@ export class PgDatastore implements Datastore {
         this.postgresDb = pgp(connectionString);
     }
 
-    public async upsertUser(user: SlackGhost): Promise<void> {
+    public async upsertUser(user: SlackGhost): Promise<null> {
         const entry = user.toEntry();
         log.debug(`upsertUser: ${entry.id}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${id}, true, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {
-            id: entry.id,
-            json: JSON.stringify(entry),
-        });
+        return this.postgresDb.none("INSERT INTO users VALUES(${id}, true, ${this}) ON CONFLICT (userId) DO UPDATE SET json = ${this}", entry);
     }
 
     public async getUser(id: string): Promise<UserEntry|null> {
@@ -68,25 +65,24 @@ export class PgDatastore implements Datastore {
         return users.map((dbEntry) => JSON.parse(dbEntry.json) as UserEntry);
     }
 
-    public async storeMatrixUser(user: MatrixUser): Promise<void> {
+    public async storeMatrixUser(user: MatrixUser): Promise<null> {
         log.debug(`storeMatrixUser: ${user.getId()}`);
-        await this.postgresDb.none("INSERT INTO users VALUES(${id}, false, ${json}) ON CONFLICT (userId) DO UPDATE SET json = ${json}", {
-            id: user.getId(),
-            json: user.serialize(),
-        });
+        return this.postgresDb.none(
+            "INSERT INTO users VALUES(${getId}, false, ${serialize}) ON CONFLICT (userId) DO UPDATE SET json = ${serialize}",
+            user
+        );
     }
 
-    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<null> {
         log.debug(`insertAccount: ${userId}`);
-        await this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " +
+        return this.postgresDb.none("INSERT INTO linked_accounts VALUES (${userId}, ${slackId}, ${teamId}, ${accessToken}) " +
         "ON CONFLICT ON CONSTRAINT cons_linked_accounts_unique DO UPDATE SET access_token = ${accessToken}", {
             userId, slackId, teamId, accessToken,
         });
     }
     public async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
         log.debug(`getAccountsForMatrixUser: ${userId}`);
-        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE user_id = ${userId}", { userId });
-        return accounts.map((a) => ({
+        return this.postgresDb.map<SlackAccount>("SELECT * FROM linked_accounts WHERE user_id = ${userId}", { userId }, a => ({
             matrixId: a.user_id,
             slackId: a.slack_id,
             teamId: a.team_id,
@@ -96,8 +92,7 @@ export class PgDatastore implements Datastore {
 
     public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
         log.debug(`getAccountsForTeam: ${teamId}`);
-        const accounts = await this.postgresDb.manyOrNone("SELECT * FROM linked_accounts WHERE team_id = ${teamId}", { teamId });
-        return accounts.map((a) => ({
+        return this.postgresDb.map<SlackAccount>("SELECT * FROM linked_accounts WHERE team_id = ${teamId}", { teamId }, a => ({
             matrixId: a.user_id,
             slackId: a.slack_id,
             teamId: a.team_id,
@@ -105,9 +100,9 @@ export class PgDatastore implements Datastore {
         }));
     }
 
-    public async deleteAccount(userId: string, slackId: string): Promise<void> {
+    public async deleteAccount(userId: string, slackId: string): Promise<null> {
         log.info(`deleteAccount: ${userId} ${slackId}`);
-        await this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
+        return this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry, eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra) {
@@ -122,7 +117,7 @@ export class PgDatastore implements Datastore {
             };
         }
         log.debug(`upsertEvent: ${entry.roomId} ${entry.eventId} ${entry.slackChannelId} ${entry.slackTs}`);
-        await this.postgresDb.none("INSERT INTO events VALUES(${roomId}, ${eventId}, ${slackChannelId}, ${slackTs}, ${jsonExtras}) " +
+        return this.postgresDb.none("INSERT INTO events VALUES(${roomId}, ${eventId}, ${slackChannelId}, ${slackTs}, ${jsonExtras}) " +
                            "ON CONFLICT ON CONSTRAINT cons_events_unique DO UPDATE SET extras = ${jsonExtras}", {
             ...entry,
             jsonExtras: JSON.stringify(entry._extras),
@@ -130,35 +125,27 @@ export class PgDatastore implements Datastore {
     }
 
     public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null> {
-        const dbEntry = await this.postgresDb.oneOrNone(
+        return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE roomId = ${roomId} AND eventId = ${eventId}",
-            { roomId, eventId });
-        if (!dbEntry) {
-            return null;
-        }
-        return {
-            roomId,
-            eventId,
-            slackChannelId: dbEntry.slackchannel,
-            slackTs: dbEntry.slackts,
-            _extras: JSON.parse(dbEntry.extras),
-        };
+            { roomId, eventId }, e => e && {
+              roomId,
+              eventId,
+              slackChannelId: e.slackchannel,
+              slackTs: e.slackts,
+              _extras: JSON.parse(e.extras),
+        });
     }
 
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
-        const dbEntry = await this.postgresDb.oneOrNone(
+        return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
-            { slackChannel, slackTs });
-        if (!dbEntry) {
-            return null;
-        }
-        return {
-            roomId: dbEntry.roomid,
-            eventId: dbEntry.eventid,
-            slackChannelId: slackChannel,
-            slackTs,
-            _extras: JSON.parse(dbEntry.extras),
-        };
+            { slackChannel, slackTs }, e => e && {
+                roomId: e.roomid,
+                eventId: e.eventid,
+                slackChannelId: slackChannel,
+                slackTs,
+                _extras: JSON.parse(e.extras),
+        });
     }
 
     public async ensureSchema() {
@@ -181,17 +168,20 @@ export class PgDatastore implements Datastore {
     public async upsertRoom(room: BridgedRoom) {
         const entry = room.toEntry();
         log.debug(`upsertRoom: ${entry.id}`);
-        await this.postgresDb.none("INSERT INTO rooms VALUES(${id}, ${roomid}, ${remoteid}, ${json}) ON CONFLICT (id) DO UPDATE SET json = ${json}", {
-            id: entry.id,
-            roomid: entry.matrix_id,
-            remoteid: entry.remote_id,
-            json: JSON.stringify(entry.remote),
-        });
+        return this.postgresDb.none(
+            "INSERT INTO rooms VALUES(${id}, ${roomid}, ${remoteid}, ${json}) ON CONFLICT (id) DO UPDATE SET json = ${json}",
+            {
+                id: entry.id,
+                roomid: entry.matrix_id,
+                remoteid: entry.remote_id,
+                json: JSON.stringify(entry.remote),
+            }
+        );
     }
 
     public async deleteRoom(id: string) {
         log.debug(`deleteRoom: ${id}`);
-        await this.postgresDb.none("DELETE FROM rooms WHERE id = ${id}", { id });
+        return this.postgresDb.none("DELETE FROM rooms WHERE id = ${id}", { id });
     }
 
     public async getAllRooms() {
@@ -245,16 +235,16 @@ export class PgDatastore implements Datastore {
         return PgDatastore.teamEntryForRow(doc);
     }
 
-    public async deleteTeam(teamId: string): Promise<void> {
-        await this.postgresDb.none("DELETE FROM teams WHERE id = ${teamId}", { teamId });
+    public async deleteTeam(teamId: string): Promise<null> {
+        return this.postgresDb.none("DELETE FROM teams WHERE id = ${teamId}", { teamId });
     }
 
     public async getAllTeams(): Promise<TeamEntry[]> {
         return (await this.postgresDb.manyOrNone("SELECT * FROM teams")).map(PgDatastore.teamEntryForRow);
     }
 
-    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
-        await this.postgresDb.none("INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
+    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<null> {
+        return this.postgresDb.none("INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
                                         "ON CONFLICT ON CONSTRAINT cons_puppets_uniq DO UPDATE SET token = ${token}", {
             teamId,
             slackUser,
@@ -264,7 +254,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async removePuppetTokenByMatrixId(teamId: string, matrixId: string) {
-        await this.postgresDb.none("DELETE FROM puppets WHERE slackteam = ${teamId} " +
+        return this.postgresDb.none("DELETE FROM puppets WHERE slackteam = ${teamId} " +
                                                     "AND matrixuser = ${matrixId}", { teamId, matrixId });
     }
 
@@ -325,16 +315,16 @@ export class PgDatastore implements Datastore {
         return res ? res.matrixuser : null;
     }
 
-    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
+    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<null> {
         const statement = PgDatastore.BuildUpsertStatement("user_admin_rooms", "matrixuser", {matrixuser, roomid});
-        await this.postgresDb.none(statement, {matrixuser, roomid});
+        return this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
-    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null> {
         date = date || new Date();
         const userId = (user instanceof SlackGhost) ? user.toEntry().id : user.userId;
 
-        await this.postgresDb.none(
+        return this.postgresDb.none(
             "INSERT INTO metrics_activities (user_id, room_id, date) " +
             "VALUES(${userId}, ${roomId}, ${date}) " +
             "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING;", {

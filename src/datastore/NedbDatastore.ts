@@ -62,7 +62,7 @@ export class NedbDatastore implements Datastore {
         return users.filter((u) => u.team_id === teamId);
     }
 
-    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string) {
+    public async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<null> {
         let matrixUser = await this.getMatrixUser(userId);
         matrixUser = matrixUser ? matrixUser : new MatrixUser(userId);
         const accounts = matrixUser.get("accounts") || {};
@@ -71,7 +71,7 @@ export class NedbDatastore implements Datastore {
             team_id: teamId,
         };
         matrixUser.set("accounts", accounts);
-        await this.storeMatrixUser(matrixUser);
+        return this.storeMatrixUser(matrixUser);
     }
 
     public async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
@@ -93,27 +93,27 @@ export class NedbDatastore implements Datastore {
         return [];
     }
 
-    public async deleteAccount(userId: string, slackId: string): Promise<void> {
+    public async deleteAccount(userId: string, slackId: string): Promise<null> {
         const matrixUser = await this.getMatrixUser(userId);
         if (!matrixUser) {
-            return;
+            return null;
         }
         const accounts = matrixUser.get("accounts") || {};
         if (!accounts[slackId]) {
-            return;
+            return null;
         }
         const teamId = accounts[slackId].team_id;
         // Identify if this is the only account.
         delete accounts[slackId];
         matrixUser.set("accounts", accounts);
-        await this.storeMatrixUser(matrixUser);
+        return this.storeMatrixUser(matrixUser);
     }
 
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         return (await this.userStore.getMatrixUser(userId)) || null;
     }
 
-    public async storeMatrixUser(user: MatrixUser): Promise<void> {
+    public async storeMatrixUser(user: MatrixUser): Promise<null> {
         return this.userStore.setMatrixUser(user);
     }
 
@@ -138,7 +138,7 @@ export class NedbDatastore implements Datastore {
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry,
-                             eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<void> {
+                             eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<null> {
         let storeEv: StoredEvent;
         if (typeof(roomIdOrEntry) === "string") {
             storeEv = new StoredEvent(
@@ -159,6 +159,7 @@ export class NedbDatastore implements Datastore {
             );
         }
         await this.eventStore.upsertEvent(storeEv);
+        return null;
     }
 
     private storedEventToEventEntry(storedEvent: StoredEvent): EventEntry {
@@ -203,8 +204,9 @@ export class NedbDatastore implements Datastore {
         return this.teamStore.update({id: entry.id}, entry, {upsert: true});
     }
 
-    public async deleteTeam(teamId: string): Promise<void> {
-        return this.teamStore.remove({id: teamId});
+    public async deleteTeam(teamId: string): Promise<null> {
+        this.teamStore.remove({id: teamId});
+        return null;
     }
 
 
@@ -241,13 +243,13 @@ export class NedbDatastore implements Datastore {
         });
     }
 
-    public async setPuppetToken(): Promise<void> {
+    public async setPuppetToken(): Promise<null> {
         // Puppeting not supported by NeDB - noop
-        return;
+        return null;
     }
 
-    public async removePuppetTokenByMatrixId() {
-        return;
+    public async removePuppetTokenByMatrixId(): Promise<null> {
+        return null;
     }
 
     public async getPuppetTokenBySlackId(): Promise<string|null> {
@@ -278,7 +280,7 @@ export class NedbDatastore implements Datastore {
         throw Error("Not supported on NeDB");
     }
 
-    public async setUserAdminRoom(): Promise<void> {
+    public async setUserAdminRoom(): Promise<null> {
         throw Error("Not supported on NeDB");
     }
 
@@ -292,9 +294,9 @@ export class NedbDatastore implements Datastore {
         return new Map();
     }
 
-    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
+    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null> {
         // no-op; activity metrics are not implemented for NeDB
-        return;
+        return null;
     }
 
     public async getRoomCount(): Promise<number> {
