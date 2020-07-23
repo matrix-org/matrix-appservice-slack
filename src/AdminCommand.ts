@@ -29,7 +29,7 @@ type CommandCallback = (args: IHandlerArgs) => void|Promise<void>;
 
 export class AdminCommand {
     constructor(
-        public readonly command: string | string[],
+        public readonly command: string,
         public readonly description: string,
         private readonly cb: CommandCallback,
         public readonly options: {[key: string]: Options}|null = null) {
@@ -45,6 +45,10 @@ export class AdminCommand {
         }
     }
 
+    /**
+     * Returns a one-liner of how to use the command.
+     * @returns A short description of the command
+     */
     public simpleHelp(): string {
         const opts = this.options || {};
         const commandString = Object.keys(opts).sort((a, b) => {
@@ -66,6 +70,10 @@ export class AdminCommand {
         return `${this.command}${commandString} - ${this.description}`;
     }
 
+    /**
+     * Returns a detailed description of the command and its options.
+     * @returns An array of strings. Display each string in a separate line for the user.
+     */
     public detailedHelp(): string[] {
         const response: string[] = [];
         response.push(`${this.command} - ${this.description}`);
