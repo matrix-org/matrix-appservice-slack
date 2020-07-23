@@ -29,7 +29,7 @@ type CommandCallback = (args: IHandlerArgs) => void|Promise<void>;
 
 export class AdminCommand {
     constructor(
-        public readonly command: string | string[],
+        public readonly command: string,
         public readonly description: string,
         private readonly cb: CommandCallback,
         public readonly options: {[key: string]: Options}|null = null) {
