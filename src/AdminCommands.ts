@@ -306,7 +306,7 @@ export class AdminCommands {
                     respond("Oauth is not configured on this bridge");
                     return;
                 }
-                const token = this.main.oauth2.getPreauthToken(userId);
+                const token = this.main.oauth2.getPreauthToken(userId!);
                 const authUri = this.main.oauth2.makeAuthorizeURL(
                     token,
                     token,
