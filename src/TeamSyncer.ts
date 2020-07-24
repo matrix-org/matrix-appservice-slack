@@ -128,7 +128,7 @@ export class TeamSyncer {
                 queue.add(() => this.syncChannel(teamId, item));
             } else {
                 // tslint:disable-next-line: no-floating-promises
-                queue.add(() => this.syncUser(teamId, team.domain, item, true));
+                queue.add(() => this.syncUser(teamId, team.domain, item));
             }
         }
         await queue.onIdle();
@@ -207,15 +207,16 @@ export class TeamSyncer {
         }
     }
 
-    public async syncUser(teamId: string, domain: string, item: ISlackUser, initial = false) {
+    public async syncUser(teamId: string, domain: string, item: ISlackUser) {
         log.info(`Syncing user ${teamId} ${item.id}`);
-        const slackGhost = await this.main.ghostStore.get(item.id, domain, teamId);
-        if (item.deleted !== true) {
-            await slackGhost.updateFromISlackUser(item);
+        const existing = await this.main.ghostStore.getExisting(this.main.ghostStore.getUserId(item.id, domain));
+        if (initial && item.deleted && !existing) {
+            // This is a deleted user that we've never seen, bail.
             return;
         }
-        if (initial) {
-            // Do not bridge deleted users on startup.
+        const slackGhost = existing || await this.main.ghostStore.get(item.id, domain, teamId);
+        if (item.deleted !== true) {
+            await slackGhost.updateFromISlackUser(item);
             return;
         }
         log.warn(`User ${item.id} has been deleted`);
