@@ -210,7 +210,7 @@ export class TeamSyncer {
     public async syncUser(teamId: string, domain: string, item: ISlackUser) {
         log.info(`Syncing user ${teamId} ${item.id}`);
         const existing = await this.main.ghostStore.getExisting(this.main.ghostStore.getUserId(item.id, domain));
-        if (initial && item.deleted && !existing) {
+        if (item.deleted && !existing) {
             // This is a deleted user that we've never seen, bail.
             return;
         }
