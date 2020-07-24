@@ -1104,7 +1104,7 @@ export class Main {
             throw Error("Missing webhook_id OR channel_id");
         }
 
-        if (slackClient && opts.slack_channel_id) {
+        if (slackClient && opts.slack_channel_id && opts.team_id) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
             const infoRes = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
@@ -1114,6 +1114,11 @@ export class Main {
             }
             room.setBotClient(slackClient);
             room.SlackChannelName = infoRes.channel.name;
+
+            // Perform syncing asyncronously.
+            this.teamSyncer?.syncMembershipForRoom(matrixRoomId, opts.slack_channel_id, opts.team_id, slackClient).catch((ex) => {
+                log.warn(`Failed to sync membership for ${opts.slack_channel_id}:`, ex);
+            });
         }
 
         if (isNew) {

@@ -304,7 +304,7 @@ export class TeamSyncer {
         }
     }
 
-    private async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
+    public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
         const existingGhosts = await this.main.listGhostUsers(roomId);
         // We assume that we have this
         const teamInfo = (await this.main.datastore.getTeam(teamId))!;
