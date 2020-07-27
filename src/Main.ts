@@ -1027,7 +1027,7 @@ export class Main {
 
         if (!opts.team_id && !opts.slack_bot_token) {
             if (!opts.slack_webhook_uri) {
-                throw Error("Neither a team_id nor a bot_token were provided");
+                throw Error("Neither a team_id nor a slack_bot_token were provided");
             }
         }
 
