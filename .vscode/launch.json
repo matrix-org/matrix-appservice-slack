@@ -7,13 +7,13 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Launch on port 9999",
+            "name": "Launch on port 5858",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/lib/app.js",
             "preLaunchTask": "npm: build",
-            "args": ["-c", "config/config.yaml", "-p", "9999"],
+            "args": ["-c", "config/config.yaml", "-p", "5858"],
             "outFiles": [
                 "${workspaceFolder}/**/*.js"
             ]

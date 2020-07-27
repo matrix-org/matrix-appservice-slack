@@ -112,7 +112,7 @@ class Substitutions {
             body = `_${body}_`;
         }
 
-        // replace riot "pill" behavior to "@" mention for slack users
+        // replace Element "pill" behavior to "@" mention for slack users
         const format = event.content.format || "org.matrix.custom.html";
         const htmlString: string|undefined = event.content.formatted_body;
         let messageHadPills = false;

@@ -8,7 +8,7 @@ export class FakeDatastore implements Datastore {
 
     }
 
-    async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+    async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<null> {
         throw new Error("Method not implemented.");
     }
 
@@ -20,16 +20,17 @@ export class FakeDatastore implements Datastore {
         throw new Error("Method not implemented.");
     }
 
-    async deleteAccount(userId: string, slackId: string): Promise<void> {
+    async deleteAccount(userId: string, slackId: string): Promise<null> {
         throw new Error("Method not implemented.");
     }
 
-    async deleteTeam(teamId: string): Promise<void> {
+    async deleteTeam(teamId: string): Promise<null> {
         throw new Error("Method not implemented.");
     }
 
-    public async upsertUser(user: SlackGhost): Promise<void> {
+    public async upsertUser(user: SlackGhost): Promise<null> {
         this.usersInTeam.push(user.toEntry());
+        return null;
     }
 
     public async getUser(id: string): Promise<UserEntry | null> {
@@ -40,7 +41,7 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
-    public async storeMatrixUser(user: MatrixUser): Promise<void> {
+    public async storeMatrixUser(user: MatrixUser): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -48,11 +49,11 @@ export class FakeDatastore implements Datastore {
         return this.usersInTeam;
     }
 
-    public async upsertRoom(room: BridgedRoom): Promise<void> {
+    public async upsertRoom(room: BridgedRoom): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async deleteRoom(id: string): Promise<void> {
+    public async deleteRoom(id: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -60,11 +61,11 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
-    public async upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra | undefined): Promise<void>;
+    public async upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<null>;
 
-    public async upsertEvent(roomIdOrEntry: EventEntry): Promise<void>;
+    public async upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;
 
-    public async upsertEvent(roomId: any, eventId?: any, channelId?: any, ts?: any, extras?: any) {
+    public async upsertEvent(roomId: any, eventId?: any, channelId?: any, ts?: any, extras?: any): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -93,7 +94,7 @@ export class FakeDatastore implements Datastore {
         return this.teams;
     }
 
-    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
+    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -105,7 +106,7 @@ export class FakeDatastore implements Datastore {
         return null;
     }
 
-    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<void> {
+    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -129,7 +130,7 @@ export class FakeDatastore implements Datastore {
         return null;
     }
 
-    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
+    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -141,8 +142,8 @@ export class FakeDatastore implements Datastore {
         return new Map();
     }
 
-    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
-        return;
+    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null> {
+        return null;
     }
 
     public async getRoomCount() {

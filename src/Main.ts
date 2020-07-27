@@ -765,6 +765,9 @@ export class Main {
         });
     }
 
+    /**
+     * Ensures the bridge bot is registered and updates its profile info.
+     */
     private async applyBotProfile() {
         log.info("Ensuring the bridge bot is registered");
         const intent = this.botIntent;
@@ -780,7 +783,12 @@ export class Main {
         }
     }
 
-    public async run(cliPort: number) {
+    /**
+     * Starts the bridge.
+     * @param cliPort A port to listen to provided by the user via a CLI option.
+     * @returns The port the appservice listens to.
+     */
+    public async run(cliPort: number): Promise<number> {
         log.info("Loading databases");
         if (this.oauth2) {
             await this.oauth2.compileTemplates();
@@ -963,6 +971,7 @@ export class Main {
         await teamSyncPromise;
         log.info("Bridge initialised");
         this.ready = true;
+        return port;
     }
 
     private async startupLoadRoomEntry(entry: RoomEntry, joinedRooms: string[], teamClients: {[teamId: string]: WebClient}) {
