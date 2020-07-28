@@ -1,0 +1,1 @@
+Stop Team Sync from calling Slack's API more rapidly than configured
