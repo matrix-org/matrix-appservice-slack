@@ -104,6 +104,7 @@ export interface Datastore {
     upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;
     getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null>;
+    deleteEventByMatrixId(roomId: string, eventId: string): Promise<null>;
 
     // Teams
     upsertTeam(entry: TeamEntry);

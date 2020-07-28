@@ -323,6 +323,10 @@ export class BridgedRoom {
             return;
         }
 
+        // Delete event so it's not over-redacted on Matrix when we receive the "message_deleted" event from Slack.
+        // https://github.com/matrix-org/matrix-appservice-slack/issues/430
+        await this.main.datastore.deleteEventByMatrixId(message.room_id, message.redacts);
+
         const res = await client.chat.delete({
             as_user: false,
             channel: this.slackChannelId!,
