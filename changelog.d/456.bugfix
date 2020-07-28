@@ -1,0 +1,1 @@
+TeamSync failures now consistently result in the bridge not starting. This previously resulted in an uncaught Promise.

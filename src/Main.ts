@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { Bridge, PrometheusMetrics, Gauge, StateLookup,
-    Logging, Intent, MatrixUser as BridgeMatrixUser,
+    Logging, Intent,
     Request } from "matrix-appservice-bridge";
 import * as path from "path";
 import * as randomstring from "randomstring";

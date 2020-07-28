@@ -22,6 +22,7 @@ import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse
 import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
+import { promises } from "fs";
 
 const log = Logging.get("TeamSyncer");
 
@@ -122,16 +123,14 @@ export class TeamSyncer {
         if (!team || !team.domain) {
             throw Error("No team domain!");
         }
+        const syncFunctionPromises: (() => Promise<void>)[] = [];
         for (const item of itemList) {
-            if (type === "channel") {
-                // tslint:disable-next-line: no-floating-promises
-                queue.add(() => this.syncChannel(teamId, item));
-            } else {
-                // tslint:disable-next-line: no-floating-promises
-                queue.add(() => this.syncUser(teamId, team.domain, item));
-            }
+            syncFunctionPromises.push((type === "channel")
+                ? this.syncChannel.bind(this, teamId, item)
+                : this.syncUser.bind(this, teamId, team.domain, item)
+            );
         }
-        await queue.onIdle();
+        await queue.addAll(syncFunctionPromises);
     }
 
     private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string) {
@@ -216,7 +215,10 @@ export class TeamSyncer {
         }
         log.warn(`User ${item.id} has been deleted`);
         await slackGhost.intent.setDisplayName("Deleted User");
-        await slackGhost.intent.setAvatarUrl(undefined);
+        // As of 2020-07-28 the spec does not specify how to reset avatars.
+        // Element does it by sending an empty string.
+        // https://github.com/matrix-org/matrix-doc/issues/1674
+        await slackGhost.intent.setAvatarUrl("");
         // XXX: We *should* fetch the rooms the user is actually in rather
         // than just removing it from every room. However, this is quicker to
         // implement.
