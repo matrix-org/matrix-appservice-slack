@@ -22,7 +22,6 @@ import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse
 import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
-import { promises } from "fs";
 
 const log = Logging.get("TeamSyncer");
 
