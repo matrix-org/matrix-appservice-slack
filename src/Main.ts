@@ -15,8 +15,7 @@ limitations under the License.
 */
 
 import { Bridge, PrometheusMetrics, Gauge, StateLookup,
-    Logging, Intent,
-    Request } from "matrix-appservice-bridge";
+    Logging, Intent, Request } from "matrix-appservice-bridge";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
