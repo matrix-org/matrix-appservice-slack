@@ -60,21 +60,22 @@ export class TeamSyncer {
 
     public async syncAllTeams(teamClients: { [id: string]: WebClient; }) {
         const queue = new PQueue({concurrency: TEAM_SYNC_CONCURRENCY});
+        const functionsForQueue: (() => Promise<void>)[] = [];
         for (const [teamId, client] of Object.entries(teamClients)) {
             if (!this.getTeamSyncConfig(teamId)) {
                 log.debug(`Not syncing ${teamId}, team is not configured to sync`);
                 continue;
             }
-            // tslint:disable-next-line: no-floating-promises
-            queue.add((async () => {
+            functionsForQueue.push(async () => {
                 log.info("Syncing team", teamId);
                 await this.syncItems(teamId, client, "user");
                 await this.syncItems(teamId, client, "channel");
-            }));
+            });
         }
         try {
             log.info("Waiting for all teams to sync");
-            await queue.onIdle();
+            // .addAll waits for all promises to resolve.
+            await queue.addAll(functionsForQueue);
             log.info("All teams have synced");
         } catch (ex) {
             log.error("There was an issue when trying to sync teams:", ex);
@@ -118,19 +119,20 @@ export class TeamSyncer {
                 ));
             }
         }
-        const queue = new PQueue({concurrency: TEAM_SYNC_ITEM_CONCURRENCY});
         log.info(`Found ${itemList.length} total ${type}s`);
         const team = await this.main.datastore.getTeam(teamId);
         if (!team || !team.domain) {
             throw Error("No team domain!");
         }
-        const syncFunctionPromises: (() => Promise<void>)[] = [];
-        for (const item of itemList) {
-            syncFunctionPromises.push((type === "channel")
+        // Create all functions that will create promises.
+        // With .bind(this, ...params) they won't immediately execute.
+        const syncFunctionPromises = itemList.map(item => (
+            (type === "channel")
                 ? this.syncChannel.bind(this, teamId, item)
                 : this.syncUser.bind(this, teamId, team.domain, item)
-            );
-        }
+        ));
+        const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
+        // .addAll waits for all promises to resolve.
         await queue.addAll(syncFunctionPromises);
     }
 
