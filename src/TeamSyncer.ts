@@ -108,7 +108,8 @@ export class TeamSyncer {
 
             cursor = res.response_metadata.next_cursor;
             if (cursor !== "") {
-                const ms = Math.min(TEAM_SYNC_MIN_WAIT, Math.random() * TEAM_SYNC_MAX_WAIT);
+                // Get an evenly distributed number >= TEAM_SYNC_MIN_WAIT and < TEAM_SYNC_MAX_WAIT.
+                const ms = Math.random() * (TEAM_SYNC_MAX_WAIT - TEAM_SYNC_MIN_WAIT) + TEAM_SYNC_MIN_WAIT;
                 log.info(`Waiting ${ms}ms before returning more rows`);
                 await new Promise((r) => setTimeout(
                     r,
