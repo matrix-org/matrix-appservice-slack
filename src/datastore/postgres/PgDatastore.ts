@@ -411,9 +411,9 @@ export class PgDatastore implements Datastore {
         throw Error("Couldn't fetch schema version");
     }
 
-    private static BuildUpsertStatement(table: string, conflictKeys: string[], values: Array<{[key: string]: any}>) {
+    private static BuildUpsertStatement(table: string, conflictKeys: string[], values: {[key: string]: unknown}[]) {
         const cs = new pgp.helpers.ColumnSet(values[0], {table});
-        return pgp.helpers.insert(values, cs) + ` ON CONFLICT(${conflictKeys.join()}) DO UPDATE SET ` +
+        return `${pgp.helpers.insert(values, cs)} ON CONFLICT(${conflictKeys.join()}) DO UPDATE SET ` +
             cs.assignColumns({from: 'EXCLUDED', skip: conflictKeys});
     }
 }
