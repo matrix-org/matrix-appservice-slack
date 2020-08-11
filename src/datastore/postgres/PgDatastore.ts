@@ -217,7 +217,7 @@ export class PgDatastore implements Datastore {
             status: entry.status,
             user_id: entry.user_id,
         };
-        const statement = PgDatastore.BuildUpsertStatement("teams", "id", props);
+        const statement = PgDatastore.BuildUpsertStatement("teams", ["id"], [props]);
         await this.postgresDb.none(statement, props);
     }
 
@@ -324,7 +324,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<null> {
-        const statement = PgDatastore.BuildUpsertStatement("user_admin_rooms", "matrixuser", {matrixuser, roomid});
+        const statement = PgDatastore.BuildUpsertStatement("user_admin_rooms", ["matrixuser"], [{matrixuser, roomid}]);
         return this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
@@ -411,11 +411,9 @@ export class PgDatastore implements Datastore {
         throw Error("Couldn't fetch schema version");
     }
 
-    private static BuildUpsertStatement(table: string, conflictKey: string, keyValues: {[key: string]: string}) {
-        const keys = Object.keys(keyValues).join(", ");
-        const keysValues = `\${${Object.keys(keyValues).join("}, ${")}}`;
-        // tslint:disable-next-line: prefer-template
-        const keysSets = Object.keys(keyValues).slice(1).map((k) => `${k} = \${${k}}`).join(", ");
-        return `INSERT INTO ${table} (${keys}) VALUES (${keysValues}) ON CONFLICT (${conflictKey}) DO UPDATE SET ${keysSets}`;
+    private static BuildUpsertStatement(table: string, conflictKeys: string[], values: Array<{[key: string]: any}>) {
+        const cs = new pgp.helpers.ColumnSet(values[0], {table});
+        return pgp.helpers.insert(values, cs) + ` ON CONFLICT(${conflictKeys.join()}) DO UPDATE SET ` +
+            cs.assignColumns({from: 'EXCLUDED', skip: conflictKeys});
     }
 }

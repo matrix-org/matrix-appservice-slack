@@ -15,8 +15,7 @@ limitations under the License.
 */
 
 import { Bridge, PrometheusMetrics, Gauge, StateLookup,
-    Logging, Intent, MatrixUser as BridgeMatrixUser,
-    Request } from "matrix-appservice-bridge";
+    Logging, Intent, Request } from "matrix-appservice-bridge";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
@@ -904,12 +903,8 @@ export class Main {
         const teams = await this.datastore.getAllTeams();
         log.info(`Loaded ${teams.length} teams`);
         const teamClients: { [id: string]: WebClient } = {};
-        const teamPromises = new PQueue({concurrency: STARTUP_TEAM_INIT_CONCURRENCY});
-        let i = 0;
-        for (const team of teams) {
-            i++;
-            // tslint:disable-next-line: no-floating-promises
-            teamPromises.add(async () => {
+        const teamPromiseFunctions = teams.map((team, i) => (
+            async() => {
                 log.info(`[${i}/${teams.length}] Getting team client for ${team.name || team.id}`);
                 // This will create team clients before we use them for any rooms,
                 // as a pre-optimisation.
@@ -930,16 +925,16 @@ export class Main {
                     }
                     log.info(`Started RTM for ${team.id}`);
                 }
-            });
-        }
-        await teamPromises.onIdle();
+            }
+        ));
+        const teamPromises = new PQueue({ concurrency: STARTUP_TEAM_INIT_CONCURRENCY });
+        // .addAll waits for all promises to resolve.
+        await teamPromises.addAll(teamPromiseFunctions);
         log.info("Finished loading all team clients");
 
         const entries = await this.datastore.getAllRooms();
         log.info(`Found ${entries.length} room entries in store`);
-        i = 0;
-        await Promise.all(entries.map(async (entry) => {
-            i++;
+        await Promise.all(entries.map(async (entry, i) => {
             log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
                 await this.startupLoadRoomEntry(entry, joinedRooms as string[], teamClients);

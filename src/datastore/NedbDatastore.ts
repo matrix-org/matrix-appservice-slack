@@ -221,6 +221,7 @@ export class NedbDatastore implements Datastore {
             this.teamStore.findOne({id: teamId}, (err: Error|null, doc: any) => {
                 if (err || !doc) {
                     resolve(null);
+                    return;
                 }
                 // We don't use this.
                 delete doc._id;
