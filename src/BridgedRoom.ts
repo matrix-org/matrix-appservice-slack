@@ -656,7 +656,7 @@ export class BridgedRoom {
         sneakyThis[key] = value;
         this.dirty = true;
     }
-    
+
     private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost) {
         const maxUploadSize = this.main.config.homeserver.max_upload_size;
         if (!file.url_private) {
