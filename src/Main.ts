@@ -1114,11 +1114,6 @@ export class Main {
             }
             room.setBotClient(slackClient);
             room.SlackChannelName = infoRes.channel.name;
-
-            // Perform syncing asyncronously.
-            this.teamSyncer?.syncMembershipForRoom(matrixRoomId, opts.slack_channel_id, opts.team_id, slackClient).catch((ex) => {
-                log.warn(`Failed to sync membership for ${opts.slack_channel_id}:`, ex);
-            });
         }
 
         if (isNew) {
@@ -1130,6 +1125,14 @@ export class Main {
 
         if (this.slackRtm && !room.SlackWebhookUri) {
             await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId!);
+        }
+
+
+        if (slackClient && opts.slack_channel_id && opts.team_id) {
+            // Perform syncing asynchronously.
+            this.teamSyncer?.syncMembershipForRoom(matrixRoomId, opts.slack_channel_id, opts.team_id, slackClient).catch((ex) => {
+                log.warn(`Failed to sync membership for ${opts.slack_channel_id}:`, ex);
+            });
         }
 
         return room;
