@@ -1,0 +1,1 @@
+Correctly handle TeamSync failures, which displays a warning but does start the bridge. This previously resulted in an uncaught Promise.

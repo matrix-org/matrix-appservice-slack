@@ -59,21 +59,22 @@ export class TeamSyncer {
 
     public async syncAllTeams(teamClients: { [id: string]: WebClient; }) {
         const queue = new PQueue({concurrency: TEAM_SYNC_CONCURRENCY});
+        const functionsForQueue: (() => Promise<void>)[] = [];
         for (const [teamId, client] of Object.entries(teamClients)) {
             if (!this.getTeamSyncConfig(teamId)) {
                 log.debug(`Not syncing ${teamId}, team is not configured to sync`);
                 continue;
             }
-            // tslint:disable-next-line: no-floating-promises
-            queue.add((async () => {
+            functionsForQueue.push(async () => {
                 log.info("Syncing team", teamId);
                 await this.syncItems(teamId, client, "user");
                 await this.syncItems(teamId, client, "channel");
-            }));
+            });
         }
         try {
             log.info("Waiting for all teams to sync");
-            await queue.onIdle();
+            // .addAll waits for all promises to resolve.
+            await queue.addAll(functionsForQueue);
             log.info("All teams have synced");
         } catch (ex) {
             log.error("There was an issue when trying to sync teams:", ex);
@@ -108,7 +109,8 @@ export class TeamSyncer {
 
             cursor = res.response_metadata.next_cursor;
             if (cursor !== "") {
-                const ms = Math.min(TEAM_SYNC_MIN_WAIT, Math.random() * TEAM_SYNC_MAX_WAIT);
+                // Get an evenly distributed number >= TEAM_SYNC_MIN_WAIT and < TEAM_SYNC_MAX_WAIT.
+                const ms = Math.random() * (TEAM_SYNC_MAX_WAIT - TEAM_SYNC_MIN_WAIT) + TEAM_SYNC_MIN_WAIT;
                 log.info(`Waiting ${ms}ms before returning more rows`);
                 await new Promise((r) => setTimeout(
                     r,
@@ -116,23 +118,22 @@ export class TeamSyncer {
                 ));
             }
         }
-        const queue = new PQueue({concurrency: TEAM_SYNC_ITEM_CONCURRENCY});
         log.info(`Found ${itemList.length} total ${type}s`);
         const team = await this.main.datastore.getTeam(teamId);
         if (!team || !team.domain) {
             throw Error("No team domain!");
         }
-        for (const item of itemList) {
-            if (type === "channel") {
-                // tslint:disable-next-line: no-floating-promises
-                queue.add(() => this.syncChannel(teamId, item));
-            } else {
+        // Create all functions that will create promises.
+        // With .bind(this, ...params) they won't immediately execute.
+        const syncFunctionPromises = itemList.map(item => (
+            (type === "channel")
+                ? this.syncChannel.bind(this, teamId, item)
                 // Assume the user here is new.
-                // tslint:disable-next-line: no-floating-promises
-                queue.add(() => this.syncUser(teamId, team.domain, item, true));
-            }
-        }
-        await queue.onIdle();
+                : this.syncUser.bind(this, teamId, team.domain, item, true)
+        ));
+        const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
+        // .addAll waits for all promises to resolve.
+        await queue.addAll(syncFunctionPromises);
     }
 
     private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string) {
@@ -229,7 +230,10 @@ export class TeamSyncer {
         }
         log.warn(`User ${item.id} has been deleted`);
         await slackGhost.intent.setDisplayName("Deleted User");
-        await slackGhost.intent.setAvatarUrl(undefined);
+        // As of 2020-07-28 the spec does not specify how to reset avatars.
+        // Element does it by sending an empty string.
+        // https://github.com/matrix-org/matrix-doc/issues/1674
+        await slackGhost.intent.setAvatarUrl("");
         // XXX: We *should* fetch the rooms the user is actually in rather
         // than just removing it from every room. However, this is quicker to
         // implement.
