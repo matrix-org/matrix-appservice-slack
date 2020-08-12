@@ -177,6 +177,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_team_id: "a_team_id",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: "foobar",
+                slack_type: "unknown",
             }, {} as any);
             await ds().upsertRoom(room);
             const rooms = await ds().getAllRooms();
@@ -192,6 +193,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_team_id: "a_team_id",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: "foobar",
+                slack_type: "unknown",
             }, {} as any);
             await ds().upsertRoom(room);
             room.SlackChannelName = "new_channel_name";
@@ -210,6 +212,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                     slack_team_id: "a_team_id",
                     slack_webhook_uri: "a_webhook_uri",
                     puppet_owner: undefined,
+                    slack_type: "unknown",
                 }, {} as any);
                 await ds().upsertRoom(room);
             }
@@ -295,6 +298,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_team_id: "a_team_id",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: undefined,
+                slack_type: "unknown",
             }, {} as any);
             const date = new Date();
             await ds().upsertActivityMetrics(user, room, date);
