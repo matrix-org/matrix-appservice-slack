@@ -413,14 +413,14 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleMemberJoinedChannel(event: ISlackMemberJoinedEvent) {
         const room = this.main.rooms.getBySlackChannelId(event.channel);
         if (room) {
-            room.onSlackUserJoin(event.user, event.inviter);
+            return room.onSlackUserJoin(event.user, event.inviter);
         }
     }
 
     private async handleMemberLeftChannel(event: ISlackMemberLeftEvent) {
         const room = this.main.rooms.getBySlackChannelId(event.channel);
         if (room) {
-            room.onSlackUserLeft(event.user);
+            return room.onSlackUserLeft(event.user);
         }
     }
 }
