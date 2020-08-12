@@ -127,8 +127,9 @@ export class TeamSyncer {
                 // tslint:disable-next-line: no-floating-promises
                 queue.add(() => this.syncChannel(teamId, item));
             } else {
+                // Assume the user here is new.
                 // tslint:disable-next-line: no-floating-promises
-                queue.add(() => this.syncUser(teamId, team.domain, item));
+                queue.add(() => this.syncUser(teamId, team.domain, item, true));
             }
         }
         await queue.onIdle();
@@ -198,6 +199,7 @@ export class TeamSyncer {
                 slack_team_id: teamId,
                 slack_channel_id: channelItem.id,
                 is_private: true,
+                slack_type: "channel",
             }, undefined, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
@@ -207,11 +209,22 @@ export class TeamSyncer {
         }
     }
 
-    public async syncUser(teamId: string, domain: string, item: ISlackUser) {
+    public async syncUser(teamId: string, domain: string, item: ISlackUser, newUser = false) {
         log.info(`Syncing user ${teamId} ${item.id}`);
         const slackGhost = await this.main.ghostStore.get(item.id, domain, teamId);
         if (item.deleted !== true) {
             await slackGhost.updateFromISlackUser(item);
+            for (const teamRoom of this.main.rooms.getBySlackTeamId(teamId)) {
+                if (teamRoom.IsPrivate || teamRoom.SlackType !== "channel") {
+                    // We only want PUBLIC rooms
+                    return;
+                }
+                try {
+                    await teamRoom.onSlackUserJoin(item.id);
+                } catch (ex) {
+                    log.warn(`Failed to join ${item.id} to ${teamRoom.MatrixRoomId}`);
+                }
+            }
             return;
         }
         log.warn(`User ${item.id} has been deleted`);
@@ -221,9 +234,10 @@ export class TeamSyncer {
         // than just removing it from every room. However, this is quicker to
         // implement.
         log.info("Leaving from all rooms");
-        let i = this.main.rooms.all.length;
-        await Promise.all(this.main.rooms.all.map((r) =>
-            slackGhost.intent.leave(r.MatrixRoomId).catch((ex) => {
+        const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
+        let i = teamRooms.length;
+        await Promise.all(teamRooms.map((r) =>
+            slackGhost.intent.leave(r.MatrixRoomId).catch(() => {
                 i--;
                 // Failing to leave a room is fairly normal.
             }),
