@@ -715,6 +715,7 @@ export class Main {
             slack_channel_name: undefined,
             puppet_owner: sender,
             is_private: true,
+            slack_type: "im",
         }, team! , slackClient);
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
@@ -1085,6 +1086,7 @@ export class Main {
                 matrix_room_id: matrixRoomId,
                 slack_team_id: teamId,
                 is_private: false,
+                slack_type: "unknown", // Set below.
             }, teamEntry || undefined, slackClient);
             isNew = true;
             this.stateStorage.trackRoom(matrixRoomId);
@@ -1112,6 +1114,7 @@ export class Main {
                 log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes.error);
                 throw Error("Failed to get channel info");
             }
+            room.updateUsingChannelInfo(infoRes);
             room.setBotClient(slackClient);
             room.SlackChannelName = infoRes.channel.name;
         }
