@@ -74,6 +74,21 @@ interface ISlackTeamSyncEvent extends ISlackEvent {
     user?: ISlackUser;
 }
 
+interface ISlackMemberJoinedEvent extends ISlackEvent {
+    user: string;
+    channel: string;
+    channel_type: "C"|"G";
+    team: string;
+    inviter: string;
+}
+
+interface ISlackMemberLeftEvent extends ISlackEvent {
+    user: string;
+    channel: string;
+    channel_type: "C"|"G";
+    team: string;
+}
+
 const HTTP_OK = 200;
 
 export type EventHandlerCallback = (status: number, body?: string, headers?: {[header: string]: string}) => void;
@@ -85,7 +100,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * to events in order to handle them.
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
-    "team_domain_change", "channel_rename", "user_change", "user_typing"];
+    "team_domain_change", "channel_rename", "user_change", "user_typing", "member_joined_channel"];
     constructor(main: Main) {
         super(main);
     }
@@ -145,6 +160,11 @@ export class SlackEventHandler extends BaseSlackHandler {
                         await this.handleTeamSyncEvent(event as ISlackTeamSyncEvent, teamId);
                         break;
                     // XXX: Unused?
+                    case "member_joined_channel":
+                        await this.handleMemberJoinedChannel(event as ISlackMemberJoinedEvent);
+                        break;
+                    case "member_left_channel":
+                        await this.handleMemberLeftChannel(event as ISlackMemberLeftEvent);
                     case "file_comment_added":
                     default:
                         err = Error("unknown_event");
@@ -386,7 +406,21 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (event.type === "team_join" || event.type === "user_change") {
             const user = event.user!;
             const domain = (await this.main.datastore.getTeam(teamId))!.domain;
-            await this.main.teamSyncer.syncUser(teamId, domain, user);
+            await this.main.teamSyncer.syncUser(teamId, domain, user, event.type === "team_join");
+        }
+    }
+
+    private async handleMemberJoinedChannel(event: ISlackMemberJoinedEvent) {
+        const room = this.main.rooms.getBySlackChannelId(event.channel);
+        if (room) {
+            return room.onSlackUserJoin(event.user, event.inviter);
+        }
+    }
+
+    private async handleMemberLeftChannel(event: ISlackMemberLeftEvent) {
+        const room = this.main.rooms.getBySlackChannelId(event.channel);
+        if (room) {
+            return room.onSlackUserLeft(event.user);
         }
     }
 }

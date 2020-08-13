@@ -28,6 +28,8 @@ import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
 
+type SlackChannelTypes = "mpim"|"im"|"channel"|"group"|"unknown";
+
 interface IBridgedRoomOpts {
     matrix_room_id: string;
     inbound_id: string;
@@ -35,7 +37,7 @@ interface IBridgedRoomOpts {
     slack_channel_id?: string;
     slack_webhook_uri?: string;
     slack_team_id?: string;
-    slack_type?: string;
+    slack_type: SlackChannelTypes;
     is_private?: boolean;
     puppet_owner?: string;
 }
@@ -49,6 +51,7 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 
 const RECENT_MESSAGE_MAX = 10;
 const PUPPET_INCOMING_DELAY_MS = 1500;
+
 
 /**
  * A BridgedRoom is a 1-to-1 connection of a Matrix room and a Slack channel.
@@ -134,7 +137,7 @@ export class BridgedRoom {
             slack_webhook_uri: entry.remote.webhook_uri,
             puppet_owner: entry.remote.puppet_owner,
             is_private: entry.remote.slack_private,
-            slack_type: entry.remote.slack_type,
+            slack_type: entry.remote.slack_type as SlackChannelTypes,
         }, team, botClient);
     }
 
@@ -144,7 +147,7 @@ export class BridgedRoom {
     private slackChannelId?: string;
     private slackWebhookUri?: string;
     private slackTeamId?: string;
-    private slackType?: string;
+    private slackType: SlackChannelTypes;
     private isPrivate?: boolean;
     private puppetOwner?: string;
 
