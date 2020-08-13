@@ -406,7 +406,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (event.type === "team_join" || event.type === "user_change") {
             const user = event.user!;
             const domain = (await this.main.datastore.getTeam(teamId))!.domain;
-            await this.main.teamSyncer.syncUser(teamId, domain, user, event.type === "team_join");
+            await this.main.teamSyncer.syncUser(teamId, domain, user);
         }
     }
 
