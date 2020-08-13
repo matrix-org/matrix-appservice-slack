@@ -51,12 +51,14 @@ describe("Substitutions", () => {
         slack_channel_id: "workingslackchannel",
         slack_team_id: "footeam",
         inbound_id: "foo",
+        slack_type: "unknown",
     }));
     fakeMain.rooms.upsertRoom(new BridgedRoom(fakeMain, {
         matrix_room_id: "!alsoworking:localhost",
         slack_channel_id: "alsoworkingslackchannel",
         slack_team_id: "footeam",
         inbound_id: "foo",
+        slack_type: "unknown",
     }));
 
     describe("matrixToSlack", () => {

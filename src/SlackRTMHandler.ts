@@ -242,6 +242,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 slack_channel_name: chanInfo.channel.name,
                 puppet_owner: puppet.matrixId,
                 is_private: chanInfo.channel.is_private,
+                slack_type: "unknown",
             }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);

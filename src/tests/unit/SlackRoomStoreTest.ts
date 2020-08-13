@@ -18,6 +18,7 @@ describe("SlackRoomStore", () => {
         const room = new BridgedRoom(null as any, {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
+            slack_type: "unknown",
         });
         roomStore.upsertRoom(room);
 
@@ -35,6 +36,7 @@ describe("SlackRoomStore", () => {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
             slack_channel_id: "bar",
+            slack_type: "unknown",
         });
         roomStore.upsertRoom(room);
 
@@ -53,6 +55,7 @@ describe("SlackRoomStore", () => {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
             slack_channel_id: "bar",
+            slack_type: "unknown",
         });
         roomStore.upsertRoom(room);
         roomStore.upsertRoom(room);
@@ -77,6 +80,7 @@ describe("SlackRoomStore", () => {
                 matrix_room_id: "!foo:bar" + i,
                 inbound_id: "foo" + i,
                 slack_channel_id: "bar" + i,
+                slack_type: "unknown",
             }));
             roomStore.upsertRoom(rooms[i]);
         }
@@ -99,6 +103,7 @@ describe("SlackRoomStore", () => {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
             slack_channel_id: "bar",
+            slack_type: "unknown",
         });
         roomStore.upsertRoom(room);
         room.SlackChannelId = "baz";
@@ -118,6 +123,7 @@ describe("SlackRoomStore", () => {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
             slack_channel_id: "bar",
+            slack_type: "unknown",
         });
         roomStore.upsertRoom(room);
         room.InboundId = "baz";
@@ -136,6 +142,7 @@ describe("SlackRoomStore", () => {
         const room = new BridgedRoom(null as any, {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
+            slack_type: "unknown",
         });
         roomStore.upsertRoom(room);
         roomStore.removeRoom(room);
@@ -152,6 +159,7 @@ describe("SlackRoomStore", () => {
         const room = new BridgedRoom(null as any, {
             matrix_room_id: "!foo:bar",
             inbound_id: "foo",
+            slack_type: "unknown",
             slack_channel_id: "bar",
         });
         roomStore.upsertRoom(room);

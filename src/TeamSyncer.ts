@@ -128,7 +128,8 @@ export class TeamSyncer {
         const syncFunctionPromises = itemList.map(item => (
             (type === "channel")
                 ? this.syncChannel.bind(this, teamId, item)
-                : this.syncUser.bind(this, teamId, team.domain, item)
+                // Assume the user here is new.
+                : this.syncUser.bind(this, teamId, team.domain, item, true)
         ));
         const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
         // .addAll waits for all promises to resolve.
@@ -199,6 +200,7 @@ export class TeamSyncer {
                 slack_team_id: teamId,
                 slack_channel_id: channelItem.id,
                 is_private: true,
+                slack_type: "channel",
             }, undefined, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
@@ -208,7 +210,7 @@ export class TeamSyncer {
         }
     }
 
-    public async syncUser(teamId: string, domain: string, item: ISlackUser) {
+    public async syncUser(teamId: string, domain: string, item: ISlackUser, newUser = false) {
         log.info(`Syncing user ${teamId} ${item.id}`);
         const existingGhost = await this.main.ghostStore.getExisting(this.main.ghostStore.getUserId(item.id, domain));
         if (item.deleted && !existingGhost) {
@@ -218,6 +220,17 @@ export class TeamSyncer {
         const slackGhost = existingGhost || await this.main.ghostStore.get(item.id, domain, teamId);
         if (item.deleted !== true) {
             await slackGhost.updateFromISlackUser(item);
+            for (const teamRoom of this.main.rooms.getBySlackTeamId(teamId)) {
+                if (teamRoom.IsPrivate || teamRoom.SlackType !== "channel") {
+                    // We only want PUBLIC rooms
+                    continue;
+                }
+                try {
+                    await teamRoom.onSlackUserJoin(item.id);
+                } catch (ex) {
+                    log.warn(`Failed to join ${item.id} to ${teamRoom.MatrixRoomId}`);
+                }
+            }
             return;
         }
         log.warn(`User ${item.id} has been deleted`);
@@ -230,9 +243,10 @@ export class TeamSyncer {
         // than just removing it from every room. However, this is quicker to
         // implement.
         log.info("Leaving from all rooms");
-        let i = this.main.rooms.all.length;
-        await Promise.all(this.main.rooms.all.map((r) =>
-            slackGhost.intent.leave(r.MatrixRoomId).catch((ex) => {
+        const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
+        let i = teamRooms.length;
+        await Promise.all(teamRooms.map((r) =>
+            slackGhost.intent.leave(r.MatrixRoomId).catch(() => {
                 i--;
                 // Failing to leave a room is fairly normal.
             }),
@@ -313,7 +327,7 @@ export class TeamSyncer {
         }
     }
 
-    private async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
+    public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
         const existingGhosts = await this.main.listGhostUsers(roomId);
         // We assume that we have this
         const teamInfo = (await this.main.datastore.getTeam(teamId))!;
