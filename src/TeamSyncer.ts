@@ -218,7 +218,7 @@ export class TeamSyncer {
             for (const teamRoom of this.main.rooms.getBySlackTeamId(teamId)) {
                 if (teamRoom.IsPrivate || teamRoom.SlackType !== "channel") {
                     // We only want PUBLIC rooms
-                    return;
+                    continue;
                 }
                 try {
                     await teamRoom.onSlackUserJoin(item.id);
