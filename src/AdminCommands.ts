@@ -164,17 +164,19 @@ export class AdminCommands {
         return new AdminCommand(
             "link",
             "connect a Matrix and a Slack room together",
-            async ({respond, room, channel_id, webhook_url, slack_bot_token}: {
+            async ({respond, room, channel_id, webhook_url, slack_bot_token, team_id}: {
                 respond: ResponseCallback,
                 room?: string,
                 channel_id?: string,
                 webhook_url?: string,
                 slack_bot_token?: string,
+                team_id?: string,
             }) => {
                 try {
                     const r = await this.main.actionLink({
                         matrix_room_id: room!,
                         slack_bot_token,
+                        team_id,
                         slack_channel_id: channel_id,
                         slack_webhook_uri: webhook_url,
                     });
@@ -203,6 +205,10 @@ export class AdminCommands {
                     alias: "t",
                     description: "Slack bot user token. Used with Slack bot user & Events api",
                 },
+                team_id: {
+                    alias: "T",
+                    description: "Slack team ID. Used with Slack bot user & Events api",
+                },
                 webhook_url: {
                     alias: "u",
                     description: "Slack webhook URL. Used with Slack outgoing hooks integration",
@@ -213,7 +219,7 @@ export class AdminCommands {
 
     public get unlink() {
         return new AdminCommand(
-            "unlink room",
+            "unlink",
             "disconnect a linked Matrix and Slack room",
             async ({respond, room}: {
                 respond: ResponseCallback,

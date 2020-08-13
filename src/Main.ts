@@ -1143,6 +1143,7 @@ export class Main {
     public async actionUnlink(opts: {
         matrix_room_id: string,
     }) {
+        log.warn(`Trying to unlink ${opts.matrix_room_id}`);
         const room = this.rooms.getByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
             throw Error("Cannot unlink - unknown channel");
