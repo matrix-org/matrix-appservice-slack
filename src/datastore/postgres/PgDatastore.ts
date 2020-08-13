@@ -151,7 +151,7 @@ export class PgDatastore implements Datastore {
     public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {
         log.info(`deleteEventByMatrixId: ${roomId} ${eventId}`);
         return this.postgresDb.none(
-            "DELETE FROM linked_accounts WHERE roomId = ${roomId} AND eventId = ${eventId}",
+            "DELETE FROM events WHERE roomId = ${roomId} AND eventId = ${eventId}",
             { roomId, eventId },
         );
     }

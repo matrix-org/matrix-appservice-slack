@@ -330,17 +330,16 @@ export class BridgedRoom {
         // https://github.com/matrix-org/matrix-appservice-slack/issues/430
         await this.main.datastore.deleteEventByMatrixId(message.room_id, message.redacts);
 
-        const res = await client.chat.delete({
-            as_user: false,
-            channel: this.slackChannelId!,
-            ts: event.slackTs,
-        });
-
-        if (!res.ok) {
-            log.error("HTTP Error: ", res.error);
-            return;
+        try {
+            // Note: bots can only delete their own messages, ergo it's possible that this may fail :(
+            await client.chat.delete({
+                as_user: false,
+                channel: this.slackChannelId!,
+                ts: event.slackTs,
+            });
+        } catch (ex) {
+            log.warn(`Failed to delete ${event.slackTs}`, ex);
         }
-        return res;
     }
 
     public async onMatrixEdit(message: any) {
