@@ -714,6 +714,7 @@ export class Main {
             slack_channel_name: undefined,
             puppet_owner: sender,
             is_private: true,
+            slack_type: "im",
         }, team! , slackClient);
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
@@ -890,6 +891,10 @@ export class Main {
             await this.applyBotProfile();
         } catch (ex) {
             log.warn(`Failed to set bot profile on startup: ${ex}`);
+        }
+
+        if (this.config.matrix_admin_room && !joinedRooms.includes(this.config.matrix_admin_room)) {
+            log.warn("The bot is not in the admin room. You should invite the bot in order to control the bridge.");
         }
 
         const provisioningEnabled = this.config.provisioning?.enabled;
@@ -1080,6 +1085,7 @@ export class Main {
                 matrix_room_id: matrixRoomId,
                 slack_team_id: teamId,
                 is_private: false,
+                slack_type: "unknown", // Set below.
             }, teamEntry || undefined, slackClient);
             isNew = true;
             this.stateStorage.trackRoom(matrixRoomId);
@@ -1099,7 +1105,7 @@ export class Main {
             throw Error("Missing webhook_id OR channel_id");
         }
 
-        if (slackClient && opts.slack_channel_id) {
+        if (slackClient && opts.slack_channel_id && opts.team_id) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
             const infoRes = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
@@ -1107,6 +1113,7 @@ export class Main {
                 log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes.error);
                 throw Error("Failed to get channel info");
             }
+            room.updateUsingChannelInfo(infoRes);
             room.setBotClient(slackClient);
             room.SlackChannelName = infoRes.channel.name;
         }
@@ -1120,6 +1127,14 @@ export class Main {
 
         if (this.slackRtm && !room.SlackWebhookUri) {
             await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId!);
+        }
+
+
+        if (slackClient && opts.slack_channel_id && opts.team_id) {
+            // Perform syncing asynchronously.
+            this.teamSyncer?.syncMembershipForRoom(matrixRoomId, opts.slack_channel_id, opts.team_id, slackClient).catch((ex) => {
+                log.warn(`Failed to sync membership for ${opts.slack_channel_id}:`, ex);
+            });
         }
 
         return room;

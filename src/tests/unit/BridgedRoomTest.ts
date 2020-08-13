@@ -23,6 +23,7 @@ describe("BridgedRoom", () => {
         const br = new BridgedRoom({} as any, {
             inbound_id: "123456a",
             matrix_room_id: "!abcde:localhost",
+            slack_type: "unknown",
         });
     });
 });
