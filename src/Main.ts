@@ -892,6 +892,10 @@ export class Main {
             log.warn(`Failed to set bot profile on startup: ${ex}`);
         }
 
+        if (this.config.matrix_admin_room && !joinedRooms.includes(this.config.matrix_admin_room)) {
+            log.warn("The bot is not in the admin room. You should invite the bot in order to control the bridge.");
+        }
+
         const provisioningEnabled = this.config.provisioning?.enabled;
 
         // Previously, this was always true.
