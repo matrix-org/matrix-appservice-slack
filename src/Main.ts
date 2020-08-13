@@ -602,7 +602,7 @@ export class Main {
             try {
                 await room.onMatrixRedaction(ev);
             } catch (e) {
-                log.error("Failed procesing matrix redaction message: ", e);
+                log.error("Failed processing matrix redaction message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
@@ -615,7 +615,7 @@ export class Main {
             try {
                 await room.onMatrixReaction(ev);
             } catch (e) {
-                log.error("Failed procesing reaction message: ", e);
+                log.error("Failed processing reaction message: ", e);
                 endTimer({outcome: "fail"});
                 return;
             }
@@ -1036,7 +1036,7 @@ export class Main {
 
         if (!opts.team_id && !opts.slack_bot_token) {
             if (!opts.slack_webhook_uri) {
-                throw Error("Neither a team_id nor a bot_token were provided");
+                throw Error("Neither a team_id nor a slack_bot_token were provided");
             }
         }
 

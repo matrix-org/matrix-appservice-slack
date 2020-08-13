@@ -77,6 +77,10 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
+    public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
     public async upsertTeam(entry: TeamEntry) {
         const idx = this.teams.findIndex((t) => t.id);
         if (idx === -1) {

@@ -148,6 +148,14 @@ export class PgDatastore implements Datastore {
         });
     }
 
+    public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {
+        log.info(`deleteEventByMatrixId: ${roomId} ${eventId}`);
+        return this.postgresDb.none(
+            "DELETE FROM events WHERE roomId = ${roomId} AND eventId = ${eventId}",
+            { roomId, eventId },
+        );
+    }
+
     public async ensureSchema() {
         let currentVersion = await this.getSchemaVersion();
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
@@ -403,7 +411,7 @@ export class PgDatastore implements Datastore {
         throw Error("Couldn't fetch schema version");
     }
 
-    private static BuildUpsertStatement(table: string, conflictKeys: string[], values: {[key: string]: any}[]) {
+    private static BuildUpsertStatement(table: string, conflictKeys: string[], values: {[key: string]: unknown}[]) {
         const cs = new pgp.helpers.ColumnSet(values[0], {table});
         return `${pgp.helpers.insert(values, cs)} ON CONFLICT(${conflictKeys.join()}) DO UPDATE SET ` +
             cs.assignColumns({from: 'EXCLUDED', skip: conflictKeys});

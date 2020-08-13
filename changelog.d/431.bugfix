@@ -1,0 +1,1 @@
+Don't redact Matrix events as a result of the bridge deleting a Slack message.

@@ -188,6 +188,10 @@ export class NedbDatastore implements Datastore {
         return this.storedEventToEventEntry(storedEvent);
     }
 
+    public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {
+        return this.eventStore.delete({ roomId, eventId });
+    }
+
     public async getAllEvents(): Promise<EventEntry[]> {
         return (await this.eventStore.select({})).map((doc) => {
             return {
