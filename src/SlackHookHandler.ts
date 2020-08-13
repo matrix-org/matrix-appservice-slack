@@ -167,7 +167,7 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param url The HTTP url for the incoming request
      * @param params Parameters given in either the body or query string.
      */
-    private async handleWebhook(method: string, url: string, params: {[key: string]: string|string[]},
+    private async handleWebhook(method: string, url: string, params: qs.ParsedUrlQuery,
                                 response: ServerResponse) {
         log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
@@ -245,7 +245,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         endTimer({outcome: "dropped"});
     }
 
-    private async handlePost(room: BridgedRoom, params: {[key: string]: string|string[]}) {
+    private async handlePost(room: BridgedRoom, params: qs.ParsedUrlQuery) {
         // We can't easily query the name of a channel from its ID, but we can
         // infer its current name every time we receive a message, because slack
         // tells us.
@@ -303,7 +303,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         return room.onSlackMessage(lookupRes.message, lookupRes.content);
     }
 
-    private async handleAuthorize(token: string, params: {[key: string]: string|string[]}) {
+    private async handleAuthorize(token: string, params: qs.ParsedUrlQuery) {
         const oauth2 = this.main.oauth2;
         if (!oauth2) {
             log.warn("Wasn't expecting to receive /authorize without OAuth2 configured");

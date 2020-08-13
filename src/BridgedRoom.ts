@@ -662,6 +662,11 @@ export class BridgedRoom {
 
     private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost) {
         const maxUploadSize = this.main.config.homeserver.max_upload_size;
+        const filePrivateUrl = file.url_private;
+        if (!filePrivateUrl) {
+            log.info(`Slack file ${file.id} lacks a url_private, not handling file.`);
+            return;
+        }
         const channelId = this.slackChannelId;
         if (!channelId) {
             // The ID is required.
@@ -675,7 +680,7 @@ export class BridgedRoom {
                     headers: {
                         Authorization: `Bearer ${this.SlackClient!.token}`,
                     },
-                    uri: file.url_private!,
+                    uri: filePrivateUrl,
                 });
             } catch (ex) {
                 log.error("Failed to download snippet", ex);
@@ -740,13 +745,8 @@ export class BridgedRoom {
             );
         }
 
-        if (!file.url_private) {
-            log.info(`Slack file ${file.id} lacks a url_private, not handling file.`);
-            return;
-        }
-
         const fileContentUri = await ghost.uploadContentFromURI(
-            file, file.url_private, this.SlackClient!.token!);
+            file, filePrivateUrl, this.SlackClient!.token!);
         const thumbnailContentUri = await thumbnailPromise;
         await ghost.sendMessage(
             this.matrixRoomId,

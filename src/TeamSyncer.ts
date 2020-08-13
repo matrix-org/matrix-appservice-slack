@@ -212,7 +212,12 @@ export class TeamSyncer {
 
     public async syncUser(teamId: string, domain: string, item: ISlackUser, newUser = false) {
         log.info(`Syncing user ${teamId} ${item.id}`);
-        const slackGhost = await this.main.ghostStore.get(item.id, domain, teamId);
+        const existingGhost = await this.main.ghostStore.getExisting(this.main.ghostStore.getUserId(item.id, domain));
+        if (item.deleted && !existingGhost) {
+            // This is a deleted user that we've never seen, bail.
+            return;
+        }
+        const slackGhost = existingGhost || await this.main.ghostStore.get(item.id, domain, teamId);
         if (item.deleted !== true) {
             await slackGhost.updateFromISlackUser(item);
             for (const teamRoom of this.main.rooms.getBySlackTeamId(teamId)) {
