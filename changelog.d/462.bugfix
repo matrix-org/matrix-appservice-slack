@@ -1,0 +1,2 @@
+Rename `unlink room` command to `unlink` to make it callable.
+Allow `link` to be called with a `team_id`
