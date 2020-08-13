@@ -176,7 +176,7 @@ export class AdminCommands {
                     const r = await this.main.actionLink({
                         matrix_room_id: room!,
                         slack_bot_token,
-                        team_id: team_id,
+                        team_id,
                         slack_channel_id: channel_id,
                         slack_webhook_uri: webhook_url,
                     });
