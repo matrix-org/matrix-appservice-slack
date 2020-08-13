@@ -23,7 +23,7 @@ import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent, ISlackFile } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { ChatUpdateResponse,
-    ChatPostMessageResponse, ConversationsInfoResponse } from "./SlackResponses";
+    ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
@@ -659,8 +659,9 @@ export class BridgedRoom {
 
     private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost) {
         const maxUploadSize = this.main.config.homeserver.max_upload_size;
-        if (!file.url_private) {
-            // Cannot do anything with this.
+        const filePrivateUrl = file.url_private;
+        if (!filePrivateUrl) {
+            log.info(`Slack file ${file.id} lacks a url_private, not handling file.`);
             return;
         }
         const channelId = this.slackChannelId;
@@ -676,7 +677,7 @@ export class BridgedRoom {
                     headers: {
                         Authorization: `Bearer ${this.SlackClient!.token}`,
                     },
-                    uri: file.url_private!,
+                    uri: filePrivateUrl,
                 });
             } catch (ex) {
                 log.error("Failed to download snippet", ex);
@@ -701,43 +702,55 @@ export class BridgedRoom {
                 msgtype: "m.text",
             };
             await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, slackEventId);
-        } else {
-            if (maxUploadSize && file.size > maxUploadSize) {
-                const link = file.public_url_shared ? file.permalink_public : file.url_private;
-                log.info("File too large, sending as a link");
-                const messageContent = {
-                    body: `${link} (${file.name})`,
-                    format: "org.matrix.custom.html",
-                    formatted_body: `<a href="${link}">${file.name}</a>`,
-                    msgtype: "m.text",
-                };
-                await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, slackEventId);
-                return;
-            }
-            // We also need to upload the thumbnail
-            let thumbnailPromise: Promise<string> = Promise.resolve("");
-            // Slack ain't a believer in consistency.
-            const thumbUri = file.thumb_video || file.thumb_360;
-            if (thumbUri && file.filetype) {
-                thumbnailPromise = ghost.uploadContentFromURI(
-                    {
-                        mimetype: file.mimetype,
-                        title: `${file.name}_thumb.${file.filetype}`,
-                    },
-                    thumbUri,
-                    this.SlackClient!.token!,
-                );
-            }
-            const fileContentUri = await ghost.uploadContentFromURI(
-                file, file.url_private, this.SlackClient!.token!);
-            const thumbnailContentUri = await thumbnailPromise;
-            await ghost.sendMessage(
-                this.matrixRoomId,
-                slackFileToMatrixMessage(file, fileContentUri, thumbnailContentUri),
-                channelId,
-                slackEventId,
+            return;
+        }
+
+        if (maxUploadSize && file.size > maxUploadSize) {
+            const link = file.public_url_shared ? file.permalink_public : file.url_private;
+            log.info("File too large, sending as a link");
+            const messageContent = {
+                body: `${link} (${file.name})`,
+                format: "org.matrix.custom.html",
+                formatted_body: `<a href="${link}">${file.name}</a>`,
+                msgtype: "m.text",
+            };
+            await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, slackEventId);
+            return;
+        }
+
+        // Sometimes Slack sends us a message too soon, and the file is missing it's mimetype.
+        if (!file.mimetype) {
+            log.info(`Slack file ${file.id} is missing mimetype, fetching fresh info`);
+            file = ((await this.SlackClient?.files.info({
+                file: file.id,
+            })) as FileInfoResponse).file;
+            // If it's *still* missing a mimetype, we'll treat it as a file later.
+        }
+
+        // We also need to upload the thumbnail
+        let thumbnailPromise: Promise<string> = Promise.resolve("");
+        // Slack ain't a believer in consistency.
+        const thumbUri = file.thumb_video || file.thumb_360;
+        if (thumbUri && file.filetype) {
+            thumbnailPromise = ghost.uploadContentFromURI(
+                {
+                    mimetype: file.mimetype,
+                    title: `${file.name}_thumb.${file.filetype}`,
+                },
+                thumbUri,
+                this.SlackClient!.token!,
             );
         }
+
+        const fileContentUri = await ghost.uploadContentFromURI(
+            file, filePrivateUrl, this.SlackClient!.token!);
+        const thumbnailContentUri = await thumbnailPromise;
+        await ghost.sendMessage(
+            this.matrixRoomId,
+            slackFileToMatrixMessage(file, fileContentUri, thumbnailContentUri),
+            channelId,
+            slackEventId,
+        );
     }
 
     private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost, content?: Buffer) {
@@ -857,7 +870,7 @@ export class BridgedRoom {
                 try {
                     await this.handleSlackMessageFile(file, eventTS, ghost);
                 } catch (ex) {
-                    log.warn(`Failed to handle Slack file:`, ex);
+                    log.warn(`Couldn't handle Slack file, ignoring:`, ex);
                 }
             }
             // TODO: Currently Matrix lacks a way to upload a "captioned image",

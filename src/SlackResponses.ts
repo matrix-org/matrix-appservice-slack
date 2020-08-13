@@ -161,3 +161,10 @@ export interface ConversationsInfo {
         value: string;
     };
 }
+
+/**
+ * Taken from https://api.slack.com/methods/files.info
+ */
+export interface FileInfoResponse extends WebAPICallResult {
+    file: ISlackFile,
+}
