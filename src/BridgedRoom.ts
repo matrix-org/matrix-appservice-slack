@@ -663,7 +663,7 @@ export class BridgedRoom {
         this.dirty = true;
     }
 
-    private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost) {
+    private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost, client?: WebClient) {
         const maxUploadSize = this.main.config.homeserver.max_upload_size;
         const filePrivateUrl = file.url_private;
         if (!filePrivateUrl) {
@@ -676,12 +676,36 @@ export class BridgedRoom {
             return;
         }
 
+        let sendAsLink = false;
+        const authToken = this.SlackClient?.token;
+
+        if (!authToken) {
+            log.error("We have no client (or token) that can handle this file, sending as link");
+            sendAsLink = true;
+        } else if (maxUploadSize && file.size > maxUploadSize) {
+            log.warn(`File size too large (${file.size / 1024}KB > ${maxUploadSize / 1024} KB)`);
+            sendAsLink = true;
+        }
+
+        if (sendAsLink) {
+            const link = file.public_url_shared ? file.permalink_public : file.url_private;
+            const messageContent = {
+                body: `${link} (${file.name})`,
+                format: "org.matrix.custom.html",
+                formatted_body: `<a href="${link}">${file.name}</a>`,
+                msgtype: "m.text",
+            };
+            await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, slackEventId);
+            return;
+        }
+
         if (file.mode === "snippet") {
             let htmlString: string;
             try {
                 htmlString = await rp({
                     headers: {
-                        Authorization: `Bearer ${this.SlackClient!.token}`,
+                        // Token is checked above.
+                        Authorization: `Bearer ${authToken}`,
                     },
                     uri: filePrivateUrl,
                 });
@@ -705,19 +729,6 @@ export class BridgedRoom {
                 body: code,
                 format: "org.matrix.custom.html",
                 formatted_body: htmlCode,
-                msgtype: "m.text",
-            };
-            await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, slackEventId);
-            return;
-        }
-
-        if (maxUploadSize && file.size > maxUploadSize) {
-            const link = file.public_url_shared ? file.permalink_public : file.url_private;
-            log.info("File too large, sending as a link");
-            const messageContent = {
-                body: `${link} (${file.name})`,
-                format: "org.matrix.custom.html",
-                formatted_body: `<a href="${link}">${file.name}</a>`,
                 msgtype: "m.text",
             };
             await ghost.sendMessage(this.matrixRoomId, messageContent, channelId, slackEventId);
@@ -749,7 +760,8 @@ export class BridgedRoom {
         }
 
         const fileContentUri = await ghost.uploadContentFromURI(
-            file, filePrivateUrl, this.SlackClient!.token!);
+            // authToken is verified above.
+            file, filePrivateUrl, authToken!);
         const thumbnailContentUri = await thumbnailPromise;
         await ghost.sendMessage(
             this.matrixRoomId,
