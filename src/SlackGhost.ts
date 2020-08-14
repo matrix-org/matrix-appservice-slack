@@ -15,13 +15,13 @@ limitations under the License.
 */
 
 import { Logging, Intent } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 import { UserEntry, Datastore } from "./datastore/Models";
+import axios from "axios";
 
 const log = Logging.get("SlackGhost");
 
@@ -128,16 +128,14 @@ export class SlackGhost {
 
         const avatarRes = await this.lookupAvatarUrl(slackUser);
         if (avatarRes && avatarRes.hash && this.avatarHash !== avatarRes.hash) {
-            const response = await rp({
-                encoding: null,
-                resolveWithFullResponse: true,
-                uri: avatarRes.url,
+            const response = await axios.get<ArrayBuffer>(avatarRes.url, {
+                responseType: "arraybuffer",
             });
 
             const contentUri = await this.uploadContent({
                 mimetype: response.headers["content-type"],
                 title: avatarRes.hash,
-            }, response.body);
+            }, response.data);
             await this.intent.setAvatarUrl(contentUri);
             this.avatarHash = avatarRes.hash;
             changed = true;
@@ -280,15 +278,14 @@ export class SlackGhost {
 
         const title = hash || match[1];
 
-        const response = await rp({
-            encoding: null,
-            resolveWithFullResponse: true,
-            uri: avatarUrl,
+        const response = await axios.get<ArrayBuffer>(avatarUrl, {
+            responseType: "arraybuffer",
         });
+
         const contentUri = await this.uploadContent({
             mimetype: response.headers["content-type"],
             title,
-        }, response.body);
+        }, response.data);
         await this.intent.setAvatarUrl(contentUri);
         this.avatarHash = hash;
         await this.datastore.upsertUser(this);
@@ -395,21 +392,22 @@ export class SlackGhost {
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
     : Promise<string> {
         try {
-            const response = await rp({
-                encoding: null, // Because we expect a binary
+            const response = await axios.get<ArrayBuffer>(uri, {
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
-                uri,
             });
-            return await this.uploadContent(file, response as Buffer);
+            if (response.status !== 200) {
+                throw Error('Failed to get file');
+            }
+            return await this.uploadContent(file, response.data);
         } catch (reason) {
-            log.error("Failed to upload content:\n%s", reason);
+            log.error("Failed to upload content:\n", reason);
             throw reason;
-        }
+        }   
     }
 
-    public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
+    public async uploadContent(file: {mimetype: string, title: string}, buffer: ArrayBuffer): Promise<string> {
         const contentUri = await this.intent.getClient().uploadContent(buffer, {
             name: file.title,
             type: file.mimetype,
