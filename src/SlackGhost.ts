@@ -404,7 +404,7 @@ export class SlackGhost {
         } catch (reason) {
             log.error("Failed to upload content:\n", reason);
             throw reason;
-        }   
+        }
     }
 
     public async uploadContent(file: {mimetype: string, title: string}, buffer: ArrayBuffer): Promise<string> {
