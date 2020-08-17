@@ -663,7 +663,7 @@ export class BridgedRoom {
         this.dirty = true;
     }
 
-    private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost, client?: WebClient) {
+    private async handleSlackMessageFile(file: ISlackFile, slackEventId: string, ghost: SlackGhost) {
         const maxUploadSize = this.main.config.homeserver.max_upload_size;
         const filePrivateUrl = file.url_private;
         if (!filePrivateUrl) {
@@ -683,7 +683,7 @@ export class BridgedRoom {
             log.error("We have no client (or token) that can handle this file, sending as link");
             sendAsLink = true;
         } else if (maxUploadSize && file.size > maxUploadSize) {
-            log.warn(`File size too large (${file.size / 1024}KB > ${maxUploadSize / 1024} KB)`);
+            log.warn(`File size too large (${file.size / 1024}KiB > ${maxUploadSize / 1024} KB)`);
             sendAsLink = true;
         }
 
