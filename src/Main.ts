@@ -668,14 +668,14 @@ export class Main {
             return;
         }
 
-        // Check if the user is denied slack DMs
-        if (this.config.puppeting?.dms_deny?.matrix) {
-            const banned = this.config.puppeting.dms_deny.matrix.find((r) => r.test(sender));
+        // Check if the user is denied Slack Direct Messages (DMs)
+        if (this.config.puppeting?.disallow_direct_messages?.matrix) {
+            const banned = this.config.puppeting.disallow_direct_messages.matrix.find((r) => r.test(sender));
             if (banned) {
                 log.debug(`Matrix user '${sender}' is disallowed from DMing, not creating room.`);
             }
             await intent.sendEvent(roomId, "m.room.message", {
-                body: "The administer of this bridge has denied you access to create DMs with Slack users.",
+                body: "The admin of this Slack bridge has denied you to directly message Slack users.",
                 msgtype: "m.notice",
             });
             await intent.leave();

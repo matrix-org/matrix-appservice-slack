@@ -127,7 +127,7 @@ properties:
     properties:
       enabled:
         type: boolean
-      dms_deny:
+      disallow_direct_messages:
         slack: 
           type: string
         matrix: 

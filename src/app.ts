@@ -38,11 +38,11 @@ const cli = new Cli({
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
         // Format config
-        if (config.puppeting?.dms_deny?.slack) {
-            config.puppeting.dms_deny.slack = config.puppeting.dms_deny.slack.map((r) => new RegExp(r));
+        if (config.puppeting?.disallow_direct_messages?.slack) {
+            config.puppeting.disallow_direct_messages.slack = config.puppeting.disallow_direct_messages.slack.map((r) => new RegExp(r));
         }
-        if (config.puppeting?.dms_deny?.matrix) {
-            config.puppeting.dms_deny.matrix = config.puppeting.dms_deny.matrix.map((r) => new RegExp(r));
+        if (config.puppeting?.disallow_direct_messages?.matrix) {
+            config.puppeting.disallow_direct_messages.matrix = config.puppeting.disallow_direct_messages.matrix.map((r) => new RegExp(r));
         }
         const main = new Main(config, registration);
         main.run(cliPort).then((port) => {

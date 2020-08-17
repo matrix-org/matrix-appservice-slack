@@ -212,9 +212,9 @@ export class SlackRTMHandler extends SlackEventHandler {
         const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
         if (chanInfo.channel.is_im) {
-            // Check if the user is denied slack DMs
-            if (this.main.config.puppeting?.dms_deny?.slack) {
-                const banned = this.main.config.puppeting.dms_deny.slack.find((r) => r.test(chanInfo.channel.user!));
+            // Check if the user is denied Slack Direct Messages (DMs)
+            if (this.main.config.puppeting?.disallow_direct_messages?.slack) {
+                const banned = this.main.config.puppeting.disallow_direct_messages.slack.find((r) => r.test(chanInfo.channel.user!));
                 if (banned) {
                     log.debug(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room.`);
                 }

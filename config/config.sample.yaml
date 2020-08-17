@@ -113,7 +113,7 @@ provisioning:
 puppeting:
   # Should the bridge allow users to puppet their accounts
   enabled: false
-  dms_deny:
+  disallow_direct_messages:
     slack: 
       - "U0156TG3W48"
     matrix: 
