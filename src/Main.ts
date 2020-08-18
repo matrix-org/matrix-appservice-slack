@@ -29,7 +29,7 @@ import { AdminCommands } from "./AdminCommands";
 import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
@@ -42,6 +42,7 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
+import { AllowDenyList } from "./AllowDenyList";
 
 const log = Logging.get("Main");
 
@@ -116,6 +117,7 @@ export class Main {
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
+    public readonly adl: AllowDenyList;
 
     private provisioner: Provisioner;
 
@@ -215,6 +217,8 @@ export class Main {
         if (config.team_sync) {
             this.teamSyncer = new TeamSyncer(this);
         }
+
+        this.adl = new AllowDenyList(config.puppeting?.direct_messages);
 
         const homeserverToken = registration.getHomeserverToken();
         if (homeserverToken === null) {
@@ -668,19 +672,6 @@ export class Main {
             return;
         }
 
-        // Check if the user is denied Slack Direct Messages (DMs)
-        if (this.config.puppeting?.disallow_direct_messages?.matrix) {
-            const banned = this.config.puppeting.disallow_direct_messages.matrix.find((r) => r.test(sender));
-            if (banned) {
-                log.debug(`Matrix user '${sender}' is disallowed from DMing, not creating room.`);
-            }
-            await intent.sendEvent(roomId, "m.room.message", {
-                body: "The admin of this Slack bridge has denied you to directly message Slack users.",
-                msgtype: "m.notice",
-            });
-            await intent.leave();
-            return;
-        }
 
         const slackGhost = await this.ghosts.getExisting(recipient);
         if (!slackGhost || !slackGhost.teamId) {
@@ -693,6 +684,7 @@ export class Main {
             await intent.leave(roomId);
             return;
         }
+
         const teamId = slackGhost.teamId;
         const rtmClient = this.slackRtm!.getUserClient(teamId, sender);
         const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
@@ -704,6 +696,21 @@ export class Main {
             await intent.leave(roomId);
             return;
         }
+
+        const userData = (await slackClient.users.info({
+            user: slackGhost.slackId,
+        })) as UsersInfoResponse;
+
+        // Check if the user is denied Slack Direct Messages (DMs)
+        if (!this.adl.allowDM(sender, slackGhost.slackId, userData.user?.name)) {
+            await intent.sendEvent(roomId, "m.room.message", {
+                body: "The admin of this Slack bridge has denied you to directly message Slack users.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
+        
         const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
         if (openResponse.already_open) {
             // Check to see if we have a room for this channel already.
@@ -1059,7 +1066,7 @@ export class Main {
                 throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
             }
             // We may have this team already and want to update the token, or this might be new.
-            // But first check that the token works.
+            // Budisallow_direct_messages.slack first check that the token works.
             try {
                 teamId = await this.clientFactory.upsertTeamByToken(opts.slack_bot_token);
                 log.info(`Found ${teamId} for token`);

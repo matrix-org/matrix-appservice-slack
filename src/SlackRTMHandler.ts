@@ -3,7 +3,7 @@ import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { Logging } from "matrix-appservice-bridge";
 import { PuppetEntry } from "./datastore/Models";
-import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo, UsersInfoResponse } from "./SlackResponses";
 import { ISlackMessageEvent } from "./BaseSlackHandler";
 import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
@@ -211,13 +211,14 @@ export class SlackRTMHandler extends SlackEventHandler {
 
         const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
-        if (chanInfo.channel.is_im) {
+
+        if (chanInfo.channel.is_im && chanInfo.channel.user) {
+            const userData = (await slackClient.users.info({
+                user: chanInfo.channel.user,
+            })) as UsersInfoResponse;
             // Check if the user is denied Slack Direct Messages (DMs)
-            if (this.main.config.puppeting?.disallow_direct_messages?.slack) {
-                const banned = this.main.config.puppeting.disallow_direct_messages.slack.find((r) => r.test(chanInfo.channel.user!));
-                if (banned) {
-                    log.debug(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room.`);
-                }
+            if (!this.main.adl.allowDM(puppet.matrixId, chanInfo.channel.user, userData.user?.name)) {
+                log.debug(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room.`);
                 return;
             }
         }
