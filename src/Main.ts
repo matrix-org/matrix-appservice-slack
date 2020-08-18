@@ -42,7 +42,7 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
-import { AllowDenyList } from "./AllowDenyList";
+import { AllowDenyList, DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("Main");
 
@@ -702,9 +702,11 @@ export class Main {
         })) as UsersInfoResponse;
 
         // Check if the user is denied Slack Direct Messages (DMs)
-        if (!this.adl.allowDM(sender, slackGhost.slackId, userData.user?.name)) {
+        const denyReason = this.adl.allowDM(sender, slackGhost.slackId, userData.user?.name);
+        if (denyReason !== DenyReason.ALLOWED) {
             await intent.sendEvent(roomId, "m.room.message", {
-                body: "The admin of this Slack bridge has denied you to directly message Slack users.",
+                body: denyReason === DenyReason.MATRIX ? "The admin of this Slack bridge has denied you to directly message Slack users." :
+                "The admin of this Slack bridge has denied users to directly message this Slack user.",
                 msgtype: "m.notice",
             });
             await intent.leave();

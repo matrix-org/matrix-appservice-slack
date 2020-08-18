@@ -8,6 +8,7 @@ import { ISlackMessageEvent } from "./BaseSlackHandler";
 import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
+import { DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -217,8 +218,9 @@ export class SlackRTMHandler extends SlackEventHandler {
                 user: chanInfo.channel.user,
             })) as UsersInfoResponse;
             // Check if the user is denied Slack Direct Messages (DMs)
-            if (!this.main.adl.allowDM(puppet.matrixId, chanInfo.channel.user, userData.user?.name)) {
-                log.debug(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room.`);
+            const denyReason = this.main.adl.allowDM(puppet.matrixId, chanInfo.channel.user, userData.user?.name);
+            if (denyReason !== DenyReason.ALLOWED) {
+                log.warn(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room. (Denied due to ${DenyReason[denyReason]} user)`);
                 return;
             }
         }
