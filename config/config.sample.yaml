@@ -113,12 +113,27 @@ provisioning:
 puppeting:
   # Should the bridge allow users to puppet their accounts
   enabled: false
-  disallow_direct_messages:
-    slack: 
-      - "U0156TG3W48"
-    matrix: 
-      - "@badactor:badhost"
-      - "@.*:badhost"
+  # Settings regarding who can send direct messages.
+  # If allow is defined, all other users are blocked by default
+  # If deny is defined, all other users are allowed by default
+  # You must only define one.
+  direct_messages:
+    allow:
+      # Which Slack users may DM Matrix users.
+      slack: 
+        - "U0156TG3W48"
+      # Which Matrix users may DM Slack users.
+      matrix: 
+        - "@badactor:badhost"
+        - "@.*:badhost"
+    deny:
+      # Which Slack users may NOT DM Matrix users.
+      slack: 
+        - "U0156TG3W48"
+      # Which Matrix users may NOT DM Slack users.
+      matrix: 
+        - "@badactor:badhost"
+        - "@.*:badhost"
 bot_profile: # Set the bot's profile on startup, optional
   displayname: Slack Bridge # Set the displayname, optional
   avatar_url: "mxc://half-shot.uk/ea64c71ee946ca2f61379abefe2c7d977d276fbb" # Set the avatar, optional

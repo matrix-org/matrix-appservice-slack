@@ -127,11 +127,26 @@ properties:
     properties:
       enabled:
         type: boolean
-      disallow_direct_messages:
-        slack: 
-          type: string
-        matrix: 
-          type: string
+      direct_messages:
+        type: object
+        additionalProperties: false
+        oneOf:
+          - properties:
+              allow:
+                slack:
+                  items:
+                    type: string
+                matrix: 
+                  items:
+                    type: string
+          - properties:
+              deny:
+                slack:
+                  items:
+                    type: string
+                matrix: 
+                  items:
+                    type: string
   bot_profile:
     type: object
     properties:
