@@ -64,7 +64,7 @@ export class AllowDenyList {
         if (allow && allow.matrix?.length > 0 && !allow.matrix.find((e) => e.test(matrixUser))) {
             return DenyReason.MATRIX; // Matrix user was not on the allow list
         }
-        if (allow && allow.slack?.length > 0 && !allow.slack.find((e) => e.test(slackUser) || 
+        if (allow && allow.slack?.length > 0 && !allow.slack.find((e) => e.test(slackUser) ||
             (slackUsername && e.test(slackUsername)))) {
             return DenyReason.SLACK; // Slack user was not on the allow list
         }
@@ -74,11 +74,11 @@ export class AllowDenyList {
             return DenyReason.MATRIX; // Matrix user was not on the allow list
         }
 
-        if (deny && deny.slack?.length > 0 && deny.slack.find((e) => e.test(slackUser) || 
+        if (deny && deny.slack?.length > 0 && deny.slack.find((e) => e.test(slackUser) ||
             (slackUsername && e.test(slackUsername)))) {
             return DenyReason.SLACK; // Slack user was not on the allow list
         }
 
         return DenyReason.ALLOWED;
     }
-} 
+}

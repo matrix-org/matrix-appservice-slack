@@ -710,7 +710,7 @@ export class Main {
             await intent.leave();
             return;
         }
-        
+
         const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
         if (openResponse.already_open) {
             // Check to see if we have a room for this channel already.
