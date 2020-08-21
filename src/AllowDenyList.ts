@@ -61,20 +61,20 @@ export class AllowDenyList {
      */
     public allowDM(matrixUser: string, slackUser: string, slackUsername?: string): DenyReason {
         const allow = this.allow;
-        if (allow && allow.matrix?.length > 0 && !allow.matrix.find((e) => e.test(matrixUser))) {
+        if (allow && allow.matrix?.length > 0 && !allow.matrix.some((e) => e.test(matrixUser))) {
             return DenyReason.MATRIX; // Matrix user was not on the allow list
         }
-        if (allow && allow.slack?.length > 0 && !allow.slack.find((e) => e.test(slackUser) ||
+        if (allow && allow.slack?.length > 0 && !allow.slack.some((e) => e.test(slackUser) ||
             (slackUsername && e.test(slackUsername)))) {
             return DenyReason.SLACK; // Slack user was not on the allow list
         }
 
         const deny = this.deny;
-        if (deny && deny.matrix?.length > 0 && deny.matrix.find((e) => e.test(matrixUser))) {
+        if (deny && deny.matrix?.length > 0 && deny.matrix.some((e) => e.test(matrixUser))) {
             return DenyReason.MATRIX; // Matrix user was not on the allow list
         }
 
-        if (deny && deny.slack?.length > 0 && deny.slack.find((e) => e.test(slackUser) ||
+        if (deny && deny.slack?.length > 0 && deny.slack.some((e) => e.test(slackUser) ||
             (slackUsername && e.test(slackUsername)))) {
             return DenyReason.SLACK; // Slack user was not on the allow list
         }

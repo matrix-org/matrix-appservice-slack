@@ -117,7 +117,7 @@ export class Main {
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
-    public readonly adl: AllowDenyList;
+    public readonly allowDenyList: AllowDenyList;
 
     private provisioner: Provisioner;
 
@@ -218,7 +218,7 @@ export class Main {
             this.teamSyncer = new TeamSyncer(this);
         }
 
-        this.adl = new AllowDenyList(config.puppeting?.direct_messages);
+        this.allowDenyList = new AllowDenyList(config.puppeting?.direct_messages);
 
         const homeserverToken = registration.getHomeserverToken();
         if (homeserverToken === null) {
@@ -702,7 +702,7 @@ export class Main {
         })) as UsersInfoResponse;
 
         // Check if the user is denied Slack Direct Messages (DMs)
-        const denyReason = this.adl.allowDM(sender, slackGhost.slackId, userData.user?.name);
+        const denyReason = this.allowDenyList.allowDM(sender, slackGhost.slackId, userData.user?.name);
         if (denyReason !== DenyReason.ALLOWED) {
             await intent.sendEvent(roomId, "m.room.message", {
                 body: denyReason === DenyReason.MATRIX ? "The admin of this Slack bridge has denied you to directly message Slack users." :
