@@ -1068,7 +1068,7 @@ export class Main {
                 throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
             }
             // We may have this team already and want to update the token, or this might be new.
-            // Budisallow_direct_messages.slack first check that the token works.
+            // But first check that the token works.
             try {
                 teamId = await this.clientFactory.upsertTeamByToken(opts.slack_bot_token);
                 log.info(`Found ${teamId} for token`);
