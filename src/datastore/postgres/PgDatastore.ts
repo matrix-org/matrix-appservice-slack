@@ -30,7 +30,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 7;
+    public static readonly LATEST_SCHEMA = 8;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
