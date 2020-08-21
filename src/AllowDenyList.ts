@@ -71,12 +71,12 @@ export class AllowDenyList {
 
         const deny = this.deny;
         if (deny && deny.matrix?.length > 0 && deny.matrix.some((e) => e.test(matrixUser))) {
-            return DenyReason.MATRIX; // Matrix user was not on the allow list
+            return DenyReason.MATRIX; // Matrix user was on the deny list
         }
 
         if (deny && deny.slack?.length > 0 && deny.slack.some((e) => e.test(slackUser) ||
             (slackUsername && e.test(slackUsername)))) {
-            return DenyReason.SLACK; // Slack user was not on the allow list
+            return DenyReason.SLACK; // Slack user was on the deny list
         }
 
         return DenyReason.ALLOWED;
