@@ -396,6 +396,7 @@ export class SlackGhost {
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
+                responseType: "arraybuffer",
             });
             if (response.status !== 200) {
                 throw Error('Failed to get file');
