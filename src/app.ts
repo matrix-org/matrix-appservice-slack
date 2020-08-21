@@ -37,6 +37,7 @@ const cli = new Cli({
     run(cliPort: number, config: IConfig, registration: any) {
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
+        // Format config
         const main = new Main(config, registration);
         main.run(cliPort).then((port) => {
             log.info("Matrix-side listening on port", port);

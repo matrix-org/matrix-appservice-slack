@@ -1,0 +1,1 @@
+Add `disallow_direct_messages` config option to selectively deny users the ability to DM bridged users.

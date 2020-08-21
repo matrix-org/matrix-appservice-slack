@@ -3,11 +3,12 @@ import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { Logging } from "matrix-appservice-bridge";
 import { PuppetEntry } from "./datastore/Models";
-import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo, UsersInfoResponse } from "./SlackResponses";
 import { ISlackMessageEvent } from "./BaseSlackHandler";
 import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
+import { DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -211,6 +212,20 @@ export class SlackRTMHandler extends SlackEventHandler {
 
         const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
+
+        if (chanInfo.channel.is_im && chanInfo.channel.user) {
+            const userData = (await slackClient.users.info({
+                user: chanInfo.channel.user,
+            })) as UsersInfoResponse;
+            // Check if the user is denied Slack Direct Messages (DMs)
+            const denyReason = this.main.allowDenyList.allowDM(puppet.matrixId, chanInfo.channel.user, userData.user?.name);
+            if (denyReason !== DenyReason.ALLOWED) {
+                log.warn(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room. (Denied due to ${DenyReason[denyReason]} user)`);
+                return;
+            }
+        }
+
+
         if (isIm) {
             const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
             const ghosts = (await Promise.all(channelMembersRes.members.map(
@@ -218,6 +233,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 async (id) =>
                     id ? this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];
+
             const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
 
             log.info(`Creating new DM room for ${event.channel}`);

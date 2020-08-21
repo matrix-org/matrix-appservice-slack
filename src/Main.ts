@@ -29,7 +29,7 @@ import { AdminCommands } from "./AdminCommands";
 import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
@@ -42,6 +42,7 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
+import { AllowDenyList, DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("Main");
 
@@ -116,6 +117,7 @@ export class Main {
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
+    public readonly allowDenyList: AllowDenyList;
 
     private provisioner: Provisioner;
 
@@ -215,6 +217,8 @@ export class Main {
         if (config.team_sync) {
             this.teamSyncer = new TeamSyncer(this);
         }
+
+        this.allowDenyList = new AllowDenyList(config.puppeting?.direct_messages);
 
         const homeserverToken = registration.getHomeserverToken();
         if (homeserverToken === null) {
@@ -668,6 +672,7 @@ export class Main {
             return;
         }
 
+
         const slackGhost = await this.ghosts.getExisting(recipient);
         if (!slackGhost || !slackGhost.teamId) {
             // TODO: Create users dynamically who have never spoken.
@@ -679,6 +684,7 @@ export class Main {
             await intent.leave(roomId);
             return;
         }
+
         const teamId = slackGhost.teamId;
         const rtmClient = this.slackRtm!.getUserClient(teamId, sender);
         const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
@@ -690,6 +696,23 @@ export class Main {
             await intent.leave(roomId);
             return;
         }
+
+        const userData = (await slackClient.users.info({
+            user: slackGhost.slackId,
+        })) as UsersInfoResponse;
+
+        // Check if the user is denied Slack Direct Messages (DMs)
+        const denyReason = this.allowDenyList.allowDM(sender, slackGhost.slackId, userData.user?.name);
+        if (denyReason !== DenyReason.ALLOWED) {
+            await intent.sendEvent(roomId, "m.room.message", {
+                body: denyReason === DenyReason.MATRIX ? "The admin of this Slack bridge has denied you to directly message Slack users." :
+                "The admin of this Slack bridge has denied users to directly message this Slack user.",
+                msgtype: "m.notice",
+            });
+            await intent.leave();
+            return;
+        }
+
         const openResponse = (await slackClient.conversations.open({users: slackGhost.slackId, return_im: true})) as ConversationsOpenResponse;
         if (openResponse.already_open) {
             // Check to see if we have a room for this channel already.
