@@ -1,1 +1,0 @@
-Fix an issue where sometimes Slack media files would be bridged as a 'm.file'

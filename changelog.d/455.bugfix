@@ -1,1 +1,0 @@
-Fix NedbDatastore.getTeam when an error happened or the team doesn't exist

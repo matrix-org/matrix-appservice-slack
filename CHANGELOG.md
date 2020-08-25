@@ -1,4 +1,52 @@
- 1.4.0 (2020-06-23)
+1.5.0-rc1 (2020-08-25)
+===================
+
+Features
+--------
+
+- Add `disallow_direct_messages` config option to selectively deny users the ability to DM bridged users. ([\#435](https://github.com/matrix-org/matrix-appservice-slack/issues/435))
+- Bridge in all Slack members of a channel when connnecting it to a room. ([\#448](https://github.com/matrix-org/matrix-appservice-slack/issues/448))
+
+
+Bugfixes
+--------
+
+- Don't redact Matrix events as a result of the bridge deleting a Slack message. ([\#431](https://github.com/matrix-org/matrix-appservice-slack/issues/431))
+- Print the correct appservice port on the console when using the one from the config ([\#440](https://github.com/matrix-org/matrix-appservice-slack/issues/440))
+- Fixes the broken admin command "help oauth" ([\#445](https://github.com/matrix-org/matrix-appservice-slack/issues/445))
+- The bridge will no longer register deleted Slack users on startup. ([\#448](https://github.com/matrix-org/matrix-appservice-slack/issues/448))
+- Fix an issue where sometimes Slack media files would be bridged as a 'm.file' ([\#450](https://github.com/matrix-org/matrix-appservice-slack/issues/450))
+- Stop Team Sync from calling Slack's API more rapidly than configured ([\#454](https://github.com/matrix-org/matrix-appservice-slack/issues/454))
+- Fix NedbDatastore.getTeam when an error happened or the team doesn't exist ([\#455](https://github.com/matrix-org/matrix-appservice-slack/issues/455))
+- Correctly handle TeamSync failures, which displays a warning but does start the bridge. This previously resulted in an uncaught Promise. ([\#456](https://github.com/matrix-org/matrix-appservice-slack/issues/456))
+- Fix issue where slack messages would not properly thread together ([\#459](https://github.com/matrix-org/matrix-appservice-slack/issues/459))
+- Rename `unlink room` command to `unlink` to make it callable.
+  Allow `link` to be called with a `team_id` ([\#462](https://github.com/matrix-org/matrix-appservice-slack/issues/462))
+- Don't automatically join new users to all public channels ([\#463](https://github.com/matrix-org/matrix-appservice-slack/issues/463))
+- Fix issue where bridged Slack files fail silently or upload garbled data. ([\#466](https://github.com/matrix-org/matrix-appservice-slack/issues/466))
+- Fix issue where Slack files would not be uploaded to Matrix ([\#470](https://github.com/matrix-org/matrix-appservice-slack/issues/470))
+
+
+Improved Documentation
+----------------------
+
+- Consistently suggest to use port 5858 for the appservice ([\#436](https://github.com/matrix-org/matrix-appservice-slack/issues/436))
+
+
+Internal Changes
+----------------
+
+- Misc improvements to PostgreSQL datastore. Thanks @vitaly-t! ([\#429](https://github.com/matrix-org/matrix-appservice-slack/issues/429))
+- Upgrade dependencies ([\#437](https://github.com/matrix-org/matrix-appservice-slack/issues/437))
+- Rebrand: Replace mentions of Riot with Element ([\#438](https://github.com/matrix-org/matrix-appservice-slack/issues/438))
+- Remove local buildkite files in favour of using the matrix-org/pipelines repo. ([\#442](https://github.com/matrix-org/matrix-appservice-slack/issues/442))
+- Admin commands must be a string ([\#443](https://github.com/matrix-org/matrix-appservice-slack/issues/443))
+- Add unit tests for AdminCommand ([\#444](https://github.com/matrix-org/matrix-appservice-slack/issues/444))
+- Warn if the bot isn't in the admin room ([\#458](https://github.com/matrix-org/matrix-appservice-slack/issues/458))
+- Improve event processing time by adding an index to the events table ([\#469](https://github.com/matrix-org/matrix-appservice-slack/issues/469))
+
+
+1.4.0 (2020-06-23)
 ===================
 
 No significant changes.

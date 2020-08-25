@@ -1,1 +1,0 @@
-Fix issue where bridged Slack files fail silently or upload garbled data.
