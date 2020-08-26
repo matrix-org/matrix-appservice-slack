@@ -1199,6 +1199,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
+        const existingTeam = await this.datastore.getTeam(teamId);
         await this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
             // Store it here too for puppeting.
@@ -1211,6 +1212,28 @@ export class Main {
             });
         }
         log.info(`Set new access token for ${userId} (team: ${teamId}, puppeting: ${puppeting})`);
+        if (!existingTeam && !puppeting && this.teamSyncer) {
+            log.info("This is a new team, so syncing members");
+            try {
+                await this.teamSyncer.syncItems(
+                    teamId,
+                    await this.clientFactory.getTeamClient(teamId),
+                    "user",
+                );
+            } catch (ex) {
+                log.info("Failed to sync members", ex);
+            }
+
+            try {
+                await this.teamSyncer.syncItems(
+                    teamId,
+                    await this.clientFactory.getTeamClient(teamId),
+                    "channel",
+                );
+            } catch (ex) {
+                log.info("Failed to sync members", ex);
+            }
+        }
     }
 
     public async matrixUserInSlackTeam(teamId: string, userId: string) {
