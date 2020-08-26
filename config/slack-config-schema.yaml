@@ -130,6 +130,7 @@ properties:
       direct_messages:
         type: object
         additionalProperties: false
+        properties:
           allow:
             slack:
               type: "array"
