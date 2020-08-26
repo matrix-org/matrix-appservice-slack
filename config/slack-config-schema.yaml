@@ -132,18 +132,22 @@ properties:
         additionalProperties: false
           allow:
             slack:
+              type: "array"
               items:
-                type: string
-            matrix: 
+                  type: "string"
+            matrix:
+              type: "array"
               items:
-                type: string
+                  type: "string"
           deny:
             slack:
+              type: "array"
               items:
-                type: string
-            matrix: 
+                  type: "string"
+            matrix:
+              type: "array"
               items:
-                type: string
+                  type: "string"
   bot_profile:
     type: object
     properties:
