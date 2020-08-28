@@ -116,7 +116,7 @@ puppeting:
   # Settings regarding who can send direct messages.
   # If allow is defined, all other users are blocked by default
   # If deny is defined, all other users are allowed by default
-  # You must only define one.
+  # If both are defined, allow takes precedence.
   direct_messages:
     allow:
       # Which Slack users may DM Matrix users.
