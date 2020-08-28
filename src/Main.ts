@@ -1231,7 +1231,7 @@ export class Main {
                     "channel",
                 );
             } catch (ex) {
-                log.info("Failed to sync members", ex);
+                log.info("Failed to sync channels", ex);
             }
         }
     }
