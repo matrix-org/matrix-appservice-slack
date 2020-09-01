@@ -1,1 +1,0 @@
-When a user connects their team for the first time, sync members and channels!

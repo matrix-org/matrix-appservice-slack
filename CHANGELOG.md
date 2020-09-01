@@ -1,3 +1,18 @@
+ 1.5.0 (2020-09-01)
+===================
+
+Features
+--------
+
+- When a user connects their team for the first time, sync members and channels! ([\#475](https://github.com/matrix-org/matrix-appservice-slack/issues/475))
+
+
+Bugfixes
+--------
+
+- Fix schema for puppeting.direct_messages ([\#474](https://github.com/matrix-org/matrix-appservice-slack/issues/474))
+
+
 1.5.0-rc1 (2020-08-25)
 ===================
 
