@@ -1221,7 +1221,7 @@ export class Main {
                     "user",
                 );
             } catch (ex) {
-                log.info("Failed to sync members", ex);
+                log.warn("Failed to sync members", ex);
             }
 
             try {
@@ -1231,7 +1231,7 @@ export class Main {
                     "channel",
                 );
             } catch (ex) {
-                log.info("Failed to sync channels", ex);
+                log.warn("Failed to sync channels", ex);
             }
         }
     }
