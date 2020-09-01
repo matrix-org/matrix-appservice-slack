@@ -81,6 +81,8 @@ team_sync:
   # T0123ABCDEF:
   #   channels:
   #     enabled: true
+  #     # Allow or deny private channels from being synced. Defaults to true.
+  #     allow_private: true
   #     # Optional blacklist for channel ids. Trumps the whitelist.
   #     # blacklist: ['CVCCPEY9X', 'C0108F9K37X']
   #     # Optional whitelist for channel ids.

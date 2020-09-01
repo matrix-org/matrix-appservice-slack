@@ -89,6 +89,8 @@ properties:
           properties:
             enabled:
               type: boolean
+            allow_private:
+              type: boolean
             whitelist:
               type: "array"
               items:
