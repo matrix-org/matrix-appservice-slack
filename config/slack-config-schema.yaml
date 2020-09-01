@@ -121,6 +121,17 @@ properties:
             type: number
           team_count:
             type: number
+      channel_adl:
+        type: object
+        properties:
+          allow:
+            type: "array"
+            items:
+                type: "string"
+          deny:
+            type: "array"
+            items:
+                type: "string"
   puppeting:
     type: object
     required: ["enabled"]

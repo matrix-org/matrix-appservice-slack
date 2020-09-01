@@ -31,6 +31,7 @@ export interface ITeamSyncConfig {
         whitelist?: string[];
         blacklist?: string[];
         alias_prefix?: string;
+        allow_private?: boolean;
     };
     users?: {
         enabled: boolean;
@@ -135,13 +136,19 @@ export class TeamSyncer {
         await queue.addAll(syncFunctionPromises);
     }
 
-    private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string) {
+    private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string, isPrivate = false) {
         const teamConfig = this.teamConfigs[teamId] || this.teamConfigs.all;
         if (!teamConfig) {
             return false;
         }
-        if (item === "channel" && (!teamConfig.channels || !teamConfig.channels.enabled)) {
-            return false;
+        if (item === "channel") {
+            if (!teamConfig.channels?.enabled) {
+                return false;
+            }
+            if (teamConfig.channels.allow_private === false) {
+                // Default to true.
+                return false;
+            }
         }
         if (item === "user" && (!teamConfig.users || !teamConfig.users.enabled)) {
             return false;
@@ -174,7 +181,7 @@ export class TeamSyncer {
     public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse) {
         log.info(`Discovered private channel ${teamId} ${chanInfo.channel.id}`);
         const channelItem = chanInfo.channel;
-        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
+        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, true)) {
             log.info(`Not syncing`);
             return;
         }
@@ -245,7 +252,11 @@ export class TeamSyncer {
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
-        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id)) {
+        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private)) {
+            return;
+        }
+        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name)) {
+            log.warn("Channel is not allowed to be bridged");
             return;
         }
 
@@ -352,6 +363,10 @@ export class TeamSyncer {
     private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient) {
         const teamInfo = (await this.main.datastore.getTeam(teamId))!;
         log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
+        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name)) {
+            log.warn("Channel is not allowed to be bridged");
+        }
+
         const {user} = (await client.users.info({ user: teamInfo.user_id })) as UsersInfoResponse;
         try {
             const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);

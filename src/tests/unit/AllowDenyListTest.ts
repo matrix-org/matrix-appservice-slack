@@ -28,120 +28,184 @@ const NOT_BLOCKED_SLACK_USER = "not-block-slack";
 const BLOCKED_MATRIX_USER = "block-matrix";
 const NOT_BLOCKED_MATRIX_USER = "not-block-matrix";
 
-describe("AllowDenyList", () => {
-    it("should not deny any users if no configuration is set", async () => {
-        const adl = new AllowDenyList();
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER, BLOCKED_SLACK_USERNAME)).to.equal(DenyReason.ALLOWED);
-    });
-    // Deny list
-    it("should block matrix user if in deny list", async () => {
-        const adl = new AllowDenyList({
-            deny: {
-                matrix: [BLOCKED_MATRIX_USER]
-            }
-        });
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-    });
-    it("should block slack user if in deny list", async () => {
-        const adl = new AllowDenyList({
-            deny: {
-                slack: [BLOCKED_SLACK_USER]
-            }
-        });
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER, BLOCKED_SLACK_USERNAME)).to.equal(DenyReason.SLACK);
-    });
-    it("should allow matrix user if in deny list", async () => {
-        const adl = new AllowDenyList({
-            deny: {
-                matrix: [BLOCKED_MATRIX_USER]
-            }
-        });
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-    });
-    it("should block slack user if in deny list", async () => {
-        const adl = new AllowDenyList({
-            deny: {
-                slack: [BLOCKED_SLACK_USER]
-            }
-        });
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER, BLOCKED_SLACK_USERNAME)).to.equal(DenyReason.SLACK);
-    });
-    it("should block slack username if in deny list", async () => {
-        const adl = new AllowDenyList({
-            deny: {
-                slack: [BLOCKED_SLACK_USERNAME]
-            }
-        });
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER, BLOCKED_SLACK_USERNAME)).to.equal(DenyReason.SLACK);
-    });
-    // Allow List
+const BLOCKED_SLACK_CHANNEL_ID = "CBLOCKED";
+const BLOCKED_SLACK_CHANNEL_NAME = "#blocked";
+const ALLOWED_SLACK_CHANNEL_ID = "CALLOWED";
+const ALLOWED_SLACK_CHANNEL_NAME = "#allowed";
 
-    it("should deny any users if allow.matrix is set", async () => {
-        const adl = new AllowDenyList({
-            allow: {
-                matrix: ['will-not-match']
-            }
+
+describe("AllowDenyList", () => {
+    describe("allowDM", () => {
+        it("should not deny any users if no configuration is set", async () => {
+            const adl = new AllowDenyList();
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
+            expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER, BLOCKED_SLACK_USERNAME)).to.equal(DenyReason.ALLOWED);
         });
-        expect(adl.allowDM("foo", "bar")).to.equal(DenyReason.MATRIX);
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, "bar")).to.equal(DenyReason.MATRIX);
-        expect(adl.allowDM("foo", BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
+
+        // Deny list
+        it("should block matrix user if in deny list", async () => {
+            const adl = new AllowDenyList({
+                deny: {
+                    matrix: [BLOCKED_MATRIX_USER]
+                }
+            });
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
+        });
+        it("should allow matrix user if not in deny list", async () => {
+            const adl = new AllowDenyList({
+                deny: {
+                    matrix: [BLOCKED_MATRIX_USER]
+                }
+            });
+            expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
+        });
+        it("should block slack user if in deny list", async () => {
+            const adl = new AllowDenyList({
+                deny: {
+                    slack: [BLOCKED_SLACK_USER]
+                }
+            });
+            expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
+        });
+        it("should block slack username if in deny list", async () => {
+            const adl = new AllowDenyList({
+                deny: {
+                    slack: [BLOCKED_SLACK_USERNAME]
+                }
+            });
+            expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER, BLOCKED_SLACK_USERNAME)).to.equal(DenyReason.SLACK);
+        });
+
+        // Allow List
+        it("should deny any users if allow.matrix is set", async () => {
+            const adl = new AllowDenyList({
+                allow: {
+                    matrix: ['will-not-match']
+                }
+            });
+            expect(adl.allowDM("foo", "bar")).to.equal(DenyReason.MATRIX);
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, "bar")).to.equal(DenyReason.MATRIX);
+            expect(adl.allowDM("foo", BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
+        });
+
+        it("should deny any users if allow.slack is set", async () => {
+            const adl = new AllowDenyList({
+                allow: {
+                    slack: ['will-not-match']
+                }
+            });
+            expect(adl.allowDM("foo", "bar")).to.equal(DenyReason.SLACK);
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, "bar")).to.equal(DenyReason.SLACK);
+            expect(adl.allowDM("foo", BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
+        });
+
+        it("should allow some users if if allow.matrix is set", async () => {
+            const adl = new AllowDenyList({
+                allow: {
+                    matrix: [NOT_BLOCKED_MATRIX_USER]
+                }
+            });
+            expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
+        });
+
+        it("should allow some users if allow.slack is set", async () => {
+            const adl = new AllowDenyList({
+                allow: {
+                    slack: [NOT_BLOCKED_SLACK_USER]
+                }
+            });
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
+        });
+
+        // Mixed
+        it("should block matrix user even if slack user allowed", async () => {
+            const adl = new AllowDenyList({
+                allow: {
+                    slack: [NOT_BLOCKED_SLACK_USER]
+                },
+                deny: {
+                    matrix: [BLOCKED_MATRIX_USER]
+                }
+            });
+            expect(adl.allowDM(BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
+        });
+
+        it("should block slack user even if matrix user allowed", async () => {
+            const adl = new AllowDenyList({
+                allow: {
+                    matrix: [NOT_BLOCKED_MATRIX_USER]
+                },
+                deny: {
+                    slack: [BLOCKED_SLACK_USER]
+                }
+            });
+            expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
+        });
     });
-    it("should deny any users if allow.slack is set", async () => {
-        const adl = new AllowDenyList({
-            allow: {
-                slack: ['will-not-match']
-            }
+    describe("allowChannel", () => {
+        it("should not deny any channels if no configuration is set", async () => {
+            const adl = new AllowDenyList();
+            expect(adl.allowSlackChannel(ALLOWED_SLACK_CHANNEL_ID, ALLOWED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.ALLOWED);
+            expect(adl.allowSlackChannel(BLOCKED_SLACK_CHANNEL_ID, BLOCKED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.ALLOWED);
         });
-        expect(adl.allowDM("foo", "bar")).to.equal(DenyReason.SLACK);
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, "bar")).to.equal(DenyReason.SLACK);
-        expect(adl.allowDM("foo", BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
-    });
-    it("should allow some users if if allow.matrix is set", async () => {
-        const adl = new AllowDenyList({
-            allow: {
-                matrix: [NOT_BLOCKED_MATRIX_USER]
-            }
+
+        // Deny
+
+        it("should deny a channel by id", () => {
+            const adl = new AllowDenyList({}, {
+                deny: [
+                    BLOCKED_SLACK_CHANNEL_ID
+                ]
+            });
+            expect(adl.allowSlackChannel(BLOCKED_SLACK_CHANNEL_ID, ALLOWED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.SLACK);
         });
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
-    });
-    it("should allow some users if allow.slack is set", async () => {
-        const adl = new AllowDenyList({
-            allow: {
-                slack: [NOT_BLOCKED_SLACK_USER]
-            }
+
+        it("should deny a channel by name", () => {
+            const adl = new AllowDenyList({}, {
+                deny: [
+                    BLOCKED_SLACK_CHANNEL_NAME
+                ]
+            });
+            expect(adl.allowSlackChannel(ALLOWED_SLACK_CHANNEL_ID, BLOCKED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.SLACK);
         });
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.ALLOWED);
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
-    });
-    // Mixed
-    it("should block matrix user even if slack user allowed", async () => {
-        const adl = new AllowDenyList({
-            allow: {
-                slack: [NOT_BLOCKED_SLACK_USER]
-            },
-            deny: {
-                matrix: [BLOCKED_MATRIX_USER]
-            }
+
+        it("should allow a channel by id", () => {
+            const adl = new AllowDenyList({}, {
+                allow: [
+                    ALLOWED_SLACK_CHANNEL_ID
+                ]
+            });
+            expect(adl.allowSlackChannel(ALLOWED_SLACK_CHANNEL_ID, BLOCKED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.ALLOWED);
         });
-        expect(adl.allowDM(BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
-    });
-    it("should block slack user even if matrix user allowed", async () => {
-        const adl = new AllowDenyList({
-            allow: {
-                matrix: [NOT_BLOCKED_MATRIX_USER]
-            },
-            deny: {
-                slack: [BLOCKED_SLACK_USER]
-            }
+
+        it("should allow a channel by name", () => {
+            const adl = new AllowDenyList({}, {
+                allow: [
+                    ALLOWED_SLACK_CHANNEL_NAME
+                ]
+            });
+            expect(adl.allowSlackChannel(BLOCKED_SLACK_CHANNEL_ID, ALLOWED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.ALLOWED);
         });
-        expect(adl.allowDM(NOT_BLOCKED_MATRIX_USER, BLOCKED_SLACK_USER)).to.equal(DenyReason.SLACK);
+
+        it("should block a channel when only allow is specified", () => {
+            const adl = new AllowDenyList({}, {
+                allow: [
+                    ALLOWED_SLACK_CHANNEL_ID
+                ]
+            });
+            expect(adl.allowSlackChannel(BLOCKED_SLACK_CHANNEL_ID, BLOCKED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.SLACK);
+        });
+
+        it("should allow a channel when only deny is specified", () => {
+            const adl = new AllowDenyList({}, {
+                deny: [
+                    BLOCKED_SLACK_CHANNEL_ID
+                ]
+            });
+            expect(adl.allowSlackChannel(ALLOWED_SLACK_CHANNEL_ID, ALLOWED_SLACK_CHANNEL_NAME)).to.equal(DenyReason.ALLOWED);
+        });
     });
 });
