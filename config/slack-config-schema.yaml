@@ -130,23 +130,25 @@ properties:
       direct_messages:
         type: object
         additionalProperties: false
-        oneOf:
-          - properties:
-              allow:
-                slack:
-                  items:
-                    type: string
-                matrix: 
-                  items:
-                    type: string
-          - properties:
-              deny:
-                slack:
-                  items:
-                    type: string
-                matrix: 
-                  items:
-                    type: string
+        properties:
+          allow:
+            slack:
+              type: "array"
+              items:
+                  type: "string"
+            matrix:
+              type: "array"
+              items:
+                  type: "string"
+          deny:
+            slack:
+              type: "array"
+              items:
+                  type: "string"
+            matrix:
+              type: "array"
+              items:
+                  type: "string"
   bot_profile:
     type: object
     properties:
