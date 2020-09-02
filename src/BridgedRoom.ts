@@ -513,6 +513,11 @@ export class BridgedRoom {
         // 5 - Slack user has joined
         // 6 - Matrix user has joined
 
+        if (this.team?.user_id === slackId) {
+            // We never reflect our own slack bot.
+            return;
+        }
+
         const recipientPuppet = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId!, slackId);
         const recipientGhost = await this.main.ghostStore.get(slackId, undefined, this.slackTeamId);
 

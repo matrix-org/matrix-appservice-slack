@@ -200,6 +200,7 @@ export class TeamSyncer {
         try {
             const members = await this.mapChannelMembershipToMatrixIds(teamId, client, channelItem.id);
             const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem, false, members);
+            const team = await this.main.datastore.getTeam(teamId);
             const inboundId = this.main.genInboundId();
             const room = new BridgedRoom(this.main, {
                 inbound_id: inboundId,
@@ -208,7 +209,7 @@ export class TeamSyncer {
                 slack_channel_id: channelItem.id,
                 is_private: true,
                 slack_type: "channel",
-            }, undefined, client);
+            }, team!, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
             await this.main.datastore.upsertRoom(room);
@@ -283,8 +284,13 @@ export class TeamSyncer {
 
         try {
             // Always sync membership for rooms.
-            if (channelItem.is_private === false) {
-                await this.ensureBotInChannel(channelItem.id, teamId);
+            try {
+                if (channelItem.is_private === false) {
+                    await this.ensureBotInChannel(channelItem.id, teamId);
+                }
+            } catch (ex) {
+                // This can happen if we don't have a puppet yet. Not to worry.
+                log.warn(`Could not ensure bot is in channel ${channelItem.id}: ${ex.message}`);
             }
             await this.syncMembershipForRoom(roomId, channelItem.id, teamId, client);
         } catch (ex) {
