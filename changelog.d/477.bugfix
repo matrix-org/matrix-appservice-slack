@@ -1,0 +1,1 @@
+Ensure that the bridge still syncs created and deleted channels, as well as new slack users, when using the RTM API.

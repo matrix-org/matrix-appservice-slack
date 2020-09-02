@@ -100,7 +100,8 @@ export class SlackEventHandler extends BaseSlackHandler {
      * to events in order to handle them.
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
-    "team_domain_change", "channel_rename", "user_change", "user_typing", "member_joined_channel"];
+    "team_domain_change", "channel_rename", "user_change", "user_typing", "member_joined_channel",
+    "channel_created", "channel_deleted", "team_join"];
     constructor(main: Main) {
         super(main);
     }
