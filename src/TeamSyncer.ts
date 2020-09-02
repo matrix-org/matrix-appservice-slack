@@ -22,6 +22,7 @@ import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse
 import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
+import { DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("TeamSyncer");
 
@@ -145,7 +146,7 @@ export class TeamSyncer {
             if (!teamConfig.channels?.enabled) {
                 return false;
             }
-            if (teamConfig.channels.allow_private === false) {
+            if (isPrivate && teamConfig.channels.allow_private === false) {
                 // Default to true.
                 return false;
             }
@@ -255,7 +256,7 @@ export class TeamSyncer {
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private)) {
             return;
         }
-        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name)) {
+        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
             log.warn("Channel is not allowed to be bridged");
             return;
         }
@@ -363,7 +364,7 @@ export class TeamSyncer {
     private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient) {
         const teamInfo = (await this.main.datastore.getTeam(teamId))!;
         log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
-        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name)) {
+        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
             log.warn("Channel is not allowed to be bridged");
         }
 
