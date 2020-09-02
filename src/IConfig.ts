@@ -94,6 +94,10 @@ export interface IConfig {
         limits?: {
             team_count?: number;
             room_count?: number;
+        };
+        channel_adl?: {
+            allow: string[];
+            deny: string[];
         }
     };
 

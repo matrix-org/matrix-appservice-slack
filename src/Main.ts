@@ -218,7 +218,10 @@ export class Main {
             this.teamSyncer = new TeamSyncer(this);
         }
 
-        this.allowDenyList = new AllowDenyList(config.puppeting?.direct_messages);
+        this.allowDenyList = new AllowDenyList(
+            config.puppeting?.direct_messages,
+            config.provisioning?.channel_adl,
+        );
 
         const homeserverToken = registration.getHomeserverToken();
         if (homeserverToken === null) {
@@ -1093,6 +1096,23 @@ export class Main {
             }
         }
 
+        let channelInfo: ConversationsInfoResponse|undefined;
+        if (slackClient && opts.slack_channel_id && opts.team_id) {
+            // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
+
+            channelInfo = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
+            if (!channelInfo.ok) {
+                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, channelInfo.error);
+                throw Error("Failed to get channel info");
+            }
+        }
+
+        if (opts.slack_channel_id &&
+            this.allowDenyList.allowSlackChannel(opts.slack_channel_id, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
+            log.warn(`Channel ${opts.slack_channel_id} is not allowed to be bridged`);
+            throw Error("The bridge config denies bridging this channel");
+        }
+
         let isNew = false;
         if (!existingRoom) {
             try {
@@ -1110,6 +1130,10 @@ export class Main {
                 is_private: false,
                 slack_type: "unknown", // Set below.
             }, teamEntry || undefined, slackClient);
+            if (channelInfo) {
+                room.updateUsingChannelInfo(channelInfo);
+                room.SlackChannelName = channelInfo.channel.name;
+            }
             isNew = true;
             this.stateStorage.trackRoom(matrixRoomId);
         } else {
@@ -1128,17 +1152,9 @@ export class Main {
             throw Error("Missing webhook_id OR channel_id");
         }
 
-        if (slackClient && opts.slack_channel_id && opts.team_id) {
+        if (slackClient) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
-
-            const infoRes = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;
-            if (!infoRes.ok) {
-                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, infoRes.error);
-                throw Error("Failed to get channel info");
-            }
-            room.updateUsingChannelInfo(infoRes);
             room.setBotClient(slackClient);
-            room.SlackChannelName = infoRes.channel.name;
         }
 
         if (isNew) {
