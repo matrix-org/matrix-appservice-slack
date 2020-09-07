@@ -589,7 +589,7 @@ export class BridgedRoom {
         await puppetedClient.conversations.invite({channel: this.slackChannelId!, users: ghost.slackId });
     }
 
-    public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
+    public async onSlackMessage(message: ISlackMessageEvent) {
         if (this.slackTeamId && message.user) {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
             const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);
@@ -601,14 +601,16 @@ export class BridgedRoom {
             // We sent this, ignore.
             return;
         }
-        // Dedupe across RTM/Event streams
-        this.addRecentSlackMessage(message.ts);
         try {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId!);
             await ghost.update(message, this);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             this.slackSendLock = this.slackSendLock.finally(async () => {
-                return this.handleSlackMessage(message, ghost, content);
+                // Check again
+                if (!this.recentSlackMessages.includes(message.ts)) {
+                    return this.handleSlackMessage(message, ghost);
+                }
+                // We sent this, ignore
             });
             await this.slackSendLock;
         } catch (err) {
@@ -776,9 +778,12 @@ export class BridgedRoom {
         );
     }
 
-    private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost, content?: Buffer) {
+    private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost) {
         const eventTS = message.event_ts || message.ts;
         const channelId = this.slackChannelId!;
+
+        // Dedupe across RTM/Event streams
+        this.addRecentSlackMessage(message.ts);
 
         ghost.bumpATime();
         this.slackATime = Date.now() / 1000;

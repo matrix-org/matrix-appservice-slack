@@ -712,7 +712,7 @@ export class Main {
                 "The admin of this Slack bridge has denied users to directly message this Slack user.",
                 msgtype: "m.notice",
             });
-            await intent.leave();
+            await intent.leave(roomId);
             return;
         }
 
@@ -966,7 +966,7 @@ export class Main {
         const entries = await this.datastore.getAllRooms();
         log.info(`Found ${entries.length} room entries in store`);
         await Promise.all(entries.map(async (entry, i) => {
-            log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
+            log.info(`[${i+1}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
                 await this.startupLoadRoomEntry(entry, joinedRooms as string[], teamClients);
             } catch (ex) {
@@ -1214,7 +1214,8 @@ export class Main {
         return userLevel >= requiresLevel;
     }
 
-    public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean) {
+    public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean,
+        botAccessToken?: string) {
         const existingTeam = await this.datastore.getTeam(teamId);
         await this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
@@ -1228,8 +1229,15 @@ export class Main {
             });
         }
         log.info(`Set new access token for ${userId} (team: ${teamId}, puppeting: ${puppeting})`);
+        if (botAccessToken) {
+            // Rather than upsert the values we were given, use the
+            // access token to validate and make additional requests
+            await this.clientFactory.upsertTeamByToken(
+                botAccessToken,
+            );
+        }
         if (!existingTeam && !puppeting && this.teamSyncer) {
-            log.info("This is a new team, so syncing members");
+            log.info("This is a new team, so syncing members and channels");
             try {
                 await this.teamSyncer.syncItems(
                     teamId,
