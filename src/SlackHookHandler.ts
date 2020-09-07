@@ -351,14 +351,8 @@ export class SlackHookHandler extends BaseSlackHandler {
                 response.user_id,
                 response.access_token,
                 response.bot === undefined,
+                response.bot?.bot_access_token,
             );
-            if (response.bot) {
-                // Rather than upsert the values we were given, use the
-                // access token to validate and make additional requests
-                await this.main.clientFactory.upsertTeamByToken(
-                    response.bot.bot_access_token,
-                );
-            }
         } catch (err) {
             log.error("Error during handling of an oauth token:", err);
             return {
