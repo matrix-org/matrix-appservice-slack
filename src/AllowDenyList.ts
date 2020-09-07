@@ -31,8 +31,8 @@ export class AllowDenyList {
             // Ensure the exact string matches.
             return new RegExp(`^${str}$`);
         }
-        // Otherwise, it's a real regex
-        return new RegExp(str);
+        // Otherwise, it's a real regex. Remove the leading and trailing /s
+        return new RegExp(str.slice(1, str.length - 1));
     }
 
     private dmAllow?: {
@@ -83,7 +83,6 @@ export class AllowDenyList {
             (slackUsername && e.test(slackUsername)))) {
             return DenyReason.SLACK; // Slack user was not on the allow list
         }
-
         const deny = this.dmDeny;
         if (deny && deny.matrix?.length > 0 && deny.matrix.some((e) => e.test(matrixUser))) {
             return DenyReason.MATRIX; // Matrix user was on the deny list
