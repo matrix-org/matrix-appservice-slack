@@ -50,7 +50,7 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 }
 
 const RECENT_MESSAGE_MAX = 10;
-const PUPPET_INCOMING_DELAY_MS = 1500;
+const PUPPET_INCOMING_DELAY_MS = 5000;
 
 
 /**
@@ -468,6 +468,7 @@ export class BridgedRoom {
         })) as ChatPostMessageResponse;
 
         this.addRecentSlackMessage(res.ts);
+        log.info(`Sent Matrix message ${message.event_id} ${message.room_id} as slack event ${res.ts}`);
 
         this.main.incCounter(METRIC_SENT_MESSAGES, {side: "remote"});
         // Log activity, but don't await the answer or throw errors
@@ -590,15 +591,20 @@ export class BridgedRoom {
     }
 
     public async onSlackMessage(message: ISlackMessageEvent) {
+        // HACK: Delay so that messages do not duplicate. Find a better solution pronto!
+        await new Promise((r) => setTimeout(r, 1000));
         if (this.slackTeamId && message.user) {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
-            const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);
-            if (hasPuppet) {
+            const puppetedClient = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId, message.user);
+            if (puppetedClient) {
+                log.info(`User ${message.user} is puppeted, delaying incoming slack message`);
                 await new Promise((r) => setTimeout(r, PUPPET_INCOMING_DELAY_MS));
+                log.info(`Timeout exired ${message.user}`);
             }
         }
         if (this.recentSlackMessages.includes(message.ts)) {
             // We sent this, ignore.
+            log.warn("Message was already handled, ignoring");
             return;
         }
         try {
@@ -613,6 +619,7 @@ export class BridgedRoom {
                 // We sent this, ignore
             });
             await this.slackSendLock;
+            log.info(`Sent Slack message ${message.ts} ${this.SlackChannelId} as Matrix event`);
         } catch (err) {
             log.error("Failed to process event");
             log.error(err);
