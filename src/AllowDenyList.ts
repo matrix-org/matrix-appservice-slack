@@ -31,7 +31,7 @@ export class AllowDenyList {
             // Ensure the exact string matches.
             return new RegExp(`^${str}$`);
         }
-        // Otherwise, it's a real regex. Remove the leading and trailing /s
+        // Otherwise, it's a real regex. Remove the leading and trailing slash.
         return new RegExp(str.slice(1, str.length - 1));
     }
 

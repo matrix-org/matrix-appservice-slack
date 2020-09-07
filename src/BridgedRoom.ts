@@ -608,9 +608,9 @@ export class BridgedRoom {
             this.slackSendLock = this.slackSendLock.finally(async () => {
                 // Check again
                 if (!this.recentSlackMessages.includes(message.ts)) {
-                    // We sent this, ignore.
                     return this.handleSlackMessage(message, ghost);
                 }
+                // We sent this, ignore
             });
             await this.slackSendLock;
         } catch (err) {
