@@ -300,7 +300,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // them by now
         PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
         lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, room.SlackClient);
-        return room.onSlackMessage(lookupRes.message, lookupRes.content);
+        return room.onSlackMessage(lookupRes.message);
     }
 
     private async handleAuthorize(token: string, params: qs.ParsedUrlQuery) {
@@ -378,7 +378,7 @@ export class SlackHookHandler extends BaseSlackHandler {
      *     formatted as a float.
      */
     private async lookupMessage(channelID: string, timestamp: string, client: WebClient): Promise<{
-        message: ISlackMessageEvent, content: Buffer|undefined}> {
+        message: ISlackMessageEvent}> {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.
         const response = (await client.conversations.history({
@@ -405,17 +405,6 @@ export class SlackHookHandler extends BaseSlackHandler {
         const message = response.messages[0];
         log.debug("Looked up message from history as " + JSON.stringify(message));
 
-        if (message.subtype === "file_share") {
-            try {
-                message.file = await this.enablePublicSharing(message.file!, client);
-                const content = await this.fetchFileContent(message.file!);
-                return { message, content };
-            } catch (err) {
-                log.error("Failed to get file content: ", err);
-                // Fall through here and handle like a normal message.
-            }
-        }
-
-        return { message, content: undefined };
+        return { message };
     }
 }

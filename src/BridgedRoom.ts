@@ -589,7 +589,7 @@ export class BridgedRoom {
         await puppetedClient.conversations.invite({channel: this.slackChannelId!, users: ghost.slackId });
     }
 
-    public async onSlackMessage(message: ISlackMessageEvent, content?: Buffer) {
+    public async onSlackMessage(message: ISlackMessageEvent) {
         if (this.slackTeamId && message.user) {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
             const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);
@@ -776,7 +776,7 @@ export class BridgedRoom {
         );
     }
 
-    private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost, content?: Buffer) {
+    private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost) {
         const eventTS = message.event_ts || message.ts;
         const channelId = this.slackChannelId!;
 
