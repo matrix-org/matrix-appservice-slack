@@ -781,7 +781,7 @@ export class BridgedRoom {
     private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost) {
         const eventTS = message.event_ts || message.ts;
         const channelId = this.slackChannelId!;
-        
+
         // Dedupe across RTM/Event streams
         this.addRecentSlackMessage(message.ts);
 
