@@ -227,7 +227,7 @@ export class TeamSyncer {
         }
         const slackGhost = existingGhost || await this.main.ghostStore.get(item.id, domain, teamId);
         if (item.deleted !== true) {
-            await slackGhost.updateFromISlackUser(item);
+            await slackGhost.updateFromISlackUser(item, this.main.config);
             return;
         }
         log.warn(`User ${item.id} has been deleted`);

@@ -17,6 +17,7 @@ limitations under the License.
 import { Logging, Intent } from "matrix-appservice-bridge";
 import * as Slackdown from "Slackdown";
 import { BridgedRoom } from "./BridgedRoom";
+import { IConfig } from "./IConfig";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
@@ -87,7 +88,7 @@ export class SlackGhost {
         };
     }
 
-    public async update(message: {user_id?: string, user?: string}, room: BridgedRoom) {
+    public async update(message: {user_id?: string, user?: string}, room: BridgedRoom, config: IConfig) {
         const user = (message.user_id || message.user);
         if (this.updateInProgress) {
             log.debug(`Not updating ${user}: Update in progress.`);
@@ -97,7 +98,7 @@ export class SlackGhost {
         const updateStartTime = Date.now();
         this.updateInProgress = true;
         await Promise.all([
-            this.updateDisplayname(message, room).catch((e) => {
+            this.updateDisplayname(message, room, config).catch((e) => {
                 log.error("Failed to update ghost displayname:", e);
             }),
             this.updateAvatar(message, room).catch((e) => {
@@ -115,15 +116,19 @@ export class SlackGhost {
         }
     }
 
-    public async updateFromISlackUser(slackUser: ISlackUser) {
+    public async updateFromISlackUser(slackUser: ISlackUser, config: IConfig) {
         if (!slackUser.profile) {
             return;
         }
         let changed = false;
-        if (slackUser.profile.display_name && this.displayName !== slackUser.profile.display_name) {
-            await this.intent.setDisplayName(slackUser.profile.display_name);
-            this.displayname = slackUser.profile.display_name;
-            changed = true;
+        if (slackUser.profile.display_name) {
+            const newDisplayname = `${slackUser.profile.display_name}${config.display_name_suffix}`;
+
+            if (this.displayName !== newDisplayname) {
+                await this.intent.setDisplayname(newDisplayname);
+                this.displayname = newDisplayname;
+                changed = true;
+            }
         }
 
         const avatarRes = await this.lookupAvatarUrl(slackUser);
@@ -149,7 +154,7 @@ export class SlackGhost {
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-                                    room: BridgedRoom) {
+                                    room: BridgedRoom, config: IConfig) {
         let displayName = message.username || message.user_name;
 
         if (room.SlackClient) { // We can be smarter if we have the bot.
@@ -163,9 +168,14 @@ export class SlackGhost {
                 displayName = await this.getDisplayname(room.SlackClient);
             }
         }
+        if (!displayName) {
+            return
+        }
 
-        if (!displayName || this.displayName === displayName) {
-            return; // Nothing to do.
+        displayName = `${displayName}${config.display_name_suffix}`;
+
+        if (this.displayName === displayName) {
+            return;
         }
 
         log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
