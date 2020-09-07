@@ -712,7 +712,7 @@ export class Main {
                 "The admin of this Slack bridge has denied users to directly message this Slack user.",
                 msgtype: "m.notice",
             });
-            await intent.leave();
+            await intent.leave(roomId);
             return;
         }
 
