@@ -966,7 +966,7 @@ export class Main {
         const entries = await this.datastore.getAllRooms();
         log.info(`Found ${entries.length} room entries in store`);
         await Promise.all(entries.map(async (entry, i) => {
-            log.info(`[${i}/${entries.length}] Loading room entry ${entry.matrix_id}`);
+            log.info(`[${i+1}/${entries.length}] Loading room entry ${entry.matrix_id}`);
             try {
                 await this.startupLoadRoomEntry(entry, joinedRooms as string[], teamClients);
             } catch (ex) {
