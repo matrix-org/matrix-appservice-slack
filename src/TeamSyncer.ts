@@ -33,6 +33,9 @@ export interface ITeamSyncConfig {
         blacklist?: string[];
         alias_prefix?: string;
         allow_private?: boolean;
+        powerlevels?: {
+            users: Record<string, number>;
+        };
     };
     users?: {
         enabled: boolean;
@@ -254,7 +257,8 @@ export class TeamSyncer {
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
-        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private)) {
+        const syncConfig = this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private);
+        if (!syncConfig) {
             return;
         }
         if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
@@ -280,6 +284,22 @@ export class TeamSyncer {
         } else {
             log.debug("Not creating room for channel: Already exists");
             roomId = existingChannel.MatrixRoomId;
+        }
+
+        // Sync powerlevels
+        if (syncConfig.channels?.powerlevels) {
+            log.debug("Setting powerlevels for channel");
+            const powerLevelEvent = await this.main.botIntent.getStateEvent(roomId, "m.room.power_levels", "");
+            let changed = false;
+            for (const [userId, power] of Object.entries(syncConfig.channels.powerlevels.users)) {
+                if (powerLevelEvent.users[userId] !== power) {
+                    changed = true;
+                    powerLevelEvent.users[userId] = power;
+                }
+            }
+            if (changed) {
+                await this.main.botIntent.sendStateEvent(roomId, "m.room.power_levels", "", powerLevelEvent);
+            }
         }
 
         try {

@@ -123,6 +123,13 @@ properties:
             type: number
           team_count:
             type: number
+      powerlevels:
+        type: object
+        properties:
+          users:
+            type: object
+            additionalProperties:
+              type: number
       channel_adl:
         type: object
         properties:
