@@ -627,8 +627,10 @@ export class BridgedRoom {
         const reaction = `:${message.reaction}:`;
         const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
 
+        console.log(message);
+        await this.main.datastore.upsertEvent(message);
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
-            // We sent this, ignore.
+            // We sent this, ignore. But put it in our datastore so we can redact it.
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
@@ -642,6 +644,28 @@ export class BridgedRoom {
         log.debug(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}`);
         return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
                                   message.item.channel, message.event_ts);
+    }
+
+    public async onSlackReactionRemoved(message: any, teamId: string) {
+        if (message.user_id === this.team!.user_id) {
+            return;
+        }
+
+        // if (this.recentSlackMessages.includes(`react:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
+        //     // We sent this, ignore.
+        //     return;
+        // }
+        const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
+        await ghost.update(message, this);
+
+        const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
+
+        if (event === null) {
+            return;
+        }
+        log.debug(`Sending reaction redaction for ${event.eventId} as ${ghost.userId}`);
+        // return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
+        //     message.item.channel, message.event_ts);
     }
 
     public async onSlackTyping(event: ISlackEvent, teamId: string) {
@@ -779,6 +803,7 @@ export class BridgedRoom {
     }
 
     private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost) {
+        log.info('Slack event');
         const eventTS = message.event_ts || message.ts;
         const channelId = this.slackChannelId!;
 

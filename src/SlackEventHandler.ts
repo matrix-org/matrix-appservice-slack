@@ -231,26 +231,12 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
-        if (event.type === "channel_join") {
-            await room.onSlackUserJoin(event.user!, event.inviter!);
-        } else if (event.type === "channel_leave") {
-            await room.onSlackUserLeft(event.user!);
-        }
-
         const msg = Object.assign({}, event, {
             channel_id: event.channel,
             team_domain: team.domain || team.id,
             team_id: teamId,
             user_id: event.user || event.bot_id,
         });
-
-        if (event.type === "reaction_added") {
-            return room.onSlackReactionAdded(msg, teamId);
-        }
-        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
-        /* else if (params.event.type === "reaction_removed") {
-            return room.onSlackReactionRemoved(msg);
-        } */
 
         if (!room.SlackClient) {
             // If we can't look up more details about the message
@@ -327,21 +313,25 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
 
-        const msg = Object.assign({}, event, {
+        const msg =  {
+            ...event,
             channel_id: channel,
             team_domain: team!.domain || room.SlackTeamId,
             team_id: teamId,
             user_id: event.user || event.bot_id,
-        });
+        };
 
         if (event.type === "reaction_added") {
             return room.onSlackReactionAdded(msg, teamId);
+        } else if (event.type === "reaction_removed") {
+            const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.item.ts);
+            console.log(`Trying to redact ${msg.item.ts} and found ${JSON.stringify(originalEvent)}`);
+            if (originalEvent) {
+                const botClient = this.main.botIntent.getClient();
+                return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+            }
+            return room.onSlackReactionRemoved(msg, teamId);
         }
-
-        // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
-        /* else if (params.event.type === "reaction_removed") {
-            return room.onSlackReactionRemoved(msg);
-        } */
     }
 
     private async handleDomainChangeEvent(event: ISlackEventTeamDomainChange, teamId: string) {
