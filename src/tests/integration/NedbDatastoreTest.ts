@@ -22,11 +22,12 @@ describe("NedbDatastore", () => {
     let ds: NedbDatastore;
     let roomStore: RoomBridgeStore;
     before(async () => {
-        const users = new UserBridgeStore(new NedbDs());
+        const userStore = new UserBridgeStore(new NedbDs());
         roomStore = new RoomBridgeStore(new NedbDs());
-        const events = new EventBridgeStore(new NedbDs());
-        const teams = new NedbDs();
-        ds = new NedbDatastore(users, roomStore, events, teams);
+        const eventStore = new EventBridgeStore(new NedbDs());
+        const teamStore = new NedbDs();
+        const reactionStore = new NedbDs();
+        ds = new NedbDatastore(userStore, roomStore, eventStore, teamStore, reactionStore);
     });
 
     doDatastoreTests(() => ds, async () => {

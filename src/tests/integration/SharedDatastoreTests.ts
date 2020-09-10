@@ -281,6 +281,70 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
         });
     });
 
+    describe("reactions", () => {
+        it("should insert and retrieve a reaction by its Matrix identifiers", async () => {
+            const entry = {
+                roomId: "!foo1:bar",
+                eventId: "$foo1:bar",
+                slackChannelId: "F001",
+                slackMessageTs: "BAR1",
+                reaction: "😀",
+            };
+            await ds().upsertReaction(entry);
+            const reaction = await ds().getReactionByMatrixId(entry.roomId, entry.eventId);
+            expect(reaction).to.deep.equal(entry);
+        });
+        it("should insert and retrieve a reaction by its Slack identifiers", async () => {
+            const entry = {
+                roomId: "!foo2:bar",
+                eventId: "$foo2:bar",
+                slackChannelId: "F002",
+                slackMessageTs: "BAR2",
+                reaction: "😀",
+            };
+            await ds().upsertReaction(entry);
+            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
+            expect(reaction).to.deep.equal(entry);
+        });
+        it("should insert and delete a reaction by its Matrix identifiers", async () => {
+            const entry = {
+                roomId: "!foo3:bar",
+                eventId: "$foo3:bar",
+                slackChannelId: "F003",
+                slackMessageTs: "BAR3",
+                reaction: "😀",
+            };
+            await ds().upsertReaction(entry);
+            await ds().deleteReactionByMatrixId(entry.roomId, entry.eventId);
+            const reaction = await ds().getReactionByMatrixId(entry.roomId, entry.eventId);
+            expect(reaction).to.be.null;
+        });
+        it("should insert and delete a reaction by its Slack identifiers", async () => {
+            const entry = {
+                roomId: "!foo4:bar",
+                eventId: "$foo4:bar",
+                slackChannelId: "F004",
+                slackMessageTs: "BAR4",
+                reaction: "😀",
+            };
+            await ds().upsertReaction(entry);
+            await ds().deleteReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
+            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
+            expect(reaction).to.be.null;
+        });
+        it("should not throw when an reaction is upserted twice", async () => {
+            const entry = {
+                roomId: "!foo5:bar",
+                eventId: "$foo5:bar",
+                slackChannelId: "F005",
+                slackMessageTs: "BAR5",
+                reaction: "😀",
+            };
+            await ds().upsertReaction(entry);
+            await ds().upsertReaction(entry);
+        });
+    });
+
     describe("metrics", () => {
         it("should not throw when an activity is upserted twice", async () => {
             const user = SlackGhost.fromEntry(null as any, {

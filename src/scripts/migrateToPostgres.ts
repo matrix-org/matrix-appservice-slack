@@ -55,12 +55,14 @@ async function main() {
     const roomStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "room-store.db"), ...config});
     const userStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "user-store.db"), ...config});
     const eventStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "event-store.db"), ...config});
+    const reactionStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "reaction-store.db"), ...config });
 
     try {
         await promisify(teamStore.loadDatabase).bind(teamStore)();
         await promisify(roomStore.loadDatabase).bind(roomStore)();
         await promisify(userStore.loadDatabase).bind(userStore)();
         await promisify(eventStore.loadDatabase).bind(eventStore)();
+        await promisify(reactionStore.loadDatabase).bind(reactionStore)();
     } catch (ex) {
         log.error("Couldn't load datastores");
         log.error("Ensure you have given the correct path to the database.");
@@ -72,6 +74,7 @@ async function main() {
         new RoomBridgeStore(roomStore),
         new EventBridgeStore(eventStore),
         teamStore,
+        reactionStore,
     );
     try {
         const startedAt = Date.now();
@@ -92,6 +95,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     const allTeams = (await nedb.getAllTeams()) as any[];
     const allSlackUsers = await nedb.getAllUsers(false);
     const allMatrixUsers = await nedb.getAllUsers(true);
+    const allReactions = await nedb.getAllReactions();
 
     const slackClientFactory = new SlackClientFactory(targetDs);
 
@@ -173,7 +177,6 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
             }
             user.slack_id = parts[1];
             user.team_id = existingTeam!.id;
-            // tslint:disable-next-line: no-any
         }
         // tslint:disable-next-line: no-any
         const ghost = SlackGhost.fromEntry(null as any, user, null);
@@ -183,10 +186,15 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
 
     const matrixUserMigrations = () => Promise.all(allMatrixUsers.map(async (user, i) => {
         const mxUser = new MatrixUser(user.id, user);
-        // tslint:disable-next-line: no-any
         await targetDs.storeMatrixUser(mxUser);
         log.info(`Migrated matrix user ${mxUser.getId()} (${i + 1}/${allMatrixUsers.length})`);
     }));
+
+    const reactionMigrations = () => Promise.all(allReactions.map(async (reaction, i) => {
+        await targetDs.upsertReaction(reaction);
+        log.info(`Migrated event ${reaction.eventId} ${reaction.slackMessageTs} (${i + 1}/${allReactions.length})`);
+    }));
+
     log.info("Starting eventMigrations");
     await eventMigrations();
     log.info("Finished eventMigrations");
@@ -206,6 +214,9 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     log.info("Starting matrixUserMigrations");
     await matrixUserMigrations();
     log.info("Finished matrixUserMigrations");
+    log.info("Starting reactionMigrations");
+    await reactionMigrations();
+    log.info("Finished reactionMigrations");
 }
 
 main().then(() => {

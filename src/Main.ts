@@ -834,18 +834,21 @@ export class Main {
                 filename: path.join(this.config.dbdir || "", "teams.db"),
             });
             await new Promise((resolve, reject) => {
-                teamDatastore.loadDatabase((err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            }); });
+                teamDatastore.loadDatabase(err => err ? reject(err) : resolve());
+            });
+            const reactionDatastore = new NedbDs({
+                autoload: true,
+                filename: path.join(this.config.dbdir || "", "reactions.db"),
+            });
+            await new Promise((resolve, reject) => {
+                reactionDatastore.loadDatabase(err => err ? reject(err) : resolve());
+            });
             this.datastore = new NedbDatastore(
                 this.bridge.getUserStore(),
                 this.bridge.getRoomStore(),
                 this.bridge.getEventStore(),
                 teamDatastore,
+                reactionDatastore,
             );
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
