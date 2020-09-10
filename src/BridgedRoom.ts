@@ -328,6 +328,20 @@ export class BridgedRoom {
 
         // If we don't get an event then exit
         if (event === null) {
+            const reactionEntry = await this.main.datastore.getReactionByMatrixId(message.room_id, message.redacts);
+
+            if (reactionEntry) {
+                log.error(`Trying to redact reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}`);
+                await this.main.datastore.deleteReactionByMatrixId(message.room_id, message.redacts);
+                await client.reactions.remove({
+                    as_user: false,
+                    channel: reactionEntry.slackChannelId,
+                    ts: reactionEntry.slackMessageTs,
+                    name: reactionEntry.reaction,
+                });
+                return;
+            }
+
             log.debug(`Could not find event '${message.redacts}' in room '${message.room_id}' to delete.`);
             return;
         }
