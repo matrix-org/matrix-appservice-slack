@@ -217,10 +217,10 @@ export class SlackEventHandler extends BaseSlackHandler {
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
-        const userId = event.user || event.bot_id;
+        const userOrBotId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
-        if (!userId) { throw Error("event_without_user"); }
+        if (!userOrBotId) { throw Error("event_without_sender"); }
 
         if (event.bot_id && (event.bot_id === team.bot_id)) {
             return;
@@ -238,7 +238,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             channel_id: event.channel,
             team_domain: team.domain || team.id,
             team_id: teamId,
-            user_id: userId,
+            user_id: userOrBotId,
         };
 
         if (!room.SlackClient) {
@@ -313,22 +313,23 @@ export class SlackEventHandler extends BaseSlackHandler {
         const channel = event.item.channel;
         const room = this.main.rooms.getBySlackChannelId(channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
-        const userId = event.user || event.bot_id;
+        const userOrBotId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
-        if (!userId) { throw Error("event_without_user"); }
+        if (!userOrBotId) { throw Error("event_without_sender"); }
 
         const msg =  {
             ...event,
             channel_id: channel,
             team_domain: team.domain || room.SlackTeamId,
             team_id: teamId,
-            user_id: userId,
+            user_id: userOrBotId,
         };
 
         if (event.type === "reaction_added") {
             return room.onSlackReactionAdded(msg, teamId);
         } else if (event.type === "reaction_removed") {
+            // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
             // return room.onSlackReactionRemoved(msg, teamId);
         }
     }
@@ -356,17 +357,17 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleTyping(event: ISlackEventUserTyping, teamId: string) {
         const room = this.main.rooms.getBySlackChannelId(event.channel);
         const team = await this.main.datastore.getTeam(teamId);
-        const userId = event.user || event.bot_id;
+        const userOrBotId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
-        if (!userId) { throw Error("event_without_user"); }
+        if (!userOrBotId) { throw Error("event_without_sender"); }
 
         const typingEvent = {
             ...event,
             channel_id: event.channel,
             team_domain: team.domain || room.SlackTeamId,
             team_id: teamId,
-            user_id: userId,
+            user_id: userOrBotId,
         };
         await room.onSlackTyping(typingEvent, teamId);
     }

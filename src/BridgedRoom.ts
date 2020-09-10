@@ -627,10 +627,8 @@ export class BridgedRoom {
         const reaction = `:${message.reaction}:`;
         const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
 
-        console.log(message);
-        await this.main.datastore.upsertEvent(message);
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
-            // We sent this, ignore. But put it in our datastore so we can redact it.
+            // We sent this, ignore.
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
@@ -781,7 +779,6 @@ export class BridgedRoom {
     }
 
     private async handleSlackMessage(message: ISlackMessageEvent, ghost: SlackGhost) {
-        log.info('Slack event');
         const eventTS = message.event_ts || message.ts;
         const channelId = this.slackChannelId!;
 
