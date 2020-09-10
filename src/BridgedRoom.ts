@@ -646,28 +646,6 @@ export class BridgedRoom {
                                   message.item.channel, message.event_ts);
     }
 
-    public async onSlackReactionRemoved(message: any, teamId: string) {
-        if (message.user_id === this.team!.user_id) {
-            return;
-        }
-
-        // if (this.recentSlackMessages.includes(`react:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
-        //     // We sent this, ignore.
-        //     return;
-        // }
-        const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
-        await ghost.update(message, this);
-
-        const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
-
-        if (event === null) {
-            return;
-        }
-        log.debug(`Sending reaction redaction for ${event.eventId} as ${ghost.userId}`);
-        // return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
-        //     message.item.channel, message.event_ts);
-    }
-
     public async onSlackTyping(event: ISlackEvent, teamId: string) {
         const ghost = await this.main.ghostStore.getForSlackMessage(event, teamId);
         await ghost.sendTyping(this.MatrixRoomId);

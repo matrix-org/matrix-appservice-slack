@@ -217,8 +217,10 @@ export class SlackEventHandler extends BaseSlackHandler {
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
+        const userId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
+        if (!userId) { throw Error("event_without_user"); }
 
         if (event.bot_id && (event.bot_id === team.bot_id)) {
             return;
@@ -231,12 +233,13 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
-        const msg = Object.assign({}, event, {
+        const msg = {
+            ...event,
             channel_id: event.channel,
             team_domain: team.domain || team.id,
             team_id: teamId,
-            user_id: event.user || event.bot_id,
-        });
+            user_id: userId,
+        };
 
         if (!room.SlackClient) {
             // If we can't look up more details about the message
@@ -310,27 +313,23 @@ export class SlackEventHandler extends BaseSlackHandler {
         const channel = event.item.channel;
         const room = this.main.rooms.getBySlackChannelId(channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
+        const userId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
+        if (!userId) { throw Error("event_without_user"); }
 
         const msg =  {
             ...event,
             channel_id: channel,
-            team_domain: team!.domain || room.SlackTeamId,
+            team_domain: team.domain || room.SlackTeamId,
             team_id: teamId,
-            user_id: event.user || event.bot_id,
+            user_id: userId,
         };
 
         if (event.type === "reaction_added") {
             return room.onSlackReactionAdded(msg, teamId);
         } else if (event.type === "reaction_removed") {
-            const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.item.ts);
-            console.log(`Trying to redact ${msg.item.ts} and found ${JSON.stringify(originalEvent)}`);
-            if (originalEvent) {
-                const botClient = this.main.botIntent.getClient();
-                return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
-            }
-            return room.onSlackReactionRemoved(msg, teamId);
+            // return room.onSlackReactionRemoved(msg, teamId);
         }
     }
 
@@ -357,14 +356,18 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleTyping(event: ISlackEventUserTyping, teamId: string) {
         const room = this.main.rooms.getBySlackChannelId(event.channel);
         const team = await this.main.datastore.getTeam(teamId);
+        const userId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
-        const typingEvent = Object.assign({}, event, {
+        if (!userId) { throw Error("event_without_user"); }
+
+        const typingEvent = {
+            ...event,
             channel_id: event.channel,
-            team_domain: team!.domain || room.SlackTeamId,
+            team_domain: team.domain || room.SlackTeamId,
             team_id: teamId,
-            user_id: event.user || event.bot_id,
-        });
+            user_id: userId,
+        };
         await room.onSlackTyping(typingEvent, teamId);
     }
 
