@@ -327,10 +327,16 @@ export class SlackEventHandler extends BaseSlackHandler {
         };
 
         if (event.type === "reaction_added") {
-            return room.onSlackReactionAdded(msg, teamId);
+            await room.onSlackReactionAdded(msg, teamId);
+            return;
         } else if (event.type === "reaction_removed") {
-            // TODO: We cannot remove reactions yet, see https://github.com/matrix-org/matrix-appservice-slack/issues/154
-            // return room.onSlackReactionRemoved(msg, teamId);
+            const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.reaction);
+            if (originalEvent) {
+                const botClient = this.main.botIntent.getClient();
+                botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+                await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.reaction);
+            }
+            throw Error('unknown_reaction');
         }
     }
 

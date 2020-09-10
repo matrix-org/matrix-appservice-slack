@@ -299,15 +299,21 @@ export class BridgedRoom {
             name: emojiKeyName,
             timestamp: event.slackTs,
         });
-        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
         if (!res.ok) {
-            log.error("HTTP Error: ", res.error);
+            log.error(`HTTP Error from Slack when adding the reaction :${emojiKeyName}: to ${event.slackTs}: `, res.error);
             return;
         }
-        // TODO: Add this event to the event store
-        // Unfortunately reactions.add does not return the ts of the reactions event.
-        // So we can't store it in the event store
+
+        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
+
+        await this.main.datastore.upsertReaction({
+            roomId: message.room_id,
+            eventId: message.event_id,
+            slackChannelId: this.slackChannelId!,
+            slackMessageTs: event.slackTs,
+            reaction: emojiKeyName,
+        });
     }
 
     public async onMatrixRedaction(message: any) {
@@ -624,8 +630,7 @@ export class BridgedRoom {
             return;
         }
 
-        const reaction = `:${message.reaction}:`;
-        const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
+        const reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
 
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
@@ -640,8 +645,20 @@ export class BridgedRoom {
             return;
         }
         log.debug(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}`);
-        return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
-                                  message.item.channel, message.event_ts);
+        const response = await ghost.sendReaction(
+            this.MatrixRoomId,
+            event.eventId,
+            reactionKey,
+            message.item.channel,
+            message.event_ts
+        );
+        await this.main.datastore.upsertReaction({
+            roomId: this.MatrixRoomId,
+            eventId: response.event_id,
+            slackChannelId: message.item.channel,
+            slackMessageTs: message.item.ts,
+            reaction: message.reaction,
+        });
     }
 
     public async onSlackTyping(event: ISlackEvent, teamId: string) {

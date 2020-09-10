@@ -41,7 +41,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 8;
+    public static readonly LATEST_SCHEMA = 9;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -180,7 +180,7 @@ export class PgDatastore implements Datastore {
     public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null> {
         return this.postgresDb.oneOrNone(
             "SELECT slack_channel_id, slack_message_ts, reaction " +
-            "FROM reactions WHERE roomId = ${roomId} AND eventId = ${eventId}",
+            "FROM reactions WHERE room_id = ${roomId} AND event_id = ${eventId}",
             { roomId, eventId },
             response => response && {
                 roomId,
@@ -192,17 +192,24 @@ export class PgDatastore implements Datastore {
         );
     }
 
-    public async getReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<null> {
+    public async getReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<ReactionEntry|null> {
         return this.postgresDb.oneOrNone(
-            "SELECT * FROM reactions WHERE slack_channel_id = ${channelId} AND eventId = ${messageTs} AND reaction = ${reaction}",
+            "SELECT * FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND reaction = ${reaction}",
             { channelId, messageTs, reaction },
+            response => response && {
+                roomId: response.room_id,
+                eventId: response.event_id,
+                slackChannelId: channelId,
+                slackMessageTs: messageTs,
+                reaction,
+            }
         );
     }
 
     public async deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null> {
         log.info(`deleteReactionByMatrixId: ${roomId} ${eventId}`);
         return this.postgresDb.none(
-            "DELETE FROM reactions WHERE roomId = ${roomId} AND eventId = ${eventId}",
+            "DELETE FROM reactions WHERE room_id = ${roomId} AND event_id = ${eventId}",
             { roomId, eventId },
         );
     }
@@ -210,7 +217,7 @@ export class PgDatastore implements Datastore {
     public async deleteReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<null> {
         log.info(`deleteReactionBySlackId: ${channelId} ${messageTs} ${reaction}`);
         return this.postgresDb.none(
-            "DELETE FROM reactions WHERE slack_channel_id = ${channelId} AND eventId = ${messageTs} AND reaction = ${reaction}",
+            "DELETE FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND reaction = ${reaction}",
             { channelId, messageTs, reaction },
         );
     }
