@@ -138,37 +138,7 @@ export class SlackEventHandler extends BaseSlackHandler {
 
             let err: Error|null = null;
             try {
-                switch (event.type) {
-                    case "message":
-                    case "reaction_added": // The RTM API handles reactions via handleMessageEvent too.
-                    case "reaction_removed": // The RTM API handles reactions via handleMessageEvent too.
-                        await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
-                        break;
-                    case "channel_rename":
-                        await this.handleChannelRenameEvent(event as ISlackEventChannelRename);
-                        break;
-                    case "team_domain_change":
-                        await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChange, teamId);
-                        break;
-                    case "user_typing":
-                        await this.handleTyping(event as ISlackEventUserTyping, teamId);
-                        break;
-                    case "channel_created":
-                    case "channel_deleted":
-                    case "user_change":
-                    case "team_join":
-                        await this.handleTeamSyncEvent(event as ISlackTeamSyncEvent, teamId);
-                        break;
-                    // XXX: Unused?
-                    case "member_joined_channel":
-                        await this.handleMemberJoinedChannel(event as ISlackMemberJoinedEvent);
-                        break;
-                    case "member_left_channel":
-                        await this.handleMemberLeftChannel(event as ISlackMemberLeftEvent);
-                    case "file_comment_added":
-                    default:
-                        err = Error("unknown_event");
-                }
+                await this.handleEvent(event, teamId);
             } catch (ex) {
                 log.warn("Didn't handle event");
                 err = ex;
@@ -203,6 +173,42 @@ export class SlackEventHandler extends BaseSlackHandler {
             }
         } catch (e) {
             log.error("SlackEventHandler.handle failed:", e);
+        }
+    }
+
+    protected async handleEvent(event: ISlackEvent, teamId: string) {
+        switch (event.type) {
+            case "message":
+                await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
+                break;
+            case "reaction_added":
+            case "reaction_removed":
+                await this.handleReaction(event as ISlackEventReaction, teamId);
+                break;
+            case "channel_rename":
+                await this.handleChannelRenameEvent(event as ISlackEventChannelRename);
+                break;
+            case "team_domain_change":
+                await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChange, teamId);
+                break;
+            case "user_typing":
+                await this.handleTyping(event as ISlackEventUserTyping, teamId);
+                break;
+            case "channel_created":
+            case "channel_deleted":
+            case "user_change":
+            case "team_join":
+                await this.handleTeamSyncEvent(event as ISlackTeamSyncEvent, teamId);
+                break;
+            // XXX: Unused?
+            case "member_joined_channel":
+                await this.handleMemberJoinedChannel(event as ISlackMemberJoinedEvent);
+                break;
+            case "member_left_channel":
+                await this.handleMemberLeftChannel(event as ISlackMemberLeftEvent);
+            case "file_comment_added":
+            default:
+                throw Error("unknown_event");
         }
     }
 
@@ -245,11 +251,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             team_id: teamId,
             user_id: userOrBotId,
         };
-
-        if (event.type === "reaction_added" || event.type === "reaction_removed") {
-            const reactionEvent: ISlackEventReaction = event as any;
-            return this.handleReaction(reactionEvent, teamId);
-        }
 
         if (!room.SlackClient) {
             // If we can't look up more details about the message

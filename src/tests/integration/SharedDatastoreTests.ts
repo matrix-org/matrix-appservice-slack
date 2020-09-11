@@ -121,7 +121,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
             };
             await ds().upsertEvent(model);
             expect(await ds().getEventByMatrixId("!foo:bar", "$foo:bar")).to.deep.equal(model, "Could not find by matrix id");
-            expect(await ds().getEventBySlackId("F00", "BAR")).to.deep.equal(model, "Could not find by slack id");
+            expect(await ds().getEventBySlackId("F00", "BAR")).to.deep.equal(model, "Could not find by Slack id");
         });
 
         it("should insert and retrieve a event", async () => {
@@ -136,7 +136,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
             };
             await ds().upsertEvent(model.roomId, model.eventId, model.slackChannelId, model.slackTs, model._extras);
             expect(await ds().getEventByMatrixId("!foo3:bar", "$foo3:bar")).to.deep.equal(model, "Could not find by matrix id");
-            expect(await ds().getEventBySlackId("F003", "BAR3")).to.deep.equal(model, "Could not find by slack id");
+            expect(await ds().getEventBySlackId("F003", "BAR3")).to.deep.equal(model, "Could not find by Slack id");
         });
 
         it("should be able to upsert an events slack threads", async () => {
