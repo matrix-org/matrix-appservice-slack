@@ -67,8 +67,8 @@ describe("NedbDatastore", () => {
             await ds.upsertReaction(reaction1);
             await ds.upsertReaction(reaction2);
             expect(await ds.getAllReactions()).to.deep.equal([
-                reaction1,
                 reaction2,
+                reaction1,
             ]);
         });
     });
