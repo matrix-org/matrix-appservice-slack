@@ -56,7 +56,8 @@ describeFnl("PgDatastore", () => {
     });
 
     doDatastoreTests(() => ds, async () => {
-        await ds.postgresDb.none(`DELETE FROM rooms`); // Clean up rooms.
+        await ds.postgresDb.none("DELETE FROM reactions");
+        await ds.postgresDb.none("DELETE FROM rooms");
     });
 
     after(async () => {

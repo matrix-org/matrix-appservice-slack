@@ -21,7 +21,7 @@ import { BridgedRoom } from "../../BridgedRoom";
 
 // tslint:disable: no-unused-expression no-any
 
-export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void) => {
+export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void) => {
     describe("users", () => {
         it("should return null if a matrix user is not found", async () => {
             const userEntry = await ds().getUser("notreal");
@@ -162,11 +162,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
     });
 
     describe("rooms", () => {
-        it("should return an empty array if room table is empty", async () => {
+        afterEach(truncateTables);
+
+        it("should return an empty array if rooms table is empty", async () => {
             expect(await ds().getAllRooms()).to.be.empty;
         });
-
-        afterEach(roomsAfterEach);
 
         it("should insert and retrieve a room", async () => {
             const room = new BridgedRoom({} as any, {
@@ -282,13 +282,15 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
     });
 
     describe("reactions", () => {
+        afterEach(truncateTables);
+
         it("should insert and retrieve a reaction by its Matrix identifiers", async () => {
             const entry = {
-                roomId: "!foo1:bar",
-                eventId: "$foo1:bar",
-                slackChannelId: "F001",
-                slackMessageTs: "BAR1",
-                reaction: "😀",
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
             const reaction = await ds().getReactionByMatrixId(entry.roomId, entry.eventId);
@@ -296,11 +298,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
         });
         it("should insert and retrieve a reaction by its Slack identifiers", async () => {
             const entry = {
-                roomId: "!foo2:bar",
-                eventId: "$foo2:bar",
-                slackChannelId: "F002",
-                slackMessageTs: "BAR2",
-                reaction: "😀",
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
             const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
@@ -308,11 +310,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
         });
         it("should insert and delete a reaction by its Matrix identifiers", async () => {
             const entry = {
-                roomId: "!foo3:bar",
-                eventId: "$foo3:bar",
-                slackChannelId: "F003",
-                slackMessageTs: "BAR3",
-                reaction: "😀",
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
             await ds().deleteReactionByMatrixId(entry.roomId, entry.eventId);
@@ -321,11 +323,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
         });
         it("should insert and delete a reaction by its Slack identifiers", async () => {
             const entry = {
-                roomId: "!foo4:bar",
-                eventId: "$foo4:bar",
-                slackChannelId: "F004",
-                slackMessageTs: "BAR4",
-                reaction: "😀",
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
             await ds().deleteReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
@@ -334,11 +336,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
         });
         it("should not throw when an reaction is upserted twice", async () => {
             const entry = {
-                roomId: "!foo5:bar",
-                eventId: "$foo5:bar",
-                slackChannelId: "F005",
-                slackMessageTs: "BAR5",
-                reaction: "😀",
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
             await ds().upsertReaction(entry);
