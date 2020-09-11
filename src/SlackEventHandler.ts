@@ -340,7 +340,6 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (event.type === "reaction_added") {
             await room.onSlackReactionAdded(msg, teamId);
         } else if (event.type === "reaction_removed") {
-            // TODO Avoid processing our own events.
             await room.onSlackReactionRemoved(msg, teamId);
         }
     }
