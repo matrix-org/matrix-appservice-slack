@@ -225,7 +225,6 @@ export class SlackEventHandler extends BaseSlackHandler {
         const userOrBotId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
-        if (!userOrBotId) { throw Error("event_without_sender"); }
 
         if (event.bot_id && (event.bot_id === team.bot_id)) {
             return;
@@ -235,13 +234,16 @@ export class SlackEventHandler extends BaseSlackHandler {
             // Filter out tombstones early, we only care about them on deletion.
             throw Error("ignored");
         }
+
+        if (!userOrBotId) { throw Error("event_without_sender"); }
+
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
         if (event.type === "channel_join") {
-            await room.onSlackUserJoin(event.user!, event.inviter!);
+            await room.onSlackUserJoin(userOrBotId, event.inviter!);
         } else if (event.type === "channel_leave") {
-            await room.onSlackUserLeft(event.user!);
+            await room.onSlackUserLeft(userOrBotId);
         }
 
         const msg = {
