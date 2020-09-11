@@ -39,7 +39,8 @@ describe("NedbDatastore", () => {
 
     describe("getAll… functions", () => {
         it("should return an empty array if reactions table is empty", async () => {
-            expect(await ds.getAllReactions()).to.be.empty;
+            const reactions = await ds.getAllReactions()
+            expect(reactions).to.deep.equal([]);
         });
 
         it("when two reactions were added, getAllReactions() should return an all reactions", async () => {
