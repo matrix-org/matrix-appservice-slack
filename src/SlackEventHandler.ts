@@ -235,15 +235,13 @@ export class SlackEventHandler extends BaseSlackHandler {
             throw Error("ignored");
         }
 
-        if (!userOrBotId) { throw Error("event_without_sender"); }
-
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
         if (event.type === "channel_join") {
-            await room.onSlackUserJoin(userOrBotId, event.inviter!);
+            await room.onSlackUserJoin(userOrBotId!, event.inviter!);
         } else if (event.type === "channel_leave") {
-            await room.onSlackUserLeft(userOrBotId);
+            await room.onSlackUserLeft(userOrBotId!);
         }
 
         const msg = {
@@ -251,7 +249,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             channel_id: event.channel,
             team_domain: team.domain || team.id,
             team_id: teamId,
-            user_id: userOrBotId,
+            user_id: userOrBotId!,
         };
 
         if (!room.SlackClient) {
