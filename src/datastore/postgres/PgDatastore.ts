@@ -179,7 +179,7 @@ export class PgDatastore implements Datastore {
 
     public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null> {
         return this.postgresDb.oneOrNone(
-            "SELECT slack_channel_id, slack_message_ts, reaction " +
+            "SELECT slack_channel_id, slack_message_ts, slack_user_id, reaction " +
             "FROM reactions WHERE room_id = ${roomId} AND event_id = ${eventId}",
             { roomId, eventId },
             response => response && {
@@ -217,7 +217,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
-        log.info(`deleteReactionBySlackId: ${channelId} ${messageTs} ${reaction}`);
+        log.info(`deleteReactionBySlackId: ${channelId} ${messageTs} ${userId} ${reaction}`);
         return this.postgresDb.none(
             "DELETE FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
             { channelId, messageTs, userId, reaction },
