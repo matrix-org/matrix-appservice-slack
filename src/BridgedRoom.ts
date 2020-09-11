@@ -292,14 +292,12 @@ export class BridgedRoom {
         this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${id}:${event.slackTs}`);
 
         // TODO: This only works once from matrix if we are sending the event as the
-        // bot user.
+        // bot user. Search for #fix_reactions_as_bot.
         const res = await client.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
             timestamp: event.slackTs,
-            // TODO: Test if this actually does something
-            username: message.sender,
         });
 
         if (!res.ok) {
@@ -314,7 +312,8 @@ export class BridgedRoom {
             eventId: message.event_id,
             slackChannelId: this.slackChannelId!,
             slackMessageTs: event.slackTs,
-            slackUserId: message.sender,
+            // TODO We post reactions as the bot, not the user. Search for #fix_reactions_as_bot.
+            slackUserId: this.team!.user_id,
             reaction: emojiKeyName,
         });
     }
@@ -341,8 +340,6 @@ export class BridgedRoom {
                     channel: reactionEntry.slackChannelId,
                     timestamp: reactionEntry.slackMessageTs,
                     name: reactionEntry.reaction,
-                    // TODO: Test if this actually does something
-                    username: message.sender,
                 });
                 return;
             }
@@ -644,7 +641,18 @@ export class BridgedRoom {
         }
     }
 
-    public async onSlackReactionAdded(message: any, teamId: string) {
+    public async onSlackReactionAdded(
+        message: {
+            event_ts: string,
+            item: {
+                channel: string,
+                ts: string,
+            },
+            reaction: string,
+            user_id: string,
+        },
+        teamId: string,
+    ) {
         if (message.user_id === this.team!.user_id) {
             return;
         }
@@ -679,6 +687,29 @@ export class BridgedRoom {
             slackUserId: message.user_id,
             reaction: message.reaction,
         });
+    }
+
+    public async onSlackReactionRemoved(
+        msg: {
+            item: {
+                channel: string,
+                ts: string,
+            },
+            reaction: string,
+            user_id: string,
+        },
+        teamId: string
+    ) {
+        if (msg.user_id === this.team!.user_id) {
+            return;
+        }
+        const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction );
+        if (!originalEvent) {
+            throw Error('unknown_reaction');
+        }
+        const botClient = this.main.botIntent.getClient();
+        botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+        await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
     }
 
     public async onSlackTyping(event: ISlackEvent, teamId: string) {
