@@ -41,8 +41,9 @@ interface ISlackEventTeamDomainChange extends ISlackEvent {
  * https://api.slack.com/events/reaction_added
  */
 interface ISlackEventReaction extends ISlackEvent {
-    reaction: string;
+    event_ts: string;
     item: ISlackMessage;
+    reaction: string;
     user: string;
 }
 
@@ -139,11 +140,9 @@ export class SlackEventHandler extends BaseSlackHandler {
             try {
                 switch (event.type) {
                     case "message":
+                    case "reaction_added": // The RTM API handles reactions via handleMessageEvent too.
+                    case "reaction_removed": // The RTM API handles reactions via handleMessageEvent too.
                         await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
-                        break;
-                    case "reaction_added":
-                    case "reaction_removed":
-                        await this.handleReaction(event as ISlackEventReaction, teamId);
                         break;
                     case "channel_rename":
                         await this.handleChannelRenameEvent(event as ISlackEventChannelRename);
@@ -233,6 +232,12 @@ export class SlackEventHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
+        if (event.type === "channel_join") {
+            await room.onSlackUserJoin(event.user!, event.inviter!);
+        } else if (event.type === "channel_leave") {
+            await room.onSlackUserLeft(event.user!);
+        }
+
         const msg = {
             ...event,
             channel_id: event.channel,
@@ -240,6 +245,11 @@ export class SlackEventHandler extends BaseSlackHandler {
             team_id: teamId,
             user_id: userOrBotId,
         };
+
+        if (event.type === "reaction_added" || event.type === "reaction_removed") {
+            const reactionEvent: ISlackEventReaction = event as any;
+            return this.handleReaction(reactionEvent, teamId);
+        }
 
         if (!room.SlackClient) {
             // If we can't look up more details about the message
@@ -328,16 +338,9 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         if (event.type === "reaction_added") {
             await room.onSlackReactionAdded(msg, teamId);
-            return;
         } else if (event.type === "reaction_removed") {
             // TODO Avoid processing our own events.
-            const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
-            if (originalEvent) {
-                const botClient = this.main.botIntent.getClient();
-                botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
-                await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
-            }
-            throw Error('unknown_reaction');
+            await room.onSlackReactionRemoved(msg, teamId);
         }
     }
 
