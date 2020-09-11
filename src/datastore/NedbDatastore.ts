@@ -236,9 +236,14 @@ export class NedbDatastore implements Datastore {
         });
     }
 
-    public async getReactionBySlackId(slackChannelId: string, slackMessageTs: string, reaction: string): Promise<ReactionEntry|null> {
+    public async getReactionBySlackId(
+        slackChannelId: string,
+        slackMessageTs: string,
+        slackUserId: string,
+        reaction: string,
+    ): Promise<ReactionEntry|null> {
         return new Promise((resolve, reject) => {
-            this.reactionStore.findOne({ slackChannelId, slackMessageTs, reaction }, { _id: 0 }, (error, doc: any) => {
+            this.reactionStore.findOne({ slackChannelId, slackMessageTs, slackUserId, reaction }, { _id: 0 }, (error, doc: any) => {
                 if (error) {
                     reject(error);
                     return;
@@ -253,8 +258,13 @@ export class NedbDatastore implements Datastore {
         return null;
     }
 
-    public async deleteReactionBySlackId(slackChannelId: string, slackMessageTs: string): Promise<null> {
-        this.reactionStore.remove({ slackChannelId, slackMessageTs });
+    public async deleteReactionBySlackId(
+        slackChannelId: string,
+        slackMessageTs: string,
+        slackUserId: string,
+        reaction: string,
+    ): Promise<null> {
+        this.reactionStore.remove({ slackChannelId, slackMessageTs, slackUserId, reaction });
         return null;
     }
 

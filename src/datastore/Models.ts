@@ -57,6 +57,7 @@ export interface ReactionEntry {
     roomId: string;
     slackChannelId: string;
     slackMessageTs: string;
+    slackUserId: string;
     reaction: string;
 }
 
@@ -117,9 +118,9 @@ export interface Datastore {
     // Reactions
     upsertReaction(entry: ReactionEntry): Promise<null>;
     getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null>;
-    getReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<ReactionEntry|null>;
+    getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<ReactionEntry|null>;
     deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null>;
-    deleteReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<null>;
+    deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null>;
 
     // Teams
     upsertTeam(entry: TeamEntry);

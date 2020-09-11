@@ -290,6 +290,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 eventId: "$foo:bar",
                 slackChannelId: "F00",
                 slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
@@ -302,10 +303,11 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 eventId: "$foo:bar",
                 slackChannelId: "F00",
                 slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
-            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
+            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
             expect(reaction).to.deep.equal(entry);
         });
         it("should insert and delete a reaction by its Matrix identifiers", async () => {
@@ -314,6 +316,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 eventId: "$foo:bar",
                 slackChannelId: "F00",
                 slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
@@ -327,11 +330,12 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 eventId: "$foo:bar",
                 slackChannelId: "F00",
                 slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);
-            await ds().deleteReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
-            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.reaction);
+            await ds().deleteReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
             expect(reaction).to.be.null;
         });
         it("should not throw when an reaction is upserted twice", async () => {
@@ -340,6 +344,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 eventId: "$foo:bar",
                 slackChannelId: "F00",
                 slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             await ds().upsertReaction(entry);

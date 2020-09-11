@@ -100,7 +100,7 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
-    public async getReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<null> {
+    public async getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -108,7 +108,7 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
-    public async deleteReactionBySlackId(channelId: string, messageTs: string, reaction: string): Promise<null> {
+    public async deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 

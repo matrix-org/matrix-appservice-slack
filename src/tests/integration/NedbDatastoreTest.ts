@@ -48,6 +48,7 @@ describe("NedbDatastore", () => {
                 eventId: "$foo1:bar",
                 slackChannelId: "F001",
                 slackMessageTs: "BAR1",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             const reaction2 = {
@@ -55,6 +56,7 @@ describe("NedbDatastore", () => {
                 eventId: "$foo2:bar",
                 slackChannelId: "F002",
                 slackMessageTs: "BAR2",
+                slackUserId: "U010AAR88B1",
                 reaction: "hugging_face",
             };
             await ds.upsertReaction(reaction1);

@@ -298,6 +298,8 @@ export class BridgedRoom {
             channel: this.slackChannelId,
             name: emojiKeyName,
             timestamp: event.slackTs,
+            // TODO: Test if this actually does something
+            username: message.sender,
         });
 
         if (!res.ok) {
@@ -312,6 +314,7 @@ export class BridgedRoom {
             eventId: message.event_id,
             slackChannelId: this.slackChannelId!,
             slackMessageTs: event.slackTs,
+            slackUserId: message.sender,
             reaction: emojiKeyName,
         });
     }
@@ -338,6 +341,8 @@ export class BridgedRoom {
                     channel: reactionEntry.slackChannelId,
                     timestamp: reactionEntry.slackMessageTs,
                     name: reactionEntry.reaction,
+                    // TODO: Test if this actually does something
+                    username: message.sender,
                 });
                 return;
             }
@@ -671,6 +676,7 @@ export class BridgedRoom {
             eventId: response.event_id,
             slackChannelId: message.item.channel,
             slackMessageTs: message.item.ts,
+            slackUserId: message.user_id,
             reaction: message.reaction,
         });
     }
