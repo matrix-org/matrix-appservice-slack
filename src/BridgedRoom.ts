@@ -333,7 +333,6 @@ export class BridgedRoom {
             const reactionEntry = await this.main.datastore.getReactionByMatrixId(message.room_id, message.redacts);
 
             if (reactionEntry) {
-                log.debug(`Trying to redact reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}`);
                 await this.main.datastore.deleteReactionByMatrixId(message.room_id, message.redacts);
                 try {
                     await client.reactions.remove({
@@ -342,8 +341,9 @@ export class BridgedRoom {
                         timestamp: reactionEntry.slackMessageTs,
                         name: reactionEntry.reaction,
                     });
+                    log.info(`Redacted reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}`);
                 } catch (error) {
-                    log.warn(`Failed redact reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}`);
+                    log.warn(`Failed redact reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}. Matrix room/event: ${message.room_id}, ${message.redacts}`);
                     log.warn(error);
                     throw error;
                 }
