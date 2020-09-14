@@ -305,7 +305,7 @@ export class BridgedRoom {
             return;
         }
 
-        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
+        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}. Matrix room ID: ${message.room_id}. Matrix event ID: ${message.event_id}`);
 
         await this.main.datastore.upsertReaction({
             roomId: message.room_id,
