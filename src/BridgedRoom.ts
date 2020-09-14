@@ -677,14 +677,20 @@ export class BridgedRoom {
         if (event === null) {
             return;
         }
-        log.debug(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}`);
-        const response = await ghost.sendReaction(
-            this.MatrixRoomId,
-            event.eventId,
-            reactionKey,
-            message.item.channel,
-            message.event_ts
-        );
+        let response;
+        try {
+            response = await ghost.sendReaction(
+                this.MatrixRoomId,
+                event.eventId,
+                reactionKey,
+                message.item.channel,
+                message.event_ts
+            );
+            log.info(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`);
+        } catch (error) {
+            log.warn(`Failed to send reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`);
+            throw error;
+        }
         await this.main.datastore.upsertReaction({
             roomId: this.MatrixRoomId,
             eventId: response.event_id,
