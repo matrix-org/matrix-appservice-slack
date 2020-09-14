@@ -222,7 +222,6 @@ export class SlackEventHandler extends BaseSlackHandler {
     protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
-        const userOrBotId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
 
@@ -239,9 +238,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
         if (event.type === "channel_join") {
-            await room.onSlackUserJoin(userOrBotId!, event.inviter!);
+            await room.onSlackUserJoin(event.user!, event.inviter!);
         } else if (event.type === "channel_leave") {
-            await room.onSlackUserLeft(userOrBotId!);
+            await room.onSlackUserLeft(event.user!);
         }
 
         const msg = {
@@ -249,7 +248,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             channel_id: event.channel,
             team_domain: team.domain || team.id,
             team_id: teamId,
-            user_id: userOrBotId!,
+            user_id: event.user || event.bot_id!,
         };
 
         if (!room.SlackClient) {
