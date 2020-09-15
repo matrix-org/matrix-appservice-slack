@@ -1,1 +1,1 @@
-Handle channel_join and channel_leave properly
+Stop handling the deprecated events channel_join and channel_leave. We already handle the new event types.

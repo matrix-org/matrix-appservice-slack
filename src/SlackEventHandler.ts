@@ -200,7 +200,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             case "team_join":
                 await this.handleTeamSyncEvent(event as ISlackTeamSyncEvent, teamId);
                 break;
-            // XXX: Unused?
             case "member_joined_channel":
                 await this.handleMemberJoinedChannel(event as ISlackMemberJoinedEvent);
                 break;
@@ -236,12 +235,6 @@ export class SlackEventHandler extends BaseSlackHandler {
 
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
-
-        if (event.subtype === "channel_join") {
-            await room.onSlackUserJoin(event.user!, event.inviter!);
-        } else if (event.subtype === "channel_leave") {
-            await room.onSlackUserLeft(event.user!);
-        }
 
         const msg = {
             ...event,
