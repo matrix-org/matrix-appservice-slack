@@ -1,5 +1,16 @@
 import { MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry, RoomType, SlackAccount } from "../../datastore/Models";
+import {
+    Datastore,
+    EventEntry,
+    EventEntryExtra,
+    PuppetEntry,
+    ReactionEntry,
+    RoomEntry,
+    RoomType,
+    SlackAccount,
+    TeamEntry,
+    UserEntry,
+} from "../../datastore/Models";
 import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
@@ -78,6 +89,26 @@ export class FakeDatastore implements Datastore {
     }
 
     public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async upsertReaction(entry: ReactionEntry): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry | null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
         throw Error("Method not implemented.");
     }
 

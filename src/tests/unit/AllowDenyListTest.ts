@@ -121,7 +121,7 @@ describe("AllowDenyList", () => {
         });
 
         // Mixed
-        it("should block matrix user even if slack user allowed", async () => {
+        it("should block matrix user even if Slack user allowed", async () => {
             const adl = new AllowDenyList({
                 allow: {
                     slack: [NOT_BLOCKED_SLACK_USER]
@@ -133,7 +133,7 @@ describe("AllowDenyList", () => {
             expect(adl.allowDM(BLOCKED_MATRIX_USER, NOT_BLOCKED_SLACK_USER)).to.equal(DenyReason.MATRIX);
         });
 
-        it("should block slack user even if matrix user allowed", async () => {
+        it("should block Slack user even if matrix user allowed", async () => {
             const adl = new AllowDenyList({
                 allow: {
                     matrix: [NOT_BLOCKED_MATRIX_USER]

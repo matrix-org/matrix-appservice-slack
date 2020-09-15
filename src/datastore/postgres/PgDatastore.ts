@@ -19,7 +19,18 @@ import * as pgInit from "pg-promise";
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, TeamEntry, RoomEntry, RoomType, UserEntry, EventEntry, EventEntryExtra, PuppetEntry, SlackAccount } from "../Models";
+import {
+    Datastore,
+    EventEntry,
+    EventEntryExtra,
+    PuppetEntry,
+    ReactionEntry,
+    RoomEntry,
+    RoomType,
+    SlackAccount,
+    TeamEntry,
+    UserEntry,
+} from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
 
@@ -30,7 +41,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 8;
+    public static readonly LATEST_SCHEMA = 9;
     // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
@@ -156,6 +167,63 @@ export class PgDatastore implements Datastore {
         );
     }
 
+    public async upsertReaction(entry: ReactionEntry): Promise<null> {
+        log.debug(`upsertReaction: ${entry.roomId} ${entry.eventId} ${entry.slackChannelId} ${entry.slackMessageTs} ${entry.slackUserId} ${entry.reaction}`);
+        return this.postgresDb.none(
+            "INSERT INTO reactions(room_id, event_id, slack_channel_id, slack_message_ts, slack_user_id, reaction) " +
+            "VALUES(${roomId}, ${eventId}, ${slackChannelId}, ${slackMessageTs}, ${slackUserId}, ${reaction})" +
+            "ON CONFLICT DO NOTHING",
+            entry
+        );
+    }
+
+    public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null> {
+        return this.postgresDb.oneOrNone(
+            "SELECT slack_channel_id, slack_message_ts, slack_user_id, reaction " +
+            "FROM reactions WHERE room_id = ${roomId} AND event_id = ${eventId}",
+            { roomId, eventId },
+            response => response && {
+                roomId,
+                eventId,
+                slackChannelId: response.slack_channel_id,
+                slackMessageTs: response.slack_message_ts,
+                slackUserId: response.slack_user_id,
+                reaction: response.reaction,
+            }
+        );
+    }
+
+    public async getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<ReactionEntry|null> {
+        return this.postgresDb.oneOrNone(
+            "SELECT * FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
+            { channelId, messageTs, userId, reaction },
+            response => response && {
+                roomId: response.room_id,
+                eventId: response.event_id,
+                slackChannelId: channelId,
+                slackMessageTs: messageTs,
+                slackUserId: userId,
+                reaction,
+            }
+        );
+    }
+
+    public async deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null> {
+        log.info(`deleteReactionByMatrixId: ${roomId} ${eventId}`);
+        return this.postgresDb.none(
+            "DELETE FROM reactions WHERE room_id = ${roomId} AND event_id = ${eventId}",
+            { roomId, eventId },
+        );
+    }
+
+    public async deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
+        log.info(`deleteReactionBySlackId: ${channelId} ${messageTs} ${userId} ${reaction}`);
+        return this.postgresDb.none(
+            "DELETE FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
+            { channelId, messageTs, userId, reaction },
+        );
+    }
+
     public async ensureSchema() {
         let currentVersion = await this.getSchemaVersion();
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
@@ -237,10 +305,7 @@ export class PgDatastore implements Datastore {
 
     public async getTeam(teamId: string): Promise<TeamEntry|null> {
         const doc = await this.postgresDb.oneOrNone("SELECT * FROM teams WHERE id = ${teamId}", { teamId });
-        if (doc === null) {
-            return null;
-        }
-        return PgDatastore.teamEntryForRow(doc);
+        return doc === null ? null : PgDatastore.teamEntryForRow(doc);
     }
 
     public async deleteTeam(teamId: string): Promise<null> {
@@ -252,13 +317,16 @@ export class PgDatastore implements Datastore {
     }
 
     public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<null> {
-        return this.postgresDb.none("INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
-                                        "ON CONFLICT ON CONSTRAINT cons_puppets_uniq DO UPDATE SET token = ${token}", {
-            teamId,
-            slackUser,
-            matrixId,
-            token,
-        });
+        return this.postgresDb.none(
+            "INSERT INTO puppets VALUES (${slackUser}, ${teamId}, ${matrixId}, ${token})" +
+            "ON CONFLICT ON CONSTRAINT cons_puppets_uniq DO UPDATE SET token = ${token}",
+            {
+                teamId,
+                slackUser,
+                matrixId,
+                token,
+            }
+        );
     }
 
     public async removePuppetTokenByMatrixId(teamId: string, matrixId: string) {
@@ -335,7 +403,7 @@ export class PgDatastore implements Datastore {
         return this.postgresDb.none(
             "INSERT INTO metrics_activities (user_id, room_id, date) " +
             "VALUES(${userId}, ${roomId}, ${date}) " +
-            "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING;", {
+            "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING", {
             date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
             roomId: room.toEntry().id,
             userId,
@@ -350,7 +418,7 @@ export class PgDatastore implements Datastore {
             "LEFT JOIN rooms ON metrics_activities.room_id = rooms.id " +
             "WHERE date_part('days', age(date)) < ${historyLengthInDays} " +
             "GROUP BY room_id, team_id, room_id, slack_type " +
-            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays};",
+            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).forEach((activeRoom) => {
             activeRoom.team_id = activeRoom.team_id || "noteam";
@@ -372,7 +440,7 @@ export class PgDatastore implements Datastore {
             "LEFT JOIN users ON metrics_activities.user_id = users.userid " +
             "WHERE date_part('days', age(date)) < ${historyLengthInDays} " +
             "GROUP BY user_id, team_id, remote " +
-            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays};",
+            "HAVING COUNT(DISTINCT date) >= ${activityThreshholdInDays}",
             { activityThreshholdInDays, historyLengthInDays },
         )).forEach((activeUser) => {
             activeUser.team_id = activeUser.team_id || "noteam";
@@ -394,7 +462,7 @@ export class PgDatastore implements Datastore {
 
     private async updateSchemaVersion(version: number) {
         log.debug(`updateSchemaVersion: ${version}`);
-        await this.postgresDb.none("UPDATE schema SET version = ${version};", {version});
+        await this.postgresDb.none("UPDATE schema SET version = ${version}", {version});
     }
 
     private async getSchemaVersion(): Promise<number> {

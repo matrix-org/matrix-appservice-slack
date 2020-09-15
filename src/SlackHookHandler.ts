@@ -169,7 +169,7 @@ export class SlackHookHandler extends BaseSlackHandler {
      */
     private async handleWebhook(method: string, url: string, params: qs.ParsedUrlQuery,
                                 response: ServerResponse) {
-        log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
+        log.info(`Received Slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
 
         let inboundId: string;

@@ -88,7 +88,13 @@ class Substitutions {
      */
     // tslint:disable-next-line: no-any
     public async matrixToSlack(event: any, main: Main, teamId: string): Promise<IMatrixToSlackResult|null> {
-        if (!event || !event.content || !event.sender) {
+        if (
+            !event ||
+            typeof event !== 'object' ||
+            !event.content ||
+            typeof event.content !== 'object' ||
+            typeof event.sender !== "string"
+        ) {
             return null;
         }
         const msgType = event.content.msgtype || "m.text";

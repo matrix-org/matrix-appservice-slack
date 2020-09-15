@@ -21,7 +21,7 @@ import { BridgedRoom } from "../../BridgedRoom";
 
 // tslint:disable: no-unused-expression no-any
 
-export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void) => {
+export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void) => {
     describe("users", () => {
         it("should return null if a matrix user is not found", async () => {
             const userEntry = await ds().getUser("notreal");
@@ -121,7 +121,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             };
             await ds().upsertEvent(model);
             expect(await ds().getEventByMatrixId("!foo:bar", "$foo:bar")).to.deep.equal(model, "Could not find by matrix id");
-            expect(await ds().getEventBySlackId("F00", "BAR")).to.deep.equal(model, "Could not find by slack id");
+            expect(await ds().getEventBySlackId("F00", "BAR")).to.deep.equal(model, "Could not find by Slack id");
         });
 
         it("should insert and retrieve a event", async () => {
@@ -136,7 +136,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             };
             await ds().upsertEvent(model.roomId, model.eventId, model.slackChannelId, model.slackTs, model._extras);
             expect(await ds().getEventByMatrixId("!foo3:bar", "$foo3:bar")).to.deep.equal(model, "Could not find by matrix id");
-            expect(await ds().getEventBySlackId("F003", "BAR3")).to.deep.equal(model, "Could not find by slack id");
+            expect(await ds().getEventBySlackId("F003", "BAR3")).to.deep.equal(model, "Could not find by Slack id");
         });
 
         it("should be able to upsert an events slack threads", async () => {
@@ -162,11 +162,11 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
     });
 
     describe("rooms", () => {
-        it("should return an empty array if room table is empty", async () => {
+        afterEach(truncateTables);
+
+        it("should return an empty array if rooms table is empty", async () => {
             expect(await ds().getAllRooms()).to.be.empty;
         });
-
-        afterEach(roomsAfterEach);
 
         it("should insert and retrieve a room", async () => {
             const room = new BridgedRoom({} as any, {
@@ -278,6 +278,77 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 scopes: "another:foo,bar",
                 status: "ok",
             });
+        });
+    });
+
+    describe("reactions", () => {
+        afterEach(truncateTables);
+
+        it("should insert and retrieve a reaction by its Matrix identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds().upsertReaction(entry);
+            const reaction = await ds().getReactionByMatrixId(entry.roomId, entry.eventId);
+            expect(reaction).to.deep.equal(entry);
+        });
+        it("should insert and retrieve a reaction by its Slack identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds().upsertReaction(entry);
+            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            expect(reaction).to.deep.equal(entry);
+        });
+        it("should insert and delete a reaction by its Matrix identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds().upsertReaction(entry);
+            await ds().deleteReactionByMatrixId(entry.roomId, entry.eventId);
+            const reaction = await ds().getReactionByMatrixId(entry.roomId, entry.eventId);
+            expect(reaction).to.be.null;
+        });
+        it("should insert and delete a reaction by its Slack identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds().upsertReaction(entry);
+            await ds().deleteReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            const reaction = await ds().getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            expect(reaction).to.be.null;
+        });
+        it("should not throw when an reaction is upserted twice", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds().upsertReaction(entry);
+            await ds().upsertReaction(entry);
         });
     });
 

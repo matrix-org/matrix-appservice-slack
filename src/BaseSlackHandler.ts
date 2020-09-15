@@ -174,12 +174,12 @@ export abstract class BaseSlackHandler {
                 if (canonical !== undefined && canonical.alias !== undefined) {
                     text = text.replace(CHANNEL_ID_REGEX_FIRST, canonical.alias);
                 } else {
-                    // If we can't find a canonical alias fall back to just the slack channel name.
+                    // If we can't find a canonical alias fall back to just the Slack channel name.
                     room = undefined;
                 }
             }
 
-            // If we can't match the room then we just put the slack name
+            // If we can't match the room then we just put the Slack name
             if (room === undefined) {
                 const name = await this.getSlackRoomNameFromID(id, slackClient);
                 text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
@@ -225,10 +225,10 @@ export abstract class BaseSlackHandler {
     /**
      * Enables public sharing on the given file object. then fetches its content.
      *
-     * @param {Object} file A slack 'message.file' data object
-     * @param {string} token A slack API token that has 'files:write:user' scope
-     * @return {Promise<Object>} A Promise of the updated slack file data object
-     * @throws if the slack request fails or the response didn't contain `file.permalink_public`
+     * @param {Object} file A Slack 'message.file' data object
+     * @param {string} token A Slack API token that has 'files:write:user' scope
+     * @return {Promise<Object>} A Promise of the updated Slack file data object
+     * @throws if the Slack request fails or the response didn't contain `file.permalink_public`
      */
     public async enablePublicSharing(file: ISlackFile, slackClient: WebClient): Promise<ISlackFile> {
         if (file.public_url_shared) { return file; }
@@ -244,7 +244,7 @@ export abstract class BaseSlackHandler {
     /**
      * Fetches the file at a given url.
      *
-     * @param {Object} file A slack 'message.file' data object
+     * @param {Object} file A Slack 'message.file' data object
      * @return {Promise<string>} A Promise of file contents
      */
     public async fetchFileContent(file: ISlackFile): Promise<Buffer> {
