@@ -27,7 +27,7 @@
     "no-string-throw": {
       "severity": "warning"
     },
-    "no-unused-expression": true,
+    "no-unused-expression": false,
     "prefer-const": true,
     "indent": [
       true,
@@ -61,7 +61,7 @@
         "src/tests/**/*.ts"
       ],
       "rules": {
-        "no-unused-expression": "off"
+        "no-unused-expression": false
       }
     }
   ]
