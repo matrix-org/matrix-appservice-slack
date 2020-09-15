@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { expect } from "chai";
 import { UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
 import { NedbDatastore } from "../../datastore/NedbDatastore";
 import * as NedbDs from "nedb";
@@ -27,7 +26,7 @@ describe("NedbDatastore", () => {
         roomStore = new RoomBridgeStore(new NedbDs());
         const eventStore = new EventBridgeStore(new NedbDs());
         const teamStore = new NedbDs();
-        ds = new NedbDatastore(userStore, roomStore, eventStore, teamStore, reactionStore);
+        ds = new NedbDatastore(userStore, roomStore, eventStore, teamStore);
     });
 
     doDatastoreTests(() => ds, async () => {

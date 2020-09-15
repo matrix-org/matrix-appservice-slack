@@ -848,7 +848,6 @@ export class Main {
                 this.bridge.getRoomStore(),
                 this.bridge.getEventStore(),
                 teamDatastore,
-                reactionDatastore,
             );
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");

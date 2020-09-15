@@ -55,14 +55,12 @@ async function main() {
     const roomStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "room-store.db"), ...config});
     const userStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "user-store.db"), ...config});
     const eventStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "event-store.db"), ...config});
-    const reactionStore = new NeDB({ filename: path.join(NEDB_DIRECTORY, "reaction-store.db"), ...config });
 
     try {
         await promisify(teamStore.loadDatabase).bind(teamStore)();
         await promisify(roomStore.loadDatabase).bind(roomStore)();
         await promisify(userStore.loadDatabase).bind(userStore)();
         await promisify(eventStore.loadDatabase).bind(eventStore)();
-        await promisify(reactionStore.loadDatabase).bind(reactionStore)();
     } catch (ex) {
         log.error("Couldn't load datastores");
         log.error("Ensure you have given the correct path to the database.");
