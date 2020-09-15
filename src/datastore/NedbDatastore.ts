@@ -41,8 +41,7 @@ export class NedbDatastore implements Datastore {
         private readonly userStore: UserStore,
         private readonly roomStore: RoomStore,
         private readonly eventStore: EventStore,
-        private readonly teamStore: NedbDb,
-        private readonly reactionStore: NedbDb) {
+        private readonly teamStore: NedbDb) {
     }
 
     public async upsertUser(user: SlackGhost) {
@@ -220,20 +219,13 @@ export class NedbDatastore implements Datastore {
     }
 
     public async upsertReaction(entry: ReactionEntry): Promise<null> {
-        this.reactionStore.insert(entry);
+        // Reaction removal not supported by NeDB - noop
         return null;
     }
 
     public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null> {
-        return new Promise((resolve, reject) => {
-            this.reactionStore.findOne({ roomId, eventId }, { _id: 0 }, (error, doc: any) => {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-                resolve(doc || null);
-            });
-        });
+        // Reaction removal not supported by NeDB - noop
+        return null;
     }
 
     public async getReactionBySlackId(
@@ -242,19 +234,12 @@ export class NedbDatastore implements Datastore {
         slackUserId: string,
         reaction: string,
     ): Promise<ReactionEntry|null> {
-        return new Promise((resolve, reject) => {
-            this.reactionStore.findOne({ slackChannelId, slackMessageTs, slackUserId, reaction }, { _id: 0 }, (error, doc: any) => {
-                if (error) {
-                    reject(error);
-                    return;
-                }
-                resolve(doc || null);
-            });
-        });
+        // Reaction removal not supported by NeDB - noop
+        return null;
     }
 
     public async deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null> {
-        this.reactionStore.remove({ roomId, eventId });
+        // Reaction removal not supported by NeDB - noop
         return null;
     }
 
@@ -264,20 +249,8 @@ export class NedbDatastore implements Datastore {
         slackUserId: string,
         reaction: string,
     ): Promise<null> {
-        this.reactionStore.remove({ slackChannelId, slackMessageTs, slackUserId, reaction });
+        // Reaction removal not supported by NeDB - noop
         return null;
-    }
-
-    public async getAllReactions(): Promise<ReactionEntry[]> {
-        return new Promise((resolve, reject) => {
-            this.reactionStore.find({}, { _id: 0 }, (err, docs: any[]) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve(docs || null);
-            });
-        });
     }
 
     public async upsertTeam(entry: TeamEntry) {

@@ -74,7 +74,6 @@ async function main() {
         new RoomBridgeStore(roomStore),
         new EventBridgeStore(eventStore),
         teamStore,
-        reactionStore,
     );
     try {
         const startedAt = Date.now();
@@ -95,7 +94,6 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     const allTeams = (await nedb.getAllTeams()) as any[];
     const allSlackUsers = await nedb.getAllUsers(false);
     const allMatrixUsers = await nedb.getAllUsers(true);
-    const allReactions = await nedb.getAllReactions();
 
     const slackClientFactory = new SlackClientFactory(targetDs);
 
@@ -190,11 +188,6 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         log.info(`Migrated matrix user ${mxUser.getId()} (${i + 1}/${allMatrixUsers.length})`);
     }));
 
-    const reactionMigrations = () => Promise.all(allReactions.map(async (reaction, i) => {
-        await targetDs.upsertReaction(reaction);
-        log.info(`Migrated event ${reaction.eventId} ${reaction.slackMessageTs} (${i + 1}/${allReactions.length})`);
-    }));
-
     log.info("Starting eventMigrations");
     await eventMigrations();
     log.info("Finished eventMigrations");
@@ -214,9 +207,6 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     log.info("Starting matrixUserMigrations");
     await matrixUserMigrations();
     log.info("Finished matrixUserMigrations");
-    log.info("Starting reactionMigrations");
-    await reactionMigrations();
-    log.info("Finished reactionMigrations");
 }
 
 main().then(() => {
