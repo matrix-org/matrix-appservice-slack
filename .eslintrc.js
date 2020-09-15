@@ -126,7 +126,7 @@ module.exports = {
         "no-fallthrough": "off",
         "no-invalid-this": "error",
         "no-new-wrappers": "error",
-        "no-shadow": [
+        "@typescript-eslint/no-shadow": [
             "error",
             {
                 "hoist": "all"

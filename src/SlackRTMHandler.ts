@@ -46,7 +46,6 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (!slackClient) {
             return; // We need to be able to determine what a channel looks like.
         }
-        let teamInfo: ISlackTeam;
         rtm.on("message", async (e) => {
             const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
             // This is used to ensure that we do not race messages for a single channel.
@@ -59,7 +58,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         });
         this.rtmUserClients.set(key, rtm);
         const { team } = await rtm.start();
-        teamInfo = team as ISlackTeam;
+        const teamInfo = team as ISlackTeam;
 
         log.debug(`Started RTM client for user ${key}`, team);
     }
@@ -220,7 +219,10 @@ export class SlackRTMHandler extends SlackEventHandler {
             // Check if the user is denied Slack Direct Messages (DMs)
             const denyReason = this.main.allowDenyList.allowDM(puppet.matrixId, chanInfo.channel.user, userData.user?.name);
             if (denyReason !== DenyReason.ALLOWED) {
-                log.warn(`Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room. (Denied due to ${DenyReason[denyReason]} user)`);
+                log.warn(
+                    `Slack user '${chanInfo.channel.user}' is disallowed from DMing, not creating room. ` +
+                    `(Denied due to ${DenyReason[denyReason]} user)`
+                );
                 return;
             }
         }
@@ -275,7 +277,7 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     private async determineRoomName(chan: ConversationsInfo, otherGhosts: SlackGhost[],
-                                    puppet: PuppetEntry, client: WebClient): Promise<string|undefined> {
+        puppet: PuppetEntry, client: WebClient): Promise<string|undefined> {
         if (chan.is_mpim) {
             return undefined; // allow the client to decide.
         }

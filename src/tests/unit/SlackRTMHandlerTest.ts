@@ -23,7 +23,7 @@ import { SlackRTMHandler } from "../../SlackRTMHandler";
 import { FakeMain } from "../utils/fakeMain";
 import { EventEmitter } from "events";
 
-function createHandler() {
+const createHandler = () => {
     const fakeMain = new FakeMain();
     const handler: any = new SlackRTMHandler(fakeMain as unknown as Main);
     handler.createRtmClient = () => {

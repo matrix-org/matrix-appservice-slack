@@ -31,11 +31,11 @@ type Param = string | { param: string, required: boolean};
 type Verbs = "getbotid"|"authurl"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
 // Decorator
-function command(...params: Param[]) {
-    return (target: any, propertyKey: string) => {
+const command = (...params: Param[]) => (
+    (target: any, propertyKey: string) => {
         target[propertyKey].params = params;
-    };
-}
+    }
+);
 
 export class Provisioner {
     constructor(private main: Main, private bridge: any) { }
@@ -203,9 +203,9 @@ export class Provisioner {
             return;
         }
         const results = await Promise.all(accounts.map(async (account) => {
-                const team = await this.main.datastore.getTeam(account.teamId)
-                return {team, slack_id: account.slackId};
-            })
+            const team = await this.main.datastore.getTeam(account.teamId)
+            return {team, slack_id: account.slackId};
+        })
         );
         const teams = results.map((account) => ({
             id: account.team!.id,

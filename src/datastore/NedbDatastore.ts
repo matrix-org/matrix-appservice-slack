@@ -33,7 +33,7 @@ import {
     SlackAccount,
     TeamEntry,
     UserEntry,
- } from "./Models";
+} from "./Models";
 import * as NedbDb from "nedb";
 
 export class NedbDatastore implements Datastore {
@@ -153,7 +153,7 @@ export class NedbDatastore implements Datastore {
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry,
-                             eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<null> {
+        eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<null> {
         let storeEv: StoredEvent;
         if (typeof(roomIdOrEntry) === "string") {
             storeEv = new StoredEvent(
@@ -208,15 +208,13 @@ export class NedbDatastore implements Datastore {
     }
 
     public async getAllEvents(): Promise<EventEntry[]> {
-        return (await this.eventStore.select({})).map((doc) => {
-            return {
-                eventId: doc.matrix.eventId,
-                roomId: doc.matrix.roomId,
-                slackChannelId: doc.remote.roomId,
-                slackTs: doc.remote.eventId,
-                _extras: doc.extras,
-            };
-        });
+        return (await this.eventStore.select({})).map((doc) => ({
+            eventId: doc.matrix.eventId,
+            roomId: doc.matrix.roomId,
+            slackChannelId: doc.remote.roomId,
+            slackTs: doc.remote.eventId,
+            _extras: doc.extras,
+        }));
     }
 
     public async upsertReaction(entry: ReactionEntry): Promise<null> {

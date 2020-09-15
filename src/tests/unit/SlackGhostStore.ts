@@ -23,7 +23,7 @@ import { FakeDatastore } from "../utils/fakeDatastore";
 import { IConfig } from "../../IConfig";
 import { expect } from "chai";
 
-function getGhostStore() {
+const getGhostStore = () => {
     const rooms = new SlackRoomStore();
     const datastore = new FakeDatastore([{
         id: "faketeam",
@@ -56,7 +56,7 @@ function getGhostStore() {
 
 describe("SlackGhostStore", () => {
     it("constructs", () => {
-       getGhostStore();
+        getGhostStore();
     });
     it("getForSlackMessage should get a ghost with a team_domain and team_id", async () => {
         const {store, datastore, intentHolder} = getGhostStore();

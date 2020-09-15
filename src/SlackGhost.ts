@@ -58,7 +58,7 @@ export class SlackGhost {
     private userInfoCache?: ISlackUser;
     private typingInRooms: Set<string> = new Set();
     private userInfoLoading?: Promise<UsersInfoResponse>;
-    private updateInProgress: boolean = false;
+    private updateInProgress = false;
     constructor(
         private datastore: Datastore,
         public readonly slackId: string,
@@ -149,7 +149,7 @@ export class SlackGhost {
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-                                    room: BridgedRoom) {
+        room: BridgedRoom) {
         let displayName = message.username || message.user_name;
 
         if (room.SlackClient) { // We can be smarter if we have the bot.
@@ -269,7 +269,7 @@ export class SlackGhost {
             return;
         }
 
-        const match = hash || avatarUrl.match(/\/([^\/]+)$/);
+        const match = hash || avatarUrl.match(/\/([^/]+)$/);
         if (!match || !match[1]) {
             return;
         }
@@ -301,7 +301,7 @@ export class SlackGhost {
         return Slackdown.parse(body);
     }
 
-    public async sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string, extra: {} = {}) {
+    public async sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string, extra: Record<string, unknown> = {}) {
         // TODO: Slack's markdown is their own thing that isn't really markdown,
         // but the only parser we have for it is slackdown. However, Matrix expects
         // a variant of markdown that is in the realm of sanity. Currently text
@@ -320,7 +320,7 @@ export class SlackGhost {
         return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: {}, slackRoomId: string, slackEventTs: string) {
+    public async sendMessage(roomId: string, msg: Record<string, unknown>, slackRoomId: string, slackEventTs: string) {
         const matrixEvent = await this.intent.sendMessage(roomId, msg);
 
         await this.datastore.upsertEvent(
@@ -334,7 +334,7 @@ export class SlackGhost {
     }
 
     public async sendReaction(roomId: string, eventId: string, key: string,
-                              slackRoomId: string, slackEventTs: string) {
+        slackRoomId: string, slackEventTs: string) {
         const content = {
             "m.relates_to": {
                 event_id: eventId,
@@ -352,7 +352,7 @@ export class SlackGhost {
     }
 
     public async sendWithReply(roomId: string, text: string, slackRoomId: string,
-                               slackEventTs: string, replyEvent: IMatrixReplyEvent) {
+        slackEventTs: string, replyEvent: IMatrixReplyEvent) {
         const fallbackHtml = this.getFallbackHtml(roomId, replyEvent);
         const fallbackText = this.getFallbackText(replyEvent);
 
@@ -390,7 +390,7 @@ export class SlackGhost {
     }
 
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
-    : Promise<string> {
+        : Promise<string> {
         try {
             const response = await axios.get<ArrayBuffer>(uri, {
                 headers: {

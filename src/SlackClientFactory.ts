@@ -49,7 +49,7 @@ export class SlackClientFactory {
                     // non-ideal way to detect calls to slack.
                     webLog.debug.bind(webLog);
                     if (!this.onRemoteCall) { return; }
-                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg);
+                    const match = /apiCall\('([\w.]+)'\) start/.exec(msg);
                     if (match && match[1]) {
                         this.onRemoteCall(match[1]);
                     }

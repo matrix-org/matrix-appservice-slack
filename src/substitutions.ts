@@ -29,9 +29,9 @@ const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\
  * Will return the emoji's name within ':'.
  * @param name The emoji's name.
  */
-export function getFallbackForMissingEmoji(name): string {
-    return `:${name}:`;
-}
+export const getFallbackForMissingEmoji = (name): string => (
+    `:${name}:`
+);
 
 interface PillItem {
     id: string;
@@ -326,14 +326,14 @@ export default substitutions;
  * @param room_id The room the message was sent in.
  * @return The string with replacements performed.
  */
-async function plainTextSlackMentions(main: Main, body: string, teamId: string) {
+const plainTextSlackMentions = async(main: Main, body: string, teamId: string) => {
     let users = await main.datastore.getAllUsersForTeam(teamId);
     users = users.filter((u) => u.display_name && u.display_name.length > 0);
     users.sort((u1, u2) => u2.display_name.length - u1.display_name.length);
     for (const user of users) {
         const displayName = `@${user.display_name}`;
         if (body.includes(displayName)) {
-            const userRegex = new RegExp(`${escapeStringRegexp(displayName)}(?=$|\s)`, "g");
+            const userRegex = new RegExp(`${escapeStringRegexp(displayName)}(?=$|s)`, "g");
             body = body.replace(userRegex, `<@${user.slack_id}>`);
         }
     }
@@ -342,14 +342,14 @@ async function plainTextSlackMentions(main: Main, body: string, teamId: string) 
 
 // These functions are copied and modified from the Gitter AS
 // idx counts backwards from the end of the string; 0 is final character
-function rcharAt(s: string, idx: number) {
-    return s.charAt(s.length - 1 - idx);
-}
+const rcharAt = (s: string, idx: number) => (
+    s.charAt(s.length - 1 - idx)
+);
 
 /**
  * Gets the first word in a given string.
  */
-function firstWord(s: string): string {
+const firstWord = (s: string): string => {
     const groups = s.match(/^\s*\S+/);
     return groups ? groups[0] : "";
 }
@@ -357,7 +357,7 @@ function firstWord(s: string): string {
 /**
  * Gets the final word in a given string.
  */
-function finalWord(s: string): string {
+const finalWord = (s: string): string => {
     const groups = s.match(/\S+\s*$/);
     return groups ? groups[0] : "";
 }

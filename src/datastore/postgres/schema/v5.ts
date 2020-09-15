@@ -1,7 +1,7 @@
 import { IDatabase } from "pg-promise";
 
 // tslint:disable-next-line: no-any
-export async function runSchema(db: IDatabase<any>) {
+export const runSchema = async(db: IDatabase<any>) => {
     // Create schema
     await db.none(`
         CREATE TABLE metrics_activities (

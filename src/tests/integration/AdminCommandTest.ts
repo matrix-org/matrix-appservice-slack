@@ -31,7 +31,7 @@ describe("AdminCommandTest", () => {
     it("will not respond to itself", async () => {
         let called = false;
         harness.main.onMatrixAdminMessage = async () => {
-           called = true;
+            called = true;
         };
         await harness.main.onMatrixEvent({
             event_id: "foo",

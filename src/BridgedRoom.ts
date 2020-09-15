@@ -334,6 +334,8 @@ export class BridgedRoom {
 
             if (reactionEntry) {
                 await this.main.datastore.deleteReactionByMatrixId(message.room_id, message.redacts);
+                const reactionDescription = `"${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} ` +
+                    `in channel ${reactionEntry.slackChannelId}`;
                 try {
                     await client.reactions.remove({
                         as_user: false,
@@ -341,9 +343,9 @@ export class BridgedRoom {
                         timestamp: reactionEntry.slackMessageTs,
                         name: reactionEntry.reaction,
                     });
-                    log.info(`Redacted reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}`);
+                    log.info(`Redacted reaction ${reactionDescription}`);
                 } catch (error) {
-                    log.warn(`Failed redact reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}. Matrix room/event: ${message.room_id}, ${message.redacts}`);
+                    log.warn(`Failed redact reaction ${reactionDescription}. Matrix room/event: ${message.room_id}, ${message.redacts}`);
                     log.warn(error);
                     throw error;
                 }
@@ -678,6 +680,7 @@ export class BridgedRoom {
             return;
         }
         let response;
+        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
         try {
             response = await ghost.sendReaction(
                 this.MatrixRoomId,
@@ -686,9 +689,9 @@ export class BridgedRoom {
                 message.item.channel,
                 message.event_ts
             );
-            log.info(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`);
+            log.info(`Sending reaction ${reactionDesc}`);
         } catch (error) {
-            log.warn(`Failed to send reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`);
+            log.warn(`Failed to send reaction ${reactionDesc}`);
             throw error;
         }
         await this.main.datastore.upsertReaction({
@@ -946,7 +949,7 @@ export class BridgedRoom {
                     newFormattedBody = formattedFallback + newFormattedBody;
                 }
             }
-            let replyContent: object|undefined;
+            let replyContent: Record<string, unknown>|undefined;
             // Only include edit metadata in the message if we have the previous eventId,
             // otherwise just send the fallback reply text.
             if (prevEvent) {
@@ -1055,7 +1058,7 @@ export class BridgedRoom {
         Given an event which is in reply to something else return the event ID of the
         top most event in the reply chain, i.e. the one without a relates to.
     */
-    private async findParentReply(message: any, depth: number = 0): Promise<string> {
+    private async findParentReply(message: any, depth = 0): Promise<string> {
         const MAX_DEPTH = 10;
         // Extract the referenced event
         if (!message.content) { return message.event_id; }
@@ -1105,11 +1108,11 @@ export class BridgedRoom {
  * @param {?integer} file.original_w width of the file if an image, in pixels.
  * @param {?integer} file.original_h height of the file if an image, in pixels.
  * @param {?string} file.thumb_360 URL of a 360 pixel wide thumbnail of the
- *     file, if an image.
+ * file, if an image.
  * @param {?integer} file.thumb_360_w width of the thumbnail of the 360 pixel
- *     wide thumbnail of the file, if an image.
+ * wide thumbnail of the file, if an image.
  * @param {?integer} file.thumb_360_h height of the thumbnail of the 36 pixel
- *     wide thumbnail of the file, if an image.
+ * wide thumbnail of the file, if an image.
  * @param {string} url The matrix file mxc.
  * @param {?string} thumbnail_url The matrix thumbnail mxc.
  * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/#m-image
@@ -1198,17 +1201,15 @@ const slackImageToMatrixVideo = (file, url: string, thumbnailUrl?: string) => {
  * @param {string} url The matrix file mxc.
  * @return {Object} Matrix event content, as per https://matrix.org/docs/spec/client_server/r0.4.0.html#m-audio
  */
-const slackImageToMatrixAudio = (file, url: string) => {
-    return {
-        body: file.title,
-        info: {
-            mimetype: file.mimetype,
-            size: file.size,
-        },
-        msgtype: "m.audio",
-        url,
-    };
-};
+const slackImageToMatrixAudio = (file, url: string) => ({
+    body: file.title,
+    info: {
+        mimetype: file.mimetype,
+        size: file.size,
+    },
+    msgtype: "m.audio",
+    url,
+});
 /**
  * Converts a slack file upload to a matrix file upload event.
  *

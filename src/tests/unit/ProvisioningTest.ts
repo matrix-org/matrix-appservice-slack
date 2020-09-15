@@ -22,9 +22,10 @@ import { expect } from "chai";
 import { FakeExpressResponse } from "../utils/fakeExpress";
 
 // tslint:disable-next-line: max-line-length
-const OAuthUrlRegex = /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=redir_prefix([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
+const OAuthUrlRegex =
+    /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=redir_prefix([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
 
-function createProvisioner(mainCfg?: any) {
+const createProvisioner = (mainCfg?: any) => {
     const fakeMain = new FakeMain(mainCfg);
     const prov = new Provisioner(fakeMain as any, {});
     return {prov, fakeMain};
