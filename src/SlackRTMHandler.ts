@@ -199,10 +199,10 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
-        log.debug("Received slack user event:", puppet.matrixId, event);
+        log.debug("Received Slack user event:", puppet.matrixId, event);
         let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         if (room) {
-            return this.handleMessageEvent(event, puppet.teamId);
+            return this.handleEvent(event, puppet.teamId);
         }
 
         if (!event.user) {
@@ -264,11 +264,11 @@ export class SlackRTMHandler extends SlackEventHandler {
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);
             await Promise.all(otherGhosts.map((g) => g.intent.join(room_id)));
-            return this.handleMessageEvent(event, puppet.teamId);
+            return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
             // A private channel may not have is_group set if it's an older channel.
             await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
-            return this.handleMessageEvent(event, puppet.teamId);
+            return this.handleEvent(event, puppet.teamId);
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);
         log.info("Failing channel info:", chanInfo.channel);

@@ -292,22 +292,30 @@ export class BridgedRoom {
         this.addRecentSlackMessage(`reactadd:${relatesTo.key}:${id}:${event.slackTs}`);
 
         // TODO: This only works once from matrix if we are sending the event as the
-        // bot user.
+        // bot user. Search for #fix_reactions_as_bot.
         const res = await client.reactions.add({
             as_user: false,
             channel: this.slackChannelId,
             name: emojiKeyName,
             timestamp: event.slackTs,
         });
-        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}`);
 
         if (!res.ok) {
-            log.error("HTTP Error: ", res.error);
+            log.error(`HTTP Error from Slack when adding the reaction :${emojiKeyName}: to ${event.slackTs}: `, res.error);
             return;
         }
-        // TODO: Add this event to the event store
-        // Unfortunately reactions.add does not return the ts of the reactions event.
-        // So we can't store it in the event store
+
+        log.info(`Reaction :${emojiKeyName}: added to ${event.slackTs}. Matrix room ID: ${message.room_id}. Matrix event ID: ${message.event_id}`);
+
+        await this.main.datastore.upsertReaction({
+            roomId: message.room_id,
+            eventId: message.event_id,
+            slackChannelId: this.slackChannelId!,
+            slackMessageTs: event.slackTs,
+            // TODO We post reactions as the bot, not the user. Search for #fix_reactions_as_bot.
+            slackUserId: this.team!.user_id,
+            reaction: emojiKeyName,
+        });
     }
 
     public async onMatrixRedaction(message: any) {
@@ -322,6 +330,26 @@ export class BridgedRoom {
 
         // If we don't get an event then exit
         if (event === null) {
+            const reactionEntry = await this.main.datastore.getReactionByMatrixId(message.room_id, message.redacts);
+
+            if (reactionEntry) {
+                await this.main.datastore.deleteReactionByMatrixId(message.room_id, message.redacts);
+                try {
+                    await client.reactions.remove({
+                        as_user: false,
+                        channel: reactionEntry.slackChannelId,
+                        timestamp: reactionEntry.slackMessageTs,
+                        name: reactionEntry.reaction,
+                    });
+                    log.info(`Redacted reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}`);
+                } catch (error) {
+                    log.warn(`Failed redact reaction "${reactionEntry.reaction}" on message ${reactionEntry.slackMessageTs} in channel ${reactionEntry.slackChannelId}. Matrix room/event: ${message.room_id}, ${message.redacts}`);
+                    log.warn(error);
+                    throw error;
+                }
+                return;
+            }
+
             log.debug(`Could not find event '${message.redacts}' in room '${message.room_id}' to delete.`);
             return;
         }
@@ -619,13 +647,23 @@ export class BridgedRoom {
         }
     }
 
-    public async onSlackReactionAdded(message: any, teamId: string) {
+    public async onSlackReactionAdded(
+        message: {
+            event_ts: string,
+            item: {
+                channel: string,
+                ts: string,
+            },
+            reaction: string,
+            user_id: string,
+        },
+        teamId: string,
+    ) {
         if (message.user_id === this.team!.user_id) {
             return;
         }
 
-        const reaction = `:${message.reaction}:`;
-        const reactionKey = emoji.emojify(reaction, getFallbackForMissingEmoji);
+        const reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
 
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
@@ -639,9 +677,51 @@ export class BridgedRoom {
         if (event === null) {
             return;
         }
-        log.debug(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}`);
-        return ghost.sendReaction(this.MatrixRoomId, event.eventId, reactionKey,
-                                  message.item.channel, message.event_ts);
+        let response;
+        try {
+            response = await ghost.sendReaction(
+                this.MatrixRoomId,
+                event.eventId,
+                reactionKey,
+                message.item.channel,
+                message.event_ts
+            );
+            log.info(`Sending reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`);
+        } catch (error) {
+            log.warn(`Failed to send reaction ${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`);
+            throw error;
+        }
+        await this.main.datastore.upsertReaction({
+            roomId: this.MatrixRoomId,
+            eventId: response.event_id,
+            slackChannelId: message.item.channel,
+            slackMessageTs: message.item.ts,
+            slackUserId: message.user_id,
+            reaction: message.reaction,
+        });
+    }
+
+    public async onSlackReactionRemoved(
+        msg: {
+            item: {
+                channel: string,
+                ts: string,
+            },
+            reaction: string,
+            user_id: string,
+        },
+        teamId: string
+    ) {
+        if (msg.user_id === this.team!.user_id) {
+            return;
+        }
+        const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction );
+        if (!originalEvent) {
+            throw Error('unknown_reaction');
+        }
+        const botClient = this.main.botIntent.getClient();
+        botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+        await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
     }
 
     public async onSlackTyping(event: ISlackEvent, teamId: string) {

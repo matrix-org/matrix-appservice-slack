@@ -123,15 +123,15 @@ export class Main {
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         if (config.oauth2) {
-            if (!config.inbound_uri_prefix && !config.oauth2.redirect_prefix) {
+            const redirectPrefix = config.oauth2.redirect_prefix || config.inbound_uri_prefix;
+            if (!redirectPrefix) {
                 throw Error("Either inbound_uri_prefix or oauth2.redirect_prefix must be defined for oauth2 support");
             }
-            const redirectPrefix = config.oauth2.redirect_prefix || config.inbound_uri_prefix;
             this.oauth2 = new OAuth2({
                 client_id: config.oauth2.client_id,
                 client_secret: config.oauth2.client_secret,
                 main: this,
-                redirect_prefix: redirectPrefix!,
+                redirect_prefix: redirectPrefix,
                 template_file: config.oauth2.html_template || path.join(__dirname, ".." , "templates/oauth_result.html.njk") ,
             });
         }
@@ -146,7 +146,7 @@ export class Main {
         }
 
         if ((!config.rtm?.enable || !config.oauth2) && config.puppeting?.enabled) {
-            throw Error("Either rtm and/or oaurh2 is not enabled, but puppeting is enabled. Both need to be enabled for puppeting to work");
+            throw Error("Either rtm and/or oauth2 is not enabled, but puppeting is enabled. Both need to be enabled for puppeting to work.");
         }
 
         let bridgeStores = {};
@@ -156,7 +156,7 @@ export class Main {
             const URL = "https://github.com/matrix-org/matrix-appservice-slack/blob/master/docs/datastores.md";
             log.warn("** NEDB IS END-OF-LIFE **");
             log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
-                     `postgresql. Please see ${URL} for more informmation.`);
+                     `postgresql. Please see ${URL} for more information.`);
             bridgeStores = {
                 eventStore: path.join(dbdir, "event-store.db"),
                 roomStore: path.join(dbdir, "room-store.db"),
@@ -834,18 +834,21 @@ export class Main {
                 filename: path.join(this.config.dbdir || "", "teams.db"),
             });
             await new Promise((resolve, reject) => {
-                teamDatastore.loadDatabase((err) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-                resolve();
-            }); });
+                teamDatastore.loadDatabase(err => err ? reject(err) : resolve());
+            });
+            const reactionDatastore = new NedbDs({
+                autoload: true,
+                filename: path.join(this.config.dbdir || "", "reactions.db"),
+            });
+            await new Promise((resolve, reject) => {
+                reactionDatastore.loadDatabase(err => err ? reject(err) : resolve());
+            });
             this.datastore = new NedbDatastore(
                 this.bridge.getUserStore(),
                 this.bridge.getRoomStore(),
                 this.bridge.getEventStore(),
                 teamDatastore,
+                reactionDatastore,
             );
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");

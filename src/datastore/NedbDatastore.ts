@@ -17,9 +17,23 @@ import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
 import {
     MatrixUser,
-    EventStore, RoomStore, UserStore,
-    StoredEvent } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, RoomType, TeamEntry, EventEntry, EventEntryExtra, PuppetEntry, SlackAccount } from "./Models";
+    EventStore,
+    RoomStore,
+    UserStore,
+    StoredEvent,
+} from "matrix-appservice-bridge";
+import {
+    Datastore,
+    EventEntry,
+    EventEntryExtra,
+    PuppetEntry,
+    ReactionEntry,
+    RoomEntry,
+    RoomType,
+    SlackAccount,
+    TeamEntry,
+    UserEntry,
+ } from "./Models";
 import * as NedbDb from "nedb";
 
 export class NedbDatastore implements Datastore {
@@ -27,7 +41,8 @@ export class NedbDatastore implements Datastore {
         private readonly userStore: UserStore,
         private readonly roomStore: RoomStore,
         private readonly eventStore: EventStore,
-        private readonly teamStore: NedbDb) {
+        private readonly teamStore: NedbDb,
+        private readonly reactionStore: NedbDb) {
     }
 
     public async upsertUser(user: SlackGhost) {
@@ -149,7 +164,7 @@ export class NedbDatastore implements Datastore {
                 extras,
             );
         } else {
-            const entry = roomIdOrEntry as EventEntry;
+            const entry: EventEntry = roomIdOrEntry;
             storeEv = new StoredEvent(
                 entry.roomId,
                 entry.eventId,
@@ -204,6 +219,67 @@ export class NedbDatastore implements Datastore {
         });
     }
 
+    public async upsertReaction(entry: ReactionEntry): Promise<null> {
+        this.reactionStore.insert(entry);
+        return null;
+    }
+
+    public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null> {
+        return new Promise((resolve, reject) => {
+            this.reactionStore.findOne({ roomId, eventId }, { _id: 0 }, (error, doc: any) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                resolve(doc || null);
+            });
+        });
+    }
+
+    public async getReactionBySlackId(
+        slackChannelId: string,
+        slackMessageTs: string,
+        slackUserId: string,
+        reaction: string,
+    ): Promise<ReactionEntry|null> {
+        return new Promise((resolve, reject) => {
+            this.reactionStore.findOne({ slackChannelId, slackMessageTs, slackUserId, reaction }, { _id: 0 }, (error, doc: any) => {
+                if (error) {
+                    reject(error);
+                    return;
+                }
+                resolve(doc || null);
+            });
+        });
+    }
+
+    public async deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null> {
+        this.reactionStore.remove({ roomId, eventId });
+        return null;
+    }
+
+    public async deleteReactionBySlackId(
+        slackChannelId: string,
+        slackMessageTs: string,
+        slackUserId: string,
+        reaction: string,
+    ): Promise<null> {
+        this.reactionStore.remove({ slackChannelId, slackMessageTs, slackUserId, reaction });
+        return null;
+    }
+
+    public async getAllReactions(): Promise<ReactionEntry[]> {
+        return new Promise((resolve, reject) => {
+            this.reactionStore.find({}, { _id: 0 }, (err, docs: any[]) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve(docs || null);
+            });
+        });
+    }
+
     public async upsertTeam(entry: TeamEntry) {
         return this.teamStore.update({id: entry.id}, entry, {upsert: true});
     }
@@ -213,19 +289,16 @@ export class NedbDatastore implements Datastore {
         return null;
     }
 
-
     public async getTeam(teamId: string): Promise<TeamEntry|null> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless
             // tslint:disable-next-line: no-any
-            this.teamStore.findOne({id: teamId}, (err: Error|null, doc: any) => {
-                if (err || !doc) {
-                    resolve(null);
+            this.teamStore.findOne({id: teamId}, { _id: 0 }, (err: Error|null, doc: any) => {
+                if (err) {
+                    reject(err);
                     return;
                 }
-                // We don't use this.
-                delete doc._id;
-                resolve(doc as TeamEntry);
+                resolve(doc);
             });
         });
     }
@@ -233,17 +306,12 @@ export class NedbDatastore implements Datastore {
     public async getAllTeams(): Promise<TeamEntry[]> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless
-            // tslint:disable-next-line: no-any
-            this.teamStore.find({}, (err: Error|null, docs: any[]) => {
+            this.teamStore.find({}, { _id: 0 }, (err: Error|null, docs: any[]) => {
                 if (err) {
                     reject(err);
                     return;
                 }
-                resolve(docs.map((doc) => {
-                    // We don't use this.
-                    delete doc._id;
-                    return doc as TeamEntry;
-                }));
+                resolve(docs);
             });
         });
     }

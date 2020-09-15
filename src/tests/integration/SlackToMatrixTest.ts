@@ -50,7 +50,7 @@ describe("SlackToMatrix", () => {
         harness = constructHarness();
     });
 
-    it("will drop slack events that have an unknown type", async () => {
+    it("will drop Slack events that have an unknown type", async () => {
         let called = false;
         await harness.eventHandler.handle({
             user_id: "foo",
@@ -98,7 +98,7 @@ describe("SlackToMatrix", () => {
         expect(called).to.be.true;
     });
 
-    it("will no-op slack events when using RTM API and is an Event API request", async () => {
+    it("will no-op Slack events when using RTM API and is an Event API request", async () => {
         let called = false;
         await harness.eventHandler.handle({
             user_id: "foo",

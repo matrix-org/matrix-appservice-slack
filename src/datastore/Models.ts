@@ -52,6 +52,15 @@ export interface EventEntryExtra {
     slackThreadMessages?: string[];
 }
 
+export interface ReactionEntry {
+    eventId: string;
+    roomId: string;
+    slackChannelId: string;
+    slackMessageTs: string;
+    slackUserId: string;
+    reaction: string;
+}
+
 export type TeamStatus = "ok"|"archived"|"bad_auth";
 
 export interface TeamEntry {
@@ -105,6 +114,13 @@ export interface Datastore {
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;
     getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null>;
     deleteEventByMatrixId(roomId: string, eventId: string): Promise<null>;
+
+    // Reactions
+    upsertReaction(entry: ReactionEntry): Promise<null>;
+    getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null>;
+    getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<ReactionEntry|null>;
+    deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null>;
+    deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null>;
 
     // Teams
     upsertTeam(entry: TeamEntry);

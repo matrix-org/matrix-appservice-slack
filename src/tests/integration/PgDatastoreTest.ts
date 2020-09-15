@@ -49,14 +49,15 @@ describeFnl("PgDatastore", () => {
         }
     });
 
-    it("should be able to exec the current schema set succesfully", async () => {
+    it("should be able to exec the current schema set successfully", async () => {
         await ds.ensureSchema();
         const { version } = (await ds.postgresDb.one(`SELECT version FROM schema`));
         expect(version).to.equal(PgDatastore.LATEST_SCHEMA);
     });
 
     doDatastoreTests(() => ds, async () => {
-        await ds.postgresDb.none(`DELETE FROM rooms`); // Clean up rooms.
+        await ds.postgresDb.none("DELETE FROM reactions");
+        await ds.postgresDb.none("DELETE FROM rooms");
     });
 
     after(async () => {
