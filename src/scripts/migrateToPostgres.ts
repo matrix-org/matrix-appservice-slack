@@ -85,7 +85,7 @@ const main = async () => {
         log.error(ex);
         log.error("Your existing databases have not been modified, but you may need to drop the postgres table and start over");
     }
-}
+};
 
 export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore) => {
     const allRooms = await nedb.getAllRooms();
@@ -216,7 +216,7 @@ export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore) 
     log.info("Starting reactionMigrations");
     await reactionMigrations();
     log.info("Finished reactionMigrations");
-}
+};
 
 main().then(() => {
     log.info("finished");

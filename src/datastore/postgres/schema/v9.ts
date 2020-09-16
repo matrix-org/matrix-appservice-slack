@@ -14,4 +14,4 @@ export const runSchema = async(db: IDatabase<any>) => {
         CREATE UNIQUE INDEX reaction_matrix_idx ON reactions (room_id, event_id);
         CREATE UNIQUE INDEX reaction_slack_idx ON reactions (slack_channel_id, slack_message_ts, slack_user_id, reaction);
     `);
-}
+};

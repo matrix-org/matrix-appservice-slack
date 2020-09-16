@@ -8,4 +8,4 @@ export const runSchema = async(db: IDatabase<any>) => {
         ALTER TABLE teams ADD COLUMN scopes TEXT;
         ALTER TABLE teams ADD COLUMN user_id TEXT;
     `);
-}
+};

@@ -11,4 +11,4 @@ export const runSchema = async(db: IDatabase<any>) => {
             CONSTRAINT cons_activities_unique UNIQUE(user_id, room_id, date)
         );
     `);
-}
+};

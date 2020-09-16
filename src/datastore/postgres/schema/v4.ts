@@ -6,4 +6,4 @@ export const runSchema = async(db: IDatabase<any>) => {
         roomid TEXT UNIQUE NOT NULL,
         matrixuser TEXT UNIQUE NOT NULL
     );`);
-}
+};

@@ -52,7 +52,7 @@ const getGhostStore = () => {
         },
     });
     return {store, datastore, intentHolder};
-}
+};
 
 describe("SlackGhostStore", () => {
     it("constructs", () => {

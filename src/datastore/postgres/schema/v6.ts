@@ -37,4 +37,4 @@ export const runSchema = async(db: pgp.IDatabase<any>) => {
     if (values.length) {
         await db.none(pgInstance.helpers.insert(values, cs));
     }
-}
+};

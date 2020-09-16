@@ -338,7 +338,7 @@ const plainTextSlackMentions = async(main: Main, body: string, teamId: string) =
         }
     }
     return body;
-}
+};
 
 // These functions are copied and modified from the Gitter AS
 // idx counts backwards from the end of the string; 0 is final character
@@ -352,7 +352,7 @@ const rcharAt = (s: string, idx: number) => (
 const firstWord = (s: string): string => {
     const groups = s.match(/^\s*\S+/);
     return groups ? groups[0] : "";
-}
+};
 
 /**
  * Gets the final word in a given string.
@@ -360,4 +360,4 @@ const firstWord = (s: string): string => {
 const finalWord = (s: string): string => {
     const groups = s.match(/\S+\s*$/);
     return groups ? groups[0] : "";
-}
+};

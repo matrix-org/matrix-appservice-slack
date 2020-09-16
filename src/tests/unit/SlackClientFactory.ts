@@ -42,7 +42,7 @@ const createFactory = () => {
         updatePuppetCountCalls,
         ds: fakeDatastore
     };
-}
+};
 
 describe("SlackClientFactory", () => {
     before(async () => {

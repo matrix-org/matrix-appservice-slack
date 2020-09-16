@@ -33,7 +33,7 @@ const createHandler = () => {
         return rtm;
     };
     return { handler };
-}
+};
 
 describe("SlackRTMHandler", () => {
     // https://github.com/matrix-org/matrix-appservice-slack/issues/212

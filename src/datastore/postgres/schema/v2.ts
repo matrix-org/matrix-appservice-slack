@@ -9,4 +9,4 @@ export const runSchema = async(db: IDatabase<any>) => {
         token TEXT,
         CONSTRAINT cons_puppets_uniq UNIQUE(slackuser, slackteam, matrixuser)
     );`);
-}
+};

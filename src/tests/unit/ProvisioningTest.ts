@@ -29,7 +29,7 @@ const createProvisioner = (mainCfg?: any) => {
     const fakeMain = new FakeMain(mainCfg);
     const prov = new Provisioner(fakeMain as any, {});
     return {prov, fakeMain};
-}
+};
 
 describe("Provisioning", () => {
     describe("commands.authurl", () => {

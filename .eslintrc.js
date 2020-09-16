@@ -150,6 +150,7 @@ module.exports = {
         "prefer-const": "error",
         "prefer-template": "off",
         "radix": "error",
+        "semi": "error",
         "spaced-comment": [
             "error",
             "always",

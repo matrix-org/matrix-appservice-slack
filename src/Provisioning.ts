@@ -203,7 +203,7 @@ export class Provisioner {
             return;
         }
         const results = await Promise.all(accounts.map(async (account) => {
-            const team = await this.main.datastore.getTeam(account.teamId)
+            const team = await this.main.datastore.getTeam(account.teamId);
             return {team, slack_id: account.slackId};
         })
         );

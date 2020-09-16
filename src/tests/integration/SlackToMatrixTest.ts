@@ -41,7 +41,7 @@ const constructHarness = () => {
     });
     const hooks = new SlackHookHandler(main as unknown as Main);
     return { eventHandler: hooks.eventHandler, main };
-}
+};
 
 describe("SlackToMatrix", () => {
     let harness: { eventHandler: SlackEventHandler, main: FakeMain };

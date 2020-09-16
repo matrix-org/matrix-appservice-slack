@@ -72,7 +72,7 @@ describe("AdminCommand", () => {
         // Replace with a spy, once we have a library for that.
         const response: string[] = [];
         const respondMock = (data: string) => {
-            response.push(data)
+            response.push(data);
         };
         const command = new AdminCommand(
             "help [command]",

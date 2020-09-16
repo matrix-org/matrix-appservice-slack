@@ -100,7 +100,7 @@ export class NedbDatastore implements Datastore {
             slackId,
             teamId: o.team_id,
             accessToken: o.access_token,
-        }))
+        }));
     }
 
     public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {

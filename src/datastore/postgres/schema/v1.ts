@@ -37,4 +37,4 @@ export const runSchema = async(db: IDatabase<any>) => {
         extras TEXT,
         CONSTRAINT cons_events_unique UNIQUE(eventid, roomid, slackchannel, slackts)
     );`);
-}
+};
