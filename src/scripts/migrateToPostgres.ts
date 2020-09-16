@@ -20,7 +20,7 @@ limitations under the License.
  */
 
 import { Logging, MatrixUser, UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
-import * as NeDB from "nedb";
+import NeDB from "nedb";
 import * as path from "path";
 import { promisify } from "util";
 import { NedbDatastore } from "../datastore/NedbDatastore";
@@ -28,8 +28,6 @@ import { PgDatastore } from "../datastore/postgres/PgDatastore";
 import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
 import { Datastore, TeamEntry } from "../datastore/Models";
-import { WebClient } from "@slack/web-api";
-import { TeamInfoResponse } from "../SlackResponses";
 import { SlackClientFactory } from "../SlackClientFactory";
 
 Logging.configure({ console: "info" });
@@ -179,13 +177,13 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
             user.team_id = existingTeam!.id;
         }
         // tslint:disable-next-line: no-any
-        const ghost = SlackGhost.fromEntry(null as any, user, null);
+        const ghost = SlackGhost.fromEntry(null as any, user);
         await targetDs.upsertUser(ghost);
         log.info(`Migrated slack user ${user.id} (${i + 1}/${allSlackUsers.length})`);
     }));
 
     const matrixUserMigrations = () => Promise.all(allMatrixUsers.map(async (user, i) => {
-        const mxUser = new MatrixUser(user.id, user);
+        const mxUser = new MatrixUser(user.id, user as unknown as Record<string, unknown>);
         await targetDs.storeMatrixUser(mxUser);
         log.info(`Migrated matrix user ${mxUser.getId()} (${i + 1}/${allMatrixUsers.length})`);
     }));

@@ -36,7 +36,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                     id: "someid1",
                     slack_id: "FOOBAR",
                     team_id: "BARBAZ",
-                }, null),
+                }),
             );
             const userEntry = await ds().getUser("someid1");
             expect(userEntry).to.deep.equal({
@@ -55,7 +55,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 id: "someid3",
                 slack_id: "FOOBAR",
                 team_id: "BARBAZ",
-            }, null);
+            });
             await ds().upsertUser(user);
             (user as any).displayname = "A changed displayname";
             await ds().upsertUser(user);
@@ -78,8 +78,8 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
             const matrixUser = new MatrixUser("@foo1:bar", { some: "data"});
             await ds().storeMatrixUser(matrixUser);
             const response = await ds().getMatrixUser("@foo1:bar");
-            expect(response.userId).to.equal("@foo1:bar");
-            expect(response.serialize()).to.deep.equal({
+            expect(response?.userId).to.equal("@foo1:bar");
+            expect(response?.serialize()).to.deep.equal({
                 some: "data",
                 localpart: "foo1",
             });
@@ -95,8 +95,8 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
             });
             await ds().storeMatrixUser(matrixUser);
             const response = await ds().getMatrixUser("@foo2:bar");
-            expect(response.userId).to.equal("@foo2:bar");
-            expect(response.serialize()).to.deep.equal({
+            expect(response?.userId).to.equal("@foo2:bar");
+            expect(response?.serialize()).to.deep.equal({
                 some: "data",
                 localpart: "foo2",
                 accounts: {
@@ -360,7 +360,7 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
                 id: "someid1",
                 slack_id: "FOOBAR",
                 team_id: "BARBAZ",
-            }, null);
+            });
             const room = new BridgedRoom({} as any, {
                 inbound_id: "a_remote_id",
                 matrix_room_id: "a_matrix_id",

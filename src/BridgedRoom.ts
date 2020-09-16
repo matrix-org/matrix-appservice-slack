@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import * as rp from "request-promise-native";
+import axios from "axios";
 import { Logging, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
@@ -154,7 +154,7 @@ export class BridgedRoom {
     // last activity time in epoch seconds
     private slackATime?: number;
     private matrixATime?: number;
-    private intent: Intent;
+    private intent?: Intent;
     // Is the matrix room in use by the bridge.
     public MatrixRoomActive: boolean;
     private recentSlackMessages: string[] = [];
@@ -468,16 +468,11 @@ export class BridgedRoom {
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
         if (!slackClient) {
-            const sendMessageParams = {
-                body,
-                as_user: undefined,
-                headers: {},
-                json: true,
-                method: "POST",
-                uri: this.slackWebhookUri!,
-            };
-            const webhookRes = await rp(sendMessageParams);
-            if (webhookRes !== "ok") {
+            if (!this.slackWebhookUri) {
+                throw Error('No slackClient and slackWebhookUri');
+            }
+            const webhookRes = await axios.post(this.slackWebhookUri, body);
+            if (webhookRes.status !== 200) {
                 log.error("Failed to send webhook message");
             }
             // Webhooks don't give us any ID, so we can't store this.
@@ -558,7 +553,7 @@ export class BridgedRoom {
                 log.debug(`S-> ${slackId} joined ${this.SlackChannelId}`);
                 // 5
                 await recipientGhost.intent.join(this.matrixRoomId);
-            } else {
+            } else if (mxid) {
                 log.debug(`M-> ${slackId} joined ${this.SlackChannelId}`);
                 // 6
                 await this.main.botIntent.invite(this.matrixRoomId, mxid);
@@ -570,8 +565,8 @@ export class BridgedRoom {
             log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
             // 1
             await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
-            await recipientGhost.intent.join(this.matrixRoomId, recipientGhost.userId);
-        } else if (recipientPuppet) {
+            await recipientGhost.intent.join(this.matrixRoomId);
+        } else if (recipientPuppet && mxid) {
             // 2 & 4
             log.debug(`S|M->M${mxid} was invited by ${wasInvitedBy}`);
             await senderGhost.intent.invite(this.matrixRoomId, mxid);
@@ -789,13 +784,17 @@ export class BridgedRoom {
         if (file.mode === "snippet") {
             let htmlString: string;
             try {
-                htmlString = await rp({
+                const fileReq = await axios.get<string>(filePrivateUrl, {
                     headers: {
                         // Token is checked above.
                         Authorization: `Bearer ${authToken}`,
-                    },
-                    uri: filePrivateUrl,
+                    }
                 });
+                if (fileReq.status !== 200) {
+                    // We don't want to accidentally publish a error page.
+                    throw Error('Non-200 status returned for snippet');
+                }
+                htmlString = fileReq.data;
             } catch (ex) {
                 log.error("Failed to download snippet", ex);
                 return;

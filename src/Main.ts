@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Bridge, PrometheusMetrics, Gauge, StateLookup,
-    Logging, Intent, Request } from "matrix-appservice-bridge";
+import { Bridge, PrometheusMetrics, StateLookup,
+    Logging, Intent } from "matrix-appservice-bridge";
+import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
@@ -36,7 +37,7 @@ import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
-import * as QuickLRU from "quick-lru";
+import QuickLRU from "quick-lru";
 import PQueue from "p-queue";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
@@ -107,12 +108,13 @@ export class Main {
 
     private slackHookHandler?: SlackHookHandler;
     private slackRtm?: SlackRTMHandler;
-
-    private metrics: PrometheusMetrics;
+    private metrics?: {
+        prometheus: PrometheusMetrics;
+        metricActiveRooms: Gauge<string>;
+        metricActiveUsers: Gauge<string>;
+        metricPuppets: Gauge<string>;
+    };
     private metricsCollectorInterval?: NodeJS.Timeout;
-    private metricActiveRooms: Gauge;
-    private metricActiveUsers: Gauge;
-    private metricPuppets: Gauge;
 
     private adminCommands = new AdminCommands(this);
     private clientfactory!: SlackClientFactory;
@@ -162,13 +164,18 @@ export class Main {
                 roomStore: path.join(dbdir, "room-store.db"),
                 userStore: path.join(dbdir, "user-store.db"),
             };
+        } else {
+            bridgeStores = {
+                // Don't create store
+                disableStores: true,
+            }
         }
 
         this.bridge = new Bridge({
             controller: {
-                onEvent: (request: Request) => {
+                onEvent: (request) => {
                     const ev = request.getData();
-                    this.stateStorage.onEvent(ev);
+                    this.stateStorage?.onEvent(ev);
                     this.onMatrixEvent(ev).then(() => {
                         log.info(`Handled ${ev.event_id} (${ev.room_id})`);
                     }).catch((ex) => {
@@ -192,14 +199,6 @@ export class Main {
 
         this.provisioner = new Provisioner(this, this.bridge);
 
-        if (!usingNeDB) {
-            // If these are undefined in the constructor, default names
-            // are used. We want to override those names so these stores
-            // will never be created.
-            this.bridge.opts.userStore = undefined;
-            this.bridge.opts.roomStore = undefined;
-            this.bridge.opts.eventStore = undefined;
-        }
 
         if (config.rtm && config.rtm.enable) {
             log.info("Enabled RTM");
@@ -243,7 +242,7 @@ export class Main {
     }
 
     public initialiseMetrics() {
-        this.metrics = this.bridge.getPrometheusMetrics();
+        const prometheus = this.bridge.getPrometheusMetrics();
 
         this.bridge.registerBridgeGauges(() => {
             const now = Date.now() / 1000;
@@ -279,56 +278,60 @@ export class Main {
             };
         });
 
-        this.metrics.addCounter({
+        prometheus.addCounter({
             help: "count of received messages",
             labels: ["side"],
             name: METRIC_RECEIVED_MESSAGE,
         });
-        this.metrics.addCounter({
+        prometheus.addCounter({
             help: "count of sent messages",
             labels: ["side"],
             name: METRIC_SENT_MESSAGES,
         });
-        this.metrics.addCounter({
+        prometheus.addCounter({
             help: "Count of the number of remote API calls made",
             labels: ["method"],
             name: "remote_api_calls",
         });
-        this.metrics.addTimer({
+        prometheus.addTimer({
             help: "Histogram of processing durations of received Matrix messages",
             labels: ["outcome"],
             name: "matrix_request_seconds",
         });
-        this.metrics.addTimer({
+        prometheus.addTimer({
             help: "Histogram of processing durations of received remote messages",
             labels: ["outcome"],
             name: "remote_request_seconds",
         });
-        this.metricActiveUsers = this.metrics.addGauge({
+        const metricActiveUsers = prometheus.addGauge({
             help: "Count of active users",
             labels: ["remote", "team_id"],
             name: METRIC_ACTIVE_USERS,
         });
-        this.metricActiveRooms = this.metrics.addGauge({
+        const metricActiveRooms = prometheus.addGauge({
             help: "Count of active bridged rooms (types are 'channel' and 'user')",
             labels: ["team_id", "type"],
             name: METRIC_ACTIVE_ROOMS,
         });
-        this.metricPuppets = this.metrics.addGauge({
+        const metricPuppets = prometheus.addGauge({
             help: "Amount of puppeted users on the remote side of the bridge",
             labels: ["team_id"],
             name: METRIC_PUPPETS,
         });
+        this.metrics = {
+            prometheus,
+            metricActiveUsers,
+            metricActiveRooms,
+            metricPuppets,
+        };
     }
 
     public incCounter(name: string, labels: MetricsLabels = {}) {
-        if (!this.metrics) { return; }
-        this.metrics.incCounter(name, labels);
+        this.metrics?.prometheus.incCounter(name, labels);
     }
 
     public incRemoteCallCounter(type: string) {
-        if (!this.metrics) { return; }
-        this.metrics.incCounter("remote_api_calls", {method: type});
+        this.metrics?.prometheus.incCounter("remote_api_calls", {method: type});
     }
 
     /**
@@ -337,26 +340,28 @@ export class Main {
      * change to the metrics has happened.
      */
     public async updateActivityMetrics() {
+        if (!this.metrics) {
+            return;
+        }
         const roomsByTeamAndType = await this.datastore.getActiveRoomsPerTeam();
         const usersByTeamAndRemote = await this.datastore.getActiveUsersPerTeam();
 
-        this.metricActiveRooms.reset();
+        this.metrics.metricActiveRooms.reset();
         for (const [teamId, teamData] of roomsByTeamAndType.entries()) {
             for (const [roomType, numberOfActiveRooms] of teamData.entries()) {
-                this.metricActiveRooms.set({ team_id: teamId, type: roomType }, numberOfActiveRooms);
+                this.metrics.metricActiveRooms.set({ team_id: teamId, type: roomType }, numberOfActiveRooms);
             }
         }
 
-        this.metricActiveUsers.reset();
+        this.metrics.metricActiveUsers.reset();
         for (const [teamId, teamData] of usersByTeamAndRemote.entries()) {
-            this.metricActiveUsers.set({ team_id: teamId, remote: true }, teamData.get(true) || 0);
-            this.metricActiveUsers.set({ team_id: teamId, remote: false }, teamData.get(false) || 0);
+            this.metrics.metricActiveUsers.set({ team_id: teamId, remote: "true" }, teamData.get(true) || 0);
+            this.metrics.metricActiveUsers.set({ team_id: teamId, remote: "false" }, teamData.get(false) || 0);
         }
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}) {
-        if (!this.metrics) { return () => {}; }
-        return this.metrics.startTimer(name, labels);
+        return this.metrics ? this.metrics.prometheus.startTimer(name, labels) : () => {};
     }
 
     public getUrlForMxc(mxcUrl: string) {
@@ -420,13 +425,12 @@ export class Main {
     }
 
     public getStoredEvent(roomId: string, eventType: string, stateKey?: string) {
-        return this.stateStorage.getState(roomId, eventType, stateKey);
+        return this.stateStorage?.getState(roomId, eventType, stateKey);
     }
 
     public async getState(roomId: string, eventType: string) {
-        //   TODO: handle state_key. Has different return shape in the two cases
         const cachedEvent = this.getStoredEvent(roomId, eventType);
-        if (cachedEvent && cachedEvent.length) {
+        if (cachedEvent && Array.isArray(cachedEvent) && cachedEvent.length) {
             // StateLookup returns entire state events. client.getStateEvent returns
             //   *just the content*
             return cachedEvent[0].content;
@@ -436,10 +440,7 @@ export class Main {
     }
 
     public async listAllUsers(roomId: string) {
-        const members: {[userId: string]: {
-            displayname: string,
-            avatar_url: string,
-        }} = await this.bridge.getBot().getJoinedMembers(roomId);
+        const members = await this.bridge.getBot().getJoinedMembers(roomId);
         return Object.keys(members);
     }
 
@@ -519,13 +520,13 @@ export class Main {
                 // Mark the room as active if we managed to join.
                 if (forRoom) {
                     forRoom.MatrixRoomActive = true;
-                    this.stateStorage.trackRoom(ev.room_id);
+                    this.stateStorage?.trackRoom(ev.room_id);
                 }
             } else if (membership === "leave" || membership === "ban") {
                 // We've been kicked out :(
                 if (forRoom) {
                     forRoom.MatrixRoomActive = false;
-                    this.stateStorage.untrackRoom(ev.room_id);
+                    this.stateStorage?.untrackRoom(ev.room_id);
                 }
             }
             endTimer({outcome: "success"});
@@ -671,7 +672,7 @@ export class Main {
                 body: "This slack bridge instance doesn't support private messaging.",
                 msgtype: "m.notice",
             });
-            await intent.leave();
+            await intent.leave(roomId);
             return;
         }
 
@@ -797,10 +798,12 @@ export class Main {
     private async applyBotProfile() {
         log.info("Ensuring the bridge bot is registered");
         const intent = this.botIntent;
+        // TODO: Expose these
         // The bot believes itself to always be registered, even when it isn't.
-        intent.opts.registered = false;
-        await intent._ensureRegistered();
-        const profile = await intent.getProfileInfo(this.botUserId);
+        (intent as unknown as any).opts.registered = false;
+        await (intent as unknown as any)._ensureRegistered();
+        // https://github.com/matrix-org/matrix-appservice-bridge/pull/232
+        const profile = await intent.getProfileInfo(this.botUserId, null as any);
         if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile?.displayname) {
             await intent.setDisplayName(this.config.bot_profile?.displayname);
         }
@@ -843,10 +846,16 @@ export class Main {
             await new Promise((resolve, reject) => {
                 reactionDatastore.loadDatabase(err => err ? reject(err) : resolve());
             });
+            const userStore = this.bridge.getUserStore();
+            const roomStore = this.bridge.getRoomStore();
+            const eventStore = this.bridge.getEventStore();
+            if (!userStore || !roomStore || !eventStore) {
+                throw Error('Bridge stores are not defined');
+            }
             this.datastore = new NedbDatastore(
-                this.bridge.getUserStore(),
-                this.bridge.getRoomStore(),
-                this.bridge.getEventStore(),
+                userStore,
+                roomStore,
+                eventStore,
                 teamDatastore,
                 reactionDatastore,
             );
@@ -859,9 +868,7 @@ export class Main {
         this.clientfactory = new SlackClientFactory(this.datastore, this.config, (method: string) => {
             this.incRemoteCallCounter(method);
         }, (teamId: string, delta: number) => {
-            if (this.metricPuppets) {
-                this.metricPuppets.inc({ team_id: teamId }, delta);
-            }
+            this.metrics?.metricPuppets.inc({ team_id: teamId }, delta);
         });
         let puppetsWaiting: Promise<unknown> = Promise.resolve();
         if (this.slackRtm) {
@@ -879,7 +886,7 @@ export class Main {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
         }
         const port = this.config.homeserver.appservice_port || cliPort;
-        this.bridge.run(port, this.config, this.appservice);
+        await this.bridge.run(port, this.config, this.appservice);
 
         this.bridge.addAppServicePath({
             handler: this.onHealthProbe.bind(this.bridge),
@@ -980,7 +987,7 @@ export class Main {
         const teamSyncPromise = this.teamSyncer ? this.teamSyncer.syncAllTeams(teamClients) : null;
 
         if (this.metrics) {
-            this.metrics.addAppServicePath(this.bridge);
+            this.metrics.prometheus.addAppServicePath(this.bridge);
 
             // Regularly update the metrics for active rooms and users
             const ONE_HOUR = 60 * 60 * 1000;
@@ -994,7 +1001,7 @@ export class Main {
 
             // Send process stats again just to make the counters update sooner after
             // startup
-            this.metrics.refresh();
+            this.metrics.prometheus.refresh();
         }
         await puppetsWaiting;
         await teamSyncPromise;
@@ -1031,9 +1038,9 @@ export class Main {
         if (!room.IsPrivate && activeRoom) {
             // Only public rooms can be tracked.
             try {
-                await this.stateStorage.trackRoom(entry.matrix_id);
+                await this.stateStorage?.trackRoom(entry.matrix_id);
             } catch (ex) {
-                this.stateStorage.untrackRoom(entry.matrix_id);
+                this.stateStorage?.untrackRoom(entry.matrix_id);
                 room.MatrixRoomActive = false;
             }
         }
@@ -1138,7 +1145,7 @@ export class Main {
                 room.SlackChannelName = channelInfo.channel.name;
             }
             isNew = true;
-            this.stateStorage.trackRoom(matrixRoomId);
+            this.stateStorage?.trackRoom(matrixRoomId);
         } else {
             room = existingRoom;
         }
@@ -1192,7 +1199,7 @@ export class Main {
         }
 
         this.rooms.removeRoom(room);
-        this.stateStorage.untrackRoom(opts.matrix_room_id);
+        this.stateStorage?.untrackRoom(opts.matrix_room_id);
 
         const id = room.toEntry().id;
         await this.drainAndLeaveMatrixRoom(opts.matrix_room_id);

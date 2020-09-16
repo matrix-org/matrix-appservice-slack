@@ -6,6 +6,7 @@ import { FakeIntent } from "./fakeIntent";
 import { SlackGhost } from "../../SlackGhost";
 import { SlackGhostStore } from "../../SlackGhostStore";
 import { IConfig } from "../../IConfig";
+import { Bridge } from "matrix-appservice-bridge";
 
 const DEFAULT_OPTS = {
     oauth2: false,
@@ -34,7 +35,7 @@ export class FakeMain {
             });
         }
         this.datastore = new FakeDatastore(opts.teams, opts.usersInTeam);
-        this.ghostStore = new SlackGhostStore(this.rooms, this.datastore, {} as unknown as IConfig, null);
+        this.ghostStore = new SlackGhostStore(this.rooms, this.datastore, {} as unknown as IConfig, null as unknown as Bridge);
         this.ghostStore.getExisting = this.getExistingSlackGhost.bind(this);
     }
     public readonly timerFinished: {[eventName: string]: string } = {};
