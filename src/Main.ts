@@ -114,8 +114,7 @@ export class Main {
     private metricActiveUsers: Gauge;
     private metricPuppets: Gauge;
 
-    // eslint-disable-next-line no-invalid-this
-    private adminCommands = new AdminCommands(this);
+    private adminCommands: AdminCommands;
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
     public readonly allowDenyList: AllowDenyList;
@@ -123,6 +122,8 @@ export class Main {
     private provisioner: Provisioner;
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
+        this.adminCommands = new AdminCommands(this);
+
         if (config.oauth2) {
             const redirectPrefix = config.oauth2.redirect_prefix || config.inbound_uri_prefix;
             if (!redirectPrefix) {
