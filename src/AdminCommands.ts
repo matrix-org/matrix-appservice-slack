@@ -71,7 +71,7 @@ export class AdminCommands {
                 let nameFilter: RegExp;
 
                 if (team) {
-                    nameFilter = new RegExp(`^${quotemeta(team)}.#`);
+                    nameFilter = new RegExp(`^${quotemeta(team)}\\.#`);
                 }
 
                 let found = 0;
