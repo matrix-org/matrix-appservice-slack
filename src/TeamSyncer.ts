@@ -392,8 +392,9 @@ export class TeamSyncer {
                     text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
                     channel: channelItem.id,
                 });
-            } catch {
+            } catch (error) {
                 log.warn("Couldn't send a notice either");
+                log.debug(error);
             }
         }
 
