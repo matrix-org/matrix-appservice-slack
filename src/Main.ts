@@ -171,6 +171,16 @@ export class Main {
             }
         }
 
+        if (config.db?.engine === "postgres") {
+            // Need to create this early for encryption support
+            const postgresDb = new PgDatastore(config.db.connectionString);
+            this.datastore = postgresDb;
+        }
+
+        if (config.encryption?.enabled && config.db?.engine !== "postgres") {
+            throw Error('Encrypted bridge support only works with PostgreSQL.');
+        }
+
         this.bridge = new Bridge({
             controller: {
                 onEvent: (request) => {
@@ -195,6 +205,10 @@ export class Main {
             registration,
             ...bridgeStores,
             disableContext: true,
+            bridgeEncryption: config.encryption?.enabled ? {
+                homeserverUrl: config.encryption.pantalaimon_url,
+                store: this.datastore as PgDatastore,
+            } : undefined,
         });
 
         this.provisioner = new Provisioner(this, this.bridge);
@@ -825,9 +839,9 @@ export class Main {
 
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
-            const postgresDb = new PgDatastore(this.config.db!.connectionString);
-            await postgresDb.ensureSchema();
-            this.datastore = postgresDb;
+            // We create this in the constructor because we need it for encryption
+            // support.
+            await (this.datastore as PgDatastore).ensureSchema();
         } else if (dbEngine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
