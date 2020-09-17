@@ -597,9 +597,9 @@ export class BridgedRoom {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
             const puppetedClient = await this.main.clientFactory.getClientForSlackUser(this.slackTeamId, message.user);
             if (puppetedClient) {
-                log.info(`User ${message.user} is puppeted, delaying incoming slack message`);
+                log.info(`User ${message.user} is puppeted, delaying incoming Slack message`);
                 await new Promise((r) => setTimeout(r, PUPPET_INCOMING_DELAY_MS));
-                log.info(`Timeout exired ${message.user}`);
+                log.info(`Timeout expired ${message.user}`);
             }
         }
         if (this.recentSlackMessages.includes(message.ts)) {
