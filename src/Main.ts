@@ -1345,6 +1345,10 @@ export class Main {
         log.info("Bridge killed");
     }
 
+    public get encryptRoom() {
+        return this.config.encryption?.enabled;
+    }
+
     private async onRoomUpgrade(oldRoomId: string, newRoomId: string) {
         log.info(`Room has been upgraded from ${oldRoomId} to ${newRoomId}`);
         const bridgedroom = this.rooms.getByMatrixRoomId(oldRoomId);

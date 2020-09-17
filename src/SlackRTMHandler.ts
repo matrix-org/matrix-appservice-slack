@@ -239,6 +239,16 @@ export class SlackRTMHandler extends SlackEventHandler {
             log.info(`Creating new DM room for ${event.channel}`);
             const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId)!;
             const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
+            const extraContent: Record<string, unknown>[] = [];
+            if (this.main.encryptRoom) {
+                extraContent.push({
+                    type: "m.room.encryption",
+                    state_key: "",
+                    content: {
+                        algorithm: "m.megolm.v1.aes-sha2",
+                    }
+                })
+            }
             // Create a new DM room.
             const { room_id } = await ghost.intent.createRoom({
                 createAsClient: true,
@@ -247,6 +257,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                     preset: "private_chat",
                     is_direct: true,
                     name,
+                    initial_state: extraContent,
                 },
             });
             const team = (await this.main.datastore.getTeam(puppet.teamId))!;
