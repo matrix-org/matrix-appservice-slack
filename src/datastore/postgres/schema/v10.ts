@@ -7,8 +7,8 @@ export async function runSchema(db: IDatabase<any>) {
         CREATE TABLE encryption_sessions (
             user_id TEXT NOT NULL,
             device_id TEXT NOT NULL,
-            access_token TEXT NOT NULL,
+            access_token TEXT NOT NULL
         );
-        CREATE UNIQUE INDEX encryption_sessions_idx ON reactions (user_id);
+        CREATE UNIQUE INDEX encryption_sessions_idx ON encryption_sessions (user_id);
     `);
 }
