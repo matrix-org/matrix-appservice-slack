@@ -466,6 +466,9 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             "SELECT device_id, access_token FROM encryption_sessions WHERE user_id = ${userId}",
             {userId}
         );
+        if (!result) {
+            return null;
+        }
         return {
             userId,
             accessToken: result.access_token,
