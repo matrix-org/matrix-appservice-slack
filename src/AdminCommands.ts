@@ -19,7 +19,6 @@ import * as yargs from "yargs";
 import { AdminCommand, ResponseCallback } from "./AdminCommand";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
-import { response } from "express";
 
 const log = Logging.get("AdminCommands");
 
