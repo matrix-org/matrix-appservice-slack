@@ -857,7 +857,6 @@ export class Main {
                 roomStore,
                 eventStore,
                 teamDatastore,
-                reactionDatastore,
             );
         } else {
             throw Error("Unknown engine for database. Please use 'postgres' or 'nedb");
