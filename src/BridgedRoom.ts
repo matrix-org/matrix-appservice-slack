@@ -991,6 +991,24 @@ export class BridgedRoom {
         }
     }
 
+    public async onMatrixTyping(currentlyTyping: string[]) {
+        log.debug(`${currentlyTyping} are typing in ${this.matrixRoomId}`);
+        if (!this.SlackTeamId || !this.SlackChannelId) {
+            // We don't handle typing on non-teamed rooms
+            return;
+        }
+        const teamId = this.SlackTeamId;
+        const convoId = this.SlackChannelId;
+        await Promise.all(currentlyTyping.map((userId) => (async () => {
+            const res = await this.main.slackRtm?.getUserClient(teamId, userId);
+            if (!res) {
+                // We don't have a client for this user.
+                return;
+            }
+            res.sendTyping(convoId);
+        })()));
+    }
+
     private async getReplyEvent(roomID: string, message: ISlackMessageEvent, slackRoomID: string) {
         // Get parent event
         const dataStore = this.main.datastore;
