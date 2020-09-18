@@ -1005,7 +1005,7 @@ export class BridgedRoom {
                 // We don't have a client for this user.
                 return;
             }
-            res.sendTyping(convoId);
+            return res.sendTyping(convoId);
         })()));
     }
 
