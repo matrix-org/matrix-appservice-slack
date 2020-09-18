@@ -177,7 +177,7 @@ export class FakeDatastore implements Datastore {
         return new Map();
     }
 
-    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null> {
+    public async upsertActivityMetrics(): Promise<null> {
         return null;
     }
 

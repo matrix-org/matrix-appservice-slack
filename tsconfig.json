@@ -7,6 +7,7 @@
     "rootDir": "./src",
     "strict": true,
     "incremental": true,
+    "esModuleInterop": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
     "sourceMap": true

@@ -15,7 +15,7 @@ limitations under the License.
 */
 import { UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
 import { NedbDatastore } from "../../datastore/NedbDatastore";
-import * as NedbDs from "nedb";
+import NedbDs from "nedb";
 import { doDatastoreTests } from "./SharedDatastoreTests";
 
 describe("NedbDatastore", () => {

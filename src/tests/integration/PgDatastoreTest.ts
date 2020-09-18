@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import { Logging } from "matrix-appservice-bridge";
-import * as pgInit from "pg-promise";
+import pgInit from "pg-promise";
 import { PgDatastore } from "../../datastore/postgres/PgDatastore";
 import { expect } from "chai";
 import { doDatastoreTests } from "./SharedDatastoreTests";
@@ -133,6 +133,6 @@ describeFnl("PgDatastore", () => {
     });
 
     after(async () => {
-        Logging.configure({console: "silent"});
+        Logging.configure({console: "off"});
     });
 });
