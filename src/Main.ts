@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { Bridge, PrometheusMetrics, StateLookup,
-    Logging, Intent } from "matrix-appservice-bridge";
+    Logging, Intent, PresenceEvent } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -107,7 +107,6 @@ export class Main {
     private stateStorage: StateLookup|null = null;
 
     private slackHookHandler?: SlackHookHandler;
-    private slackRtm?: SlackRTMHandler;
     private metrics?: {
         prometheus: PrometheusMetrics;
         metricActiveRooms: Gauge<string>;
@@ -120,6 +119,7 @@ export class Main {
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
     public readonly allowDenyList: AllowDenyList;
+    public readonly slackRtm?: SlackRTMHandler;
 
     private provisioner: Provisioner;
 
@@ -191,6 +191,19 @@ export class Main {
                     }).catch((ex) => {
                         log.error(`Failed to handle ${ev.event_id} (${ev.room_id})`, ex);
                     });
+                },
+                onEphemeralEvent: request => {
+                    const ev = request.getData();
+                    if (ev.type === "m.typing") {
+                        const room = this.rooms.getByMatrixRoomId(ev.room_id);
+                        if (room) {
+                            room.onMatrixTyping(ev.content.user_ids);
+                        }
+                    } else if (ev.type === "m.presence") {
+                        this.onMatrixPresence(ev);
+                    }
+                    // Slack has no concept of receipts
+
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
             },
@@ -1363,6 +1376,20 @@ export class Main {
             log.info("Migrating admin room");
             await this.datastore.setUserAdminRoom(adminRoomUser, newRoomId);
         } // Otherwise, not a known room.
+    }
+
+    private async onMatrixPresence(ev: PresenceEvent) {
+        log.debug(`Presence for ${ev.sender}`, ev);
+        const presence = ev.content.presence === "online" ? "auto" : "away";
+        const clients = await this.clientFactory.getClientsForUser(ev.sender);
+        for (const client of clients) {
+            log.debug(`Set presece of user on Slack to ${presence}`);
+            await client.users.setPresence({
+                presence,
+            });
+            // TODO: We need to bridge the status_msg somehow, but nothing in Slack
+            // really fits.
+        }
     }
 
     private onHealthProbe(_, res: Response) {
