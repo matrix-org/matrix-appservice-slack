@@ -371,7 +371,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any) {
-        const clientForRequest = await this.getClientForRequest(message.user_id);
+        const clientForRequest = await this.getClientForRequest(message.sender);
         if (!clientForRequest) {
             log.warn("No client to handle edit");
             return false;
@@ -426,10 +426,10 @@ export class BridgedRoom {
     }
 
     public async onMatrixMessage(message: any) {
-        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.sender);
         if (!this.slackWebhookUri && !this.botClient && !puppetedClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
-        const user = this.main.getOrCreateMatrixUser(message.user_id);
+        const user = this.main.getOrCreateMatrixUser(message.sender);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         if (!matrixToSlackResult) {
