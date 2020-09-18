@@ -192,17 +192,23 @@ export class Main {
                         log.error(`Failed to handle ${ev.event_id} (${ev.room_id})`, ex);
                     });
                 },
-                onEphemeralEvent: request => {
+                onEphemeralEvent: async request => {
                     const ev = request.getData();
-                    if (ev.type === "m.typing") {
-                        const room = this.rooms.getByMatrixRoomId(ev.room_id);
-                        if (room) {
-                            room.onMatrixTyping(ev.content.user_ids);
+                    try {
+                        if (ev.type === "m.typing") {
+                            const room = this.rooms.getByMatrixRoomId(ev.room_id);
+                            if (room) {
+                                await room.onMatrixTyping(ev.content.user_ids);
+                            }
+                            log.debug(`Handled typing event for ${ev.room_id}`);
+                        } else if (ev.type === "m.presence") {
+                            await this.onMatrixPresence(ev);
+                            log.debug(`Handled presence for ${ev.sender} (${ev.content.presence})`);
                         }
-                    } else if (ev.type === "m.presence") {
-                        this.onMatrixPresence(ev);
+                        // Slack has no concept of receipts, we can't bridge those.
+                    } catch (ex) {
+                        log.error(`Failed to handle ephemeral event`, ex);
                     }
-                    // Slack has no concept of receipts
 
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
