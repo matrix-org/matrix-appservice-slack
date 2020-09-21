@@ -336,7 +336,7 @@ export class SlackGhost {
         return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: {}, slackRoomId: string, slackEventTs: string) {
+    public async sendMessage(roomId: string, msg: Record<string, unknown>, slackRoomId: string, slackEventTs: string) {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }

@@ -170,14 +170,14 @@ export class Main {
             bridgeStores = {
                 // Don't create store
                 disableStores: true,
-            }
+            };
         }
 
         this.bridge = new Bridge({
             controller: {
-                onEvent: (request) => {
+                onEvent: async(request) => {
                     const ev = request.getData();
-                    this.stateStorage?.onEvent(ev);
+                    void this.stateStorage?.onEvent(ev);
                     this.onMatrixEvent(ev).then(() => {
                         log.info(`Handled ${ev.event_id} (${ev.room_id})`);
                     }).catch((ex) => {
@@ -455,7 +455,7 @@ export class Main {
     public async drainAndLeaveMatrixRoom(roomId: string) {
         const userIds = await this.listGhostUsers(roomId);
         log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
-        await Promise.all(userIds.map((userId) =>
+        await Promise.all(userIds.map(async(userId) =>
             this.getIntent(userId).leave(roomId),
         ));
         await this.botIntent.leave(roomId);
@@ -522,7 +522,7 @@ export class Main {
                 // Mark the room as active if we managed to join.
                 if (forRoom) {
                     forRoom.MatrixRoomActive = true;
-                    this.stateStorage?.trackRoom(ev.room_id);
+                    await this.stateStorage?.trackRoom(ev.room_id);
                 }
             } else if (membership === "leave" || membership === "ban") {
                 // We've been kicked out :(
@@ -1149,7 +1149,7 @@ export class Main {
                 room.SlackChannelName = channelInfo.channel.name;
             }
             isNew = true;
-            this.stateStorage?.trackRoom(matrixRoomId);
+            await this.stateStorage?.trackRoom(matrixRoomId);
         } else {
             room = existingRoom;
         }

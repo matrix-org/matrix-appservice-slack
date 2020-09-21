@@ -242,7 +242,7 @@ export class TeamSyncer {
         log.info("Leaving from all rooms");
         const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
         let i = teamRooms.length;
-        await Promise.all(teamRooms.map((r) =>
+        await Promise.all(teamRooms.map(async(r) =>
             slackGhost.intent.leave(r.MatrixRoomId).catch(() => {
                 i--;
                 // Failing to leave a room is fairly normal.
@@ -350,10 +350,10 @@ export class TeamSyncer {
         const queue = new PQueue({concurrency: JOIN_CONCURRENCY});
 
         // Join users who aren't joined
-        joinedUsers.forEach(async(g) => queue.add(() => g.intent.join(roomId)));
+        joinedUsers.forEach(async(g) => queue.add(async() => g.intent.join(roomId)));
 
         // Leave users who are joined
-        leftUsers.forEach(async(userId) => queue.add(() => this.main.getIntent(userId).leave(roomId)));
+        leftUsers.forEach(async(userId) => queue.add(async() => this.main.getIntent(userId).leave(roomId)));
 
         await queue.onIdle();
         log.debug(`Finished syncing membership to ${roomId}`);
