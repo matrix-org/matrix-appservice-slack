@@ -18,7 +18,7 @@ import { Logging } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
-import * as escapeStringRegexp from "escape-string-regexp";
+import escapeStringRegexp from "escape-string-regexp";
 
 const log = Logging.get("substitutions");
 
@@ -41,7 +41,7 @@ interface PillItem {
 export interface IMatrixToSlackResult {
     link_names: boolean;  // This no longer works for nicks but is needed to make @channel work.
     text?: string;
-    username: string;
+    username?: string;
     attachments?: [{
         fallback: string,
         image_url: string,

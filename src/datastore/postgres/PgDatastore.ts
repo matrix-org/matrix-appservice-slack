@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 // eslint thinks we can combine these two statements, but so far I have been unable to.
-import * as pgInit from "pg-promise";
+import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
@@ -33,6 +33,7 @@ import {
 } from "../Models";
 import { BridgedRoom } from "../../BridgedRoom";
 import { SlackGhost } from "../../SlackGhost";
+import { MatrixUser as BridgeMatrixUser } from "../../MatrixUser";
 
 const pgp: IMain = pgInit({
     // Initialization Options
@@ -66,7 +67,10 @@ export class PgDatastore implements Datastore {
     public async getMatrixUser(userId: string): Promise<MatrixUser|null> {
         userId = new MatrixUser(userId).getId(); // Ensure ID correctness
         const userData = await this.getUser(userId);
-        return userData !== null ? new MatrixUser(userId, userData) : null;
+        return userData !== null ? new MatrixUser(
+            userId,
+            // UserEntry is a simple interface type, but Typescript is failing to parse that.
+            userData as unknown as Record<string, string|undefined>) : null;
     }
 
     public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
@@ -402,7 +406,7 @@ export class PgDatastore implements Datastore {
         return this.postgresDb.none(statement, {matrixuser, roomid});
     }
 
-    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null> {
+    public async upsertActivityMetrics(user: BridgeMatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null> {
         date = date || new Date();
         const userId = (user instanceof SlackGhost) ? user.toEntry().id : user.userId;
 

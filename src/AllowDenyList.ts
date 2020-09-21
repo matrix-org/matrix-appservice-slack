@@ -1,4 +1,4 @@
-import * as escapeStringRegexp from "escape-string-regexp";
+import escapeStringRegexp from "escape-string-regexp";
 
 export interface AllowDenyConfig {
     allow?: {

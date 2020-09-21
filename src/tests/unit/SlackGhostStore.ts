@@ -22,6 +22,7 @@ import { SlackRoomStore } from "../../SlackRoomStore";
 import { FakeDatastore } from "../utils/fakeDatastore";
 import { IConfig } from "../../IConfig";
 import { expect } from "chai";
+import { Bridge, Intent } from "matrix-appservice-bridge";
 
 const getGhostStore = () => {
     const rooms = new SlackRoomStore();
@@ -36,21 +37,22 @@ const getGhostStore = () => {
         user_id: "fooo",
     }]);
     const intentHolder: { intent: any } = { intent: null };
-    const store = new SlackGhostStore(rooms, datastore, {
-        homeserver: {
-            server_name: "example.com",
-        },
-        username_prefix: "_slack_",
-    } as IConfig, {
+    const fakeBridge = {
         getIntent: () => {
             const intent = {
                 isRegistered: false,
                 _ensureRegistered: () => { intent.isRegistered = true; },
             };
             intentHolder.intent = intent;
-            return intent;
+            return intent as unknown as Intent;
         },
-    });
+    } as unknown as Bridge;
+    const store = new SlackGhostStore(rooms, datastore, {
+        homeserver: {
+            server_name: "example.com",
+        },
+        username_prefix: "_slack_",
+    } as IConfig, fakeBridge);
     return {store, datastore, intentHolder};
 };
 

@@ -1,4 +1,4 @@
-import * as pgp from "pg-promise";
+import pgp from "pg-promise";
 import { MatrixUser } from "matrix-appservice-bridge";
 
 // tslint:disable-next-line: no-any

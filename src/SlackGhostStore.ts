@@ -2,7 +2,7 @@ import { SlackRoomStore } from "./SlackRoomStore";
 import { Datastore } from "./datastore/Models";
 import { SlackGhost } from "./SlackGhost";
 import { IConfig } from "./IConfig";
-import * as QuickLRU from "quick-lru";
+import QuickLRU from "quick-lru";
 import { Logging, Bridge } from "matrix-appservice-bridge";
 
 const log = Logging.get("SlackGhostStore");
@@ -87,7 +87,8 @@ export class SlackGhostStore {
 
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
-        await intent._ensureRegistered();
+        // TODO: Expose this
+        await (intent as unknown as any)._ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {

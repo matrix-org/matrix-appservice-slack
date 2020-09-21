@@ -16,6 +16,7 @@ limitations under the License.
 import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
 import { MatrixUser } from "matrix-appservice-bridge";
+import { MatrixUser as BridgeMatrixUser } from "../MatrixUser";
 
 export interface RoomEntry {
     id: string;
@@ -162,7 +163,7 @@ export interface Datastore {
      * @param room The room an action was taken in
      * @param date The date of the action (defaults to the current date)
      */
-    upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null>;
+    upsertActivityMetrics(user: BridgeMatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null>;
 
     /**
      * Get the number of connected rooms on this instance.

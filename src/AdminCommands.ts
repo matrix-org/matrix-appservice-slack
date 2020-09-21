@@ -252,6 +252,10 @@ export class AdminCommands {
                 respond: ResponseCallback,
                 room?: string,
             }) => {
+                if (!room) {
+                    respond("No room provided");
+                    return;
+                }
                 await this.main.botIntent.join(room);
                 respond("Joined");
             },
@@ -272,7 +276,7 @@ export class AdminCommands {
                 const roomId: string = room!;
                 const userIds = await this.main.listGhostUsers(roomId);
                 respond(`Draining ${userIds.length} ghosts from ${roomId}`);
-                await Promise.all(userIds.map((userId) => this.main.getIntent(userId).leave(roomId)));
+                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(roomId)));
                 await this.main.botIntent.leave(roomId);
                 respond("Drained");
             },

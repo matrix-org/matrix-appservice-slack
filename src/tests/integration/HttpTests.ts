@@ -15,8 +15,7 @@ limitations under the License.
 */
 import { Main } from "../../Main";
 import { expect } from "chai";
-import * as request from "request-promise-native";
-import { Response } from "request";
+import axios from "axios";
 
 import { constructHarness } from "../utils/harness";
 
@@ -32,11 +31,9 @@ describe("HttpTests", () => {
 
     it("will respond 201 to a health check", async () => {
         await harness.main.run(57000);
-        const res = await request.get("http://localhost:57000/health", {
-            resolveWithFullResponse: true,
-        }) as Response;
-        expect(res.statusCode).to.equal(201);
-        expect(res.body).to.be.empty;
+        const res = await axios.get("http://localhost:57000/health");
+        expect(res.status).to.equal(201);
+        expect(res.data).to.be.empty;
     });
 
     afterEach(async () => {

@@ -15,9 +15,7 @@ limitations under the License.
 */
 
 import { Logging } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
 import { Main } from "./Main";
-import { default as subs } from "./substitutions";
 import { WebClient } from "@slack/web-api";
 import { FilesSharedPublicURLResponse, ConversationsInfoResponse } from "./SlackResponses";
 
@@ -239,32 +237,5 @@ export abstract class BaseSlackHandler {
             throw Error("files.sharedPublicURL didn't return a shareable url");
         }
         return response.file;
-    }
-
-    /**
-     * Fetches the file at a given url.
-     *
-     * @param {Object} file A Slack 'message.file' data object
-     * @return {Promise<string>} A Promise of file contents
-     */
-    public async fetchFileContent(file: ISlackFile): Promise<Buffer> {
-        const url = subs.getSlackFileUrl({
-            permalink_public: file.permalink_public!,
-            url_private: file.url_private!,
-        }) || file.permalink_public;
-        if (!url) {
-            throw Error("File doesn't have any URLs we can use.");
-        }
-
-        const response = await rp({
-            // This causes response.body to be a buffer.
-            encoding: null,
-            resolveWithFullResponse: true,
-            uri: url,
-        });
-
-        const content = response.body as Buffer;
-        log.debug(`Successfully fetched file ${file.id}  content (${content.length} bytes)`);
-        return content;
     }
 }

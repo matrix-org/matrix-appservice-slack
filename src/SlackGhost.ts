@@ -43,7 +43,7 @@ export class SlackGhost {
         return this.atime;
     }
 
-    public static fromEntry(datastore: Datastore, entry: UserEntry, intent: Intent) {
+    public static fromEntry(datastore: Datastore, entry: UserEntry, intent?: Intent) {
         return new SlackGhost(
             datastore,
             entry.slack_id,
@@ -64,13 +64,20 @@ export class SlackGhost {
         public readonly slackId: string,
         public readonly teamId: string|undefined,
         public readonly userId: string,
-        public readonly intent: Intent,
+        private _intent?: Intent,
         private displayname?: string,
         private avatarHash?: string) {
         this.slackId = slackId.toUpperCase();
         if (teamId) {
             this.teamId = teamId.toUpperCase();
         }
+    }
+
+    public get intent(): Intent {
+        if (!this._intent) {
+            throw Error('Ghost has not been assigned an intent');
+        }
+        return this._intent;
     }
 
     public get displayName(): string|undefined {
@@ -119,9 +126,12 @@ export class SlackGhost {
         if (!slackUser.profile) {
             return;
         }
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         let changed = false;
         if (slackUser.profile.display_name && this.displayName !== slackUser.profile.display_name) {
-            await this.intent.setDisplayName(slackUser.profile.display_name);
+            await this._intent.setDisplayName(slackUser.profile.display_name);
             this.displayname = slackUser.profile.display_name;
             changed = true;
         }
@@ -136,7 +146,7 @@ export class SlackGhost {
                 mimetype: response.headers["content-type"],
                 title: avatarRes.hash,
             }, response.data);
-            await this.intent.setAvatarUrl(contentUri);
+            await this._intent.setAvatarUrl(contentUri);
             this.avatarHash = avatarRes.hash;
             changed = true;
         }
@@ -151,6 +161,9 @@ export class SlackGhost {
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
         room: BridgedRoom) {
         let displayName = message.username || message.user_name;
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
 
         if (room.SlackClient) { // We can be smarter if we have the bot.
             if (message.bot_id && message.user_id) {
@@ -170,7 +183,7 @@ export class SlackGhost {
 
         log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
 
-        await this.intent.setDisplayName(displayName);
+        await this._intent.setDisplayName(displayName);
         this.displayname = displayName;
         return this.datastore.upsertUser(this);
     }
@@ -245,6 +258,9 @@ export class SlackGhost {
         if (!room.SlackClient) {
             return;
         }
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         let avatarUrl;
         let hash: string|undefined;
         if (message.bot_id && message.user_id) {
@@ -286,7 +302,7 @@ export class SlackGhost {
             mimetype: response.headers["content-type"],
             title,
         }, response.data);
-        await this.intent.setAvatarUrl(contentUri);
+        await this._intent.setAvatarUrl(contentUri);
         this.avatarHash = hash;
         await this.datastore.upsertUser(this);
     }
@@ -320,8 +336,11 @@ export class SlackGhost {
         return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: Record<string, unknown>, slackRoomId: string, slackEventTs: string) {
-        const matrixEvent = await this.intent.sendMessage(roomId, msg);
+    public async sendMessage(roomId: string, msg: {}, slackRoomId: string, slackEventTs: string) {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
+        const matrixEvent = await this._intent.sendMessage(roomId, msg) as {event_id: string};
 
         await this.datastore.upsertEvent(
             roomId,
@@ -335,6 +354,9 @@ export class SlackGhost {
 
     public async sendReaction(roomId: string, eventId: string, key: string,
         slackRoomId: string, slackEventTs: string) {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         const content = {
             "m.relates_to": {
                 event_id: eventId,
@@ -343,7 +365,7 @@ export class SlackGhost {
             },
         };
 
-        const matrixEvent = await this.intent.sendEvent(roomId, "m.reaction", content);
+        const matrixEvent = await this._intent.sendEvent(roomId, "m.reaction", content) as {event_id: string};
 
         // Add this event to the eventStore
         await this.datastore.upsertEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
@@ -371,21 +393,30 @@ export class SlackGhost {
     }
 
     public async sendTyping(roomId: string): Promise<void> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         // This lasts for 20000 - See http://matrix-org.github.io/matrix-js-sdk/1.2.0/client.js.html#line2031
         this.typingInRooms.add(roomId);
-        await this.intent.sendTyping(roomId, true);
+        await this._intent.sendTyping(roomId, true);
     }
 
     public async updateReadMarker(roomId: string, eventId: string): Promise<void> {
-        await this.intent.sendReadReceipt(roomId, eventId);
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
+        await this._intent.sendReadReceipt(roomId, eventId);
     }
 
     public async cancelTyping(roomId: string): Promise<void> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         if (this.typingInRooms.has(roomId)) {
             // We aren't checking for timeouts here, but typing
             // calls aren't expensive if they no-op.
             this.typingInRooms.delete(roomId);
-            await this.intent.sendTyping(roomId, false);
+            await this._intent.sendTyping(roomId, false);
         }
     }
 
@@ -409,7 +440,10 @@ export class SlackGhost {
     }
 
     public async uploadContent(file: {mimetype: string, title: string}, buffer: ArrayBuffer): Promise<string> {
-        const contentUri = await this.intent.getClient().uploadContent(buffer, {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
+        const contentUri = await this._intent.getClient().uploadContent(buffer, {
             name: file.title,
             type: file.mimetype,
             rawResponse: false,
