@@ -168,7 +168,7 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param params Parameters given in either the body or query string.
      */
     private async handleWebhook(method: string, url: string, params: qs.ParsedUrlQuery,
-                                response: ServerResponse) {
+        response: ServerResponse) {
         log.info(`Received Slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
 
@@ -375,7 +375,7 @@ export class SlackHookHandler extends BaseSlackHandler {
      * sent at the same microsecond.
      * @param {string} channelID Slack channel ID.
      * @param {string} timestamp Timestamp when message was received, in seconds
-     *     formatted as a float.
+     * formatted as a float.
      */
     private async lookupMessage(channelID: string, timestamp: string, client: WebClient): Promise<{
         message: ISlackMessageEvent}> {

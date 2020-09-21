@@ -23,7 +23,7 @@ import { BridgedRoom } from "../../BridgedRoom";
 
 // tslint:disable: no-unused-expression no-any
 
-function constructHarness() {
+const constructHarness = () => {
     const main = new FakeMain({
         oauth2: false,
         teams: [
@@ -41,7 +41,7 @@ function constructHarness() {
     });
     const hooks = new SlackHookHandler(main as unknown as Main);
     return { eventHandler: hooks.eventHandler, main };
-}
+};
 
 describe("SlackToMatrix", () => {
     let harness: { eventHandler: SlackEventHandler, main: FakeMain };
@@ -80,16 +80,16 @@ describe("SlackToMatrix", () => {
             subtype: "message_changed",
             hidden: true,
             message: {
-              user_id: "foo",
-              channel: "foo",
-              type: "message",
-              subtype: "tombstone",
-              ts: "1569567229.124700",
+                user_id: "foo",
+                channel: "foo",
+                type: "message",
+                subtype: "tombstone",
+                ts: "1569567229.124700",
             },
             channel: "fakechannel",
             ts: "12345",
-         } as ISlackMessageEvent,
-         "12345", (status: number, body?: string) => {
+        } as ISlackMessageEvent,
+        "12345", (status: number, body?: string) => {
             called = true;
             expect(status).to.equal(200);
             expect(body).to.equal("OK");

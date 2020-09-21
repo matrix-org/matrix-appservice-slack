@@ -24,7 +24,7 @@ import { IConfig } from "../../IConfig";
 import { expect } from "chai";
 import { Bridge, Intent } from "matrix-appservice-bridge";
 
-function getGhostStore() {
+const getGhostStore = () => {
     const rooms = new SlackRoomStore();
     const datastore = new FakeDatastore([{
         id: "faketeam",
@@ -54,11 +54,11 @@ function getGhostStore() {
         username_prefix: "_slack_",
     } as IConfig, fakeBridge);
     return {store, datastore, intentHolder};
-}
+};
 
 describe("SlackGhostStore", () => {
     it("constructs", () => {
-       getGhostStore();
+        getGhostStore();
     });
     it("getForSlackMessage should get a ghost with a team_domain and team_id", async () => {
         const {store, datastore, intentHolder} = getGhostStore();

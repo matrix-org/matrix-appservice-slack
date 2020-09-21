@@ -45,7 +45,7 @@ const getStoredEventGenerator = (users: {
         }
         // Return an array of all join events
         return events;
-    }
+    };
 };
 
 describe("MatrixUser", () => {

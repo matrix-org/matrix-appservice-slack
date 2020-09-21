@@ -26,7 +26,7 @@ const cli = new Cli({
         schema: path.join(__dirname, "../config/slack-config-schema.yaml"),
     },
     registrationPath: "slack-registration.yaml",
-    generateRegistration(reg, callback) {
+    generateRegistration: (reg, callback) => {
         const config = cli.getConfig() as IConfig|null;
         if (!config) {
             throw Error('Config not ready');
@@ -38,7 +38,7 @@ const cli = new Cli({
         reg.addRegexPattern("users", `@${config.username_prefix}.*:${config.homeserver.server_name}`, true);
         callback(reg);
     },
-    run(cliPort: number, rawConfig: Record<string, undefined>|null, registration: any) {
+    run: (cliPort: number, rawConfig: Record<string, undefined>|null, registration: any) => {
         const config = rawConfig as IConfig|null;
         if (!config) {
             throw Error('Config not ready');

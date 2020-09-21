@@ -100,7 +100,7 @@ export class Main {
 
     private bridge: Bridge;
     private appservice: AppService;
-    private ready: boolean = false;
+    private ready = false;
 
     // TODO(paul): ugh. this.getBotIntent() doesn't work before .run time
     // So we can't create the StateLookup instance yet
@@ -116,7 +116,7 @@ export class Main {
     };
     private metricsCollectorInterval?: NodeJS.Timeout;
 
-    private adminCommands = new AdminCommands(this);
+    private adminCommands: AdminCommands;
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
     public readonly allowDenyList: AllowDenyList;
@@ -124,6 +124,8 @@ export class Main {
     private provisioner: Provisioner;
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
+        this.adminCommands = new AdminCommands(this);
+
         if (config.oauth2) {
             const redirectPrefix = config.oauth2.redirect_prefix || config.inbound_uri_prefix;
             if (!redirectPrefix) {
@@ -168,14 +170,14 @@ export class Main {
             bridgeStores = {
                 // Don't create store
                 disableStores: true,
-            }
+            };
         }
 
         this.bridge = new Bridge({
             controller: {
-                onEvent: (request) => {
+                onEvent: async(request) => {
                     const ev = request.getData();
-                    this.stateStorage?.onEvent(ev);
+                    void this.stateStorage?.onEvent(ev);
                     this.onMatrixEvent(ev).then(() => {
                         log.info(`Handled ${ev.event_id} (${ev.room_id})`);
                     }).catch((ex) => {
@@ -453,7 +455,7 @@ export class Main {
     public async drainAndLeaveMatrixRoom(roomId: string) {
         const userIds = await this.listGhostUsers(roomId);
         log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
-        await Promise.all(userIds.map((userId) =>
+        await Promise.all(userIds.map(async(userId) =>
             this.getIntent(userId).leave(roomId),
         ));
         await this.botIntent.leave(roomId);
@@ -480,13 +482,13 @@ export class Main {
         const recents = this.recentMatrixEventIds;
         for (let i = 0; i < recents.length; i++) {
             if (recents[i] && recents[i] === ev.event_id) {
-              // move the most recent ev to where we found a dup and add the
-              // duplicate at the end (reasoning: we only want one of the
-              // duplicated ev_id in the list, but we want it at the end)
-              recents[i] = recents[this.mostRecentEventIdIdx];
-              recents[this.mostRecentEventIdIdx] = ev.event_id;
-              log.warn("Ignoring duplicate ev: " + ev.event_id);
-              return;
+                // move the most recent ev to where we found a dup and add the
+                // duplicate at the end (reasoning: we only want one of the
+                // duplicated ev_id in the list, but we want it at the end)
+                recents[i] = recents[this.mostRecentEventIdIdx];
+                recents[this.mostRecentEventIdIdx] = ev.event_id;
+                log.warn("Ignoring duplicate ev: " + ev.event_id);
+                return;
             }
         }
         this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % RECENT_EVENTID_SIZE;
@@ -520,7 +522,7 @@ export class Main {
                 // Mark the room as active if we managed to join.
                 if (forRoom) {
                     forRoom.MatrixRoomActive = true;
-                    this.stateStorage?.trackRoom(ev.room_id);
+                    await this.stateStorage?.trackRoom(ev.room_id);
                 }
             } else if (membership === "leave" || membership === "ban") {
                 // We've been kicked out :(
@@ -710,7 +712,7 @@ export class Main {
         if (denyReason !== DenyReason.ALLOWED) {
             await intent.sendEvent(roomId, "m.room.message", {
                 body: denyReason === DenyReason.MATRIX ? "The admin of this Slack bridge has denied you to directly message Slack users." :
-                "The admin of this Slack bridge has denied users to directly message this Slack user.",
+                    "The admin of this Slack bridge has denied users to directly message this Slack user.",
                 msgtype: "m.notice",
             });
             await intent.leave(roomId);
@@ -831,6 +833,7 @@ export class Main {
         } else if (dbEngine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const NedbDs = require("nedb");
             const teamDatastore = new NedbDs({
                 autoload: true,
@@ -913,7 +916,9 @@ export class Main {
                 joinedRooms = await this.bridge.getBot().getJoinedRooms() as string[];
             } catch (ex) {
                 if (ex.errcode === 'M_UNKNOWN_TOKEN') {
-                    log.error("The homeserver doesn't recognise this bridge, have you configured the homeserver with the appservice registration file?");
+                    log.error(
+                        "The homeserver doesn't recognise this bridge, have you configured the homeserver with the appservice registration file?"
+                    );
                 } else {
                     log.error("Failed to fetch room list:", ex);
                 }
@@ -1144,7 +1149,7 @@ export class Main {
                 room.SlackChannelName = channelInfo.channel.name;
             }
             isNew = true;
-            this.stateStorage?.trackRoom(matrixRoomId);
+            await this.stateStorage?.trackRoom(matrixRoomId);
         } else {
             room = existingRoom;
         }
@@ -1213,12 +1218,12 @@ export class Main {
         const powerLevels = await this.getState(matrixRoomId, "m.room.power_levels");
         const userLevel =
             (powerLevels.users && userId in powerLevels.users) ? powerLevels.users[userId] :
-            powerLevels.users_default;
+                powerLevels.users_default;
 
         const requiresLevel =
             (powerLevels.events && "m.room.power_levels" in powerLevels.events) ?
-            powerLevels.events["m.room.power_levels"] :
-            ("state_default" in powerLevels) ? powerLevels.powerLevels : STATE_DEFAULT;
+                powerLevels.events["m.room.power_levels"] :
+                ("state_default" in powerLevels) ? powerLevels.powerLevels : STATE_DEFAULT;
 
         return userLevel >= requiresLevel;
     }
@@ -1296,7 +1301,10 @@ export class Main {
             if (teamHasRooms) {
                 // If this is the last account for a team and rooms are bridged, we must preserve
                 // the team until all rooms are removed.
-                return { deleted: false, msg: "You are the only user connected to Slack. You must unlink your rooms before you can unlink your account"};
+                return {
+                    deleted: false,
+                    msg: "You are the only user connected to Slack. You must unlink your rooms before you can unlink your account"
+                };
             }
             // Last account, but no bridged rooms. We can delete the team safely.
             await this.clientFactory.dropTeamClient(acct.teamId);
