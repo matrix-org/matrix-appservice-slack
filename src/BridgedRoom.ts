@@ -890,6 +890,8 @@ export class BridgedRoom {
                 return await ghost.sendWithReply(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
+            } else {
+                log.warn("Could not find matrix event for parent reply", message.thread_ts);
             }
         }
 
@@ -999,6 +1001,7 @@ export class BridgedRoom {
         const dataStore = this.main.datastore;
         const parentEvent = await dataStore.getEventBySlackId(slackRoomID, message.thread_ts!);
         if (parentEvent === null) {
+            log.warn(`Could not find parent matrix event for ${message.thread_ts}`);
             return null;
         }
         let replyToTS = "";
@@ -1013,6 +1016,7 @@ export class BridgedRoom {
         // Get event to reply to
         const replyToEvent = await dataStore.getEventBySlackId(slackRoomID, replyToTS);
         if (replyToEvent === null) {
+            log.warn(`Could not find parent matrix event for the latest event in the chain ${replyToTS}`);
             return null;
         }
         const intent = await this.getIntentForRoom(roomID);
