@@ -159,6 +159,8 @@ export class PgDatastore implements Datastore {
 
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
         const events = this.postgresDb.manyOrNone(
+        log.debug(`getEventBySlackId: ${slackChannel} ${slackTs}`);
+        const events = await this.postgresDb.manyOrNone(
             "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
             { slackChannel, slackTs });
         if (events[0]) {
