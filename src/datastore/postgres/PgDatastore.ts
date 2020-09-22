@@ -43,8 +43,7 @@ const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
     public static readonly LATEST_SCHEMA = 9;
-    // tslint:disable-next-line: no-any
-    public readonly postgresDb: IDatabase<any>;
+    public readonly postgresDb: IDatabase<unknown>;
 
     constructor(connectionString: string) {
         this.postgresDb = pgp(connectionString);
@@ -120,7 +119,13 @@ export class PgDatastore implements Datastore {
         return this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
     }
 
-    public async upsertEvent(roomIdOrEntry: string|EventEntry, eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra) {
+    public async upsertEvent(
+        roomIdOrEntry: string|EventEntry,
+        eventId?: string,
+        channelId?: string,
+        ts?: string,
+        extras?: EventEntryExtra
+    ): Promise<null> {
         let entry: EventEntry = roomIdOrEntry as EventEntry;
         if (typeof(roomIdOrEntry) === "string") {
             entry = {
@@ -233,7 +238,7 @@ export class PgDatastore implements Datastore {
         );
     }
 
-    public async ensureSchema() {
+    public async ensureSchema(): Promise<void> {
         let currentVersion = await this.getSchemaVersion();
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
             log.info(`Updating schema to v${currentVersion + 1}`);
@@ -251,7 +256,7 @@ export class PgDatastore implements Datastore {
         log.info(`Database schema is at version v${currentVersion}`);
     }
 
-    public async upsertRoom(room: BridgedRoom) {
+    public async upsertRoom(room: BridgedRoom): Promise<null> {
         const entry = room.toEntry();
         log.debug(`upsertRoom: ${entry.id}`);
         return this.postgresDb.none(
@@ -265,12 +270,12 @@ export class PgDatastore implements Datastore {
         );
     }
 
-    public async deleteRoom(id: string) {
+    public async deleteRoom(id: string): Promise<null> {
         log.debug(`deleteRoom: ${id}`);
         return this.postgresDb.none("DELETE FROM rooms WHERE id = ${id}", { id });
     }
 
-    public async getAllRooms() {
+    public async getAllRooms(): Promise<RoomEntry[]> {
         const entries = await this.postgresDb.manyOrNone("SELECT * FROM rooms");
         return entries.map((r) => {
             const remote = JSON.parse(r.json);
@@ -283,7 +288,7 @@ export class PgDatastore implements Datastore {
         });
     }
 
-    public async upsertTeam(entry: TeamEntry) {
+    public async upsertTeam(entry: TeamEntry): Promise<null> {
         log.debug(`upsertTeam: ${entry.id} ${entry.name}`);
         const props = {
             id: entry.id,
@@ -296,11 +301,10 @@ export class PgDatastore implements Datastore {
             user_id: entry.user_id,
         };
         const statement = PgDatastore.BuildUpsertStatement("teams", ["id"], [props]);
-        await this.postgresDb.none(statement, props);
+        return this.postgresDb.none(statement, props);
     }
 
-    // tslint:disable-next-line: no-any
-    private static teamEntryForRow(doc: any) {
+    private static teamEntryForRow(doc: Record<string, unknown>): TeamEntry {
         return {
             id: doc.id,
             name: doc.name,
@@ -339,7 +343,7 @@ export class PgDatastore implements Datastore {
         );
     }
 
-    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string) {
+    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<null> {
         return this.postgresDb.none("DELETE FROM puppets WHERE slackteam = ${teamId} " +
                                                     "AND matrixuser = ${matrixId}", { teamId, matrixId });
     }
