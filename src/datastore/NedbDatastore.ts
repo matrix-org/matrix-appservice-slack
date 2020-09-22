@@ -183,6 +183,21 @@ export class NedbDatastore implements Datastore {
         });
     }
 
+    public async upsertEmoji(teamId: string, name: string, mxc: string): Promise<null> {
+        // no-op; custom emoji are not implemented for NeDB
+        return null;
+    }
+
+    public async getEmojiMxc(teamId: string, name: string): Promise<string|null> {
+        // no-op; custom emoji are not implemented for NeDB
+        return null;
+    }
+
+    public async deleteEmoji(teamId: string, name: string): Promise<null> {
+        // no-op; custom emoji are not implemented for NeDB
+        return null;
+    }
+
     public async upsertEvent(roomIdOrEntry: string|EventEntry,
         eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<null> {
         let storeEv: StoredEvent;

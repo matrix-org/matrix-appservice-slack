@@ -72,6 +72,18 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
+    public async upsertEmoji(teamId: string, name: string, mxc: string): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async getEmojiMxc(teamId: string, name: string): Promise<string | null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async deleteEmoji(teamId: string, name: string): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
     public async upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<null>;
 
     public async upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;

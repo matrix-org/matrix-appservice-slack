@@ -42,7 +42,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 9;
+    public static readonly LATEST_SCHEMA = 10;
     public readonly postgresDb: IDatabase<unknown>;
 
     constructor(connectionString: string) {
@@ -117,6 +117,36 @@ export class PgDatastore implements Datastore {
     public async deleteAccount(userId: string, slackId: string): Promise<null> {
         log.info(`deleteAccount: ${userId} ${slackId}`);
         return this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
+    }
+
+    public async upsertEmoji(teamId: string, name: string, mxc: string): Promise<null> {
+        log.debug(`upsertEmoji: ${teamId} ${name} ${mxc}`);
+        return this.postgresDb.none(
+            "INSERT INTO emojis(slack_team_id, name, mxc) " +
+            "VALUES(${teamId}, ${name}, ${mxc})" +
+            "ON CONFLICT ON CONSTRAINT emojis_slack_idx DO UPDATE SET mxc = ${mxc}",
+            {
+                teamId,
+                name,
+                mxc,
+            },
+        );
+    }
+
+    public async getEmojiMxc(teamId: string, name: string): Promise<string|null> {
+        log.debug(`upsertEmoji: ${teamId} ${name}`);
+        // TODO Resolve aliases
+        return this.postgresDb.oneOrNone<any>(
+            "SELECT mxc FROM emojis WHERE team_id = ${teamId} AND name = ${name}",
+            { teamId, name },
+            a => a.mxc,
+        );
+    }
+
+    public async deleteEmoji(teamId: string, name: string): Promise<null> {
+        log.debug(`deleteEmoji: ${teamId} ${name}`);
+        // TODO Delete aliases
+        return this.postgresDb.none("DELETE FROM emojis WHERE slack_team_id = ${teamId} AND name = ${name}", { teamId, name });
     }
 
     public async upsertEvent(
