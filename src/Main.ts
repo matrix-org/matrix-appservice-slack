@@ -1358,6 +1358,20 @@ export class Main {
         return { deleted: true };
     }
 
+    public async getClientForPrivateChannel(teamId: string, roomId: string): Promise<WebClient|null> {
+        // This only works for private rooms
+        const bot = this.bridge.getBot();
+        const members = Object.keys(await bot.getJoinedMembers(roomId));
+
+        for (const matrixId of members) {
+            const client = await this.clientFactory.getClientForUser(teamId, matrixId);
+            if (client) {
+                return client;
+            }
+        }
+        return null;
+    }
+
     public async killBridge() {
         log.info("Killing bridge");
         if (this.metricsCollectorInterval) {

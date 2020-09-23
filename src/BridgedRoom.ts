@@ -762,7 +762,12 @@ export class BridgedRoom {
         }
 
         let sendAsLink = false;
-        const authToken = this.SlackClient?.token;
+        let authToken = this.SlackClient?.token;
+        if (this.slackTeamId && (this.SlackType === "channel" || this.SlackType === "group") && this.isPrivate) {
+            // This is a private channel, so bots cannot see images.
+            const userClient = await this.main.getClientForPrivateChannel(this.slackTeamId, this.matrixRoomId);
+            authToken = userClient?.token;
+        }
 
         if (!authToken) {
             log.error("We have no client (or token) that can handle this file, sending as link");
