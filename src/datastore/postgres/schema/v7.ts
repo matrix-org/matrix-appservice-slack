@@ -1,6 +1,5 @@
 import { IDatabase } from "pg-promise";
 
-// tslint:disable-next-line: no-any
 export const runSchema = async(db: IDatabase<any>): Promise<void> => {
     // Drop constraints
     await db.none(`

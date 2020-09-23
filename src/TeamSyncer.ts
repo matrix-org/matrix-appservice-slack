@@ -88,7 +88,6 @@ export class TeamSyncer {
             log.warn(`Not syncing ${type}s for ${teamId}`);
             return;
         }
-        // tslint:disable-next-line: no-any
         let itemList: any[] = [];
         let cursor: string|undefined;
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {

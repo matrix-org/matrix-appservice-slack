@@ -23,7 +23,6 @@ export const constructHarness = (): { main: Main } => {
             enable: true,
         },
     }, reg);
-    // tslint:disable-next-line: no-any
     (main as any).bridge.getBot = () => ({
         getJoinedRooms: async() => Promise.resolve([]),
         getUserId: () => "@bot:foobar",

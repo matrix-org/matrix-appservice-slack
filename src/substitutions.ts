@@ -86,7 +86,6 @@ class Substitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-    // tslint:disable-next-line: no-any
     public async matrixToSlack(event: any, main: Main, teamId: string): Promise<IMatrixToSlackResult|null> {
         if (
             !event ||

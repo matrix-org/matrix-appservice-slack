@@ -290,7 +290,6 @@ export class NedbDatastore implements Datastore {
     public async getTeam(teamId: string): Promise<TeamEntry|null> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless
-            // tslint:disable-next-line: no-any
             this.teamStore.findOne({id: teamId}, { _id: 0 }, (err: Error|null, doc: any) => {
                 if (err) {
                     reject(err);

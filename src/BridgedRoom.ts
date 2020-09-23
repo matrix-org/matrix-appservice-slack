@@ -803,7 +803,6 @@ export class BridgedRoom {
             }
             let htmlCode = "";
             // Because escaping 6 backticks is not good for readability.
-            // tslint:disable-next-line: prefer-template
             const code = "```" + `\n${htmlString}\n` + "```";
             if (file.filetype) {
                 htmlCode = `<pre><code class="language-${file.filetype}'">`;

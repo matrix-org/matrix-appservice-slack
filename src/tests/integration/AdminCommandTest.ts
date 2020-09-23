@@ -42,7 +42,6 @@ describe("AdminCommandTest", () => {
             },
             type: "m.room.message",
         });
-        // tslint:disable-next-line: no-unused-expression
         expect(called).to.be.false;
     });
 

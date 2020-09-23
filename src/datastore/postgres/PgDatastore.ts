@@ -43,7 +43,6 @@ const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore {
     public static readonly LATEST_SCHEMA = 9;
-    // tslint:disable-next-line: no-any
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -305,7 +304,6 @@ export class PgDatastore implements Datastore {
         return this.postgresDb.none(statement, props);
     }
 
-    // tslint:disable-next-line: no-any
     private static teamEntryForRow(doc: any) {
         return {
             id: doc.id,

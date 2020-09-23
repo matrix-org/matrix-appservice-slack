@@ -15,8 +15,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression no-any
-
 import { AllowDenyList, DenyReason } from "../../AllowDenyList";
 import { expect } from "chai";
 

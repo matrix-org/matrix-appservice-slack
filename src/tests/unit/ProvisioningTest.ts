@@ -14,14 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression no-any
-
 import { Provisioner } from "../../Provisioning";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";
 import { FakeExpressResponse } from "../utils/fakeExpress";
 
-// tslint:disable-next-line: max-line-length
 const OAuthUrlRegex =
     /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=redir_prefix([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
 
