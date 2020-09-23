@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression
-
 import { SlackClientFactory } from "../../SlackClientFactory";
 import { FakeDatastore } from "../utils/fakeDatastore";
 import { SlackTestApi } from "../utils/slackTestApi";

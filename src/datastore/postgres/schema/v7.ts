@@ -1,8 +1,6 @@
 import { IDatabase } from "pg-promise";
-import { MatrixUser } from "matrix-appservice-bridge";
 
-// tslint:disable-next-line: no-any
-export const runSchema = async(db: IDatabase<any>) => {
+export const runSchema = async(db: IDatabase<any>): Promise<void> => {
     // Drop constraints
     await db.none(`
         ALTER TABLE puppets DROP CONSTRAINT puppets_slackteam_key;

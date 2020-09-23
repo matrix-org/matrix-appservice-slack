@@ -1,8 +1,7 @@
 import pgp from "pg-promise";
 import { MatrixUser } from "matrix-appservice-bridge";
 
-// tslint:disable-next-line: no-any
-export const runSchema = async(db: pgp.IDatabase<any>) => {
+export const runSchema = async(db: pgp.IDatabase<any>): Promise<void> => {
     // Create database
     await db.none(`
         CREATE TABLE linked_accounts (
@@ -24,7 +23,6 @@ export const runSchema = async(db: pgp.IDatabase<any>) => {
             continue;
         }
 
-        // tslint:disable-next-line: no-any
         for (const [slackId, account] of Object.entries<any>(user.get("accounts") || { })) {
             values.push({
                 user_id: userData.userid,

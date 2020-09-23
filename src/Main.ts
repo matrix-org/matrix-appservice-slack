@@ -471,7 +471,6 @@ export class Main {
         type: string,
         room_id: string,
         sender: string,
-        // tslint:disable-next-line: no-any
         content: any,
     }) {
         if (ev.sender === this.botUserId) {

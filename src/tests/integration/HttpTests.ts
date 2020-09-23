@@ -19,8 +19,6 @@ import axios from "axios";
 
 import { constructHarness } from "../utils/harness";
 
-// tslint:disable: no-unused-expression no-any
-
 let harness: { main: Main };
 
 describe("HttpTests", () => {

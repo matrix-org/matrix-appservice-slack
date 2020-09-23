@@ -231,7 +231,6 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (isIm) {
             const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
             const ghosts = (await Promise.all(channelMembersRes.members.map(
-                // tslint:disable-next-line: no-any
                 async (id) =>
                     id ? this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];

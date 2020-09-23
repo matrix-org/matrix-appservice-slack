@@ -19,8 +19,6 @@ import { expect } from "chai";
 import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
-// tslint:disable: no-unused-expression no-any
-
 export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void) => {
     describe("users", () => {
         it("should return null if a matrix user is not found", async () => {
