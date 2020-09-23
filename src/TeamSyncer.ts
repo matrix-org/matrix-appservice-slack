@@ -242,7 +242,7 @@ export class TeamSyncer {
         log.info("Leaving from all rooms");
         const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
         let i = teamRooms.length;
-        await Promise.all(teamRooms.map((r) =>
+        await Promise.all(teamRooms.map(async(r) =>
             slackGhost.intent.leave(r.MatrixRoomId).catch(() => {
                 i--;
                 // Failing to leave a room is fairly normal.
@@ -340,7 +340,7 @@ export class TeamSyncer {
         // Finally, sync membership for the channel.
         const members = await client.conversations.members({channel: channelId}) as ConversationsMembersResponse;
         // Ghosts will exist already: We joined them in the user sync.
-        const ghosts = await Promise.all(members.members.map((slackUserId) => this.main.ghostStore.get(slackUserId, teamInfo.domain, teamId)));
+        const ghosts = await Promise.all(members.members.map(async(slackUserId) => this.main.ghostStore.get(slackUserId, teamInfo.domain, teamId)));
 
         const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.userId)); // Skip users that are joined.
         const leftUsers = existingGhosts.filter((userId) => !ghosts.find((g) => g.userId === userId ));
@@ -350,10 +350,10 @@ export class TeamSyncer {
         const queue = new PQueue({concurrency: JOIN_CONCURRENCY});
 
         // Join users who aren't joined
-        joinedUsers.forEach((g) => queue.add(() => g.intent.join(roomId)));
+        joinedUsers.forEach(async(g) => queue.add(async() => g.intent.join(roomId)));
 
         // Leave users who are joined
-        leftUsers.forEach((userId) => queue.add(() => this.main.getIntent(userId).leave(roomId)));
+        leftUsers.forEach(async(userId) => queue.add(async() => this.main.getIntent(userId).leave(roomId)));
 
         await queue.onIdle();
         log.debug(`Finished syncing membership to ${roomId}`);
@@ -392,28 +392,24 @@ export class TeamSyncer {
                     text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
                     channel: channelItem.id,
                 });
-            } catch (ex) {
+            } catch (error) {
                 log.warn("Couldn't send a notice either");
+                log.debug(error);
             }
         }
 
         // Create the room.
-        let roomId: string;
-        try {
-            roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
-            await this.main.actionLink({
-                matrix_room_id: roomId,
-                slack_channel_id: channelItem.id,
-                team_id: teamId,
-            });
-            return roomId;
-        } catch (ex) {
-            throw ex;
-        }
+        const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
+        await this.main.actionLink({
+            matrix_room_id: roomId,
+            slack_channel_id: channelItem.id,
+            team_id: teamId,
+        });
+        return roomId;
     }
 
     private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo,
-                                       isPublic: boolean = true, inviteList: string[] = []): Promise<string> {
+        isPublic = true, inviteList: string[] = []): Promise<string> {
         let intent;
         let creatorUserId: string|undefined;
         try {

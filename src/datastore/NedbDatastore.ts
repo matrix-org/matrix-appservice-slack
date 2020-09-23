@@ -35,7 +35,7 @@ import {
     SlackAccount,
     TeamEntry,
     UserEntry,
- } from "./Models";
+} from "./Models";
 import NedbDb from "nedb";
 
 interface NedbUserEntry extends UserEntry {
@@ -85,16 +85,14 @@ export class NedbDatastore implements Datastore {
     }
 
     public async getAllUsers(matrixUsers: boolean): Promise<UserEntry[]> {
-        return (await this.userStore.select<unknown, NedbUserEntry>({})).map((u) => {
-            return {
-                slack_id: u.slack_id,
-                team_id: u.team_id,
-                avatar_url: u.avatar_url,
-                display_name: u.display_name,
-                id: u.id,
-                type: u.type,
-            };
-        }).filter((u) => {
+        return (await this.userStore.select<unknown, NedbUserEntry>({})).map((u) => ({
+            slack_id: u.slack_id,
+            team_id: u.team_id,
+            avatar_url: u.avatar_url,
+            display_name: u.display_name,
+            id: u.id,
+            type: u.type,
+        })).filter((u) => {
             if (matrixUsers) {
                 return u.type === "matrix";
             }
@@ -130,7 +128,7 @@ export class NedbDatastore implements Datastore {
             slackId,
             teamId: o.team_id,
             accessToken: o.access_token,
-        }))
+        }));
     }
 
     public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
@@ -186,7 +184,7 @@ export class NedbDatastore implements Datastore {
     }
 
     public async upsertEvent(roomIdOrEntry: string|EventEntry,
-                             eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<null> {
+        eventId?: string, channelId?: string, ts?: string, extras?: EventEntryExtra): Promise<null> {
         let storeEv: StoredEvent;
         if (typeof(roomIdOrEntry) === "string") {
             if (!eventId || !channelId || !ts || !extras ) {
@@ -246,15 +244,13 @@ export class NedbDatastore implements Datastore {
     }
 
     public async getAllEvents(): Promise<EventEntry[]> {
-        return (await this.eventStore.select<unknown, StoredEventDoc>({})).map((doc) => {
-            return {
-                eventId: doc.matrix.eventId,
-                roomId: doc.matrix.roomId,
-                slackChannelId: doc.remote.roomId,
-                slackTs: doc.remote.eventId,
-                _extras: doc.extras,
-            };
-        });
+        return (await this.eventStore.select<unknown, StoredEventDoc>({})).map((doc) => ({
+            eventId: doc.matrix.eventId,
+            roomId: doc.matrix.roomId,
+            slackChannelId: doc.remote.roomId,
+            slackTs: doc.remote.eventId,
+            _extras: doc.extras,
+        }));
     }
 
     public async upsertReaction(entry: ReactionEntry): Promise<null> {

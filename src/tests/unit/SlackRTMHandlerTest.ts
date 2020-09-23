@@ -23,7 +23,7 @@ import { SlackRTMHandler } from "../../SlackRTMHandler";
 import { FakeMain } from "../utils/fakeMain";
 import { EventEmitter } from "events";
 
-function createHandler() {
+const createHandler = () => {
     const fakeMain = new FakeMain();
     const handler: any = new SlackRTMHandler(fakeMain as unknown as Main);
     handler.createRtmClient = () => {
@@ -33,7 +33,7 @@ function createHandler() {
         return rtm;
     };
     return { handler };
-}
+};
 
 describe("SlackRTMHandler", () => {
     // https://github.com/matrix-org/matrix-appservice-slack/issues/212

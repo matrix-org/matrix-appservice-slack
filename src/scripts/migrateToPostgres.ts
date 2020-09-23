@@ -37,7 +37,7 @@ const POSTGRES_URL = process.argv[2];
 const NEDB_DIRECTORY = process.argv[3] || "";
 const USER_PREFIX = process.argv[4] || "slack_";
 
-async function main() {
+const main = async () => {
     if (!POSTGRES_URL) {
         log.error("You must specify the postgres url (ex: postgresql://user:pass@host/database");
         throw Error("");
@@ -80,9 +80,9 @@ async function main() {
         log.error(ex);
         log.error("Your existing databases have not been modified, but you may need to drop the postgres table and start over");
     }
-}
+};
 
-export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) {
+export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore) => {
     const allRooms = await nedb.getAllRooms();
     const allEvents = await nedb.getAllEvents();
     // the format has changed quite a bit.
@@ -100,9 +100,8 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     log.info(`Migrating ${allMatrixUsers.length} matrix users`);
 
     const teamTokenMap: Map<string, string> = new Map(); // token -> teamId.
-    let readyTeams: TeamEntry[];
 
-    const preTeamMigrations = () => Promise.all(allRooms.map(async (room, i) => {
+    const preTeamMigrations = async() => Promise.all(allRooms.map(async (room, i) => {
         // This is an old format remote
         // tslint:disable-next-line: no-any
         const remote = (room.remote as any);
@@ -119,7 +118,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         }
     }));
 
-    const teamMigrations = () => Promise.all(allTeams.map(async (team, i) => {
+    const teamMigrations = async() => Promise.all(allTeams.map(async (team, i) => {
         if (team.bot_token && !teamTokenMap.has(team.bot_token)) {
             let teamId: string;
             try {
@@ -136,7 +135,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         log.info(`Migrated team (${i + 1}/${allTeams.length})`);
     }));
 
-    const roomMigrations = () => Promise.all(allRooms.map(async (room, i) => {
+    const roomMigrations = async() => Promise.all(allRooms.map(async (room, i) => {
         // tslint:disable-next-line: no-any
         const token = (room.remote as any).slack_bot_token;
         if (!room.remote.slack_team_id && token) {
@@ -146,12 +145,12 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         log.info(`Migrated room ${room.id} (${i + 1}/${allRooms.length})`);
     }));
 
-    const eventMigrations = () => Promise.all(allEvents.map(async (event, i) => {
+    const eventMigrations = async() => Promise.all(allEvents.map(async (event, i) => {
         await targetDs.upsertEvent(event);
         log.info(`Migrated event ${event.eventId} ${event.slackTs} (${i + 1}/${allEvents.length})`);
     }));
 
-    const slackUserMigrations = () => Promise.all(allSlackUsers.map(async (user, i) => {
+    const slackUserMigrations = async() => Promise.all(allSlackUsers.map(async (user, i) => {
         if (!user.id) {
             // Cannot migrate without ID.
             return;
@@ -178,7 +177,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
         log.info(`Migrated slack user ${user.id} (${i + 1}/${allSlackUsers.length})`);
     }));
 
-    const matrixUserMigrations = () => Promise.all(allMatrixUsers.map(async (user, i) => {
+    const matrixUserMigrations = async() => Promise.all(allMatrixUsers.map(async (user, i) => {
         const mxUser = new MatrixUser(user.id, user as unknown as Record<string, unknown>);
         await targetDs.storeMatrixUser(mxUser);
         log.info(`Migrated matrix user ${mxUser.getId()} (${i + 1}/${allMatrixUsers.length})`);
@@ -193,7 +192,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     log.info("Starting teamMigrations");
     await teamMigrations();
     log.info("Finished teamMigrations");
-    readyTeams = await targetDs.getAllTeams();
+    const readyTeams = await targetDs.getAllTeams();
     log.info("Starting roomMigrations");
     await roomMigrations();
     log.info("Finished roomMigrations");
@@ -203,7 +202,7 @@ export async function migrateFromNedb(nedb: NedbDatastore, targetDs: Datastore) 
     log.info("Starting matrixUserMigrations");
     await matrixUserMigrations();
     log.info("Finished matrixUserMigrations");
-}
+};
 
 main().then(() => {
     log.info("finished");

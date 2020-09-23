@@ -2,7 +2,7 @@ import pgp from "pg-promise";
 import { MatrixUser } from "matrix-appservice-bridge";
 
 // tslint:disable-next-line: no-any
-export async function runSchema(db: pgp.IDatabase<any>) {
+export const runSchema = async(db: pgp.IDatabase<any>) => {
     // Create database
     await db.none(`
         CREATE TABLE linked_accounts (
@@ -37,4 +37,4 @@ export async function runSchema(db: pgp.IDatabase<any>) {
     if (values.length) {
         await db.none(pgInstance.helpers.insert(values, cs));
     }
-}
+};

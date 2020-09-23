@@ -68,7 +68,7 @@ export class OAuth2 {
         this.oauthTemplate = compile(await fs.readFile(path.resolve(this.templateFile), "utf-8"));
     }
 
-    public makeAuthorizeURL(token: string, state: string, isPuppeting: boolean = false): string {
+    public makeAuthorizeURL(token: string, state: string, isPuppeting = false): string {
         const redirectUri = this.makeRedirectURL(token);
         const scopes = isPuppeting ? PUPPET_SCOPES : REQUIRED_SCOPES;
 
@@ -83,7 +83,7 @@ export class OAuth2 {
     }
 
     public async exchangeCodeForToken(code: string, token: string)
-    : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
+        : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
         const redirectUri = this.makeRedirectURL(token);
         this.main.incRemoteCallCounter("oauth.access");
         const response = (await this.client.oauth.access({

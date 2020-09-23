@@ -1,7 +1,7 @@
 import { AppServiceRegistration } from "matrix-appservice";
 import { Main } from "../../Main";
 
-export function constructHarness() {
+export const constructHarness = (): { main: Main } => {
     const reg = new AppServiceRegistration("foobar");
     reg.setHomeserverToken(AppServiceRegistration.generateToken());
     reg.setAppServiceToken(AppServiceRegistration.generateToken());
@@ -25,8 +25,8 @@ export function constructHarness() {
     }, reg);
     // tslint:disable-next-line: no-any
     (main as any).bridge.getBot = () => ({
-       getJoinedRooms: () => Promise.resolve([]),
-       getUserId: () => "@bot:foobar",
+        getJoinedRooms: async() => Promise.resolve([]),
+        getUserId: () => "@bot:foobar",
     });
     return { main };
-}
+};

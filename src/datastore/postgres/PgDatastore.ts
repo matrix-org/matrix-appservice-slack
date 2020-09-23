@@ -13,9 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-// tslint thinks we can combine these two statements, but so far I have been unable to.
+// eslint thinks we can combine these two statements, but so far I have been unable to.
 import pgInit from "pg-promise";
-// tslint:disable-next-line: no-duplicate-imports
+// eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
 import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession } from "matrix-appservice-bridge";
@@ -143,12 +143,12 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         return this.postgresDb.oneOrNone(
             "SELECT * FROM events WHERE roomId = ${roomId} AND eventId = ${eventId}",
             { roomId, eventId }, e => e && {
-              roomId,
-              eventId,
-              slackChannelId: e.slackchannel,
-              slackTs: e.slackts,
-              _extras: JSON.parse(e.extras),
-        });
+                roomId,
+                eventId,
+                slackChannelId: e.slackchannel,
+                slackTs: e.slackts,
+                _extras: JSON.parse(e.extras),
+            });
     }
 
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
@@ -160,7 +160,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
                 slackChannelId: slackChannel,
                 slackTs,
                 _extras: JSON.parse(e.extras),
-        });
+            });
     }
 
     public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {
@@ -172,7 +172,10 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
     }
 
     public async upsertReaction(entry: ReactionEntry): Promise<null> {
-        log.debug(`upsertReaction: ${entry.roomId} ${entry.eventId} ${entry.slackChannelId} ${entry.slackMessageTs} ${entry.slackUserId} ${entry.reaction}`);
+        log.debug(
+            `upsertReaction: ${entry.roomId} ${entry.eventId} ` +
+            `${entry.slackChannelId} ${entry.slackMessageTs} ${entry.slackUserId} ${entry.reaction}`
+        );
         return this.postgresDb.none(
             "INSERT INTO reactions(room_id, event_id, slack_channel_id, slack_message_ts, slack_user_id, reaction) " +
             "VALUES(${roomId}, ${eventId}, ${slackChannelId}, ${slackMessageTs}, ${slackUserId}, ${reaction})" +
@@ -199,7 +202,8 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
 
     public async getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<ReactionEntry|null> {
         return this.postgresDb.oneOrNone(
-            "SELECT * FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
+            "SELECT * FROM reactions " +
+            "WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
             { channelId, messageTs, userId, reaction },
             response => response && {
                 roomId: response.room_id,
@@ -223,7 +227,8 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
     public async deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null> {
         log.info(`deleteReactionBySlackId: ${channelId} ${messageTs} ${userId} ${reaction}`);
         return this.postgresDb.none(
-            "DELETE FROM reactions WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
+            "DELETE FROM reactions " +
+            "WHERE slack_channel_id = ${channelId} AND slack_message_ts = ${messageTs} AND slack_user_id = ${userId} AND reaction = ${reaction}",
             { channelId, messageTs, userId, reaction },
         );
     }
@@ -232,6 +237,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         let currentVersion = await this.getSchemaVersion();
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
             log.info(`Updating schema to v${currentVersion + 1}`);
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
             const runSchema = require(`./schema/v${currentVersion + 1}`).runSchema;
             try {
                 await runSchema(this.postgresDb);
@@ -295,7 +301,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
 
     // tslint:disable-next-line: no-any
     private static teamEntryForRow(doc: any) {
-       return {
+        return {
             id: doc.id,
             name: doc.name,
             bot_token: doc.token,
@@ -408,10 +414,10 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             "INSERT INTO metrics_activities (user_id, room_id, date) " +
             "VALUES(${userId}, ${roomId}, ${date}) " +
             "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING", {
-            date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
-            roomId: room.toEntry().id,
-            userId,
-        });
+                date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+                roomId: room.toEntry().id,
+                userId,
+            });
     }
 
     public async getActiveRoomsPerTeam(activityThreshholdInDays = 2, historyLengthInDays = 30): Promise<Map<string, Map<RoomType, number>>> {

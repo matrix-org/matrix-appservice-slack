@@ -72,7 +72,7 @@ describe("AdminCommand", () => {
         // Replace with a spy, once we have a library for that.
         const response: string[] = [];
         const respondMock = (data: string) => {
-            response.push(data)
+            response.push(data);
         };
         const command = new AdminCommand(
             "help [command]",
@@ -113,7 +113,9 @@ describe("AdminCommand", () => {
             expect(command.simpleHelp()).to.equal("help [command] - describes the commands available");
         });
         it("for the complex link command", () => {
-            expect(LINK_COMMAND.simpleHelp()).to.equal("link room [channel_id] [slack_bot_token] [webhook_url] - connect a Matrix and a Slack room together");
+            expect(LINK_COMMAND.simpleHelp()).to.equal(
+                "link room [channel_id] [slack_bot_token] [webhook_url] - connect a Matrix and a Slack room together"
+            );
         });
     });
     describe("returns the detailed help as expected", () => {

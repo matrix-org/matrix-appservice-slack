@@ -1,7 +1,7 @@
 import { IDatabase } from "pg-promise";
 
 // tslint:disable-next-line: no-any
-export async function runSchema(db: IDatabase<any>) {
+export const runSchema = async(db: IDatabase<any>) => {
     await db.none(`CREATE TABLE puppets (
         slackuser TEXT UNIQUE NOT NULL,
         slackteam TEXT UNIQUE NOT NULL,
@@ -9,4 +9,4 @@ export async function runSchema(db: IDatabase<any>) {
         token TEXT,
         CONSTRAINT cons_puppets_uniq UNIQUE(slackuser, slackteam, matrixuser)
     );`);
-}
+};

@@ -30,7 +30,9 @@ const RoomIdCommandOption = {
 
 export class AdminCommands {
     private yargs: yargs.Argv;
-    private commands = [
+    private commands: AdminCommand[];
+    constructor(private main: Main) {
+        this.commands = [
             this.list,
             this.show,
             this.link,
@@ -40,8 +42,8 @@ export class AdminCommands {
             this.stalerooms,
             this.doOauth,
             this.help,
-    ];
-    constructor(private main: Main) {
+        ];
+
         this.yargs = yargs.parserConfiguration({})
             .version(false)
             .help(false); // We provide our own help, and version is not required.
@@ -69,7 +71,7 @@ export class AdminCommands {
                 let nameFilter: RegExp;
 
                 if (team) {
-                    nameFilter = new RegExp(`^${quotemeta(team)}\.#`);
+                    nameFilter = new RegExp(`^${quotemeta(team)}\\.#`);
                 }
 
                 let found = 0;
@@ -274,9 +276,7 @@ export class AdminCommands {
                 const roomId: string = room!;
                 const userIds = await this.main.listGhostUsers(roomId);
                 respond(`Draining ${userIds.length} ghosts from ${roomId}`);
-                await Promise.all(userIds.map(async (userId) => {
-                    return this.main.getIntent(userId).leave(roomId);
-                }));
+                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(roomId)));
                 await this.main.botIntent.leave(roomId);
                 respond("Drained");
             },
@@ -373,6 +373,7 @@ export class AdminCommands {
             try {
                 let matched = false;
                 this.yargs.parse(argv, {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                     completed: (err) => { err ? reject(err) : resolve(true); },
                     matched: () => { matched = true; },
                     respond,
