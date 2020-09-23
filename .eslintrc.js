@@ -162,6 +162,8 @@ module.exports = {
         ],
         "use-isnan": "error",
         "valid-typeof": "off",
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "max-classes-per-file": "off"
     },
     "overrides": [
         {
@@ -169,7 +171,10 @@ module.exports = {
                 "src/tests/**/*.ts"
             ],
             "rules": {
-                "@typescript-eslint/no-unused-expressions": "off"
+                "@typescript-eslint/no-non-null-assertion": "off",
+                "@typescript-eslint/no-unused-vars": "off",
+                "@typescript-eslint/no-unused-expressions": "off",
+                "@typescript-eslint/no-explicit-any": "off"
             }
         }
     ],
