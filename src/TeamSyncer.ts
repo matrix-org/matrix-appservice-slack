@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import axios from "axios";
 import { Logging } from "matrix-appservice-bridge";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
@@ -59,7 +60,7 @@ export class TeamSyncer {
         this.teamConfigs = config.team_sync;
     }
 
-    public async syncAllTeams(teamClients: { [id: string]: WebClient; }) {
+    public async syncAllTeams(teamClients: { [id: string]: WebClient; }): Promise<void> {
         const queue = new PQueue({concurrency: TEAM_SYNC_CONCURRENCY});
         const functionsForQueue: (() => Promise<void>)[] = [];
         for (const [teamId, client] of Object.entries(teamClients)) {
@@ -71,6 +72,7 @@ export class TeamSyncer {
                 log.info("Syncing team", teamId);
                 await this.syncItems(teamId, client, "user");
                 await this.syncItems(teamId, client, "channel");
+                await this.syncCustomEmoji(teamId, client);
             });
         }
         try {
@@ -88,7 +90,6 @@ export class TeamSyncer {
             log.warn(`Not syncing ${type}s for ${teamId}`);
             return;
         }
-        // tslint:disable-next-line: no-any
         let itemList: any[] = [];
         let cursor: string|undefined;
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
@@ -297,6 +298,49 @@ export class TeamSyncer {
             log.error("Failed to sync membership to room:", ex);
             return;
         }
+    }
+
+    public async syncCustomEmoji(teamId: string, client: WebClient): Promise<void> {
+        // if (!this.getTeamSyncConfig(teamId, 'customEmoji')) {
+        //     log.warn(`Not syncing custom emoji for ${teamId}`);
+        //     return;
+        // }
+        log.info(`Syncing custom emoji ${teamId}`);
+
+        const response = await client.emoji.list();
+        if (response.ok !== true) {
+            throw Error("Slack replied to emoji.list but said the response wasn't ok.");
+        }
+        if (typeof response.emoji !== "object" || !response.emoji) {
+            throw Error("Slack replied to emoji.list but the list was not not an object.");
+        }
+        for (const [name, url] of Object.values(response.emoji)) {
+            await this.addCustomEmoji(teamId, name, url, client.token!);
+        }
+    }
+
+    public async addCustomEmoji(teamId: string, name: string, url: string, accessToken: string): Promise<string> {
+        const imageResponse = await axios.get<ArrayBuffer>(url, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            responseType: "arraybuffer",
+        });
+        if (imageResponse.status !== 200) {
+            throw Error('Failed to get file');
+        }
+        const mxc = await this.main.botIntent.getClient().uploadContent(imageResponse.data, {
+            name,
+            type: imageResponse.headers['content-type'],
+            rawResponse: false,
+            onlyContentUri: true,
+        });
+        await this.main.datastore.upsertCustomEmoji(teamId, name, mxc);
+        return mxc;
+    }
+
+    public async removeCustomEmoji(teamId: string, name: string): Promise<null> {
+        return this.main.datastore.deleteCustomEmoji(teamId, name);
     }
 
     public async onChannelDeleted(teamId: string, channelId: string) {

@@ -119,12 +119,12 @@ export class PgDatastore implements Datastore {
         return this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
     }
 
-    public async upsertEmoji(teamId: string, name: string, mxc: string): Promise<null> {
-        log.debug(`upsertEmoji: ${teamId} ${name} ${mxc}`);
+    public async upsertCustomEmoji(teamId: string, name: string, mxc: string): Promise<null> {
+        log.debug(`upsertCustomEmoji: ${teamId} ${name} ${mxc}`);
         return this.postgresDb.none(
-            "INSERT INTO emojis(slack_team_id, name, mxc) " +
+            "INSERT INTO custom_emoji(slack_team_id, name, mxc) " +
             "VALUES(${teamId}, ${name}, ${mxc})" +
-            "ON CONFLICT ON CONSTRAINT emojis_slack_idx DO UPDATE SET mxc = ${mxc}",
+            "ON CONFLICT ON CONSTRAINT custom_emoji_slack_idx DO UPDATE SET mxc = ${mxc}",
             {
                 teamId,
                 name,
@@ -133,20 +133,19 @@ export class PgDatastore implements Datastore {
         );
     }
 
-    public async getEmojiMxc(teamId: string, name: string): Promise<string|null> {
-        log.debug(`upsertEmoji: ${teamId} ${name}`);
+    public async getCustomEmojiMxc(teamId: string, name: string): Promise<string|null> {
         // TODO Resolve aliases
         return this.postgresDb.oneOrNone<any>(
-            "SELECT mxc FROM emojis WHERE team_id = ${teamId} AND name = ${name}",
+            "SELECT mxc FROM custom_emoji WHERE team_id = ${teamId} AND name = ${name}",
             { teamId, name },
-            a => a.mxc,
+            response => response && response.mxc,
         );
     }
 
-    public async deleteEmoji(teamId: string, name: string): Promise<null> {
-        log.debug(`deleteEmoji: ${teamId} ${name}`);
+    public async deleteCustomEmoji(teamId: string, name: string): Promise<null> {
+        log.debug(`deleteCustomEmoji: ${teamId} ${name}`);
         // TODO Delete aliases
-        return this.postgresDb.none("DELETE FROM emojis WHERE slack_team_id = ${teamId} AND name = ${name}", { teamId, name });
+        return this.postgresDb.none("DELETE FROM custom_emoji WHERE slack_team_id = ${teamId} AND name = ${name}", { teamId, name });
     }
 
     public async upsertEvent(

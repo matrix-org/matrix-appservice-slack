@@ -183,17 +183,17 @@ export class NedbDatastore implements Datastore {
         });
     }
 
-    public async upsertEmoji(teamId: string, name: string, mxc: string): Promise<null> {
+    public async upsertCustomEmoji(teamId: string, name: string, mxc: string): Promise<null> {
         // no-op; custom emoji are not implemented for NeDB
         return null;
     }
 
-    public async getEmojiMxc(teamId: string, name: string): Promise<string|null> {
+    public async getCustomEmojiMxc(teamId: string, name: string): Promise<string|null> {
         // no-op; custom emoji are not implemented for NeDB
         return null;
     }
 
-    public async deleteEmoji(teamId: string, name: string): Promise<null> {
+    public async deleteCustomEmoji(teamId: string, name: string): Promise<null> {
         // no-op; custom emoji are not implemented for NeDB
         return null;
     }

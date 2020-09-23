@@ -30,6 +30,17 @@ interface ISlackEventChannelRename extends ISlackEvent {
 }
 
 /**
+ * https://api.slack.com/events/emoji_changed
+ */
+interface ISlackEventEmojiChanged extends ISlackEvent {
+    event_ts: string;
+    subtype?: "add"|"remove"|unknown;
+    name?: string;
+    names?: string[];
+    value?: string;
+}
+
+/**
  * https://api.slack.com/events/team_domain_change
  */
 interface ISlackEventTeamDomainChange extends ISlackEvent {
@@ -102,7 +113,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      */
     protected static SUPPORTED_EVENTS: string[] = ["message", "reaction_added", "reaction_removed",
         "team_domain_change", "channel_rename", "user_change", "user_typing", "member_joined_channel",
-        "channel_created", "channel_deleted", "team_join"];
+        "channel_created", "channel_deleted", "team_join", "emoji_changed"];
     constructor(main: Main) {
         super(main);
     }
@@ -185,6 +196,8 @@ export class SlackEventHandler extends BaseSlackHandler {
             case "reaction_removed":
                 await this.handleReaction(event as ISlackEventReaction, teamId);
                 break;
+            case "emoji_changed":
+                await this.handleEmojiChangedEvent(event as ISlackEventEmojiChanged, teamId);
             case "channel_rename":
                 await this.handleChannelRenameEvent(event as ISlackEventChannelRename);
                 break;
@@ -332,6 +345,38 @@ export class SlackEventHandler extends BaseSlackHandler {
             await room.onSlackReactionAdded(msg, teamId);
         } else if (event.type === "reaction_removed") {
             await room.onSlackReactionRemoved(msg, teamId);
+        }
+    }
+
+    private async handleEmojiChangedEvent(event: ISlackEventEmojiChanged, teamId: string) {
+        if (!this.main.teamSyncer) {
+            throw Error("ignored");
+        }
+        switch(event.subtype) {
+            case "add": {
+                if (typeof event.name !== 'string') {
+                    throw Error('Slack event emoji_changed is expected to have name: string');
+                }
+                if (typeof event.value !== 'string' || !/^https:\/\/|alias:/.test(event.value)) {
+                    throw Error('Slack event emoji_changed is expected to have value: string and start with "https://" or "alias:"');
+                }
+                const client = await this.main.clientFactory.getTeamClient(teamId);
+                await this.main.teamSyncer.addCustomEmoji(teamId, event.name, event.value, client.token!);
+                return;
+            }
+            case "remove":
+                if (!Array.isArray(event.names) || event.names.some(v => typeof v !== 'string')) {
+                    throw Error('Slack event emoji_changed is expected to have names: string[]');
+                }
+                for (const name of event.names) {
+                    await this.main.teamSyncer.removeCustomEmoji(teamId, name);
+                }
+                break;
+            default: {
+                const client = await this.main.clientFactory.getTeamClient(teamId);
+                await this.main.teamSyncer.syncCustomEmoji(teamId, client);
+                break;
+            }
         }
     }
 
