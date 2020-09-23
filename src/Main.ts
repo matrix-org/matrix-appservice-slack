@@ -833,11 +833,7 @@ export class Main {
     private async applyBotProfile() {
         log.info("Ensuring the bridge bot is registered");
         const intent = this.botIntent;
-        // TODO: Expose these
-        // The bot believes itself to always be registered, even when it isn't.
-        (intent as unknown as any).opts.registered = false;
-        await (intent as unknown as any).ensureRegistered();
-        // https://github.com/matrix-org/matrix-appservice-bridge/pull/232
+        await intent.ensureRegistered(true);
         const profile = await intent.getProfileInfo(this.botUserId, null as any);
         if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile?.displayname) {
             await intent.setDisplayName(this.config.bot_profile?.displayname);
