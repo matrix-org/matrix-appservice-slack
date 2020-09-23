@@ -433,6 +433,38 @@ export class TeamSyncer {
         }
         inviteList = inviteList.filter((s) => s !== creatorUserId || s !== this.main.botUserId);
         inviteList.push(this.main.botUserId);
+        const extraContent: Record<string, unknown>[] = [];
+        if (this.main.encryptRoom) {
+            extraContent.push({
+                type: "m.room.encryption",
+                state_key: "",
+                content: {
+                    algorithm: "m.megolm.v1.aes-sha2",
+                }
+            })
+        }
+        extraContent.push({
+            content: {
+                users: plUsers,
+                users_default: 0,
+                events: {
+                    "m.room.name": 50,
+                    "m.room.power_levels": 100,
+                    "m.room.history_visibility": 100,
+                    "m.room.encryption": 100,
+                    "m.room.canonical_alias": 50,
+                    "m.room.avatar": 50,
+                },
+                events_default: 0,
+                state_default: 50,
+                ban: 50,
+                kick: 50,
+                redact: 50,
+                invite: 0,
+            },
+            state_key: "",
+            type: "m.room.power_levels",
+        });
         const {room_id} = await intent.createRoom({
             createAsClient: true,
             options: {
@@ -442,28 +474,7 @@ export class TeamSyncer {
                 room_alias: alias,
                 preset: isPublic ? "public_chat" : "private_chat",
                 invite: inviteList,
-                initial_state: [{
-                    content: {
-                        users: plUsers,
-                        users_default: 0,
-                        events: {
-                            "m.room.name": 50,
-                            "m.room.power_levels": 100,
-                            "m.room.history_visibility": 100,
-                            "m.room.encryption": 100,
-                            "m.room.canonical_alias": 50,
-                            "m.room.avatar": 50,
-                        },
-                        events_default: 0,
-                        state_default: 50,
-                        ban: 50,
-                        kick: 50,
-                        redact: 50,
-                        invite: 0,
-                    },
-                    state_key: "",
-                    type: "m.room.power_levels",
-                }],
+                initial_state: extraContent,
             },
         });
         log.info("Created new room for channel:", room_id);
