@@ -1,8 +1,6 @@
 import { IDatabase } from "pg-promise";
 
-// tslint:disable-next-line: no-any
-export async function runSchema(db: IDatabase<any>) {
-
+export const runSchema = async(db: IDatabase<unknown>) => {
     await db.none(`
         CREATE TABLE encryption_sessions (
             user_id TEXT NOT NULL,
@@ -11,4 +9,4 @@ export async function runSchema(db: IDatabase<any>) {
         );
         CREATE UNIQUE INDEX encryption_sessions_idx ON encryption_sessions (user_id);
     `);
-}
+};

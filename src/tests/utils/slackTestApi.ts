@@ -1,4 +1,4 @@
-import { WebClientOptions, LogLevel } from "@slack/web-api";
+import { WebClientOptions } from "@slack/web-api";
 import { createServer, Server, IncomingMessage, ServerResponse } from "http";
 import { promisify } from "util";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "../../SlackResponses";

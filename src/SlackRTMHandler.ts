@@ -249,7 +249,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                     content: {
                         algorithm: "m.megolm.v1.aes-sha2",
                     }
-                })
+                });
             }
             // Create a new DM room.
             const { room_id } = await ghost.intent.createRoom({

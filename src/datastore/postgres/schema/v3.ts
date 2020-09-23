@@ -1,7 +1,6 @@
 import { IDatabase } from "pg-promise";
 
-// tslint:disable-next-line: no-any
-export const runSchema = async(db: IDatabase<any>) => {
+export const runSchema = async(db: IDatabase<unknown>) => {
     await db.none(`
         ALTER TABLE teams ADD COLUMN status TEXT;
         ALTER TABLE teams ADD COLUMN domain TEXT;

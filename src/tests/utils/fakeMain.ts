@@ -75,7 +75,7 @@ export class FakeMain {
 }
 
 class FakeClientFactory {
-    public async getClientForUser(teamId: string, matrixId: string) {
+    public async getClientForUser() {
         return {};
     }
 }

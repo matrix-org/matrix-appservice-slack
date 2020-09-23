@@ -441,7 +441,7 @@ export class TeamSyncer {
                 content: {
                     algorithm: "m.megolm.v1.aes-sha2",
                 }
-            })
+            });
         }
         extraContent.push({
             content: {

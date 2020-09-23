@@ -82,7 +82,7 @@ const main = async () => {
     }
 };
 
-export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore) => {
+export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore): Promise<void> => {
     const allRooms = await nedb.getAllRooms();
     const allEvents = await nedb.getAllEvents();
     // the format has changed quite a bit.

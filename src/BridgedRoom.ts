@@ -1007,14 +1007,14 @@ export class BridgedRoom {
         }
         const teamId = this.SlackTeamId;
         const convoId = this.SlackChannelId;
-        await Promise.all(currentlyTyping.map((userId) => (async () => {
+        await Promise.all(currentlyTyping.map(async userId => {
             const res = await this.main.slackRtm?.getUserClient(teamId, userId);
             if (!res) {
                 // We don't have a client for this user.
                 return;
             }
             return res.sendTyping(convoId);
-        })()));
+        }));
     }
 
     private async getReplyEvent(roomID: string, message: ISlackMessageEvent, slackRoomID: string) {

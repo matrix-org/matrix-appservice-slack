@@ -10,7 +10,7 @@ const COMMAND_HELP = {
 };
 
 export class UserAdminRoom {
-    public static IsAdminRoomInvite(event: any, botId: string) {
+    public static IsAdminRoomInvite(event: any, botId: string): boolean {
         return (event.content.membership === "invite" &&
                 event.state_key === botId &&
                 event.content.is_direct === true);

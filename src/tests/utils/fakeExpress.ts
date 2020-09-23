@@ -1,5 +1,3 @@
-// tslint:disable: no-any
-
 export class FakeExpressResponse {
     public Status = 200;
     public Json: any = {};
