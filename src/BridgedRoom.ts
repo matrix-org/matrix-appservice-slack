@@ -662,7 +662,7 @@ export class BridgedRoom {
 
         let reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
         // Element uses the default thumbsup and thumbsdown reactions with an appended variant character.
-        if (reactionKey === '👍' || message.reaction === '👎') {
+        if (reactionKey === '👍' || reactionKey === '👎') {
             reactionKey += '\ufe0f'.normalize(); // VARIATION SELECTOR-16
         }
 
