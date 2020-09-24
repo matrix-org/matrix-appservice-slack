@@ -9,6 +9,7 @@ import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
+import { createDM } from "./RoomCreation";
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -241,19 +242,15 @@ export class SlackRTMHandler extends SlackEventHandler {
             const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId)!;
             const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
             // Create a new DM room.
-            const { room_id } = await ghost.intent.createRoom({
-                createAsClient: true,
-                options: {
-                    invite: [puppet.matrixId].concat(ghosts.map((g) => g.userId!)),
-                    preset: "private_chat",
-                    is_direct: true,
-                    name,
-                },
-            });
+            const roomId = await createDM(
+                ghost.intent,
+                [puppet.matrixId].concat(ghosts.map((g) => g.userId!)),
+                name
+            );
             const team = (await this.main.datastore.getTeam(puppet.teamId))!;
             room = new BridgedRoom(this.main, {
                 inbound_id: chanInfo.channel.id,
-                matrix_room_id: room_id,
+                matrix_room_id: roomId,
                 slack_team_id: puppet.teamId,
                 slack_channel_id: chanInfo.channel.id,
                 slack_channel_name: chanInfo.channel.name,
@@ -264,7 +261,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);
-            await Promise.all(otherGhosts.map(async(g) => g.intent.join(room_id)));
+            await Promise.all(otherGhosts.map(async(g) => g.intent.join(roomId)));
             return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
             // A private channel may not have is_group set if it's an older channel.
