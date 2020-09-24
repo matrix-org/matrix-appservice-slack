@@ -20,7 +20,7 @@ import { expect } from "chai";
 import { FakeExpressResponse } from "../utils/fakeExpress";
 
 const OAuthUrlRegex =
-    /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=redir_prefix%2F([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
+    /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=https%3A%2F%2Fredir_prefix%2F([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
 
 const createProvisioner = (mainCfg?: any) => {
     const fakeMain = new FakeMain(mainCfg);
