@@ -52,4 +52,4 @@ on Matrix appear on Slack.
 
 - CLI interface via a Matrix admin room
 - Configure rooms via a provisioning API and a compatible integration manager
-- Metrics for the bridge are exposed via a prometheus compatible endpoint
+- Metrics for the bridge are exposed via a prometheus-compatible endpoint
