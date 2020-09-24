@@ -349,7 +349,7 @@ export class SlackGhost {
         const matrixEvent = await this._intent.sendMessage(roomId, msg) as {event_id?: unknown};
 
         if (typeof matrixEvent !== 'object' || !matrixEvent || typeof matrixEvent.event_id !== 'string') {
-            throw Error("When sending a Matrix message, the home server didn't reply with an event_id.");
+            throw Error("When sending a Matrix message, the homeserver didn't reply with an event_id.");
         }
 
         await this.datastore.upsertEvent(
@@ -380,7 +380,7 @@ export class SlackGhost {
         const matrixEvent = await this._intent.sendEvent(roomId, "m.reaction", content) as {event_id?: unknown};
 
         if (typeof matrixEvent !== 'object' || !matrixEvent || typeof matrixEvent.event_id !== 'string') {
-            throw Error("When sending a Matrix reaction, the home server didn't reply with an event_id.");
+            throw Error("When sending a Matrix reaction, the homeserver didn't reply with an event_id.");
         }
 
         // Add this event to the eventStore
