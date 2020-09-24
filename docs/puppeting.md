@@ -48,7 +48,7 @@ accounts. `client_id` and `client_secret` can be found on the OAuth page
 of your Slack App (under https://api.slack.com/apps). Ensure you have all the
 correct permission scopes. (see
 [OAuth2.ts](https://github.com/matrix-org/matrix-appservice-slack/blob/118b931afbd1e2387128d1b5c46bd0e2787ad51c/src/OAuth2.ts#L31-L40)
-for an up to date list)
+for an up-to-date list)
 For this to work, the bridge must be listening for external HTTP 
 requests on the port configured by `slack_hook_port`. A load balancer 
 should be used for this.
