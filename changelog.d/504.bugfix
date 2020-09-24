@@ -1,0 +1,1 @@
+OAuth2 URLs no longer break when `oauth2.redirect_prefix` is missing a trailing slash
