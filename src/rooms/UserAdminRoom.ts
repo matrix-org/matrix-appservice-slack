@@ -1,6 +1,9 @@
 import { Main } from "../Main";
 import { Logging } from "matrix-appservice-bridge";
 import { UsersInfoResponse } from "../SlackResponses";
+import { createDM } from "../RoomCreation";
+import { promises as fs } from "fs";
+import * as path from "path";
 
 const log = Logging.get("UserAdminRoom");
 
@@ -9,11 +12,29 @@ const COMMAND_HELP = {
     login: { desc: "Log into a Slack account" },
 };
 
+const onboardingTemplatePath = path.resolve(path.join(__dirname, "../.." , "templates/onboarding"));
+
 export class UserAdminRoom {
     public static IsAdminRoomInvite(event: any, botId: string) {
         return (event.content.membership === "invite" &&
                 event.state_key === botId &&
                 event.content.is_direct === true);
+    }
+
+    private static onboardingHtml: string;
+    private static onboardingPlain: string;
+
+    public static async compileTemplates() {
+        UserAdminRoom.onboardingPlain = await fs.readFile(onboardingTemplatePath + ".txt", "utf-8");
+        UserAdminRoom.onboardingHtml = await fs.readFile(onboardingTemplatePath + ".html", "utf-8");
+    }
+
+    public static async inviteAndCreateAdminRoom(userId: string, main: Main) {
+        const roomId = await createDM(main.botIntent, userId);
+        await main.datastore.setUserAdminRoom(userId, roomId);
+        const adminRoom = new UserAdminRoom(roomId, userId, main);
+        await adminRoom.sendOnboardingMessage();
+        return adminRoom;
     }
 
     constructor(private roomId: string, private userId: string, private main: Main) {
@@ -87,6 +108,15 @@ export class UserAdminRoom {
         }
         formattedBody += "</ul>";
         return this.sendNotice(body, formattedBody);
+    }
+
+    public async sendOnboardingMessage() {
+        return this.main.botIntent.sendMessage(this.roomId, {
+            msgtype: "m.notice",
+            body: UserAdminRoom.onboardingPlain,
+            formatted_body: UserAdminRoom.onboardingHtml,
+            format: "org.matrix.custom.html",
+        });
     }
 
     private async sendNotice(body: string, formattedBody?: string) {
