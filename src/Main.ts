@@ -400,8 +400,14 @@ export class Main {
     }
 
     public getUrlForMxc(mxcUrl: string) {
-        const hs = this.config.homeserver;
-        return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
+        // Media may be encrypted, use this.
+        let baseUrl = this.config.homeserver.url;
+        if (this.config.encryption?.enabled) {
+            baseUrl = this.config.encryption?.pantalaimon_url;
+        } else if (this.config.homeserver.media_url) {
+            baseUrl = this.config.homeserver.media_url;
+        }
+        return `${(baseUrl)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
     public async getTeamDomainForMessage(message: any, teamId?: string) {

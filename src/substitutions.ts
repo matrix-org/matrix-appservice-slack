@@ -46,6 +46,7 @@ export interface IMatrixToSlackResult {
         fallback: string,
         image_url: string,
     }];
+    encrypted_file?: string;
 }
 
 class Substitutions {
@@ -181,7 +182,13 @@ class Substitutions {
             // in this case.
             return null;
         }
-        const url = main.getUrlForMxc(event.content.url);
+        let url = main.getUrlForMxc(event.content.url);
+        if (main.encryptRoom) {
+            return {
+                encrypted_file: url,
+                link_names: false,
+            };
+        }
         if (msgType === "m.image") {
             // Images are special, we can send those as attachments.
             return {

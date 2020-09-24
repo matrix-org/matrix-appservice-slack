@@ -439,6 +439,29 @@ export class BridgedRoom {
             log.warn(`Dropped ${message.event_id}, message content could not be identified`);
             return false;
         }
+        if (matrixToSlackResult.encrypted_file) {
+            if (!slackClient) {
+                // No client
+                return false;
+            }
+            log.debug("Room might be encrypted, uploading file to Slack");
+            // Media might be encrypted, upload it to Slack to be safe.
+            const response = await axios.get<ArrayBuffer>(matrixToSlackResult.encrypted_file, {
+                headers: {
+                    Authorization: `Bearer ${slackClient.token}`,
+                },
+                responseType: "arraybuffer",
+            });
+            if (response.status !== 200) {
+                throw Error('Failed to get file');
+            }
+            await slackClient.files.upload({
+                file: Buffer.from(response.data),
+                filename: message.content.body,
+                channels: this.slackChannelId!,
+            });
+            return true;
+        }
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
