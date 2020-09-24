@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression
-
 import { default as substitutions, IMatrixToSlackResult } from "../../substitutions";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";

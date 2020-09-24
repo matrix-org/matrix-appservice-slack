@@ -44,7 +44,6 @@ export class UserAdminRoom {
     public async handleHelp() {
         return this.sendNotice(
             Object.keys(COMMAND_HELP).map((cmd) => `${cmd} - ${COMMAND_HELP[cmd].desc}`).join("\n"),
-            // tslint:disable-next-line: prefer-template
             "<ul>" + Object.keys(COMMAND_HELP).map((cmd) => `<li><code>${cmd}</code> - ${COMMAND_HELP[cmd].desc}</li>`).join("") + "</ul>",
         );
     }

@@ -18,7 +18,9 @@ export class SlackGhostStore {
         this.ghostsByUserId = new QuickLRU({ maxSize: 50 });
     }
 
-    public get cached() { return this.ghostsByUserId; }
+    public get cached(): QuickLRU<string, SlackGhost> {
+        return this.ghostsByUserId;
+    }
 
     /**
      * Get the domain of a message by getting it from it's keys, or by resolving the teamId.

@@ -26,7 +26,6 @@ export class FakeMain {
     constructor(opts: Opts = DEFAULT_OPTS) {
         if (opts.oauth2) {
             this.oauth2 = new OAuth2({
-                // tslint:disable-next-line: no-any
                 main: this as any,
                 client_id: "fakeid",
                 client_secret: "fakesecret",

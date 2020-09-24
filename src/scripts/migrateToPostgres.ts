@@ -86,7 +86,6 @@ export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore):
     const allRooms = await nedb.getAllRooms();
     const allEvents = await nedb.getAllEvents();
     // the format has changed quite a bit.
-    // tslint:disable-next-line: no-any
     const allTeams = (await nedb.getAllTeams()) as any[];
     const allSlackUsers = await nedb.getAllUsers(false);
     const allMatrixUsers = await nedb.getAllUsers(true);
@@ -103,7 +102,6 @@ export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore):
 
     const preTeamMigrations = async() => Promise.all(allRooms.map(async (room, i) => {
         // This is an old format remote
-        // tslint:disable-next-line: no-any
         const remote = (room.remote as any);
         const at = remote.slack_bot_token || remote.access_token;
         if (!at) {
@@ -136,7 +134,6 @@ export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore):
     }));
 
     const roomMigrations = async() => Promise.all(allRooms.map(async (room, i) => {
-        // tslint:disable-next-line: no-any
         const token = (room.remote as any).slack_bot_token;
         if (!room.remote.slack_team_id && token) {
             room.remote.slack_team_id = teamTokenMap.get(token);
@@ -171,7 +168,6 @@ export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore):
             user.slack_id = parts[1];
             user.team_id = existingTeam!.id;
         }
-        // tslint:disable-next-line: no-any
         const ghost = SlackGhost.fromEntry(null as any, user);
         await targetDs.upsertUser(ghost);
         log.info(`Migrated slack user ${user.id} (${i + 1}/${allSlackUsers.length})`);

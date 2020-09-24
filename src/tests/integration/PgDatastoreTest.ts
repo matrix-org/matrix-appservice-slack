@@ -29,7 +29,6 @@ const POSTGRES_URL_DB = `${POSTGRES_URL}/${DATABASE}`;
 
 const pgp = pgInit();
 describeFnl("PgDatastore", () => {
-    // tslint:disable-next-line: no-any
     let superDb: pgInit.IDatabase<any>;
     let ds: PgDatastore;
     before(async () => {

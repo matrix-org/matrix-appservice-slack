@@ -21,8 +21,6 @@ import { SlackEventHandler } from "../../SlackEventHandler";
 import { ISlackMessageEvent } from "../../BaseSlackHandler";
 import { BridgedRoom } from "../../BridgedRoom";
 
-// tslint:disable: no-unused-expression no-any
-
 const constructHarness = () => {
     const main = new FakeMain({
         oauth2: false,

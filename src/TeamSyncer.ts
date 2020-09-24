@@ -59,7 +59,7 @@ export class TeamSyncer {
         this.teamConfigs = config.team_sync;
     }
 
-    public async syncAllTeams(teamClients: { [id: string]: WebClient; }) {
+    public async syncAllTeams(teamClients: { [id: string]: WebClient; }): Promise<void> {
         const queue = new PQueue({concurrency: TEAM_SYNC_CONCURRENCY});
         const functionsForQueue: (() => Promise<void>)[] = [];
         for (const [teamId, client] of Object.entries(teamClients)) {
@@ -83,12 +83,11 @@ export class TeamSyncer {
         }
     }
 
-    public async syncItems(teamId: string, client: WebClient, type: "user"|"channel") {
+    public async syncItems(teamId: string, client: WebClient, type: "user"|"channel"): Promise<void> {
         if (!this.getTeamSyncConfig(teamId, type)) {
             log.warn(`Not syncing ${type}s for ${teamId}`);
             return;
         }
-        // tslint:disable-next-line: no-any
         let itemList: any[] = [];
         let cursor: string|undefined;
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
@@ -172,14 +171,14 @@ export class TeamSyncer {
         return teamConfig;
     }
 
-    public async onChannelAdded(teamId: string, channelId: string, name: string, creator: string) {
+    public async onChannelAdded(teamId: string, channelId: string, name: string, creator: string): Promise<void> {
         log.info(`${teamId} ${creator} created channel ${channelId} ${name}`);
         const client = await this.main.clientFactory.getTeamClient(teamId);
         const { channel } = (await client.conversations.info({ channel: channelId })) as ConversationsInfoResponse;
         await this.syncChannel(teamId, channel);
     }
 
-    public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse) {
+    public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse): Promise<void> {
         log.info(`Discovered private channel ${teamId} ${chanInfo.channel.id}`);
         const channelItem = chanInfo.channel;
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, true)) {
@@ -218,7 +217,7 @@ export class TeamSyncer {
         }
     }
 
-    public async syncUser(teamId: string, domain: string, item: ISlackUser) {
+    public async syncUser(teamId: string, domain: string, item: ISlackUser): Promise<void> {
         log.info(`Syncing user ${teamId} ${item.id}`);
         const existingGhost = await this.main.ghostStore.getExisting(this.main.ghostStore.getUserId(item.id, domain));
         if (item.deleted && !existingGhost) {
@@ -299,7 +298,7 @@ export class TeamSyncer {
         }
     }
 
-    public async onChannelDeleted(teamId: string, channelId: string) {
+    public async onChannelDeleted(teamId: string, channelId: string): Promise<void> {
         log.info(`${teamId} removed channel ${channelId}`);
         if (!this.getTeamSyncConfig(teamId, "channel", channelId)) {
             return;
@@ -333,7 +332,7 @@ export class TeamSyncer {
         }
     }
 
-    public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
+    public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient): Promise<void> {
         const existingGhosts = await this.main.listGhostUsers(roomId);
         // We assume that we have this
         const teamInfo = (await this.main.datastore.getTeam(teamId))!;

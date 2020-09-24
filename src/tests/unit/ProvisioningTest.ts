@@ -14,16 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression no-any
-
 import { Provisioner } from "../../Provisioning";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";
 import { FakeExpressResponse } from "../utils/fakeExpress";
 
-// tslint:disable-next-line: max-line-length
 const OAuthUrlRegex =
-    /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=redir_prefix([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
+    /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid&redirect_uri=redir_prefix%2F([0-9a-z-]+)%2Fauthorize&scope=(.*)&state=([0-9a-z-]+)$/;
 
 const createProvisioner = (mainCfg?: any) => {
     const fakeMain = new FakeMain(mainCfg);
@@ -59,7 +56,7 @@ describe("Provisioning", () => {
                 error: "OAuth2 not configured on this bridge",
             });
         });
-        it ("should handle command with missing puppeting body parameter", async () => {
+        it ("should handle command with missing puppeting parameter", async () => {
             const { prov } = createProvisioner({ oauth2: true });
             const req = {
                 body: {
@@ -77,7 +74,7 @@ describe("Provisioning", () => {
                 "team%3Aread%2Cusers%3Aread%2Cchannels%3Ahistory%2Cchannels%3Aread%2Cfiles%3Awrite%3Auser%2Cchat%3Awrite%3Abot%2Cusers%3Aread%2Cbot",
             );
         });
-        it ("should handle command with missing puppeting body parameter set to false", async () => {
+        it ("should handle command with puppeting parameter set to false", async () => {
             const { prov } = createProvisioner({ oauth2: true });
             const req = {
                 body: {
@@ -96,7 +93,7 @@ describe("Provisioning", () => {
                 "team%3Aread%2Cusers%3Aread%2Cchannels%3Ahistory%2Cchannels%3Aread%2Cfiles%3Awrite%3Auser%2Cchat%3Awrite%3Abot%2Cusers%3Aread%2Cbot",
             );
         });
-        it ("should handle command with missing puppeting body parameter set to true", async () => {
+        it ("should handle command with puppeting parameter set to true", async () => {
             const { prov } = createProvisioner({ oauth2: true });
             const req = {
                 body: {

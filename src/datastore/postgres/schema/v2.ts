@@ -1,6 +1,6 @@
 import { IDatabase } from "pg-promise";
 
-export const runSchema = async(db: IDatabase<unknown>) => {
+export const runSchema = async(db: IDatabase<unknown>): Promise<void> => {
     await db.none(`CREATE TABLE puppets (
         slackuser TEXT UNIQUE NOT NULL,
         slackteam TEXT UNIQUE NOT NULL,
