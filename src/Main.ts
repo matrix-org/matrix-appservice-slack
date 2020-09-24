@@ -538,7 +538,7 @@ export class Main {
             if (membership === "join") {
                 await room.onMatrixJoin(ev.state_key);
                 // Do we need to onboard this user?
-                if (this.config.puppeting?.onboard_users) {
+                if (this.config.puppeting?.enabled && this.config.puppeting.onboard_users) {
                     const adminRoomUser = await this.datastore.getUserAdminRoom(ev.state_key);
                     const puppets = await this.datastore.getPuppetsByMatrixId(ev.state_key);
                     if (!adminRoomUser && puppets.length === 0) {
