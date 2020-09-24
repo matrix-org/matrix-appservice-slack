@@ -14,19 +14,19 @@ export class SlackRoomStore {
     private roomsByMatrixId: Map<string, BridgedRoom> = new Map();
     private roomsByInboundId: Map<string, BridgedRoom> = new Map();
 
-    public get all() {
+    public get all(): BridgedRoom[] {
         return [...this.rooms];
     }
 
-    public get matrixRoomCount() {
+    public get matrixRoomCount(): number {
         return this.roomsByMatrixId.size;
     }
 
-    public get remoteRoomCount() {
+    public get remoteRoomCount(): number {
         return this.roomsByInboundId.size;
     }
 
-    public upsertRoom(room: BridgedRoom) {
+    public upsertRoom(room: BridgedRoom): void {
         log.debug(`upsertRoom ${room.MatrixRoomId}`);
         this.rooms.add(room);
 
@@ -57,7 +57,7 @@ export class SlackRoomStore {
         }
     }
 
-    public removeRoom(room: BridgedRoom) {
+    public removeRoom(room: BridgedRoom): void {
         log.debug(`removeRoom ${room.MatrixRoomId}`);
         this.roomsByMatrixId.delete(room.MatrixRoomId);
 
@@ -89,7 +89,7 @@ export class SlackRoomStore {
         return this.roomsByInboundId.get(inboundId);
     }
 
-    public getOrCreateAdminRoom(roomId: string, userId: string, main: Main) {
+    public getOrCreateAdminRoom(roomId: string, userId: string, main: Main): UserAdminRoom {
         let adminRoom = this.userAdminRooms.get(roomId);
         if (adminRoom) {
             return adminRoom;

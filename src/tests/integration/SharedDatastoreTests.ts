@@ -19,7 +19,7 @@ import { expect } from "chai";
 import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
-export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void) => {
+export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void): void => {
     describe("users", () => {
         it("should return null if a matrix user is not found", async () => {
             const userEntry = await ds().getUser("notreal");
@@ -149,13 +149,13 @@ export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void
             };
             model._extras.slackThreadMessages.push("def");
             await ds().upsertEvent(model);
-            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))!._extras).to.deep.equal(model._extras);
+            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))?._extras).to.deep.equal(model._extras);
             model._extras.slackThreadMessages.push("ghi");
             await ds().upsertEvent(model);
-            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))!._extras).to.deep.equal(model._extras);
+            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))?._extras).to.deep.equal(model._extras);
             model._extras.slackThreadMessages.splice(0, 3);
             await ds().upsertEvent(model);
-            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))!._extras).to.deep.equal(model._extras);
+            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))?._extras).to.deep.equal(model._extras);
         });
     });
 

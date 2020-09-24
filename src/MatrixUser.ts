@@ -43,7 +43,7 @@ export class MatrixUser {
      * taking into account disambiguation with other users in the same room.
      * @param roomId The roomId to calculate the user's displayname for.
      */
-    public getDisplaynameForRoom(roomId: string) {
+    public getDisplaynameForRoom(roomId: string): string {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
@@ -64,7 +64,7 @@ export class MatrixUser {
         return (matches.length > 1) ? `${displayname} (${this.userId})` : displayname;
     }
 
-    public getAvatarUrlForRoom(roomId: string) {
+    public getAvatarUrlForRoom(roomId: string): string|null {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
@@ -75,11 +75,11 @@ export class MatrixUser {
         return myMemberEvent.content.avatar_url;
     }
 
-    public get aTime() {
+    public get aTime(): number|null {
         return this.atime;
     }
 
-    public bumpATime() {
+    public bumpATime(): void {
         this.atime = Date.now() / 1000;
     }
 }

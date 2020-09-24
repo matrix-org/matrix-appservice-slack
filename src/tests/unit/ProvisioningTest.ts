@@ -24,7 +24,7 @@ const OAuthUrlRegex =
 
 const createProvisioner = (mainCfg?: any) => {
     const fakeMain = new FakeMain(mainCfg);
-    const prov = new Provisioner(fakeMain as any, {});
+    const prov = new Provisioner(fakeMain as any, {} as any);
     return {prov, fakeMain};
 };
 
@@ -67,7 +67,7 @@ describe("Provisioning", () => {
             await prov.handleProvisioningRequest("authurl", req as any, res as any);
             expect(res.Status).to.equal(200);
             expect(res.Json).to.exist;
-            const match = OAuthUrlRegex.exec(res.Json.auth_uri);
+            const match = OAuthUrlRegex.exec(res.Json.auth_uri as string);
             expect(match).is.not.null;
             expect(match![1]).to.equal(match![3]);
             expect(match![2]).to.equal(
@@ -86,7 +86,7 @@ describe("Provisioning", () => {
             await prov.handleProvisioningRequest("authurl", req as any, res as any);
             expect(res.Status).to.equal(200);
             expect(res.Json).to.exist;
-            const match = OAuthUrlRegex.exec(res.Json.auth_uri);
+            const match = OAuthUrlRegex.exec(res.Json.auth_uri as string);
             expect(match).is.not.null;
             expect(match![1]).to.equal(match![3]);
             expect(match![2]).to.equal(
@@ -105,7 +105,7 @@ describe("Provisioning", () => {
             await prov.handleProvisioningRequest("authurl", req as any, res as any);
             expect(res.Status).to.equal(200);
             expect(res.Json).to.exist;
-            const match = OAuthUrlRegex.exec(res.Json.auth_uri);
+            const match = OAuthUrlRegex.exec(res.Json.auth_uri as string);
             expect(match).is.not.null;
             expect(match![1]).to.equal(match![3]);
             expect(match![2]).to.equal(

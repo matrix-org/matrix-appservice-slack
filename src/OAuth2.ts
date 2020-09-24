@@ -64,7 +64,7 @@ export class OAuth2 {
         // Precompile oauth templates
     }
 
-    public async compileTemplates() {
+    public async compileTemplates(): Promise<void> {
         this.oauthTemplate = compile(await fs.readFile(path.resolve(this.templateFile), "utf-8"));
     }
 
@@ -124,7 +124,12 @@ export class OAuth2 {
         return v || null;
     }
 
-    public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known") {
+    public getHTMLForResult(
+        success: boolean,
+        code: number,
+        userId: string|null,
+        reason?: "error"|"limit-reached"|"token-not-known"
+    ): string {
         return this.oauthTemplate.render({
             success,
             userId,
