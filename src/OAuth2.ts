@@ -24,6 +24,7 @@ import { OAuthAccessResponse } from "./SlackResponses";
 import { Template, compile } from "nunjucks";
 import { promises as fs } from "fs";
 import * as path from "path";
+import * as url from "url";
 
 const log = Logging.get("OAuth2");
 
@@ -134,6 +135,6 @@ export class OAuth2 {
     }
 
     private makeRedirectURL(token: string): string {
-        return path.join(this.redirectPrefix, token, "authorize");
+        return url.resolve(this.redirectPrefix, `${token}/authorize`);
     }
 }
