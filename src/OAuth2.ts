@@ -134,6 +134,6 @@ export class OAuth2 {
     }
 
     private makeRedirectURL(token: string): string {
-        return `${this.redirectPrefix}${token}/authorize`;
+        return path.join(this.redirectPrefix, token, "authorize");
     }
 }
