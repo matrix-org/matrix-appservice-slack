@@ -16,7 +16,7 @@ limitations under the License.
 
 import { Intent } from "matrix-appservice-bridge";
 
-export async function createDM(senderIntent: Intent, recipients: string|string[], name?: string) {
+export const createDM = async (senderIntent: Intent, recipients: string|string[], name?: string): Promise<string> => {
     if (!Array.isArray(recipients)) {
         recipients = [recipients];
     }
@@ -30,4 +30,4 @@ export async function createDM(senderIntent: Intent, recipients: string|string[]
         },
     });
     return room_id;
-}
+};
