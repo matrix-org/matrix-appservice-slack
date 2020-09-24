@@ -8,7 +8,7 @@ identity, and send messages as if you were talking from Slack.
 > A message sent from Element appearing as a native Slack message
 
 While the bridge supports sending messages as itself on behalf of users 
-(including setting an avatar and name), there are limits to it's abilities. 
+(including setting an avatar and name), there are limits to its abilities. 
 An "[APP]" logo will appear next  to your messages, and users are not able 
 to DM you or invite you to chats.
 
@@ -45,7 +45,10 @@ use websockets to communicate with the bridge rather than HTTP pushed events.
 Finally, you must have OAuth2 configured. OAuth2 is used to authenticate
 users with Slack and get the required access tokens in order to puppet   
 accounts. `client_id` and `client_secret` can be found on the OAuth page 
-of your Slack App (under https://api.slack.com/apps).
+of your Slack App (under https://api.slack.com/apps). Ensure you have all the
+correct permission scopes. (see
+[OAuth2.ts](https://github.com/matrix-org/matrix-appservice-slack/blob/118b931afbd1e2387128d1b5c46bd0e2787ad51c/src/OAuth2.ts#L31-L40)
+for an up to date list)
 For this to work, the bridge must be listening for external HTTP 
 requests on the port configured by `slack_hook_port`. A load balancer 
 should be used for this.
@@ -85,11 +88,11 @@ puppeting:
   direct_messages:
     deny:
       matrix:
-        - /@evil.*/
+        - /^@evil/
 ```
 
 For example, this configuration would block users who have a user_id starting
-with `@evil` from messaging Slack users, and `@good`.
+with `@evil` from messaging Slack users.
 
 ## Notes
 
