@@ -5,5 +5,5 @@ This room serves as your control center for configuring the bridge, and is visib
 only to you.
 
 The bridge is not yet connecting direct messages, private channels or various other nice
-things like reactions to your account. In order to do that, please type `login` in order
-to connect your account to the bridge. You may also type `help` for other commands.
+things like reactions to your account. In order to do that, please send the message `login`
+in order to connect your account to the bridge. You may also send `help` for other commands.
