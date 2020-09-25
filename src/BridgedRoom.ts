@@ -50,7 +50,7 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 }
 
 const RECENT_MESSAGE_MAX = 10;
-const PUPPET_INCOMING_DELAY_MS = 1500;
+const PUPPET_INCOMING_DELAY_MS = 5000;
 
 
 /**
