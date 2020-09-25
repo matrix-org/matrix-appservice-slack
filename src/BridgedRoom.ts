@@ -196,7 +196,7 @@ export class BridgedRoom {
 
     public waitForJoin() {
         if (this.main.encryptRoom && (this.SlackType === "im" || this.SlackType === "group")) {
-            log.debug(`Will wait for user to join room, since room type is a ${this.SlackType}`)
+            log.debug(`Will wait for user to join room, since room type is a ${this.SlackType}`);
             // This might be an encrypted message room. Delay sending until at least one matrix user joins.
             this.waitingForJoin = new Promise((resolve) => this.waitingForJoinResolve = resolve);
         }

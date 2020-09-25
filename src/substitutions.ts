@@ -137,7 +137,7 @@ class Substitutions {
                     if (room) {
                         // aliases are faily unique in form, so we can replace these easily enough
                         const aliasRegex = new RegExp(escapeStringRegexp(alias.text), "g");
-                        body = body.replace(aliasRegex, `<#${room.SlackChannelId!}>`);
+                        body = body.replace(aliasRegex, `<#${room.SlackChannelId}>`);
                     }
                 } catch (ex) {
                     // We failed the lookup so just continue
@@ -182,7 +182,7 @@ class Substitutions {
             // in this case.
             return null;
         }
-        let url = main.getUrlForMxc(event.content.url);
+        const url = main.getUrlForMxc(event.content.url);
         if (main.encryptRoom) {
             return {
                 encrypted_file: url,
