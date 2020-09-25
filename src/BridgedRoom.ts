@@ -660,7 +660,11 @@ export class BridgedRoom {
             return;
         }
 
-        const reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
+        let reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
+        // Element uses the default thumbsup and thumbsdown reactions with an appended variant character.
+        if (reactionKey === '👍' || reactionKey === '👎') {
+            reactionKey += '\ufe0f'.normalize(); // VARIATION SELECTOR-16
+        }
 
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
