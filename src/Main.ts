@@ -399,10 +399,10 @@ export class Main {
         return this.metrics ? this.metrics.prometheus.startTimer(name, labels) : () => {};
     }
 
-    public getUrlForMxc(mxcUrl: string) {
+    public getUrlForMxc(mxcUrl: string, local = false) {
         // Media may be encrypted, use this.
         let baseUrl = this.config.homeserver.url;
-        if (this.config.encryption?.enabled) {
+        if (this.config.encryption?.enabled && local) {
             baseUrl = this.config.encryption?.pantalaimon_url;
         } else if (this.config.homeserver.media_url) {
             baseUrl = this.config.homeserver.media_url;

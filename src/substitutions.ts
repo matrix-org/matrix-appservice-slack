@@ -182,7 +182,7 @@ class Substitutions {
             // in this case.
             return null;
         }
-        const url = main.getUrlForMxc(event.content.url);
+        const url = main.getUrlForMxc(event.content.url, main.encryptRoom);
         if (main.encryptRoom) {
             return {
                 encrypted_file: url,
