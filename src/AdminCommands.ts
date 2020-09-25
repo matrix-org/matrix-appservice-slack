@@ -58,7 +58,7 @@ export class AdminCommands {
         });
     }
 
-    public get list() {
+    public get list(): AdminCommand {
         return new AdminCommand(
             "list",
             "list the linked rooms",
@@ -116,7 +116,7 @@ export class AdminCommands {
         );
     }
 
-    public get show() {
+    public get show(): AdminCommand {
         return new AdminCommand(
             "show",
             "show a single connected room",
@@ -162,7 +162,7 @@ export class AdminCommands {
         );
     }
 
-    public get link() {
+    public get link(): AdminCommand {
         return new AdminCommand(
             "link",
             "connect a Matrix and a Slack room together",
@@ -219,7 +219,7 @@ export class AdminCommands {
         );
     }
 
-    public get unlink() {
+    public get unlink(): AdminCommand {
         return new AdminCommand(
             "unlink",
             "disconnect a linked Matrix and Slack room",
@@ -244,7 +244,7 @@ export class AdminCommands {
         );
     }
 
-    public get join() {
+    public get join(): AdminCommand {
         return new AdminCommand(
             "join room",
             "join a new room",
@@ -265,7 +265,7 @@ export class AdminCommands {
         );
     }
 
-    public get leave() {
+    public get leave(): AdminCommand {
         return new AdminCommand(
             "leave room",
             "leave an unlinked room",
@@ -286,7 +286,7 @@ export class AdminCommands {
         );
     }
 
-    public get stalerooms() {
+    public get stalerooms(): AdminCommand {
         return new AdminCommand(
             "stalerooms",
             "list rooms the bot user is a member of that are unlinked",
@@ -303,7 +303,7 @@ export class AdminCommands {
         );
     }
 
-    public get doOauth() {
+    public get doOauth(): AdminCommand {
         return new AdminCommand(
             "oauth userId puppet",
             "generate an oauth url to bind your account with",
@@ -337,7 +337,7 @@ export class AdminCommands {
         );
     }
 
-    public get help() {
+    public get help(): AdminCommand {
         return new AdminCommand(
             "help [command]",
             "describes the commands available",

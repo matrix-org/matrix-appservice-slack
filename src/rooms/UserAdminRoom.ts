@@ -10,17 +10,17 @@ const COMMAND_HELP = {
 };
 
 export class UserAdminRoom {
-    public static IsAdminRoomInvite(event: any, botId: string) {
-        return (event.content.membership === "invite" &&
+    public static IsAdminRoomInvite(event: {content?: Record<string, unknown>, state_key?: unknown}, botId: string): boolean {
+        return (event.content?.membership === "invite" &&
                 event.state_key === botId &&
-                event.content.is_direct === true);
+                event.content?.is_direct === true);
     }
 
     constructor(private roomId: string, private userId: string, private main: Main) {
 
     }
 
-    public async handleEvent(ev: {type: string, content: {msgtype: string, body: string}}) {
+    public async handleEvent(ev: {type: string, content: {msgtype: string, body: string}}): Promise<unknown> {
         if (ev.type !== "m.room.message" || ev.content.msgtype !== "m.text" || !ev.content.body) {
             return;
         }
@@ -41,14 +41,14 @@ export class UserAdminRoom {
         );
     }
 
-    public async handleHelp() {
+    public async handleHelp(): Promise<unknown> {
         return this.sendNotice(
             Object.keys(COMMAND_HELP).map((cmd) => `${cmd} - ${COMMAND_HELP[cmd].desc}`).join("\n"),
             "<ul>" + Object.keys(COMMAND_HELP).map((cmd) => `<li><code>${cmd}</code> - ${COMMAND_HELP[cmd].desc}</li>`).join("") + "</ul>",
         );
     }
 
-    public async handleLogin() {
+    public async handleLogin(): Promise<void> {
         if (!this.main.oauth2 || !this.main.config.puppeting?.enabled) {
             await this.sendNotice("This bridge is not configured to allow logging into Slack accounts.");
             return;
@@ -65,7 +65,7 @@ export class UserAdminRoom {
         );
     }
 
-    public async handleWhoAmI() {
+    public async handleWhoAmI(): Promise<unknown> {
         const puppets = await this.main.datastore.getPuppetsByMatrixId(this.userId);
         if (puppets.length === 0) {
             return this.sendNotice("You are not logged into Slack. You may talk in public rooms only.");
@@ -75,6 +75,12 @@ export class UserAdminRoom {
         for (const puppet of puppets) {
             const cli = await this.main.clientFactory.getClientForUser(puppet.teamId, puppet.matrixId);
             const team = await this.main.datastore.getTeam(puppet.teamId);
+            if (!team) {
+                log.warn(
+                    `Failed to fetch team ${puppet.teamId} for the connected account ${puppet.matrixId}. ` +
+                    'The datastore changed recently or is inconsistent.'
+                );
+            }
             if (cli === null) {
                 continue;
             }
@@ -82,8 +88,8 @@ export class UserAdminRoom {
             if (user === undefined) {
                 continue;
             }
-            body += `You are logged in as ${user.name} (${team!.name})\n`;
-            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team!.name}) </li>`;
+            body += `You are logged in as ${user.name} (${team?.name || puppet.teamId})\n`;
+            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team!.name || puppet.teamId}) </li>`;
         }
         formattedBody += "</ul>";
         return this.sendNotice(body, formattedBody);

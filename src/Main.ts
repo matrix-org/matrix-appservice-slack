@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Bridge, PrometheusMetrics, StateLookup,
+import { Bridge, PrometheusMetrics, StateLookup, StateLookupEvent,
     Logging, Intent } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
@@ -31,7 +31,7 @@ import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
-import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
+import { Datastore, RoomEntry, SlackAccount, TeamEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -239,11 +239,11 @@ export class Main {
         return (this.slackRtm !== undefined) && this.slackRtm.teamIsUsingRtm(teamId);
     }
 
-    public getIntent(userId: string) {
+    public getIntent(userId: string): Intent {
         return this.bridge.getIntent(userId);
     }
 
-    public initialiseMetrics() {
+    public initialiseMetrics(): void {
         const prometheus = this.bridge.getPrometheusMetrics();
 
         this.bridge.registerBridgeGauges(() => {
@@ -328,11 +328,11 @@ export class Main {
         };
     }
 
-    public incCounter(name: string, labels: MetricsLabels = {}) {
+    public incCounter(name: string, labels: MetricsLabels = {}): void {
         this.metrics?.prometheus.incCounter(name, labels);
     }
 
-    public incRemoteCallCounter(type: string) {
+    public incRemoteCallCounter(type: string): void {
         this.metrics?.prometheus.incCounter("remote_api_calls", {method: type});
     }
 
@@ -341,7 +341,7 @@ export class Main {
      * This function should be called on a regular interval or after an important
      * change to the metrics has happened.
      */
-    public async updateActivityMetrics() {
+    public async updateActivityMetrics(): Promise<void> {
         if (!this.metrics) {
             return;
         }
@@ -362,35 +362,36 @@ export class Main {
         }
     }
 
-    public startTimer(name: string, labels: MetricsLabels = {}) {
+    public startTimer(name: string, labels: MetricsLabels = {}): (labels?: Record<string, string|number>) => void {
         return this.metrics ? this.metrics.prometheus.startTimer(name, labels) : () => {};
     }
 
-    public getUrlForMxc(mxcUrl: string) {
+    public getUrlForMxc(mxcUrl: string): string {
         const hs = this.config.homeserver;
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: any, teamId?: string) {
-        if (message.team_domain) {
+    public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
+        if (typeof message.team_domain === 'string') {
             return message.team_domain;
         }
 
         if (!teamId) {
-            if (message.team_id) {
-                teamId = message.team_id;
-            } else {
+            if (!message.team_id) {
                 throw Error("Cannot determine team, no id given.");
+            } else if (typeof message.team_id !== 'string') {
+                throw Error("Cannot determine team, id is invalid.");
             }
+            teamId = message.team_id;
         }
 
-        const team = await this.datastore.getTeam(teamId!);
+        const team = await this.datastore.getTeam(teamId);
         if (team) {
             return team.domain;
         }
     }
 
-    public getOrCreateMatrixUser(id: string) {
+    public getOrCreateMatrixUser(id: string): MatrixUser {
         let u = this.matrixUsersById.get(id);
         if (u) {
             return u;
@@ -400,7 +401,7 @@ export class Main {
         return u;
     }
 
-    public genInboundId() {
+    public genInboundId(): string {
         let attempts = 10;
         while (attempts > 0) {
             const id = randomstring.generate(INTERNAL_ID_LEN);
@@ -413,7 +414,7 @@ export class Main {
         throw Error("Failed to generate a unique inbound ID after 10 attempts");
     }
 
-    public async addBridgedRoom(room: BridgedRoom) {
+    public async addBridgedRoom(room: BridgedRoom): Promise<void> {
         this.rooms.upsertRoom(room);
         if (this.slackRtm && room.SlackTeamId) {
             // This will start a new RTM client for the team, if the team
@@ -422,15 +423,15 @@ export class Main {
         }
     }
 
-    public getInboundUrlForRoom(room: BridgedRoom) {
+    public getInboundUrlForRoom(room: BridgedRoom): string {
         return this.config.inbound_uri_prefix + room.InboundId;
     }
 
-    public getStoredEvent(roomId: string, eventType: string, stateKey?: string) {
+    public getStoredEvent(roomId: string, eventType: string, stateKey?: string): StateLookupEvent|StateLookupEvent[]|null|undefined {
         return this.stateStorage?.getState(roomId, eventType, stateKey);
     }
 
-    public async getState(roomId: string, eventType: string) {
+    public async getState(roomId: string, eventType: string): Promise<any> {
         const cachedEvent = this.getStoredEvent(roomId, eventType);
         if (cachedEvent && Array.isArray(cachedEvent) && cachedEvent.length) {
             // StateLookup returns entire state events. client.getStateEvent returns
@@ -441,18 +442,18 @@ export class Main {
         return this.botIntent.client.getStateEvent(roomId, eventType);
     }
 
-    public async listAllUsers(roomId: string) {
+    public async listAllUsers(roomId: string): Promise<string[]> {
         const members = await this.bridge.getBot().getJoinedMembers(roomId);
         return Object.keys(members);
     }
 
-    public async listGhostUsers(roomId: string) {
+    public async listGhostUsers(roomId: string): Promise<string[]> {
         const userIds = await this.listAllUsers(roomId);
         const regexp = new RegExp("^@" + this.config.username_prefix);
         return userIds.filter((i) => i.match(regexp));
     }
 
-    public async drainAndLeaveMatrixRoom(roomId: string) {
+    public async drainAndLeaveMatrixRoom(roomId: string): Promise<void> {
         const userIds = await this.listGhostUsers(roomId);
         log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
         await Promise.all(userIds.map(async(userId) =>
@@ -472,7 +473,7 @@ export class Main {
         room_id: string,
         sender: string,
         content: any,
-    }) {
+    }): Promise<void> {
         if (ev.sender === this.botUserId) {
             // We don't want to handle echo.
             return;
@@ -665,7 +666,7 @@ export class Main {
         endTimer({outcome: success ? "success" : "dropped"});
     }
 
-    public async handleDmInvite(recipient: string, sender: string, roomId: string) {
+    public async handleDmInvite(recipient: string, sender: string, roomId: string): Promise<void> {
         const intent = this.getIntent(recipient);
         await intent.join(roomId);
         if (!this.slackRtm) {
@@ -750,7 +751,20 @@ export class Main {
         await slackGhost.intent.join(roomId);
     }
 
-    public async onMatrixAdminMessage(ev) {
+    public async onMatrixAdminMessage(ev: {
+        event_id: string,
+        state_key?: string,
+        type: string,
+        room_id: string,
+        sender: string,
+        content?: {
+            body?: unknown,
+        },
+    }): Promise<void> {
+        if (typeof ev.content !== "object" || !ev.content || typeof ev.content.body !== "string") {
+            throw Error("Received an invalid Matrix admin message. event.content.body was not a string.");
+        }
+
         const cmd = ev.content.body;
 
         // Ignore "# comment" lines as chatter between humans sharing the console
@@ -760,7 +774,7 @@ export class Main {
 
         log.info("Admin: " + cmd);
 
-        const response: any[] = [];
+        const response: string[] = [];
         const respond = (responseMsg: string) => {
             if (!response) {
                 log.info(`Command response too late: ${responseMsg}`);
@@ -1059,7 +1073,7 @@ export class Main {
         slack_channel_id?: string,
         slack_bot_token?: string,
         team_id?: string,
-    }) {
+    }): Promise<BridgedRoom> {
         let slackClient: WebClient|undefined;
         let room: BridgedRoom;
         let teamEntry: TeamEntry|null = null;
@@ -1194,7 +1208,7 @@ export class Main {
 
     public async actionUnlink(opts: {
         matrix_room_id: string,
-    }) {
+    }): Promise<void> {
         log.warn(`Trying to unlink ${opts.matrix_room_id}`);
         const room = this.rooms.getByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
@@ -1209,7 +1223,7 @@ export class Main {
         await this.datastore.deleteRoom(id);
     }
 
-    public async checkLinkPermission(matrixRoomId: string, userId: string) {
+    public async checkLinkPermission(matrixRoomId: string, userId: string): Promise<boolean> {
         const STATE_DEFAULT = 50;
         // We decide to allow a user to link or unlink, if they have a powerlevel
         //   sufficient to affect the 'm.room.power_levels' state; i.e. the
@@ -1228,7 +1242,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean,
-        botAccessToken?: string) {
+        botAccessToken?: string): Promise<void> {
         const existingTeam = await this.datastore.getTeam(teamId);
         await this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
@@ -1273,11 +1287,11 @@ export class Main {
         }
     }
 
-    public async matrixUserInSlackTeam(teamId: string, userId: string) {
+    public async matrixUserInSlackTeam(teamId: string, userId: string): Promise<SlackAccount|undefined> {
         return (await this.datastore.getAccountsForMatrixUser(userId)).find((a) => a.teamId === teamId);
     }
 
-    public async willExceedTeamLimit(teamId: string) {
+    public async willExceedTeamLimit(teamId: string): Promise<boolean> {
         // First, check if we are limited
         if (!this.config.provisioning?.limits?.team_count) {
             return false;
@@ -1286,7 +1300,7 @@ export class Main {
         return idSet.add(teamId).size > this.config.provisioning?.limits?.team_count;
     }
 
-    public async logoutAccount(userId: string, slackId: string) {
+    public async logoutAccount(userId: string, slackId: string): Promise<{deleted: boolean, msg?: string}> {
         const acct = (await this.datastore.getAccountsForMatrixUser(userId)).find((s) => s.slackId === slackId);
         if (!acct) {
             // Account not found
@@ -1324,7 +1338,7 @@ export class Main {
         return { deleted: true };
     }
 
-    public async killBridge() {
+    public async killBridge(): Promise<void> {
         log.info("Killing bridge");
         if (this.metricsCollectorInterval) {
             clearInterval(this.metricsCollectorInterval);

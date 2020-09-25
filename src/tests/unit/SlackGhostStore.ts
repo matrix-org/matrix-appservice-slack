@@ -33,7 +33,7 @@ const getGhostStore = () => {
         status: "ok",
         user_id: "fooo",
     }]);
-    const intentHolder: { intent: any } = { intent: null };
+    const intentHolder: { intent } = { intent: null };
     const fakeBridge = {
         getIntent: () => {
             const intent = {
@@ -58,7 +58,7 @@ describe("SlackGhostStore", () => {
         getGhostStore();
     });
     it("getForSlackMessage should get a ghost with a team_domain and team_id", async () => {
-        const {store, datastore, intentHolder} = getGhostStore();
+        const {store, intentHolder} = getGhostStore();
         const user = await store.getForSlackMessage({
             team_domain: "fake-team",
             user_id: "foouser",
@@ -70,7 +70,7 @@ describe("SlackGhostStore", () => {
         expect(user.intent).to.equal(intentHolder.intent);
     });
     it("getForSlackMessage should get a ghost with just a team_domain", async () => {
-        const {store, datastore, intentHolder} = getGhostStore();
+        const {store, intentHolder} = getGhostStore();
         const user = await store.getForSlackMessage({
             team_domain: "fake-team",
             user_id: "foouser",
@@ -82,7 +82,7 @@ describe("SlackGhostStore", () => {
         expect(user.intent).to.equal(intentHolder.intent);
     });
     it("getForSlackMessage should get a ghost with just a team_id", async () => {
-        const {store, datastore, intentHolder} = getGhostStore();
+        const {store, intentHolder} = getGhostStore();
         const user = await store.getForSlackMessage({
             user_id: "foouser",
         }, "faketeam");

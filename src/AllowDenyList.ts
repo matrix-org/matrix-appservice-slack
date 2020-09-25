@@ -101,7 +101,7 @@ export class AllowDenyList {
      * @param slackChannelId The Slack channel ID   e.g. CCZ41UJV7
      * @param slackChannelName The Slack channel name e.g. #general
      */
-    public allowSlackChannel(slackChannelId: string, slackChannelName?: string) {
+    public allowSlackChannel(slackChannelId: string, slackChannelName?: string): DenyReason.ALLOWED|DenyReason.SLACK {
         if (slackChannelName?.startsWith('#')) {
             slackChannelName = slackChannelName.slice(1);
         }

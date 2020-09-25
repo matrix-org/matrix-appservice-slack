@@ -29,7 +29,7 @@ const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\
  * Will return the emoji's name within ':'.
  * @param name The emoji's name.
  */
-export const getFallbackForMissingEmoji = (name): string => (
+export const getFallbackForMissingEmoji = (name: string): string => (
     `:${name}:`
 );
 

@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { MatrixUser } from "../../MatrixUser";
 import { Main } from "../../Main";
 import { expect } from "chai";
 import { SlackRTMHandler } from "../../SlackRTMHandler";
@@ -46,7 +45,7 @@ describe("SlackRTMHandler", () => {
         const client = handler._rtmClient;
         const messages = ["Test 1", "Test 2", "Test 3", "Test 4", "Test 5"];
         let wasCalled = 0;
-        const allDone = new Promise((resolve, reject) => {
+        const allDone = new Promise((resolve) => {
             handler.handleRtmMessage = async (a, b, c, e) => {
                 wasCalled++;
                 if (wasCalled === 5) {
