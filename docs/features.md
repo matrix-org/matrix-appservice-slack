@@ -10,6 +10,7 @@ Symbols:
 Notes:
 - [1] - Users who are not puppeted are not able to send reactions as themselves.
 - [2] - Matrix replies appear as threads on Slack. Slack threads appear as replies on Matrix.
+- [3] - Edits are not currently supported if the source Slack message included an image.
 
 ## Channel Types
 
@@ -28,7 +29,7 @@ These types are supported in both directions.
 - Images / Videos / Audio / Files
 - Reactions [1]
 - Redactions
-- Edits
+- Edits [3]
 - Threading / Replies [2]
 - Encrypted Messages 🧪
 
