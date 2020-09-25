@@ -161,6 +161,9 @@ export class BridgedRoom {
 
     private slackSendLock: Promise<void> = Promise.resolve();
 
+    private waitingForJoin?: Promise<void>;
+    private waitingForJoinResolve?: () => void;
+
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
      */
@@ -189,6 +192,14 @@ export class BridgedRoom {
         this.isPrivate = opts.is_private;
         this.puppetOwner = opts.puppet_owner;
         this.dirty = true;
+    }
+
+    public waitForJoin() {
+        if (this.main.encryptRoom && (this.SlackType === "im" || this.SlackType === "group")) {
+            log.debug(`Will wait for user to join room, since room type is a ${this.SlackType}`)
+            // This might be an encrypted message room. Delay sending until at least one matrix user joins.
+            this.waitingForJoin = new Promise((resolve) => this.waitingForJoinResolve = resolve);
+        }
     }
 
     public updateUsingChannelInfo(channelInfo: ConversationsInfoResponse): void {
@@ -614,13 +625,20 @@ export class BridgedRoom {
     }
 
     public async onMatrixJoin(userId: string): Promise<void> {
-        log.info(`Joining ${userId} to ${this.SlackChannelId}`);
+        log.info(`${userId} joined ${this.MatrixRoomId} (${this.SlackChannelId})`);
+        if (this.waitingForJoinResolve) {
+            this.waitingForJoinResolve();
+        }
         const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
         if (!puppetedClient) {
             log.debug("No client");
             return;
         }
-        await puppetedClient.conversations.join({ channel: this.SlackChannelId! });
+        if (this.SlackType !== "im") {
+            log.info(`Joining ${userId} to ${this.SlackChannelId}`);
+            // DMs don't need joining
+            await puppetedClient.conversations.join({ channel: this.SlackChannelId! });
+        }
     }
 
     public async onMatrixInvite(inviter: string, invitee: string): Promise<void> {
@@ -638,6 +656,12 @@ export class BridgedRoom {
     }
 
     public async onSlackMessage(message: ISlackMessageEvent): Promise<void> {
+        if (this.waitingForJoin) {
+            log.debug("Waiting for user to join before sending DM message");
+            // Encrypted rooms shouldn't send DM messages until the user has joined.
+            await this.waitingForJoin;
+            this.waitingForJoin = undefined;
+        }
         if (this.slackTeamId && message.user) {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
             const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);

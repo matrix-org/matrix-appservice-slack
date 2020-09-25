@@ -274,6 +274,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
+            room.waitForJoin();
             await Promise.all(otherGhosts.map(async(g) => g.intent.join(room_id)));
             return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
