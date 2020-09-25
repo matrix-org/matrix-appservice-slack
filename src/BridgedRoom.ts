@@ -674,8 +674,8 @@ export class BridgedRoom {
             return;
         }
         try {
-            const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId!);
-            await ghost.update(message, this);
+            const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
+            await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             this.slackSendLock = this.slackSendLock.finally(async () => {
                 // Check again
@@ -714,7 +714,7 @@ export class BridgedRoom {
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
-        await ghost.update(message, this);
+        await ghost.update(message, this.SlackClient);
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 
