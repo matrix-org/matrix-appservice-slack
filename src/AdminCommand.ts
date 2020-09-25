@@ -35,7 +35,7 @@ export class AdminCommand {
         public readonly options: {[key: string]: Options}|null = null) {
     }
 
-    public async handler(argv: IHandlerArgs) {
+    public async handler(argv: IHandlerArgs): Promise<void> {
         argv.matched();
         try {
             await this.cb(argv);

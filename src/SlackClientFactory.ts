@@ -38,7 +38,7 @@ export class SlackClientFactory {
 
     }
 
-    public async createClient(token: string) {
+    public async createClient(token: string): Promise<WebClient> {
         const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
         return new WebClient(token, {
             logger: {
@@ -70,7 +70,7 @@ export class SlackClientFactory {
      * @param teamId The slack teamId to check.
      * @throws If the team is not safe to use
      */
-    public async isTeamStatusOkay(teamId: string) {
+    public async isTeamStatusOkay(teamId: string): Promise<void> {
         const storedTeam = await this.datastore.getTeam(teamId);
         if (!storedTeam) {
             throw Error(`Team ${teamId} is not ready: No team found in store`);
@@ -86,7 +86,7 @@ export class SlackClientFactory {
         }
     }
 
-    public get teamClientCount() {
+    public get teamClientCount(): number {
         return this.teamClients.size;
     }
 
@@ -226,7 +226,12 @@ export class SlackClientFactory {
         return res !== null ? res.client : null;
     }
 
-    public async createTeamClient(token: string) {
+    public async createTeamClient(token: string): Promise<{
+        slackClient: WebClient,
+        team: { id: string, name: string, domain: string },
+        auth: AuthTestResponse,
+        user: UsersInfoResponse,
+    }> {
         try {
             const slackClient = await this.createClient(token);
             const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
@@ -243,7 +248,7 @@ export class SlackClientFactory {
         }
     }
 
-    public async dropTeamClient(teamId: string) {
+    public async dropTeamClient(teamId: string): Promise<void> {
         this.teamClients.delete(teamId);
     }
 }

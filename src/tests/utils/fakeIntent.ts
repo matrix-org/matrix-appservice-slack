@@ -1,5 +1,5 @@
 export class FakeIntent {
-    public getClient() {
+    public getClient(): { getRoomIdForAlias: (alias: string) => { room_id: string } } {
         return {
             getRoomIdForAlias: this.cliGetRoomIdForAlias.bind(this),
         };

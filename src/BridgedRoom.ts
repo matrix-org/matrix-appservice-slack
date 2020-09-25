@@ -660,7 +660,11 @@ export class BridgedRoom {
             return;
         }
 
-        const reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
+        let reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
+        // Element uses the default thumbsup and thumbsdown reactions with an appended variant character.
+        if (reactionKey === '👍' || reactionKey === '👎') {
+            reactionKey += '\ufe0f'.normalize(); // VARIATION SELECTOR-16
+        }
 
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
@@ -674,7 +678,7 @@ export class BridgedRoom {
         if (event === null) {
             return;
         }
-        let response;
+        let response: { event_id: string };
         const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
         try {
             response = await ghost.sendReaction(
@@ -888,6 +892,8 @@ export class BridgedRoom {
                 return await ghost.sendWithReply(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
+            } else {
+                log.warn("Could not find matrix event for parent reply", message.thread_ts);
             }
         }
 
@@ -997,6 +1003,7 @@ export class BridgedRoom {
         const dataStore = this.main.datastore;
         const parentEvent = await dataStore.getEventBySlackId(slackRoomID, message.thread_ts!);
         if (parentEvent === null) {
+            log.warn(`Could not find parent matrix event for ${message.thread_ts}`);
             return null;
         }
         let replyToTS = "";
@@ -1011,6 +1018,7 @@ export class BridgedRoom {
         // Get event to reply to
         const replyToEvent = await dataStore.getEventBySlackId(slackRoomID, replyToTS);
         if (replyToEvent === null) {
+            log.warn(`Could not find parent matrix event for the latest event in the chain ${replyToTS}`);
             return null;
         }
         const intent = await this.getIntentForRoom(roomID);
