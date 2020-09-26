@@ -1039,6 +1039,9 @@ export class BridgedRoom {
             if (message.text) {
                 return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
             }
+        } else if (message.subtype === "group_join") {
+            // HACK: Private rooms use these. It's a total pain.
+            return this.onSlackUserJoin(message.user!, message.inviter);
         } else {
             log.warn(`Ignoring message with subtype: ${subtype}`);
         }
