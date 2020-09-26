@@ -16,7 +16,7 @@ limitations under the License.
 
 import {
     Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
-    Logging, Intent, UserMembership } from "matrix-appservice-bridge";
+    Logging, Intent, UserMembership, WeakEvent } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -48,7 +48,6 @@ import { AllowDenyList, DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("Main");
 
-const RECENT_EVENTID_SIZE = 20;
 const STARTUP_TEAM_INIT_CONCURRENCY = 10;
 const STARTUP_RETRY_TIME_MS = 5000;
 export const METRIC_ACTIVE_USERS = "active_users";
@@ -92,9 +91,6 @@ export class Main {
     public readonly oauth2: OAuth2|null = null;
 
     public datastore!: Datastore;
-
-    private recentMatrixEventIds: string[] = new Array(RECENT_EVENTID_SIZE);
-    private mostRecentEventIdIdx = 0;
 
     public readonly rooms: SlackRoomStore = new SlackRoomStore();
     private ghosts!: SlackGhostStore; // Defined in .run
@@ -200,6 +196,7 @@ export class Main {
             registration,
             ...bridgeStores,
             disableContext: true,
+            suppressEcho: true,
         });
 
         this.provisioner = new Provisioner(this, this.bridge);
@@ -476,7 +473,7 @@ export class Main {
         room_id: string,
         sender: string,
         content: {
-            is_direct: boolean;
+            is_direct?: boolean;
             membership: UserMembership;
         }
     }, room: BridgedRoom | undefined, endTimer: TimerFunc) {
@@ -555,34 +552,7 @@ export class Main {
         }
     }
 
-    public async onMatrixEvent(ev: {
-        event_id: string,
-        state_key?: string,
-        type: string,
-        room_id: string,
-        sender: string,
-        content: any,
-    }): Promise<void> {
-        if (ev.sender === this.botUserId) {
-            // We don't want to handle echo.
-            return;
-        }
-        // simple de-dup
-        const recents = this.recentMatrixEventIds;
-        for (let i = 0; i < recents.length; i++) {
-            if (recents[i] && recents[i] === ev.event_id) {
-                // move the most recent ev to where we found a dup and add the
-                // duplicate at the end (reasoning: we only want one of the
-                // duplicated ev_id in the list, but we want it at the end)
-                recents[i] = recents[this.mostRecentEventIdIdx];
-                recents[this.mostRecentEventIdIdx] = ev.event_id;
-                log.warn("Ignoring duplicate ev: " + ev.event_id);
-                return;
-            }
-        }
-        this.mostRecentEventIdIdx = (this.mostRecentEventIdIdx + 1) % RECENT_EVENTID_SIZE;
-        recents[this.mostRecentEventIdIdx] = ev.event_id;
-
+    public async onMatrixEvent(ev: WeakEvent): Promise<void> {
         this.incCounter(METRIC_RECEIVED_MESSAGE, {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
 
@@ -619,6 +589,10 @@ export class Main {
             if (stateKey !== undefined) {
                 await this.handleMatrixMembership({
                     ...ev,
+                    content: {
+                        membership: ev.content.membership as UserMembership,
+                        is_direct: ev.content.is_direct as boolean|undefined,
+                    },
                     state_key: stateKey,
                 }, room, endTimer);
             }
@@ -635,7 +609,13 @@ export class Main {
                 }
                 try {
                     const adminRoom = this.rooms.getOrCreateAdminRoom(ev.room_id, adminRoomUser, this);
-                    await adminRoom.handleEvent(ev);
+                    await adminRoom.handleEvent({
+                        type: ev.type,
+                        content: {
+                            msgtype: ev.content.msgtype as string,
+                            body: ev.content.body as string,
+                        }
+                    });
                     endTimer({outcome: "success"});
                 } catch (ex) {
                     log.error("Failed to handle admin mesage:", ex);
@@ -682,7 +662,7 @@ export class Main {
         }
 
         if (ev.content["m.relates_to"] !== undefined) {
-            const relatesTo = ev.content["m.relates_to"];
+            const relatesTo = ev.content["m.relates_to"] as {rel_type: string, event_id: string};
             if (relatesTo.rel_type === "m.replace" && relatesTo.event_id) {
                 // We have an edit.
                 try {
