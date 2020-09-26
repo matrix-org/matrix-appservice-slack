@@ -21,7 +21,7 @@ import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent, ISlackFile } from "./BaseSlackHandler";
-import { WebClient } from "@slack/web-api";
+import { WebAPIPlatformError, WebClient } from "@slack/web-api";
 import { ChatUpdateResponse,
     ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
@@ -484,13 +484,28 @@ export class BridgedRoom {
             body.as_user = true;
             delete body.username;
         }
-        const res = (await slackClient.chat.postMessage({
+        let res: ChatPostMessageResponse;
+        const chatPostMessageArgs = {
             ...body,
             // Ensure that text is defined, even for attachments.
             text: text || "",
             channel: this.slackChannelId!,
             unfurl_links: true,
-        })) as ChatPostMessageResponse;
+        };
+
+        try {
+            res = await slackClient.chat.postMessage(chatPostMessageArgs) as ChatPostMessageResponse;
+        } catch (ex) {
+            const platformError = ex as WebAPIPlatformError;
+            if (platformError.data?.error === "not_in_channel") {
+                await slackClient.conversations.join({
+                    channel: chatPostMessageArgs.channel,
+                });
+                res = await slackClient.chat.postMessage(chatPostMessageArgs) as ChatPostMessageResponse;
+            } else {
+                throw ex;
+            }
+        }
 
         this.addRecentSlackMessage(res.ts);
 
