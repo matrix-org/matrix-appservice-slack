@@ -23,7 +23,7 @@ import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent, ISlackFile } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { ChatUpdateResponse,
-    ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse } from "./SlackResponses";
+    ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse, FilesSharedPublicURLResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
@@ -466,12 +466,17 @@ export class BridgedRoom {
             if (response.status !== 200) {
                 throw Error('Failed to get file');
             }
-            await slackClient.files.upload({
+            const fileResponse = (await slackClient.files.upload({
                 file: Buffer.from(response.data),
                 filename: message.content.body,
                 channels: this.slackChannelId!,
-            });
-            return true;
+            })) as FilesSharedPublicURLResponse;
+            // HACK: Get this working
+            if (fileResponse.file.shares) {
+                if (fileResponse.file.shares.private) {
+                    this.addRecentSlackMessage(Object.values(fileResponse.file.shares.private)[0][0].ts);
+                }
+            }
         }
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
