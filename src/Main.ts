@@ -14,8 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Bridge, PrometheusMetrics, StateLookup,
-    Logging, Intent } from "matrix-appservice-bridge";
+import {
+    Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
+    Logging, Intent, UserMembership } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -31,7 +32,7 @@ import { Provisioner } from "./Provisioning";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
-import { Datastore, TeamEntry, RoomEntry } from "./datastore/Models";
+import { Datastore, RoomEntry, SlackAccount, TeamEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
@@ -63,6 +64,8 @@ export interface ISlackTeam {
 }
 
 interface MetricsLabels { [labelName: string]: string; }
+
+type TimerFunc = (labels?: Partial<Record<string, string | number>> | undefined) => void;
 
 export class Main {
 
@@ -239,11 +242,11 @@ export class Main {
         return (this.slackRtm !== undefined) && this.slackRtm.teamIsUsingRtm(teamId);
     }
 
-    public getIntent(userId: string) {
+    public getIntent(userId: string): Intent {
         return this.bridge.getIntent(userId);
     }
 
-    public initialiseMetrics() {
+    public initialiseMetrics(): void {
         const prometheus = this.bridge.getPrometheusMetrics();
 
         this.bridge.registerBridgeGauges(() => {
@@ -328,11 +331,11 @@ export class Main {
         };
     }
 
-    public incCounter(name: string, labels: MetricsLabels = {}) {
+    public incCounter(name: string, labels: MetricsLabels = {}): void {
         this.metrics?.prometheus.incCounter(name, labels);
     }
 
-    public incRemoteCallCounter(type: string) {
+    public incRemoteCallCounter(type: string): void {
         this.metrics?.prometheus.incCounter("remote_api_calls", {method: type});
     }
 
@@ -341,7 +344,7 @@ export class Main {
      * This function should be called on a regular interval or after an important
      * change to the metrics has happened.
      */
-    public async updateActivityMetrics() {
+    public async updateActivityMetrics(): Promise<void> {
         if (!this.metrics) {
             return;
         }
@@ -362,35 +365,36 @@ export class Main {
         }
     }
 
-    public startTimer(name: string, labels: MetricsLabels = {}) {
+    public startTimer(name: string, labels: MetricsLabels = {}): TimerFunc {
         return this.metrics ? this.metrics.prometheus.startTimer(name, labels) : () => {};
     }
 
-    public getUrlForMxc(mxcUrl: string) {
+    public getUrlForMxc(mxcUrl: string): string {
         const hs = this.config.homeserver;
         return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: any, teamId?: string) {
-        if (message.team_domain) {
+    public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
+        if (typeof message.team_domain === 'string') {
             return message.team_domain;
         }
 
         if (!teamId) {
-            if (message.team_id) {
-                teamId = message.team_id;
-            } else {
+            if (!message.team_id) {
                 throw Error("Cannot determine team, no id given.");
+            } else if (typeof message.team_id !== 'string') {
+                throw Error("Cannot determine team, id is invalid.");
             }
+            teamId = message.team_id;
         }
 
-        const team = await this.datastore.getTeam(teamId!);
+        const team = await this.datastore.getTeam(teamId);
         if (team) {
             return team.domain;
         }
     }
 
-    public getOrCreateMatrixUser(id: string) {
+    public getOrCreateMatrixUser(id: string): MatrixUser {
         let u = this.matrixUsersById.get(id);
         if (u) {
             return u;
@@ -400,7 +404,7 @@ export class Main {
         return u;
     }
 
-    public genInboundId() {
+    public genInboundId(): string {
         let attempts = 10;
         while (attempts > 0) {
             const id = randomstring.generate(INTERNAL_ID_LEN);
@@ -413,7 +417,7 @@ export class Main {
         throw Error("Failed to generate a unique inbound ID after 10 attempts");
     }
 
-    public async addBridgedRoom(room: BridgedRoom) {
+    public async addBridgedRoom(room: BridgedRoom): Promise<void> {
         this.rooms.upsertRoom(room);
         if (this.slackRtm && room.SlackTeamId) {
             // This will start a new RTM client for the team, if the team
@@ -422,15 +426,15 @@ export class Main {
         }
     }
 
-    public getInboundUrlForRoom(room: BridgedRoom) {
+    public getInboundUrlForRoom(room: BridgedRoom): string {
         return this.config.inbound_uri_prefix + room.InboundId;
     }
 
-    public getStoredEvent(roomId: string, eventType: string, stateKey?: string) {
+    public getStoredEvent(roomId: string, eventType: string, stateKey?: string): StateLookupEvent|StateLookupEvent[]|null|undefined {
         return this.stateStorage?.getState(roomId, eventType, stateKey);
     }
 
-    public async getState(roomId: string, eventType: string) {
+    public async getState(roomId: string, eventType: string): Promise<any> {
         const cachedEvent = this.getStoredEvent(roomId, eventType);
         if (cachedEvent && Array.isArray(cachedEvent) && cachedEvent.length) {
             // StateLookup returns entire state events. client.getStateEvent returns
@@ -441,18 +445,18 @@ export class Main {
         return this.botIntent.client.getStateEvent(roomId, eventType);
     }
 
-    public async listAllUsers(roomId: string) {
+    public async listAllUsers(roomId: string): Promise<string[]> {
         const members = await this.bridge.getBot().getJoinedMembers(roomId);
         return Object.keys(members);
     }
 
-    public async listGhostUsers(roomId: string) {
+    public async listGhostUsers(roomId: string): Promise<string[]> {
         const userIds = await this.listAllUsers(roomId);
         const regexp = new RegExp("^@" + this.config.username_prefix);
         return userIds.filter((i) => i.match(regexp));
     }
 
-    public async drainAndLeaveMatrixRoom(roomId: string) {
+    public async drainAndLeaveMatrixRoom(roomId: string): Promise<void> {
         const userIds = await this.listGhostUsers(roomId);
         log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
         await Promise.all(userIds.map(async(userId) =>
@@ -465,6 +469,92 @@ export class Main {
         return this.bridge.getBot().getJoinedRooms();
     }
 
+    private async handleMatrixMembership(ev: {
+        event_id: string,
+        state_key: string,
+        type: string,
+        room_id: string,
+        sender: string,
+        content: {
+            is_direct: boolean;
+            membership: UserMembership;
+        }
+    }, room: BridgedRoom | undefined, endTimer: TimerFunc) {
+        const bot = this.bridge.getBot();
+
+        const senderIsRemote = bot.isRemoteUser(ev.sender);
+        const recipientIsRemote = bot.isRemoteUser(ev.state_key);
+
+        // Bot membership
+        if (ev.state_key === this.botUserId) {
+            const membership = ev.content.membership;
+            const forRoom = this.rooms.getByMatrixRoomId(ev.room_id);
+            if (membership === "invite") {
+                // Automatically accept all invitations
+                // NOTE: This can race and fail if the invite goes down the AS stream
+                // before the homeserver believes we can actually join the room.
+                await this.botIntent.join(ev.room_id);
+                // Mark the room as active if we managed to join.
+                if (forRoom) {
+                    forRoom.MatrixRoomActive = true;
+                    await this.stateStorage?.trackRoom(ev.room_id);
+                }
+            } else if (membership === "leave" || membership === "ban") {
+                // We've been kicked out :(
+                if (forRoom) {
+                    forRoom.MatrixRoomActive = false;
+                    this.stateStorage?.untrackRoom(ev.room_id);
+                }
+            }
+            endTimer({ outcome: "success" });
+            return;
+        }
+
+        // Matrix User -> Remote user
+        if (!senderIsRemote && recipientIsRemote) {
+            if (ev.content.is_direct) {
+                // DM
+                try {
+                    await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
+                    endTimer({ outcome: "success" });
+                } catch (e) {
+                    log.error("Failed to handle DM invite: ", e);
+                    endTimer({ outcome: "fail" });
+                }
+            } else if (room) {
+                // Normal invite
+                await room.onMatrixInvite(ev.sender, ev.state_key);
+                endTimer({ outcome: "success" });
+            }
+            return;
+        }
+
+        if (!room) {
+            // We can't do anything else without a room
+            return;
+        }
+
+        // Regular membership from matrix user
+        if (!senderIsRemote) {
+            const membership = ev.content.membership;
+            if (membership === "join") {
+                await room.onMatrixJoin(ev.state_key);
+                // Do we need to onboard this user?
+                if (this.config.puppeting?.enabled && this.config.puppeting.onboard_users) {
+                    const adminRoomUser = await this.datastore.getUserAdminRoom(ev.state_key);
+                    const puppets = await this.datastore.getPuppetsByMatrixId(ev.state_key);
+                    if (!adminRoomUser && puppets.length === 0) {
+                        // No admin room, and no puppets but just joined a Slack room.
+                        await UserAdminRoom.inviteAndCreateAdminRoom(ev.state_key, this);
+                    }
+                }
+            } else if (membership === "leave" || membership === "ban") {
+                await room.onMatrixLeave(ev.state_key);
+            }
+            // Invites are not handled
+        }
+    }
+
     public async onMatrixEvent(ev: {
         event_id: string,
         state_key?: string,
@@ -472,7 +562,7 @@ export class Main {
         room_id: string,
         sender: string,
         content: any,
-    }) {
+    }): Promise<void> {
         if (ev.sender === this.botUserId) {
             // We don't want to handle echo.
             return;
@@ -496,6 +586,20 @@ export class Main {
         this.incCounter(METRIC_RECEIVED_MESSAGE, {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
 
+        // Admin room message
+        if (ev.room_id === this.config.matrix_admin_room &&
+            ev.type === "m.room.message") {
+            try {
+                await this.onMatrixAdminMessage(ev);
+            } catch (e) {
+                log.error("Failed processing admin message: ", e);
+                endTimer({outcome: "fail"});
+                return;
+            }
+            endTimer({outcome: "success"});
+            return;
+        }
+
         if (UserAdminRoom.IsAdminRoomInvite(ev, this.botUserId)) {
             await this.datastore.setUserAdminRoom(ev.sender, ev.room_id);
             await this.botIntent.join(ev.room_id);
@@ -509,60 +613,18 @@ export class Main {
             return;
         }
 
-        if (ev.type === "m.room.member" && ev.state_key === this.botUserId) {
-            // A membership event about myself
-            const membership = ev.content.membership;
-            const forRoom = this.rooms.getByMatrixRoomId(ev.room_id);
-            if (membership === "invite") {
-                // Automatically accept all invitations
-                // NOTE: This can race and fail if the invite goes down the AS stream
-                // before the homeserver believes we can actually join the room.
-                await this.botIntent.join(ev.room_id);
-                // Mark the room as active if we managed to join.
-                if (forRoom) {
-                    forRoom.MatrixRoomActive = true;
-                    await this.stateStorage?.trackRoom(ev.room_id);
-                }
-            } else if (membership === "leave" || membership === "ban") {
-                // We've been kicked out :(
-                if (forRoom) {
-                    forRoom.MatrixRoomActive = false;
-                    this.stateStorage?.untrackRoom(ev.room_id);
-                }
-            }
-            endTimer({outcome: "success"});
-            return;
-        }
-
-        if (ev.type === "m.room.member"
-            && ev.state_key
-            && this.bridge.getBot().isRemoteUser(ev.state_key)
-            && ev.content.is_direct) {
-
-            try {
-                await this.handleDmInvite(ev.state_key, ev.sender, ev.room_id);
-                endTimer({outcome: "success"});
-            } catch (e) {
-                log.error("Failed to handle DM invite: ", e);
-                endTimer({outcome: "fail"});
-            }
-            return;
-        }
-
-        if (this.config.matrix_admin_room && ev.room_id === this.config.matrix_admin_room &&
-            ev.type === "m.room.message") {
-            try {
-                await this.onMatrixAdminMessage(ev);
-            } catch (e) {
-                log.error("Failed processing admin message: ", e);
-                endTimer({outcome: "fail"});
-                return;
-            }
-            endTimer({outcome: "success"});
-            return;
-        }
-
         const room = this.rooms.getByMatrixRoomId(ev.room_id);
+        if (ev.type === "m.room.member") {
+            const stateKey = ev.state_key;
+            if (stateKey !== undefined) {
+                await this.handleMatrixMembership({
+                    ...ev,
+                    state_key: stateKey,
+                }, room, endTimer);
+            }
+            return;
+        }
+
         if (!room) {
             const adminRoomUser = await this.datastore.getUserForAdminRoom(ev.room_id);
             if (adminRoomUser) {
@@ -583,27 +645,7 @@ export class Main {
             }
             log.warn(`Ignoring ev for matrix room with unknown slack channel: ${ev.room_id}`);
             endTimer({outcome: "dropped"});
-            return;
-        }
-
-        if (ev.type === "m.room.member" && ev.state_key) {
-            if (this.bridge.getBot().isRemoteUser(ev.state_key)
-                && !this.bridge.getBot().isRemoteUser(ev.sender)
-                && ev.state_key !== this.botUserId) {
-                await room.onMatrixInvite(ev.sender, ev.state_key);
-                endTimer({ outcome: "success" });
-                return;
-            }
-
-            if (!this.bridge.getBot().isRemoteUser(ev.state_key)) {
-                const membership = ev.content.membership;
-                if (membership === "join") {
-                    await room.onMatrixJoin(ev.state_key);
-                } else if (membership === "leave" || membership === "ban") {
-                    await room.onMatrixLeave(ev.state_key);
-                }
-                return;
-            }
+            return; // Can't do anything without a room.
         }
 
         // Handle a m.room.redaction event
@@ -665,7 +707,7 @@ export class Main {
         endTimer({outcome: success ? "success" : "dropped"});
     }
 
-    public async handleDmInvite(recipient: string, sender: string, roomId: string) {
+    public async handleDmInvite(recipient: string, sender: string, roomId: string): Promise<void> {
         const intent = this.getIntent(recipient);
         await intent.join(roomId);
         if (!this.slackRtm) {
@@ -750,7 +792,20 @@ export class Main {
         await slackGhost.intent.join(roomId);
     }
 
-    public async onMatrixAdminMessage(ev) {
+    public async onMatrixAdminMessage(ev: {
+        event_id: string,
+        state_key?: string,
+        type: string,
+        room_id: string,
+        sender: string,
+        content?: {
+            body?: unknown,
+        },
+    }): Promise<void> {
+        if (typeof ev.content !== "object" || !ev.content || typeof ev.content.body !== "string") {
+            throw Error("Received an invalid Matrix admin message. event.content.body was not a string.");
+        }
+
         const cmd = ev.content.body;
 
         // Ignore "# comment" lines as chatter between humans sharing the console
@@ -760,7 +815,7 @@ export class Main {
 
         log.info("Admin: " + cmd);
 
-        const response: any[] = [];
+        const response: string[] = [];
         const respond = (responseMsg: string) => {
             if (!response) {
                 log.info(`Command response too late: ${responseMsg}`);
@@ -823,6 +878,8 @@ export class Main {
         if (this.oauth2) {
             await this.oauth2.compileTemplates();
         }
+
+        await UserAdminRoom.compileTemplates();
 
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
@@ -1059,7 +1116,7 @@ export class Main {
         slack_channel_id?: string,
         slack_bot_token?: string,
         team_id?: string,
-    }) {
+    }): Promise<BridgedRoom> {
         let slackClient: WebClient|undefined;
         let room: BridgedRoom;
         let teamEntry: TeamEntry|null = null;
@@ -1194,7 +1251,7 @@ export class Main {
 
     public async actionUnlink(opts: {
         matrix_room_id: string,
-    }) {
+    }): Promise<void> {
         log.warn(`Trying to unlink ${opts.matrix_room_id}`);
         const room = this.rooms.getByMatrixRoomId(opts.matrix_room_id);
         if (!room) {
@@ -1209,7 +1266,7 @@ export class Main {
         await this.datastore.deleteRoom(id);
     }
 
-    public async checkLinkPermission(matrixRoomId: string, userId: string) {
+    public async checkLinkPermission(matrixRoomId: string, userId: string): Promise<boolean> {
         const STATE_DEFAULT = 50;
         // We decide to allow a user to link or unlink, if they have a powerlevel
         //   sufficient to affect the 'm.room.power_levels' state; i.e. the
@@ -1228,7 +1285,7 @@ export class Main {
     }
 
     public async setUserAccessToken(userId: string, teamId: string, slackId: string, accessToken: string, puppeting: boolean,
-        botAccessToken?: string) {
+        botAccessToken?: string): Promise<void> {
         const existingTeam = await this.datastore.getTeam(teamId);
         await this.datastore.insertAccount(userId, slackId, teamId, accessToken);
         if (puppeting) {
@@ -1273,11 +1330,11 @@ export class Main {
         }
     }
 
-    public async matrixUserInSlackTeam(teamId: string, userId: string) {
+    public async matrixUserInSlackTeam(teamId: string, userId: string): Promise<SlackAccount|undefined> {
         return (await this.datastore.getAccountsForMatrixUser(userId)).find((a) => a.teamId === teamId);
     }
 
-    public async willExceedTeamLimit(teamId: string) {
+    public async willExceedTeamLimit(teamId: string): Promise<boolean> {
         // First, check if we are limited
         if (!this.config.provisioning?.limits?.team_count) {
             return false;
@@ -1286,7 +1343,7 @@ export class Main {
         return idSet.add(teamId).size > this.config.provisioning?.limits?.team_count;
     }
 
-    public async logoutAccount(userId: string, slackId: string) {
+    public async logoutAccount(userId: string, slackId: string): Promise<{deleted: boolean, msg?: string}> {
         const acct = (await this.datastore.getAccountsForMatrixUser(userId)).find((s) => s.slackId === slackId);
         if (!acct) {
             // Account not found
@@ -1324,7 +1381,7 @@ export class Main {
         return { deleted: true };
     }
 
-    public async killBridge() {
+    public async killBridge(): Promise<void> {
         log.info("Killing bridge");
         if (this.metricsCollectorInterval) {
             clearInterval(this.metricsCollectorInterval);

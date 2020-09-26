@@ -256,7 +256,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (msg.type === "message" && msg.attachments) {
             for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
-                msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
+                msg.text = await this.doChannelUserReplacements(msg, msg.text, room.SlackClient);
                 return await room.onSlackMessage(msg);
             }
             if (msg.text === "") {
@@ -271,9 +271,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user!;
             msg.text = msg.message.text;
-            msg.previous_message.text = (await this.doChannelUserReplacements(
-                msg, msg.previous_message!.text!, room.SlackClient)
-            )!;
+            msg.previous_message.text = await this.doChannelUserReplacements(
+                msg, msg.previous_message?.text, room.SlackClient
+            );
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
@@ -306,7 +306,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackMessage(event);
         }
 
-        msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
+        msg.text = await this.doChannelUserReplacements(msg, msg.text, room.SlackClient);
         return room.onSlackMessage(msg);
     }
 
