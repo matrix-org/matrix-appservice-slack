@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import { Main } from "../../Main";
-import { expect } from "chai";
 import { constructHarness } from "../utils/harness";
 import { FakeDatastore } from "../utils/fakeDatastore";
 
@@ -26,23 +25,6 @@ describe("AdminCommandTest", () => {
         harness = constructHarness();
         await harness.main.run(57000);
         harness.main.datastore = new FakeDatastore();
-    });
-
-    it("will not respond to itself", async () => {
-        let called = false;
-        harness.main.onMatrixAdminMessage = async () => {
-            called = true;
-        };
-        await harness.main.onMatrixEvent({
-            event_id: "foo",
-            room_id: "!admin_room:foobar",
-            sender: harness.main.botUserId,
-            content: {
-                body: "help",
-            },
-            type: "m.room.message",
-        });
-        expect(called).to.be.false;
     });
 
     afterEach(async () => {
