@@ -126,6 +126,9 @@ provisioning:
 puppeting:
   # Should the bridge allow users to puppet their accounts
   enabled: false
+  # Should the bridge send users a onboarding message when
+  # they join a Slack channel for the first time.
+  onboard_users: false
   # Settings regarding who can send direct messages.
   # If allow is defined, all other users are blocked by default
   # If deny is defined, all other users are allowed by default

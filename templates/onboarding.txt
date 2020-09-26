@@ -1,0 +1,9 @@
+Hello there! You have just joined a room bridged to Slack, which means messages you send
+will be automatically bridged to Slack, and messages sent from Slack will appear in the room.
+
+This room serves as your control center for configuring the bridge, and is visible
+only to you.
+
+The bridge is not yet connecting direct messages, private channels or various other nice
+things like reactions to your account. In order to do that, please send the message `login`
+in order to connect your account to the bridge. You may also send `help` for other commands.

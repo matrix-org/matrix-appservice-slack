@@ -140,6 +140,8 @@ properties:
     properties:
       enabled:
         type: boolean
+      onboard_users:
+        type: boolean
       direct_messages:
         type: object
         additionalProperties: false
