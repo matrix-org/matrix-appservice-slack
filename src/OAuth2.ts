@@ -124,7 +124,7 @@ export class OAuth2 {
         return v || null;
     }
 
-    public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known") {
+    public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known"): string {
         return this.oauthTemplate.render({
             success,
             userId,
@@ -134,6 +134,6 @@ export class OAuth2 {
     }
 
     private makeRedirectURL(token: string): string {
-        return new URL(`${token}/authorize`, this.redirectPrefix).toString();
+        return `${this.redirectPrefix.replace(/\/+$/, "")}/${token}/authorize`;
     }
 }
