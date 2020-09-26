@@ -30,7 +30,7 @@ export class FakeMain {
                 main: this as any,
                 client_id: "fakeid",
                 client_secret: "fakesecret",
-                redirect_prefix: "redir_prefix",
+                redirect_prefix: "https://redir_prefix",
                 template_file: "",
             });
         }
