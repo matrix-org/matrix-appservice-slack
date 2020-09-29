@@ -108,6 +108,7 @@ export interface IConfig {
 
     puppeting?: {
         enabled: boolean;
+        onboard_users?: boolean;
         direct_messages?: AllowDenyConfig;
     }
 }

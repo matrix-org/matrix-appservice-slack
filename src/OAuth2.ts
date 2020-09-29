@@ -24,7 +24,6 @@ import { OAuthAccessResponse } from "./SlackResponses";
 import { Template, compile } from "nunjucks";
 import { promises as fs } from "fs";
 import * as path from "path";
-import * as url from "url";
 
 const log = Logging.get("OAuth2");
 
@@ -65,7 +64,7 @@ export class OAuth2 {
         // Precompile oauth templates
     }
 
-    public async compileTemplates() {
+    public async compileTemplates(): Promise<void> {
         this.oauthTemplate = compile(await fs.readFile(path.resolve(this.templateFile), "utf-8"));
     }
 
@@ -125,7 +124,13 @@ export class OAuth2 {
         return v || null;
     }
 
-    public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known") {
+
+    public getHTMLForResult(
+        success: boolean,
+        code: number,
+        userId: string|null,
+        reason?: "error"|"limit-reached"|"token-not-known"
+    ): string {
         return this.oauthTemplate.render({
             success,
             userId,
@@ -135,6 +140,6 @@ export class OAuth2 {
     }
 
     private makeRedirectURL(token: string): string {
-        return url.resolve(this.redirectPrefix, `${token}/authorize`);
+        return `${this.redirectPrefix.replace(/\/+$/, "")}/${token}/authorize`;
     }
 }

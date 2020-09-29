@@ -342,11 +342,15 @@ export class SlackGhost {
         await this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: Record<string, unknown>, slackRoomId: string, slackEventTs: string): Promise<void> {
+    public async sendMessage(roomId: string, msg: Record<string, unknown>, slackRoomId: string, slackEventTs: string): Promise<{event_id: string}> {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
-        const matrixEvent = await this._intent.sendMessage(roomId, msg) as {event_id: string};
+        const matrixEvent = await this._intent.sendMessage(roomId, msg) as {event_id?: unknown};
+
+        if (typeof matrixEvent !== 'object' || !matrixEvent || typeof matrixEvent.event_id !== 'string') {
+            throw Error("When sending a Matrix message, the homeserver didn't reply with an event_id.");
+        }
 
         await this.datastore.upsertEvent(
             roomId,
@@ -354,10 +358,14 @@ export class SlackGhost {
             slackRoomId,
             slackEventTs,
         );
+
+        return {
+            event_id: matrixEvent.event_id,
+        };
     }
 
     public async sendReaction(roomId: string, eventId: string, key: string,
-        slackRoomId: string, slackEventTs: string): Promise<void> {
+        slackRoomId: string, slackEventTs: string): Promise<{event_id: string}> {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
@@ -369,10 +377,18 @@ export class SlackGhost {
             },
         };
 
-        const matrixEvent = await this._intent.sendEvent(roomId, "m.reaction", content) as {event_id: string};
+        const matrixEvent = await this._intent.sendEvent(roomId, "m.reaction", content) as {event_id?: unknown};
+
+        if (typeof matrixEvent !== 'object' || !matrixEvent || typeof matrixEvent.event_id !== 'string') {
+            throw Error("When sending a Matrix reaction, the homeserver didn't reply with an event_id.");
+        }
 
         // Add this event to the eventStore
         await this.datastore.upsertEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
+
+        return {
+            event_id: matrixEvent.event_id,
+        };
     }
 
     public async sendWithReply(roomId: string, text: string, slackRoomId: string,

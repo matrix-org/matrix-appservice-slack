@@ -27,7 +27,7 @@ import { NedbDatastore } from "../datastore/NedbDatastore";
 import { PgDatastore } from "../datastore/postgres/PgDatastore";
 import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
-import { Datastore, TeamEntry } from "../datastore/Models";
+import { Datastore } from "../datastore/Models";
 import { SlackClientFactory } from "../SlackClientFactory";
 
 Logging.configure({ console: "info" });
@@ -82,7 +82,7 @@ const main = async () => {
     }
 };
 
-export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore): Promise<void> => {
+export const migrateFromNedb = async(nedb: NedbDatastore, targetDs: Datastore): Promise<void> => {
     const allRooms = await nedb.getAllRooms();
     const allEvents = await nedb.getAllEvents();
     // the format has changed quite a bit.
@@ -100,7 +100,7 @@ export const migrateFromNedb = async (nedb: NedbDatastore, targetDs: Datastore):
 
     const teamTokenMap: Map<string, string> = new Map(); // token -> teamId.
 
-    const preTeamMigrations = async() => Promise.all(allRooms.map(async (room, i) => {
+    const preTeamMigrations = async() => Promise.all(allRooms.map(async (room) => {
         // This is an old format remote
         const remote = (room.remote as any);
         const at = remote.slack_bot_token || remote.access_token;

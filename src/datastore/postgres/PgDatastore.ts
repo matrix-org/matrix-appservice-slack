@@ -157,8 +157,9 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
     }
 
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
+        log.debug(`getEventBySlackId: ${slackChannel} ${slackTs}`);
         return this.postgresDb.oneOrNone(
-            "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
+            "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs} LIMIT 1",
             { slackChannel, slackTs }, e => e && {
                 roomId: e.roomid,
                 eventId: e.eventid,

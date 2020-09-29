@@ -20,7 +20,7 @@ export class SlackTestApi {
         };
     }
 
-    public async start() {
+    public async start(): Promise<void> {
         return new Promise((resolve: () => void, reject: (err: Error) => void) => {
             const srv = createServer(this.onRequest.bind(this));
             srv.once("error", reject);
@@ -32,7 +32,7 @@ export class SlackTestApi {
         });
     }
 
-    public async close() {
+    public async close(): Promise<void> {
         if (this.server) {
             return promisify(this.server.close).bind(this.server)();
         }

@@ -22,11 +22,9 @@ import { FilesSharedPublicURLResponse, ConversationsInfoResponse } from "./Slack
 const log = Logging.get("BaseSlackHandler");
 
 const CHANNEL_ID_REGEX = /<#(\w+)\|?\w*?>/g;
-const CHANNEL_ID_REGEX_FIRST = /<#(\w+)\|?\w*?>/;
 
 // (if the message is an emote, the format is <@ID|nick>, but in normal msgs it's just <@ID>
 const USER_ID_REGEX = /<@(\w+)\|?\w*?>/g;
-const USER_ID_REGEX_FIRST = /<@(\w+)\|?\w*?>/;
 
 export const INTERNAL_ID_LEN = 32;
 export const HTTP_CODES = {
@@ -138,7 +136,7 @@ export interface ISlackUser {
 export abstract class BaseSlackHandler {
     constructor(protected main: Main) { }
 
-    public async getSlackRoomNameFromID(channel: string, client: WebClient) {
+    public async getSlackRoomNameFromID(channel: string, client: WebClient): Promise<string> {
         try {
             const response = (await client.conversations.info({ channel })) as ConversationsInfoResponse;
             if (response && response.channel && response.channel.name) {
@@ -152,7 +150,7 @@ export abstract class BaseSlackHandler {
         return channel;
     }
 
-    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, slackClient: WebClient) {
+    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, slackClient: WebClient): Promise<string|undefined> {
         if (text === undefined) {
             return;
         }
@@ -160,19 +158,12 @@ export abstract class BaseSlackHandler {
         return await this.replaceUserIdsWithNames(msg, text);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, slackClient: WebClient) {
-        const testForName = text.match(CHANNEL_ID_REGEX);
-        let iteration = 0;
-        let matches = 0;
-
-        if (testForName && testForName.length) {
-            matches = testForName.length;
-        }
-
-        while (iteration < matches) {
+    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, slackClient: WebClient): Promise<string> {
+        let match: RegExpExecArray | null = null;
+        while ((match = CHANNEL_ID_REGEX.exec(text)) !== null) {
             // foreach channelId, pull out the ID
             // (if this is an emote msg, the format is <#ID|name>, but in normal msgs it's just <#ID>
-            const id = testForName![iteration].match(CHANNEL_ID_REGEX_FIRST)![1];
+            const id = match[1];
 
             // Lookup the room in the store.
             let room = this.main.rooms.getBySlackChannelId(id);
@@ -182,7 +173,7 @@ export abstract class BaseSlackHandler {
                 const client = this.main.botIntent.getClient();
                 const canonical = await client.getStateEvent(room.MatrixRoomId, "m.room.canonical_alias");
                 if (canonical !== undefined && canonical.alias !== undefined) {
-                    text = text.replace(CHANNEL_ID_REGEX_FIRST, canonical.alias);
+                    text = text.slice(0, match.index) + canonical.alias + text.slice(match.index + match[0].length);
                 } else {
                     // If we can't find a canonical alias fall back to just the Slack channel name.
                     room = undefined;
@@ -192,21 +183,25 @@ export abstract class BaseSlackHandler {
             // If we can't match the room then we just put the Slack name
             if (room === undefined) {
                 const name = await this.getSlackRoomNameFromID(id, slackClient);
-                text = text.replace(CHANNEL_ID_REGEX_FIRST, "#" + name);
+                text = text.slice(0, match.index) + `#${name}` + text.slice(match.index + match[0].length);
             }
-            iteration++;
         }
         return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, text: string) {
-        let match = USER_ID_REGEX.exec(text);
-        while (match !== null && match[0]) {
+    public async replaceUserIdsWithNames(message: ISlackMessage, text: string): Promise<string> {
+        const teamDomain = await this.main.getTeamDomainForMessage(message as any);
+
+        if (!teamDomain) {
+            log.warn(`Cannot replace user ids with names for ${message.ts}. Unable to determine the teamDomain.`);
+            return text;
+        }
+
+        let match: RegExpExecArray|null = null;
+        while ((match = USER_ID_REGEX.exec(text)) !== null) {
             // foreach userId, pull out the ID
             // (if this is an emote msg, the format is <@ID|nick>, but in normal msgs it's just <@ID>
-            const id = match[0].match(USER_ID_REGEX_FIRST)![1];
-
-            const teamDomain = await this.main.getTeamDomainForMessage(message);
+            const id = match[1];
 
             let displayName = "";
             const userId = this.main.ghostStore.getUserId(id, teamDomain);
@@ -217,17 +212,12 @@ export abstract class BaseSlackHandler {
                 log.warn("Mentioned user not in store. Looking up display name from slack.");
                 // if the user is not in the store then we look up the displayname
                 displayName = await this.main.ghostStore.getNullGhostDisplayName(message.channel, id);
-                // If the user is not in the room, we cant pills them, we have to just plain text mention them.
-                text = text.replace(USER_ID_REGEX_FIRST, displayName);
+                // If the user is not in the room, we can't pills them, we have to just plain text mention them.
+                text = text.slice(0, match.index) + displayName + text.slice(match.index + match[0].length);
             } else {
                 displayName = users.display_name || userId;
-                text = text.replace(
-                    USER_ID_REGEX_FIRST,
-                    `<https://matrix.to/#/${userId}|${displayName}>`,
-                );
+                text = text.slice(0, match.index) + `<https://matrix.to/#/${userId}|${displayName}>` + text.slice(match.index + match[0].length);
             }
-            // Check for the next match.
-            match = USER_ID_REGEX.exec(text);
         }
         return text;
     }

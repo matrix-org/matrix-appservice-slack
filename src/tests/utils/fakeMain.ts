@@ -1,5 +1,6 @@
 import { OAuth2 } from "../../OAuth2";
 import { SlackRoomStore } from "../../SlackRoomStore";
+import { FakeClientFactory } from "./fakeClientFactory";
 import { FakeDatastore } from "./fakeDatastore";
 import { TeamEntry, UserEntry } from "../../datastore/Models";
 import { FakeIntent } from "./fakeIntent";
@@ -29,7 +30,7 @@ export class FakeMain {
                 main: this as any,
                 client_id: "fakeid",
                 client_secret: "fakesecret",
-                redirect_prefix: "redir_prefix",
+                redirect_prefix: "https://redir_prefix",
                 template_file: "",
             });
         }
@@ -42,14 +43,14 @@ export class FakeMain {
 
     public clientFactory: FakeClientFactory = new FakeClientFactory();
 
-    public startTimer(eventName: string) {
+    public startTimer(eventName: string): (reason: {outcome: string}) => void {
         this.timerFinished[eventName] = "notfinished";
         return (reason: {outcome: string}) => {
             this.timerFinished[eventName] = reason.outcome;
         };
     }
 
-    public getUrlForMxc(mxcUrl: string) {
+    public getUrlForMxc(mxcUrl: string): string {
         return "fake-" + mxcUrl;
     }
 
@@ -58,7 +59,7 @@ export class FakeMain {
         this.counters[type].push(data);
     }
 
-    public get botIntent() {
+    public get botIntent(): FakeIntent {
         return new FakeIntent();
     }
 
@@ -70,11 +71,5 @@ export class FakeMain {
             return new SlackGhost(this.datastore, "54321", undefined, "@thing:localhost", undefined);
         }
         return null;
-    }
-}
-
-class FakeClientFactory {
-    public async getClientForUser() {
-        return {};
     }
 }
