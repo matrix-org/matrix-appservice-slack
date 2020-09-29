@@ -52,6 +52,15 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 const RECENT_MESSAGE_MAX = 10;
 const PUPPET_INCOMING_DELAY_MS = 1500;
 
+export const emojifyReaction = (emojiLonghand: string, on_missing?: (a: string)=>string): string => {
+    let reactionKey = emoji.emojify(emojiLonghand, on_missing);
+    // The Matrix spec (MSC2677) wants all emoji reactions to end with VARIATION SELECTOR-16.
+    // https://github.com/matrix-org/matrix-doc/pull/2677/files#diff-d923db279cef6ece055fee081cfc3f3aR56
+    if (!reactionKey.endsWith(':') && !reactionKey.endsWith('\ufe0f')) {
+        reactionKey += '\ufe0f'.normalize(); // VARIATION SELECTOR-16
+    }
+    return reactionKey;
+};
 
 /**
  * A BridgedRoom is a 1-to-1 connection of a Matrix room and a Slack channel.
@@ -675,11 +684,7 @@ export class BridgedRoom {
             return;
         }
 
-        let reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
-        // Element uses the default thumbsup and thumbsdown reactions with an appended variant character.
-        if (reactionKey === '👍' || reactionKey === '👎') {
-            reactionKey += '\ufe0f'.normalize(); // VARIATION SELECTOR-16
-        }
+        const reactionKey = emojifyReaction(`:${message.reaction}:`, getFallbackForMissingEmoji);
 
         if (this.recentSlackMessages.includes(`reactadd:${reactionKey}:${message.user_id}:${message.item.ts}`)) {
             // We sent this, ignore.
