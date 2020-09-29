@@ -104,12 +104,12 @@ export interface ISlackFile {
     shares?: {
         public?: {
             [channelId: string]: {
-                "ts": string,
+                ts: string;
             }
         },
         private?: {
             [channelId: string]: {
-                "ts": string,
+                ts: string;
             }[]
         }
     }

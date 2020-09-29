@@ -466,16 +466,21 @@ export class BridgedRoom {
             if (response.status !== 200) {
                 throw Error('Failed to get file');
             }
+
             const fileResponse = (await slackClient.files.upload({
                 file: Buffer.from(response.data),
                 filename: message.content.body,
-                channels: this.slackChannelId!,
+                channels: this.slackChannelId,
             })) as FilesSharedPublicURLResponse;
-            // HACK: Get this working
+
+            // The only way to dedupe these is to fetch the ts's from the response
+            // of this upload.
             if (fileResponse.file.shares) {
-                if (fileResponse.file.shares.private) {
-                    this.addRecentSlackMessage(Object.values(fileResponse.file.shares.private)[0][0].ts);
-                }
+                Object.values(fileResponse.file.shares.private || {}).concat(
+                    Object.values(fileResponse.file.shares.public || {})
+                ).forEach(share =>
+                    this.addRecentSlackMessage(share[0].ts)
+                );
             }
         }
         const body: ISlackChatMessagePayload = {
@@ -1065,9 +1070,9 @@ export class BridgedRoom {
             if (message.text) {
                 return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
             }
-        } else if (message.subtype === "group_join") {
-            // HACK: Private rooms use these. It's a total pain.
-            return this.onSlackUserJoin(message.user!, message.inviter);
+        } else if (message.subtype === "group_join" && message.user) {
+            /* Private rooms don't send the usual join events so we listen for these */
+            return this.onSlackUserJoin(message.user, message.inviter);
         } else {
             log.warn(`Ignoring message with subtype: ${subtype}`);
         }
