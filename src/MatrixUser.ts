@@ -32,10 +32,9 @@ interface IMatrixMemberEvent {
  */
 export class MatrixUser {
     public readonly userId: string;
-    private atime: number|null;
+    private atime = 0;
     constructor(private main: Main, opts: {user_id: string}) {
         this.userId = opts.user_id;
-        this.atime = null;
     }
 
     /**
@@ -75,7 +74,7 @@ export class MatrixUser {
         return myMemberEvent.content.avatar_url;
     }
 
-    public get aTime(): number|null {
+    public get aTime(): number {
         return this.atime;
     }
 

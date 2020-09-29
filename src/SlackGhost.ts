@@ -16,12 +16,12 @@ limitations under the License.
 
 import { Logging, Intent } from "matrix-appservice-bridge";
 import * as Slackdown from "Slackdown";
-import { BridgedRoom } from "./BridgedRoom";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 import { UserEntry, Datastore } from "./datastore/Models";
 import axios from "axios";
+import { ChannelRoom } from "./rooms/ChannelRoom";
 
 const log = Logging.get("SlackGhost");
 
@@ -94,7 +94,7 @@ export class SlackGhost {
         };
     }
 
-    public async update(message: {user_id?: string, user?: string}, room: BridgedRoom): Promise<void> {
+    public async update(message: {user_id?: string, user?: string}, room?: ChannelRoom): Promise<void> {
         const user = (message.user_id || message.user);
         if (this.updateInProgress) {
             log.debug(`Not updating ${user}: Update in progress.`);
@@ -103,14 +103,18 @@ export class SlackGhost {
         log.info(`Updating user information for ${user}`);
         const updateStartTime = Date.now();
         this.updateInProgress = true;
-        await Promise.all([
-            this.updateDisplayname(message, room).catch((e) => {
-                log.error("Failed to update ghost displayname:", e);
-            }),
-            this.updateAvatar(message, room).catch((e) => {
-                log.error("Failed to update ghost avatar:", e);
-            }),
-        ]);
+        try {
+            await this.updateDisplayname(message, room);
+        } catch (ex) {
+            log.error("Failed to update ghost displayname:", ex);
+        }
+        if (room) {
+            try {
+                await this.updateAvatar(message, room);
+            } catch (ex) {
+                log.error("Failed to update ghost avatar:", ex);
+            }
+        }
         log.debug(`Completed update for ${user} in ${Date.now() - updateStartTime}ms`);
         this.updateInProgress = false;
     }
@@ -159,13 +163,13 @@ export class SlackGhost {
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-        room: BridgedRoom) {
+        room?: ChannelRoom) {
         let displayName = message.username || message.user_name;
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
 
-        if (room.SlackClient) { // We can be smarter if we have the bot.
+        if (room) { // We can be smarter if we have the bot.
             if (message.bot_id && message.user_id) {
                 // In the case of operations on bots, we will have both a bot_id and a user_id.
                 // Ignore updating the displayname in this case.
@@ -243,7 +247,7 @@ export class SlackGhost {
         log.debug("Using fresh userInfo for", this.slackId);
 
         this.userInfoLoading = client.users.info({user: this.slackId}) as Promise<UsersInfoResponse>;
-        const response = await this.userInfoLoading!;
+        const response = await this.userInfoLoading;
         if (!response.user || !response.user.profile) {
             log.error("Failed to get user profile", response);
             return;
@@ -251,13 +255,10 @@ export class SlackGhost {
         this.userInfoCache = response.user;
         setTimeout(() => this.userInfoCache = undefined, USER_CACHE_TIMEOUT);
         this.userInfoLoading = undefined;
-        return response.user!;
+        return response.user;
     }
 
-    private async updateAvatar(message: {bot_id?: string, user_id?: string}, room: BridgedRoom) {
-        if (!room.SlackClient) {
-            return;
-        }
+    private async updateAvatar(message: {bot_id?: string, user_id?: string}, room: ChannelRoom) {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }

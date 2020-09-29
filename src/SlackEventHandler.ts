@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackUser } from "./BaseSlackHandler";
-import { BridgedRoom } from "./BridgedRoom";
 import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
 const log = Logging.get("SlackEventHandler");
@@ -218,8 +217,8 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Attempts to make the message as native-matrix feeling as it can.
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
-    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string): Promise<any> {
-        const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string): Promise<void> {
+        const room = this.main.rooms.getBySlackChannelId(event.channel);
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
         if (!team) { throw Error("unknown_team"); }
@@ -241,16 +240,8 @@ export class SlackEventHandler extends BaseSlackHandler {
             channel_id: event.channel,
             team_domain: team.domain || team.id,
             team_id: teamId,
-            user_id: event.user || event.bot_id!,
+            user_id: event.user || event.bot_id as string,
         };
-
-        if (!room.SlackClient) {
-            // If we can't look up more details about the message
-            // (because we don't have a master token), but it has text,
-            // just send the message as text.
-            log.warn("no slack token for " + room.SlackChannelId);
-            return room.onSlackMessage(msg);
-        }
 
         // Handle events with attachments like bot messages.
         if (msg.type === "message" && msg.attachments) {
@@ -313,7 +304,7 @@ export class SlackEventHandler extends BaseSlackHandler {
     private async handleReaction(event: ISlackEventReaction, teamId: string) {
         // Reactions store the channel in the item
         const channel = event.item.channel;
-        const room = this.main.rooms.getBySlackChannelId(channel) as BridgedRoom;
+        const room = this.main.rooms.getBySlackChannelId(channel);
         const team = await this.main.datastore.getTeam(teamId);
         const userOrBotId = event.user || event.bot_id;
         if (!room) { throw Error("unknown_channel"); }
@@ -348,8 +339,6 @@ export class SlackEventHandler extends BaseSlackHandler {
         const room = this.main.rooms.getBySlackChannelId(event.id);
         if (!room) { throw new Error("unknown_channel"); }
 
-        const channelName = `#${event.name}`;
-        room.SlackChannelName = channelName;
         if (room.isDirty) {
             await this.main.datastore.upsertRoom(room);
         }
