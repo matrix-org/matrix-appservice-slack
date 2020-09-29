@@ -24,16 +24,9 @@ import { SlackEventHandler } from "./SlackEventHandler";
 import { BaseSlackHandler, HTTP_CODES, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
-import { WebClient } from "@slack/web-api";
-import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
+import { ChannelRoom } from "./rooms/ChannelRoom";
 const log = Logging.get("SlackHookHandler");
-
-const PRESERVE_KEYS = [
-    "team_domain", "team_id",
-    "channel_name", "channel_id",
-    "user_name", "user_id",
-];
 
 export interface ISlackEventPayload {
     // https://api.slack.com/types/event
@@ -246,12 +239,6 @@ export class SlackHookHandler extends BaseSlackHandler {
     }
 
     private async handlePost(room: BridgedRoom, params: qs.ParsedUrlQuery) {
-        // We can't easily query the name of a channel from its ID, but we can
-        // infer its current name every time we receive a message, because slack
-        // tells us.
-        const channelName = `${params.team_domain}.#${params.channel_name}`;
-
-        room.SlackChannelName = channelName;
         if (room.isDirty) {
             await this.main.datastore.upsertRoom(room);
         }
@@ -268,7 +255,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         // Only count received messages that aren't self-reflections
         this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
-        if (!room.SlackClient) {
+        if (room instanceof ChannelRoom) {
             // If we can't look up more details about the message
             // (because we don't have a master token), but it has text,
             // just send the message as text.
@@ -284,23 +271,8 @@ export class SlackHookHandler extends BaseSlackHandler {
             return;
         }
 
-        const text = params.text as string;
-        const lookupRes = await this.lookupMessage(
-            params.channel_id as string,
-            params.timestamp as string,
-            room.SlackClient,
-        );
-
-        if (!lookupRes.message) {
-            // Converting params to an object here, as we assume that params is the right shape.
-            lookupRes.message = params as unknown as ISlackMessageEvent;
-        }
-
-        // Restore the original parameters, because we've forgotten a lot of
-        // them by now
-        PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
-        lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, room.SlackClient);
-        return room.onSlackMessage(lookupRes.message);
+        const message = params as unknown as ISlackMessageEvent;
+        return room.onSlackMessage(message);
     }
 
     private async handleAuthorize(token: string, params: qs.ParsedUrlQuery) {
@@ -363,48 +335,5 @@ export class SlackHookHandler extends BaseSlackHandler {
         return {
             html: oauth2.getHTMLForResult(true, 200, user),
         };
-    }
-
-    /**
-     * Attempts to handle a message received from a slack webhook request.
-     *
-     * The webhook request that we receive doesn't have enough information to richly
-     * represent the message in Matrix, so we look up more details.
-     *
-     * @throws If the message failed to be looked up, or collided with another event
-     * sent at the same microsecond.
-     * @param {string} channelID Slack channel ID.
-     * @param {string} timestamp Timestamp when message was received, in seconds
-     * formatted as a float.
-     */
-    private async lookupMessage(channelID: string, timestamp: string, client: WebClient): Promise<{
-        message: ISlackMessageEvent}> {
-        // Look up all messages at the exact timestamp we received.
-        // This has microsecond granularity, so should return the message we want.
-        const response = (await client.conversations.history({
-            channel: channelID,
-            inclusive: true,
-            latest: timestamp,
-            oldest: timestamp,
-        })) as ConversationsHistoryResponse;
-
-        if (!response.ok || !response.messages || response.messages.length === 0) {
-            log.warn("Could not find history: " + response.error);
-            throw Error("Could not find history");
-        }
-        if (response.messages.length !== 1) {
-            // Just laziness.
-            // If we get unlucky and two messages were sent at exactly the
-            // same microsecond, we could parse them all, filter by user,
-            // filter by whether they have attachments, and such, and pick
-            // the right message. But this is unlikely, and I'm lazy, so
-            // we'll just drop the message...
-            log.warn(`Really unlucky, got multiple messages at same microsecond, dropping:`, response);
-            throw Error("Collision");
-        }
-        const message = response.messages[0];
-        log.debug("Looked up message from history as " + JSON.stringify(message));
-
-        return { message };
     }
 }
