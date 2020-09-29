@@ -257,10 +257,6 @@ export class SlackRTMHandler extends SlackEventHandler {
                 name,
                 this.main.encryptRoom,
             );
-            const team = await this.main.datastore.getTeam(puppet.teamId);
-            if (!team) {
-                throw Error('Team was not found');
-            }
             room = new BridgedRoom(this.main, {
                 inbound_id: chanInfo.channel.id,
                 matrix_room_id: roomId,
