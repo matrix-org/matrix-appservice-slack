@@ -56,14 +56,18 @@ export class AdminCommand {
             const y = opts[b].demandOption;
             return (x === y) ? 0 : (x ? -1 : 1);
         }).map((key, i) => {
+            const positional = this.command.includes(` ${key}`) || this.command.includes(` [${key}]`);
+            if (positional) {
+                return null;
+            }
+
+            const placeholder = key.toUpperCase();
+            let strOpt = `--${key} ${placeholder}`;
             const opt = opts[key];
-            let strOpt = key;
             if (!opt.demandOption) {
                 strOpt = `[${strOpt}]`;
             }
-            if (this.command.includes(` ${key}`) || this.command.includes(` [${key}]`)) {
-                return null;
-            }
+
             // Spacing
             return (i === 0 ? " " : "") + strOpt;
         }).filter((n) => n !== null).join(" ");
