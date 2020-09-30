@@ -19,6 +19,9 @@ import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
 import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
+import { WebhookRoom } from "./rooms/WebhookRoom";
+import { ChannelRoom } from "./rooms/ChannelRoom";
+import { BridgedRoom } from "./BridgedRoom";
 
 const log = Logging.get("Provisioning");
 
@@ -52,7 +55,7 @@ export class Provisioner {
         });
     }
 
-    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<any>> {
+    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<unknown>> {
         const provisioningCommand = this[verb] as DecoratedCommandFunc;
         if (!provisioningCommand || !provisioningCommand.params) {
             return res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
@@ -269,17 +272,7 @@ export class Provisioner {
         } else {
             status = "unknown";
         }
-
-        res.json({
-            inbound_uri: this.main.getInboundUrlForRoom(room),
-            isWebhook: room.SlackWebhookUri !== undefined,
-            matrix_room_id: matrixRoomId,
-            slack_channel_id: room.SlackChannelId,
-            slack_channel_name: room.SlackChannelName,
-            slack_webhook_uri: room.SlackWebhookUri,
-            status,
-            team_id: room.SlackTeamId,
-        });
+        res.json(this.roomToJsonInfo(room));
     }
 
     @command("matrix_room_id", "user_id")
@@ -332,13 +325,7 @@ export class Provisioner {
             status = "unknown";
         }
         log.info(`Result of link for ${matrixRoomId} -> ${status} ${opts.slack_channel_id}`);
-        res.json({
-            inbound_uri: this.main.getInboundUrlForRoom(room),
-            matrix_room_id: matrixRoomId,
-            slack_channel_name: room.SlackChannelName,
-            slack_webhook_uri: room.SlackWebhookUri,
-            status,
-        });
+        res.json(this.roomToJsonInfo(room));
     }
 
     @command("matrix_room_id", "user_id")
@@ -354,5 +341,28 @@ export class Provisioner {
         }
         await this.main.actionUnlink({matrix_room_id: matrixRoomId});
         res.json({});
+    }
+
+    private roomToJsonInfo(room: BridgedRoom) {
+        if (room instanceof WebhookRoom) {
+            return {
+                inbound_uri: this.main.getInboundUrlForRoom(room),
+                isWebhook: true,
+                matrix_room_id: room.MatrixRoomId,
+                slack_webhook_uri: room.SlackWebhookUri,
+                status,
+            };
+        } else if (room instanceof ChannelRoom) {
+            return{
+                inbound_uri: this.main.getInboundUrlForRoom(room),
+                isWebhook: false,
+                matrix_room_id: room.MatrixRoomId,
+                slack_channel_id: room.SlackChannelId,
+                slack_channel_name: "#fixme", // We need to tell the integration manager our name
+                status,
+                team_id: room.SlackTeamId,
+            };
+        }
+        throw Error('Unknown type of room passed');
     }
 }

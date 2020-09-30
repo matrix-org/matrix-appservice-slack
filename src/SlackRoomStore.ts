@@ -1,8 +1,12 @@
-import { BridgedRoom } from "./BridgedRoom";
+import { BridgedRoom, SlackChannelTypes } from "./BridgedRoom";
 import { Logging } from "matrix-appservice-bridge";
 import QuickLRU = require("quick-lru");
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { Main } from "./Main";
+import { RoomEntry, TeamEntry } from "./datastore/Models";
+import { WebClient } from "@slack/web-api";
+import { WebhookRoom } from "./rooms/WebhookRoom";
+import { ChannelRoom } from "./rooms/ChannelRoom";
 
 const log = Logging.get("SlackRoomStore");
 
@@ -10,7 +14,7 @@ export class SlackRoomStore {
     private rooms: Set<BridgedRoom> = new Set();
     private userAdminRooms: QuickLRU<string, UserAdminRoom> = new QuickLRU({ maxSize: 50 });
     // These are used to optimise the time taken to find a room.
-    private roomsBySlackChannelId: Map<string, BridgedRoom> = new Map();
+    private roomsBySlackChannelId: Map<string, ChannelRoom> = new Map();
     private roomsByMatrixId: Map<string, BridgedRoom> = new Map();
     private roomsByInboundId: Map<string, BridgedRoom> = new Map();
 
@@ -52,7 +56,7 @@ export class SlackRoomStore {
         this.roomsByMatrixId.set(room.MatrixRoomId, room);
         this.roomsByInboundId.set(room.InboundId, room);
 
-        if (room.SlackChannelId) {
+        if (room instanceof ChannelRoom) {
             this.roomsBySlackChannelId.set(room.SlackChannelId, room);
         }
     }
@@ -61,7 +65,7 @@ export class SlackRoomStore {
         log.debug(`removeRoom ${room.MatrixRoomId}`);
         this.roomsByMatrixId.delete(room.MatrixRoomId);
 
-        if (room.SlackChannelId) {
+        if (room instanceof ChannelRoom) {
             this.roomsBySlackChannelId.delete(room.SlackChannelId);
         }
 
@@ -72,13 +76,13 @@ export class SlackRoomStore {
         this.rooms.delete(room);
     }
 
-    public getBySlackChannelId(channelId: string): BridgedRoom|undefined {
+    public getBySlackChannelId(channelId: string): ChannelRoom|undefined {
         return this.roomsBySlackChannelId.get(channelId);
     }
 
     public getBySlackTeamId(teamId: string): BridgedRoom[] {
         // This is called sufficently infrequently that we can do a filter.
-        return this.all.filter((r) => r.SlackTeamId === teamId);
+        return this.all.filter((r) => r instanceof ChannelRoom && r.SlackTeamId === teamId);
     }
 
     public getByMatrixRoomId(roomId: string): BridgedRoom|undefined {
@@ -96,5 +100,21 @@ export class SlackRoomStore {
         }
         adminRoom = new UserAdminRoom(roomId, userId, main);
         return adminRoom;
+    }
+
+    public static fromEntry(main: Main, entry: RoomEntry, team?: TeamEntry, botClient?: WebClient): BridgedRoom {
+        if (entry.remote.webhook_uri) {
+            return new WebhookRoom(main, entry.matrix_id, entry.remote_id, entry.remote.webhook_uri);
+        }
+        if (!team || !botClient) {
+            throw Error('Expected team and botClient for non webhook room');
+        }
+        return new ChannelRoom(main, {
+            inboundId: entry.remote_id,
+            matrixRoomId: entry.matrix_id,
+            slackChannelId: entry.remote.id,
+            slackType: entry.remote.slack_type as SlackChannelTypes,
+            isPrivate: entry.remote.slack_private || false,
+        }, team, botClient);
     }
 }

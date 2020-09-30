@@ -19,6 +19,7 @@ import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
 import escapeStringRegexp from "escape-string-regexp";
+import { ChannelRoom } from "./rooms/ChannelRoom";
 
 const log = Logging.get("substitutions");
 
@@ -86,7 +87,7 @@ class Substitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-    public async matrixToSlack(event: any, main: Main, teamId: string): Promise<IMatrixToSlackResult|null> {
+    public async matrixToSlack(event: any, main: Main, teamId?: string): Promise<IMatrixToSlackResult|null> {
         if (
             !event ||
             typeof event !== 'object' ||
@@ -133,10 +134,10 @@ class Substitutions {
                 try {
                     const roomIdResponse = await client.getRoomIdForAlias(alias.id);
                     const room = main.rooms.getByMatrixRoomId(roomIdResponse.room_id);
-                    if (room) {
+                    if (room && room instanceof ChannelRoom) {
                         // aliases are faily unique in form, so we can replace these easily enough
                         const aliasRegex = new RegExp(escapeStringRegexp(alias.text), "g");
-                        body = body.replace(aliasRegex, `<#${room.SlackChannelId!}>`);
+                        body = body.replace(aliasRegex, `<#${room.SlackChannelId}>`);
                     }
                 } catch (ex) {
                     // We failed the lookup so just continue
