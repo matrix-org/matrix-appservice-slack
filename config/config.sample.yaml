@@ -161,11 +161,11 @@ provisioning:
   #
   channel_adl:
     allow: 
-      - "CCZ41UJV7"
-      - "#open.*"
+      #- "CCZ41UJV7"
+      #- "#open.*"
     deny:
-      - "CRBCPA771"
-      - "#secret.*"
+      #- "CRBCPA771"
+      #- "#secret.*"
 
 # Optional. Allows Matrix users to optionally authenticate their Slack accounts.
 # When a Matrix user posts, the bridge will post using their Slack account.
@@ -214,7 +214,7 @@ puppeting:
 bot_profile:
   # Optional. Set the displayname.
   #
-  displayname: Slack Bridge
+  displayname: "Slack Bridge"
   
   # Optional. Set the avatar.
   #
