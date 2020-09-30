@@ -1,13 +1,13 @@
 Bridge Encryption
 =================
 
-The Slack bridge supports E2EE rooms, using [pantalaimon](https://github.com/matrix-org/pantalaimon).
+The Slack bridge supports end-to-end encryption (E2EE) rooms, using [pantalaimon](https://github.com/matrix-org/pantalaimon).
 This means the bridge will encrypt messages when sending to E2EE rooms, and
-will decrypt them to be sent to Slack. New DMs and private channels will also
+will decrypt them to be sent to Slack. New direct messages (DMs) and private channels will also
 be encrypted by default when bridged.
 
-It goes without saying that messages going to and from Slack will not be encrypted,
-so only the Matrix side of the conversation will be secure. This may still be advantagous
+The end-to-end encryption is established between Matrix clients and the bridge. Messages going to and from Slack will be encrypted by HTTPS but won't use E2EE.
+Bridge encryption secures conversation contents on all Matrix homeservers and clients it is sent to. Also, this may be advantageous
 to users of [Enterprise Key Management](https://slack.com/intl/en-gb/enterprise-key-management).
 
 ## Setup
