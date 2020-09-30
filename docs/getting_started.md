@@ -111,9 +111,9 @@ app_service_config_files:
     /invite @slackbot:my.server.here
     ```
 
-NOTE: At the time of writing, Riot does not recognize the Slack bot. This is
-okay. The bot *is there*. If Riot asks if you're
-sure you want to invite @slackbot, just say yes.
+NOTE: At the time of writing, Element does not recognize the Slack bot. This is
+okay. The bot *is there*. If Element asks if you're sure you want to invite
+@slackbot, just say yes.
 
 The bridge bot will stay offline for most of the time. This is normal. You
 will know if the bridge is working (and that your homeserver is properly

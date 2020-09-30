@@ -19,9 +19,7 @@ import { expect } from "chai";
 import { SlackGhost } from "../../SlackGhost";
 import { BridgedRoom } from "../../BridgedRoom";
 
-// tslint:disable: no-unused-expression no-any
-
-export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void) => {
+export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void): void => {
     describe("users", () => {
         it("should return null if a matrix user is not found", async () => {
             const userEntry = await ds().getUser("notreal");
@@ -36,7 +34,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                     id: "someid1",
                     slack_id: "FOOBAR",
                     team_id: "BARBAZ",
-                }, null),
+                }),
             );
             const userEntry = await ds().getUser("someid1");
             expect(userEntry).to.deep.equal({
@@ -55,7 +53,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 id: "someid3",
                 slack_id: "FOOBAR",
                 team_id: "BARBAZ",
-            }, null);
+            });
             await ds().upsertUser(user);
             (user as any).displayname = "A changed displayname";
             await ds().upsertUser(user);
@@ -78,8 +76,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             const matrixUser = new MatrixUser("@foo1:bar", { some: "data"});
             await ds().storeMatrixUser(matrixUser);
             const response = await ds().getMatrixUser("@foo1:bar");
-            expect(response.userId).to.equal("@foo1:bar");
-            expect(response.serialize()).to.deep.equal({
+            expect(response?.userId).to.equal("@foo1:bar");
+            expect(response?.serialize()).to.deep.equal({
                 some: "data",
                 localpart: "foo1",
             });
@@ -95,8 +93,8 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             });
             await ds().storeMatrixUser(matrixUser);
             const response = await ds().getMatrixUser("@foo2:bar");
-            expect(response.userId).to.equal("@foo2:bar");
-            expect(response.serialize()).to.deep.equal({
+            expect(response?.userId).to.equal("@foo2:bar");
+            expect(response?.serialize()).to.deep.equal({
                 some: "data",
                 localpart: "foo2",
                 accounts: {
@@ -121,7 +119,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             };
             await ds().upsertEvent(model);
             expect(await ds().getEventByMatrixId("!foo:bar", "$foo:bar")).to.deep.equal(model, "Could not find by matrix id");
-            expect(await ds().getEventBySlackId("F00", "BAR")).to.deep.equal(model, "Could not find by slack id");
+            expect(await ds().getEventBySlackId("F00", "BAR")).to.deep.equal(model, "Could not find by Slack id");
         });
 
         it("should insert and retrieve a event", async () => {
@@ -136,7 +134,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             };
             await ds().upsertEvent(model.roomId, model.eventId, model.slackChannelId, model.slackTs, model._extras);
             expect(await ds().getEventByMatrixId("!foo3:bar", "$foo3:bar")).to.deep.equal(model, "Could not find by matrix id");
-            expect(await ds().getEventBySlackId("F003", "BAR3")).to.deep.equal(model, "Could not find by slack id");
+            expect(await ds().getEventBySlackId("F003", "BAR3")).to.deep.equal(model, "Could not find by Slack id");
         });
 
         it("should be able to upsert an events slack threads", async () => {
@@ -151,22 +149,22 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
             };
             model._extras.slackThreadMessages.push("def");
             await ds().upsertEvent(model);
-            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))!._extras).to.deep.equal(model._extras);
+            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))?._extras).to.deep.equal(model._extras);
             model._extras.slackThreadMessages.push("ghi");
             await ds().upsertEvent(model);
-            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))!._extras).to.deep.equal(model._extras);
+            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))?._extras).to.deep.equal(model._extras);
             model._extras.slackThreadMessages.splice(0, 3);
             await ds().upsertEvent(model);
-            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))!._extras).to.deep.equal(model._extras);
+            expect((await ds().getEventByMatrixId("!foo2:bar", "$foo2:bar"))?._extras).to.deep.equal(model._extras);
         });
     });
 
     describe("rooms", () => {
-        it("should return an empty array if room table is empty", async () => {
+        afterEach(truncateTables);
+
+        it("should return an empty array if rooms table is empty", async () => {
             expect(await ds().getAllRooms()).to.be.empty;
         });
-
-        afterEach(roomsAfterEach);
 
         it("should insert and retrieve a room", async () => {
             const room = new BridgedRoom({} as any, {
@@ -177,6 +175,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_team_id: "a_team_id",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: "foobar",
+                slack_type: "unknown",
             }, {} as any);
             await ds().upsertRoom(room);
             const rooms = await ds().getAllRooms();
@@ -192,6 +191,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_team_id: "a_team_id",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: "foobar",
+                slack_type: "unknown",
             }, {} as any);
             await ds().upsertRoom(room);
             room.SlackChannelName = "new_channel_name";
@@ -210,6 +210,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                     slack_team_id: "a_team_id",
                     slack_webhook_uri: "a_webhook_uri",
                     puppet_owner: undefined,
+                    slack_type: "unknown",
                 }, {} as any);
                 await ds().upsertRoom(room);
             }
@@ -286,7 +287,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 id: "someid1",
                 slack_id: "FOOBAR",
                 team_id: "BARBAZ",
-            }, null);
+            });
             const room = new BridgedRoom({} as any, {
                 inbound_id: "a_remote_id",
                 matrix_room_id: "a_matrix_id",
@@ -295,6 +296,7 @@ export const doDatastoreTests = (ds: () => Datastore, roomsAfterEach: () => void
                 slack_team_id: "a_team_id",
                 slack_webhook_uri: "a_webhook_uri",
                 puppet_owner: undefined,
+                slack_type: "unknown",
             }, {} as any);
             const date = new Date();
             await ds().upsertActivityMetrics(user, room, date);

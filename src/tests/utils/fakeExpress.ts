@@ -1,8 +1,6 @@
-// tslint:disable: no-any
-
 export class FakeExpressResponse {
-    public Status: number = 200;
-    public Json: any = {};
+    public Status = 200;
+    public Json: Record<string, unknown> = {};
     constructor() { }
 
     public status(s: number): FakeExpressResponse {
@@ -10,7 +8,7 @@ export class FakeExpressResponse {
         return this;
     }
 
-    public json(json: any): FakeExpressResponse {
+    public json(json: Record<string, unknown>): FakeExpressResponse {
         this.Json = json;
         return this;
     }

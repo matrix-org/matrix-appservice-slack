@@ -21,9 +21,7 @@ import { SlackEventHandler } from "../../SlackEventHandler";
 import { ISlackMessageEvent } from "../../BaseSlackHandler";
 import { BridgedRoom } from "../../BridgedRoom";
 
-// tslint:disable: no-unused-expression no-any
-
-function constructHarness() {
+const constructHarness = () => {
     const main = new FakeMain({
         oauth2: false,
         teams: [
@@ -41,7 +39,7 @@ function constructHarness() {
     });
     const hooks = new SlackHookHandler(main as unknown as Main);
     return { eventHandler: hooks.eventHandler, main };
-}
+};
 
 describe("SlackToMatrix", () => {
     let harness: { eventHandler: SlackEventHandler, main: FakeMain };
@@ -50,7 +48,7 @@ describe("SlackToMatrix", () => {
         harness = constructHarness();
     });
 
-    it("will drop slack events that have an unknown type", async () => {
+    it("will drop Slack events that have an unknown type", async () => {
         let called = false;
         await harness.eventHandler.handle({
             user_id: "foo",
@@ -80,16 +78,16 @@ describe("SlackToMatrix", () => {
             subtype: "message_changed",
             hidden: true,
             message: {
-              user_id: "foo",
-              channel: "foo",
-              type: "message",
-              subtype: "tombstone",
-              ts: "1569567229.124700",
+                user_id: "foo",
+                channel: "foo",
+                type: "message",
+                subtype: "tombstone",
+                ts: "1569567229.124700",
             },
             channel: "fakechannel",
             ts: "12345",
-         } as ISlackMessageEvent,
-         "12345", (status: number, body?: string) => {
+        } as ISlackMessageEvent,
+        "12345", (status: number, body?: string) => {
             called = true;
             expect(status).to.equal(200);
             expect(body).to.equal("OK");
@@ -98,7 +96,7 @@ describe("SlackToMatrix", () => {
         expect(called).to.be.true;
     });
 
-    it("will no-op slack events when using RTM API and is an Event API request", async () => {
+    it("will no-op Slack events when using RTM API and is an Event API request", async () => {
         let called = false;
         await harness.eventHandler.handle({
             user_id: "foo",

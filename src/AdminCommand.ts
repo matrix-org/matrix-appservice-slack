@@ -29,13 +29,13 @@ type CommandCallback = (args: IHandlerArgs) => void|Promise<void>;
 
 export class AdminCommand {
     constructor(
-        public readonly command: string | string[],
+        public readonly command: string,
         public readonly description: string,
         private readonly cb: CommandCallback,
         public readonly options: {[key: string]: Options}|null = null) {
     }
 
-    public async handler(argv: IHandlerArgs) {
+    public async handler(argv: IHandlerArgs): Promise<void> {
         argv.matched();
         try {
             await this.cb(argv);
@@ -45,6 +45,10 @@ export class AdminCommand {
         }
     }
 
+    /**
+     * Returns a one-liner of how to use the command.
+     * @returns A short description of the command
+     */
     public simpleHelp(): string {
         const opts = this.options || {};
         const commandString = Object.keys(opts).sort((a, b) => {
@@ -52,20 +56,28 @@ export class AdminCommand {
             const y = opts[b].demandOption;
             return (x === y) ? 0 : (x ? -1 : 1);
         }).map((key, i) => {
+            const positional = this.command.includes(` ${key}`) || this.command.includes(` [${key}]`);
+            if (positional) {
+                return null;
+            }
+
+            const placeholder = key.toUpperCase();
+            let strOpt = `--${key} ${placeholder}`;
             const opt = opts[key];
-            let strOpt = key;
             if (!opt.demandOption) {
                 strOpt = `[${strOpt}]`;
             }
-            if (this.command.includes(` ${key}`) || this.command.includes(` [${key}]`)) {
-                return null;
-            }
+
             // Spacing
             return (i === 0 ? " " : "") + strOpt;
         }).filter((n) => n !== null).join(" ");
         return `${this.command}${commandString} - ${this.description}`;
     }
 
+    /**
+     * Returns a detailed description of the command and its options.
+     * @returns An array of strings. Display each string in a separate line for the user.
+     */
     public detailedHelp(): string[] {
         const response: string[] = [];
         response.push(`${this.command} - ${this.description}`);

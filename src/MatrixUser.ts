@@ -1,3 +1,4 @@
+import { StateLookupEvent } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
@@ -42,10 +43,10 @@ export class MatrixUser {
      * taking into account disambiguation with other users in the same room.
      * @param roomId The roomId to calculate the user's displayname for.
      */
-    public getDisplaynameForRoom(roomId: string) {
-        const myMemberEvent: IMatrixMemberEvent = this.main.getStoredEvent(
+    public getDisplaynameForRoom(roomId: string): string {
+        const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
-        );
+        ) as StateLookupEvent) as IMatrixMemberEvent;
 
         if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.displayname) {
             return this.userId;
@@ -54,19 +55,19 @@ export class MatrixUser {
         const displayname = myMemberEvent.content.displayname;
 
         // Is this name used more than once in this room?
-        const memberEvents = this.main.getStoredEvent(roomId, "m.room.member");
+        const memberEvents = this.main.getStoredEvent(roomId, "m.room.member") as StateLookupEvent[];
         const matches: string[] = memberEvents.filter(
-            (ev: IMatrixMemberEvent) => ev.content && ev.content.displayname === displayname,
-        );
+            (ev) => ev.content && (ev as IMatrixMemberEvent).content?.displayname === displayname,
+        ).map((ev) => ev.state_key);
 
         // Disambiguate, if the display name is used more than once.
         return (matches.length > 1) ? `${displayname} (${this.userId})` : displayname;
     }
 
-    public getAvatarUrlForRoom(roomId: string) {
-        const myMemberEvent: IMatrixMemberEvent = this.main.getStoredEvent(
+    public getAvatarUrlForRoom(roomId: string): string|null {
+        const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
-        );
+        ) as StateLookupEvent) as IMatrixMemberEvent;
 
         if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.avatar_url) {
             return null;
@@ -74,11 +75,11 @@ export class MatrixUser {
         return myMemberEvent.content.avatar_url;
     }
 
-    public get aTime() {
+    public get aTime(): number|null {
         return this.atime;
     }
 
-    public bumpATime() {
+    public bumpATime(): void {
         this.atime = Date.now() / 1000;
     }
 }

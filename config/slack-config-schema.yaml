@@ -89,6 +89,8 @@ properties:
           properties:
             enabled:
               type: boolean
+            allow_private:
+              type: boolean
             whitelist:
               type: "array"
               items:
@@ -121,12 +123,47 @@ properties:
             type: number
           team_count:
             type: number
+      channel_adl:
+        type: object
+        properties:
+          allow:
+            type: "array"
+            items:
+                type: "string"
+          deny:
+            type: "array"
+            items:
+                type: "string"
   puppeting:
     type: object
     required: ["enabled"]
     properties:
       enabled:
         type: boolean
+      onboard_users:
+        type: boolean
+      direct_messages:
+        type: object
+        additionalProperties: false
+        properties:
+          allow:
+            slack:
+              type: "array"
+              items:
+                  type: "string"
+            matrix:
+              type: "array"
+              items:
+                  type: "string"
+          deny:
+            slack:
+              type: "array"
+              items:
+                  type: "string"
+            matrix:
+              type: "array"
+              items:
+                  type: "string"
   bot_profile:
     type: object
     properties:

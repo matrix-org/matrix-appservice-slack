@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, MatrixUser } from "matrix-appservice-bridge";
+import { Bridge, Logging } from "matrix-appservice-bridge";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
@@ -31,16 +31,16 @@ type Param = string | { param: string, required: boolean};
 type Verbs = "getbotid"|"authurl"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
 // Decorator
-function command(...params: Param[]) {
-    return (target: any, propertyKey: string) => {
+const command = (...params: Param[]) => (
+    (target: any, propertyKey: string) => {
         target[propertyKey].params = params;
-    };
-}
+    }
+);
 
 export class Provisioner {
-    constructor(private main: Main, private bridge: any) { }
+    constructor(private main: Main, private bridge: Bridge) { }
 
-    public addAppServicePath() {
+    public addAppServicePath(): void {
         this.bridge.addAppServicePath({
             handler: async (req: Request, res: Response) => {
                 const verb = req.params.verb;
@@ -52,7 +52,7 @@ export class Provisioner {
         });
     }
 
-    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response) {
+    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<any>> {
         const provisioningCommand = this[verb] as DecoratedCommandFunc;
         if (!provisioningCommand || !provisioningCommand.params) {
             return res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
@@ -202,14 +202,15 @@ export class Provisioner {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
             return;
         }
-        const results = await Promise.all(accounts.map(async (account) => {
-                const team = await this.main.datastore.getTeam(account.teamId)
+        const results = await Promise.all(
+            accounts.map(async (account) => {
+                const team = await this.main.datastore.getTeam(account.teamId);
                 return {team, slack_id: account.slackId};
             })
         );
         const teams = results.map((account) => ({
-            id: account.team!.id,
-            name: account.team!.name,
+            id: account.team?.id,
+            name: account.team?.name,
             slack_id: account.slack_id,
         }));
         res.json({ teams });

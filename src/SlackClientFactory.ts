@@ -38,7 +38,7 @@ export class SlackClientFactory {
 
     }
 
-    public async createClient(token: string) {
+    public async createClient(token: string): Promise<WebClient> {
         const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
         return new WebClient(token, {
             logger: {
@@ -49,7 +49,7 @@ export class SlackClientFactory {
                     // non-ideal way to detect calls to slack.
                     webLog.debug.bind(webLog);
                     if (!this.onRemoteCall) { return; }
-                    const match = /apiCall\('([\w\.]+)'\) start/.exec(msg);
+                    const match = /apiCall\('([\w.]+)'\) start/.exec(msg);
                     if (match && match[1]) {
                         this.onRemoteCall(match[1]);
                     }
@@ -70,7 +70,7 @@ export class SlackClientFactory {
      * @param teamId The slack teamId to check.
      * @throws If the team is not safe to use
      */
-    public async isTeamStatusOkay(teamId: string) {
+    public async isTeamStatusOkay(teamId: string): Promise<void> {
         const storedTeam = await this.datastore.getTeam(teamId);
         if (!storedTeam) {
             throw Error(`Team ${teamId} is not ready: No team found in store`);
@@ -86,7 +86,7 @@ export class SlackClientFactory {
         }
     }
 
-    public get teamClientCount() {
+    public get teamClientCount(): number {
         return this.teamClients.size;
     }
 
@@ -226,7 +226,26 @@ export class SlackClientFactory {
         return res !== null ? res.client : null;
     }
 
-    public async createTeamClient(token: string) {
+    public async getClientsForUser(matrixUser: string): Promise<WebClient[]> {
+        const clients: WebClient[] = [];
+        // This is not particularly great for performance, but I'm not in the
+        // mood for yet-another-refactor.
+        for (const [teamIdUserId, client] of this.puppets.entries()) {
+            // This is safe, teams don't contain a @.
+            // Users may only start with one.
+            if (teamIdUserId.endsWith(matrixUser)) {
+                clients.push(client.client);
+            }
+        }
+        return clients;
+    }
+
+    public async createTeamClient(token: string): Promise<{
+        slackClient: WebClient,
+        team: { id: string, name: string, domain: string },
+        auth: AuthTestResponse,
+        user: UsersInfoResponse,
+    }> {
         try {
             const slackClient = await this.createClient(token);
             const teamInfo = (await slackClient.team.info()) as TeamInfoResponse;
@@ -243,7 +262,7 @@ export class SlackClientFactory {
         }
     }
 
-    public async dropTeamClient(teamId: string) {
+    public async dropTeamClient(teamId: string): Promise<void> {
         this.teamClients.delete(teamId);
     }
 }

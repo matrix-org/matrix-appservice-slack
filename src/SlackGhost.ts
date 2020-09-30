@@ -15,13 +15,12 @@ limitations under the License.
 */
 
 import { Logging, Intent } from "matrix-appservice-bridge";
-import * as rp from "request-promise-native";
 import * as Slackdown from "Slackdown";
-import { BridgedRoom } from "./BridgedRoom";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 import { UserEntry, Datastore } from "./datastore/Models";
+import axios from "axios";
 
 const log = Logging.get("SlackGhost");
 
@@ -39,11 +38,11 @@ interface IMatrixReplyEvent {
 
 export class SlackGhost {
 
-    public get aTime() {
+    public get aTime(): number|undefined {
         return this.atime;
     }
 
-    public static fromEntry(datastore: Datastore, entry: UserEntry, intent: Intent) {
+    public static fromEntry(datastore: Datastore, entry: UserEntry, intent?: Intent): SlackGhost {
         return new SlackGhost(
             datastore,
             entry.slack_id,
@@ -58,19 +57,26 @@ export class SlackGhost {
     private userInfoCache?: ISlackUser;
     private typingInRooms: Set<string> = new Set();
     private userInfoLoading?: Promise<UsersInfoResponse>;
-    private updateInProgress: boolean = false;
+    private updateInProgress = false;
     constructor(
         private datastore: Datastore,
         public readonly slackId: string,
         public readonly teamId: string|undefined,
         public readonly userId: string,
-        public readonly intent: Intent,
+        private _intent?: Intent,
         private displayname?: string,
         private avatarHash?: string) {
         this.slackId = slackId.toUpperCase();
         if (teamId) {
             this.teamId = teamId.toUpperCase();
         }
+    }
+
+    public get intent(): Intent {
+        if (!this._intent) {
+            throw Error('Ghost has not been assigned an intent');
+        }
+        return this._intent;
     }
 
     public get displayName(): string|undefined {
@@ -81,13 +87,13 @@ export class SlackGhost {
         return {
             avatar_url: this.avatarHash!,
             display_name: this.displayName!,
-            id: this.userId!,
+            id: this.userId,
             slack_id: this.slackId,
             team_id: this.teamId,
         };
     }
 
-    public async update(message: {user_id?: string, user?: string}, room: BridgedRoom) {
+    public async update(message: {user_id?: string, user?: string}, client?: WebClient): Promise<void> {
         const user = (message.user_id || message.user);
         if (this.updateInProgress) {
             log.debug(`Not updating ${user}: Update in progress.`);
@@ -96,49 +102,54 @@ export class SlackGhost {
         log.info(`Updating user information for ${user}`);
         const updateStartTime = Date.now();
         this.updateInProgress = true;
-        await Promise.all([
-            this.updateDisplayname(message, room).catch((e) => {
-                log.error("Failed to update ghost displayname:", e);
-            }),
-            this.updateAvatar(message, room).catch((e) => {
-                log.error("Failed to update ghost avatar:", e);
-            }),
-        ]);
+        try {
+            await this.updateDisplayname(message, client);
+        } catch (ex) {
+            log.error("Failed to update ghost displayname:", ex);
+        }
+        try {
+            if (client) {
+                await this.updateAvatar(message, client);
+            }
+        } catch (ex) {
+            log.error("Failed to update ghost avatar:", ex);
+        }
         log.debug(`Completed update for ${user} in ${Date.now() - updateStartTime}ms`);
         this.updateInProgress = false;
     }
 
-    public async getDisplayname(client: WebClient) {
+    public async getDisplayname(client: WebClient): Promise<string|undefined> {
         const user = await this.lookupUserInfo(client);
         if (user && user.profile) {
             return user.profile.display_name || user.profile.real_name;
         }
     }
 
-    public async updateFromISlackUser(slackUser: ISlackUser) {
+    public async updateFromISlackUser(slackUser: ISlackUser): Promise<void> {
         if (!slackUser.profile) {
             return;
         }
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         let changed = false;
         if (slackUser.profile.display_name && this.displayName !== slackUser.profile.display_name) {
-            await this.intent.setDisplayName(slackUser.profile.display_name);
+            await this._intent.setDisplayName(slackUser.profile.display_name);
             this.displayname = slackUser.profile.display_name;
             changed = true;
         }
 
         const avatarRes = await this.lookupAvatarUrl(slackUser);
         if (avatarRes && avatarRes.hash && this.avatarHash !== avatarRes.hash) {
-            const response = await rp({
-                encoding: null,
-                resolveWithFullResponse: true,
-                uri: avatarRes.url,
+            const response = await axios.get<ArrayBuffer>(avatarRes.url, {
+                responseType: "arraybuffer",
             });
 
             const contentUri = await this.uploadContent({
                 mimetype: response.headers["content-type"],
                 title: avatarRes.hash,
-            }, response.body);
-            await this.intent.setAvatarUrl(contentUri);
+            }, response.data);
+            await this._intent.setAvatarUrl(contentUri);
             this.avatarHash = avatarRes.hash;
             changed = true;
         }
@@ -147,22 +158,25 @@ export class SlackGhost {
             return;
         }
 
-        return this.datastore.upsertUser(this);
+        await this.datastore.upsertUser(this);
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-                                    room: BridgedRoom) {
+        client?: WebClient): Promise<void> {
         let displayName = message.username || message.user_name;
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
 
-        if (room.SlackClient) { // We can be smarter if we have the bot.
+        if (client) { // We can be smarter if we have the bot.
             if (message.bot_id && message.user_id) {
                 // In the case of operations on bots, we will have both a bot_id and a user_id.
                 // Ignore updating the displayname in this case.
                 return;
             } else if (message.bot_id) {
-                displayName = await this.getBotName(message.bot_id, room.SlackClient);
+                displayName = await this.getBotName(message.bot_id, client);
             } else if (message.user_id) {
-                displayName = await this.getDisplayname(room.SlackClient);
+                displayName = await this.getDisplayname(client);
             }
         }
 
@@ -172,12 +186,12 @@ export class SlackGhost {
 
         log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
 
-        await this.intent.setDisplayName(displayName);
+        await this._intent.setDisplayName(displayName);
         this.displayname = displayName;
-        return this.datastore.upsertUser(this);
+        await this.datastore.upsertUser(this);
     }
 
-    public async lookupAvatarUrl(clientOrUser: WebClient|ISlackUser) {
+    public async lookupAvatarUrl(clientOrUser: WebClient|ISlackUser): Promise<{url: string, hash?: string}|undefined> {
         const user = clientOrUser instanceof WebClient ? await this.lookupUserInfo(clientOrUser) : clientOrUser;
         if (!user || !user.profile) { return; }
         const profile = user.profile;
@@ -192,7 +206,7 @@ export class SlackGhost {
         }
     }
 
-    private async getBotName(botId: string, client: WebClient) {
+    private async getBotName(botId: string, client: WebClient): Promise<string|undefined> {
         const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
         if (!response.ok || !response.bot.name) {
             log.error("Failed to get bot name", response.error);
@@ -201,7 +215,7 @@ export class SlackGhost {
         return response.bot.name;
     }
 
-    private async getBotAvatarUrl(botId: string, client: WebClient) {
+    private async getBotAvatarUrl(botId: string, client: WebClient): Promise<string|undefined> {
         const response = (await client.bots.info({ bot: botId})) as BotsInfoResponse;
         if (!response.ok) {
             log.error("Failed to get bot name", response.error);
@@ -217,7 +231,7 @@ export class SlackGhost {
         return icon;
     }
 
-    private async lookupUserInfo(client: WebClient) {
+    private async lookupUserInfo(client: WebClient): Promise<ISlackUser|undefined> {
         if (this.userInfoCache) {
             log.debug("Using cached userInfo for", this.slackId);
             return this.userInfoCache;
@@ -232,7 +246,7 @@ export class SlackGhost {
         log.debug("Using fresh userInfo for", this.slackId);
 
         this.userInfoLoading = client.users.info({user: this.slackId}) as Promise<UsersInfoResponse>;
-        const response = await this.userInfoLoading!;
+        const response = await this.userInfoLoading;
         if (!response.user || !response.user.profile) {
             log.error("Failed to get user profile", response);
             return;
@@ -240,12 +254,12 @@ export class SlackGhost {
         this.userInfoCache = response.user;
         setTimeout(() => this.userInfoCache = undefined, USER_CACHE_TIMEOUT);
         this.userInfoLoading = undefined;
-        return response.user!;
+        return response.user;
     }
 
-    private async updateAvatar(message: {bot_id?: string, user_id?: string}, room: BridgedRoom) {
-        if (!room.SlackClient) {
-            return;
+    private async updateAvatar(message: {bot_id?: string, user_id?: string}, client: WebClient): Promise<void> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
         }
         let avatarUrl;
         let hash: string|undefined;
@@ -254,10 +268,10 @@ export class SlackGhost {
             // Ignore updating the displayname in this case.
             return;
         } else if (message.bot_id) {
-            avatarUrl = await this.getBotAvatarUrl(message.bot_id, room.SlackClient);
+            avatarUrl = await this.getBotAvatarUrl(message.bot_id, client);
             hash = avatarUrl;
         } else if (message.user_id) {
-            const res = await this.lookupAvatarUrl(room.SlackClient);
+            const res = await this.lookupAvatarUrl(client);
             if (!res) {
                 return;
             }
@@ -271,7 +285,7 @@ export class SlackGhost {
             return;
         }
 
-        const match = hash || avatarUrl.match(/\/([^\/]+)$/);
+        const match = hash || avatarUrl.match(/\/([^/]+)$/);
         if (!match || !match[1]) {
             return;
         }
@@ -280,31 +294,36 @@ export class SlackGhost {
 
         const title = hash || match[1];
 
-        const response = await rp({
-            encoding: null,
-            resolveWithFullResponse: true,
-            uri: avatarUrl,
+        const response = await axios.get<ArrayBuffer>(avatarUrl, {
+            responseType: "arraybuffer",
         });
+
         const contentUri = await this.uploadContent({
             mimetype: response.headers["content-type"],
             title,
-        }, response.body);
-        await this.intent.setAvatarUrl(contentUri);
+        }, response.data);
+        await this._intent.setAvatarUrl(contentUri);
         this.avatarHash = hash;
         await this.datastore.upsertUser(this);
     }
 
-    public prepareBody(body: string) {
+    public prepareBody(body: string): string {
         // TODO: This is fixing plaintext mentions, but should be refactored.
         // See https://github.com/matrix-org/matrix-appservice-slack/issues/110
         return body.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
     }
 
-    public prepareFormattedBody(body: string) {
+    public prepareFormattedBody(body: string): string {
         return Slackdown.parse(body);
     }
 
-    public async sendText(roomId: string, text: string, slackRoomID: string, slackEventTS: string, extra: {} = {}) {
+    public async sendText(
+        roomId: string,
+        text: string,
+        slackRoomID: string,
+        slackEventTS: string,
+        extra: Record<string, unknown> = {}
+    ): Promise<void> {
         // TODO: Slack's markdown is their own thing that isn't really markdown,
         // but the only parser we have for it is slackdown. However, Matrix expects
         // a variant of markdown that is in the realm of sanity. Currently text
@@ -320,11 +339,18 @@ export class SlackGhost {
             msgtype: "m.text",
             ...extra,
         };
-        return this.sendMessage(roomId, content, slackRoomID, slackEventTS);
+        await this.sendMessage(roomId, content, slackRoomID, slackEventTS);
     }
 
-    public async sendMessage(roomId: string, msg: {}, slackRoomId: string, slackEventTs: string) {
-        const matrixEvent = await this.intent.sendMessage(roomId, msg);
+    public async sendMessage(roomId: string, msg: Record<string, unknown>, slackRoomId: string, slackEventTs: string): Promise<{event_id: string}> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
+        const matrixEvent = await this._intent.sendMessage(roomId, msg) as {event_id?: unknown};
+
+        if (typeof matrixEvent !== 'object' || !matrixEvent || typeof matrixEvent.event_id !== 'string') {
+            throw Error("When sending a Matrix message, the homeserver didn't reply with an event_id.");
+        }
 
         await this.datastore.upsertEvent(
             roomId,
@@ -333,11 +359,16 @@ export class SlackGhost {
             slackEventTs,
         );
 
-        return matrixEvent;
+        return {
+            event_id: matrixEvent.event_id,
+        };
     }
 
     public async sendReaction(roomId: string, eventId: string, key: string,
-                              slackRoomId: string, slackEventTs: string) {
+        slackRoomId: string, slackEventTs: string): Promise<{event_id: string}> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         const content = {
             "m.relates_to": {
                 event_id: eventId,
@@ -346,16 +377,22 @@ export class SlackGhost {
             },
         };
 
-        const matrixEvent = await this.intent.sendEvent(roomId, "m.reaction", content);
+        const matrixEvent = await this._intent.sendEvent(roomId, "m.reaction", content) as {event_id?: unknown};
+
+        if (typeof matrixEvent !== 'object' || !matrixEvent || typeof matrixEvent.event_id !== 'string') {
+            throw Error("When sending a Matrix reaction, the homeserver didn't reply with an event_id.");
+        }
 
         // Add this event to the eventStore
         await this.datastore.upsertEvent(roomId, matrixEvent.event_id, slackRoomId, slackEventTs);
 
-        return matrixEvent;
+        return {
+            event_id: matrixEvent.event_id,
+        };
     }
 
     public async sendWithReply(roomId: string, text: string, slackRoomId: string,
-                               slackEventTs: string, replyEvent: IMatrixReplyEvent) {
+        slackEventTs: string, replyEvent: IMatrixReplyEvent): Promise<void> {
         const fallbackHtml = this.getFallbackHtml(roomId, replyEvent);
         const fallbackText = this.getFallbackText(replyEvent);
 
@@ -370,47 +407,61 @@ export class SlackGhost {
             "format": "org.matrix.custom.html",
             "formatted_body": fallbackHtml + this.prepareFormattedBody(text),
         };
-        return await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
+        await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
     }
 
     public async sendTyping(roomId: string): Promise<void> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         // This lasts for 20000 - See http://matrix-org.github.io/matrix-js-sdk/1.2.0/client.js.html#line2031
         this.typingInRooms.add(roomId);
-        await this.intent.sendTyping(roomId, true);
+        await this._intent.sendTyping(roomId, true);
     }
 
     public async updateReadMarker(roomId: string, eventId: string): Promise<void> {
-        await this.intent.sendReadReceipt(roomId, eventId);
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
+        await this._intent.sendReadReceipt(roomId, eventId);
     }
 
     public async cancelTyping(roomId: string): Promise<void> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
         if (this.typingInRooms.has(roomId)) {
             // We aren't checking for timeouts here, but typing
             // calls aren't expensive if they no-op.
             this.typingInRooms.delete(roomId);
-            await this.intent.sendTyping(roomId, false);
+            await this._intent.sendTyping(roomId, false);
         }
     }
 
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
-    : Promise<string> {
+        : Promise<string> {
         try {
-            const response = await rp({
-                encoding: null, // Because we expect a binary
+            const response = await axios.get<ArrayBuffer>(uri, {
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
-                uri,
+                responseType: "arraybuffer",
             });
-            return await this.uploadContent(file, response as Buffer);
+            if (response.status !== 200) {
+                throw Error('Failed to get file');
+            }
+            return await this.uploadContent(file, response.data);
         } catch (reason) {
-            log.error("Failed to upload content:\n%s", reason);
+            log.error("Failed to upload content:\n", reason);
             throw reason;
         }
     }
 
-    public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
-        const contentUri = await this.intent.getClient().uploadContent(buffer, {
+    public async uploadContent(file: {mimetype: string, title: string}, buffer: ArrayBuffer): Promise<string> {
+        if (!this._intent) {
+            throw Error('No intent associated with ghost');
+        }
+        const contentUri = await this._intent.getClient().uploadContent(buffer, {
             name: file.title,
             type: file.mimetype,
             rawResponse: false,
@@ -420,11 +471,11 @@ export class SlackGhost {
         return contentUri;
     }
 
-    public bumpATime() {
+    public bumpATime(): void {
         this.atime = Date.now() / 1000;
     }
 
-    public getFallbackHtml(roomId: string, replyEvent: IMatrixReplyEvent) {
+    public getFallbackHtml(roomId: string, replyEvent: IMatrixReplyEvent): string {
         const originalBody = (replyEvent.content ? replyEvent.content.body : "") || "";
         let originalHtml = (replyEvent.content ? replyEvent.content.formatted_body : "") || null;
         if (originalHtml === null) {
@@ -437,7 +488,7 @@ export class SlackGhost {
               + "</blockquote></mx-reply>";
     }
 
-    public getFallbackText(replyEvent: IMatrixReplyEvent) {
+    public getFallbackText(replyEvent: IMatrixReplyEvent): string {
         const originalBody = (replyEvent.content ? replyEvent.content.body : "") || "";
         return `> <${replyEvent.sender}> ${originalBody.split("\n").join("\n> ")}`;
     }

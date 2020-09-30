@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression
-
 import { default as substitutions, IMatrixToSlackResult } from "../../substitutions";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";
@@ -51,12 +49,14 @@ describe("Substitutions", () => {
         slack_channel_id: "workingslackchannel",
         slack_team_id: "footeam",
         inbound_id: "foo",
+        slack_type: "unknown",
     }));
     fakeMain.rooms.upsertRoom(new BridgedRoom(fakeMain, {
         matrix_room_id: "!alsoworking:localhost",
         slack_channel_id: "alsoworkingslackchannel",
         slack_team_id: "footeam",
         inbound_id: "foo",
+        slack_type: "unknown",
     }));
 
     describe("matrixToSlack", () => {
@@ -161,7 +161,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace room pills with slack mentions", async () => {
+        it ("should replace room pills with Slack mentions", async () => {
             const res = await substitutions.matrixToSlack({
                 content: {
                     body: "You should join my room #working:localhost",
@@ -176,7 +176,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace multiple room pills with slack mentions", async () => {
+        it ("should replace multiple room pills with Slack mentions", async () => {
             const res = await substitutions.matrixToSlack({
                 content: {
                     body: "You should join my room #working:localhost, or perhaps #working2:localhost",
@@ -192,7 +192,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace user pills with slack mentions", async () => {
+        it ("should replace user pills with Slack mentions", async () => {
             const res = await substitutions.matrixToSlack({
                 content: {
                     body: "Hello! Stranger",
@@ -207,7 +207,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace multiple user pills with slack mentions", async () => {
+        it ("should replace multiple user pills with Slack mentions", async () => {
             const res = await substitutions.matrixToSlack({
                 content: {
                     body: "Hello! Stranger Thing",
@@ -249,7 +249,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace matrix links with slack links", async () => {
+        it ("should replace matrix links with Slack links", async () => {
             const res = await substitutions.matrixToSlack({
                 content: {
                     body: "This bridge is built on the [Matrix](https://matrix.org) protocol.",
@@ -262,7 +262,7 @@ describe("Substitutions", () => {
                 username: "@alice:localhost",
             });
         });
-        it ("should replace multiple matrix links with slack links", async () => {
+        it ("should replace multiple matrix links with Slack links", async () => {
             const res = await substitutions.matrixToSlack({
                 content: {
                     body: "[a](http://example.com) b [c](http://example.net)",

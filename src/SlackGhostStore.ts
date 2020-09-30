@@ -2,7 +2,7 @@ import { SlackRoomStore } from "./SlackRoomStore";
 import { Datastore } from "./datastore/Models";
 import { SlackGhost } from "./SlackGhost";
 import { IConfig } from "./IConfig";
-import * as QuickLRU from "quick-lru";
+import QuickLRU from "quick-lru";
 import { Logging, Bridge } from "matrix-appservice-bridge";
 
 const log = Logging.get("SlackGhostStore");
@@ -18,14 +18,16 @@ export class SlackGhostStore {
         this.ghostsByUserId = new QuickLRU({ maxSize: 50 });
     }
 
-    public get cached() { return this.ghostsByUserId; }
+    public get cached(): QuickLRU<string, SlackGhost> {
+        return this.ghostsByUserId;
+    }
 
     /**
      * Get the domain of a message by getting it from it's keys, or by resolving the teamId.
      * @param message The slack message, containing a team_domain.
      * @param teamId Optionally pass the teamId, if known.
      */
-    public async getTeamDomainForMessage(message: {team_domain?: string}, teamId?: string) {
+    public async getTeamDomainForMessage(message: {team_domain?: string}, teamId?: string): Promise<string> {
         // TODO: Is the correct home for this function?
         if (message.team_domain !== undefined) {
             return message.team_domain;
@@ -52,7 +54,7 @@ export class SlackGhostStore {
         return (await nullGhost.getDisplayname(room!.SlackClient!)) || userId;
     }
 
-    public getUserId(id: string, teamDomain: string) {
+    public getUserId(id: string, teamDomain: string): string {
         const localpart = `${this.config.username_prefix}${teamDomain.toLowerCase()}_${id.toUpperCase()}`;
         return `@${localpart}:${this.config.homeserver.server_name}`;
     }
@@ -69,12 +71,11 @@ export class SlackGhostStore {
     }
 
     public async get(slackUserId: string, teamDomain?: string, teamId?: string): Promise<SlackGhost> {
-        let domain: string;
         if (!teamDomain && !teamId) {
             throw Error("Must provide either a teamDomain or a teamId");
         }
 
-        domain = teamDomain || await this.getTeamDomainForMessage({}, teamId);
+        const domain = teamDomain || await this.getTeamDomainForMessage({}, teamId);
 
         const userId = this.getUserId(
             slackUserId,
@@ -88,7 +89,8 @@ export class SlackGhostStore {
 
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
-        await intent._ensureRegistered();
+        // TODO: Expose this
+        await (intent as unknown as any).ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {

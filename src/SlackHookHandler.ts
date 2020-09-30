@@ -57,7 +57,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         this.eventHandler = new SlackEventHandler(main);
     }
 
-    public async startAndListen(port: number, tlsConfig?: {key_file: string, crt_file: string}) {
+    public async startAndListen(port: number, tlsConfig?: {key_file: string, crt_file: string}): Promise<unknown> {
         let createServer: (cb?: RequestListener) => Server = httpCreate;
         if (tlsConfig) {
             const tlsOptions = {
@@ -79,7 +79,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
-    public async close() {
+    public async close(): Promise<void> {
         if (this.server) {
             return promisify(this.server.close).bind(this.server)();
         }
@@ -100,7 +100,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                 if (isEvent) {
                     this.handleEvent(body, res);
                 } else {
-                    const params = qs.parse(body);
+                    const params = qs.parse(body) as {[key: string]: string};
                     this.handleWebhook(req.method!, req.url!, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
@@ -150,7 +150,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
-    public static getUrlParts(url: string) {
+    public static getUrlParts(url: string): { inboundId: string, path: string } {
         const urlMatch = url.match(/^(\/?.*\/)*(.{32})(?:\/(.*))?$/);
         if (!urlMatch) {
             throw Error("URL is in incorrect format");
@@ -167,9 +167,9 @@ export class SlackHookHandler extends BaseSlackHandler {
      * @param url The HTTP url for the incoming request
      * @param params Parameters given in either the body or query string.
      */
-    private async handleWebhook(method: string, url: string, params: {[key: string]: string|string[]},
-                                response: ServerResponse) {
-        log.info(`Received slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
+    private async handleWebhook(method: string, url: string, params: qs.ParsedUrlQuery,
+        response: ServerResponse) {
+        log.info(`Received Slack webhook ${method} ${url}: ${JSON.stringify(params)}`);
         const endTimer = this.main.startTimer("remote_request_seconds");
 
         let inboundId: string;
@@ -192,7 +192,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         if (method === "GET") {
             const result = path.match(/^([^?]+)(?:\?(.*))$/);
             path = result![1];
-            params = qs.parse(result![2]);
+            params = qs.parse(result![2]) as {[key: string]: string};
         }
 
         if (method === "GET" && path === "authorize") {
@@ -245,7 +245,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         endTimer({outcome: "dropped"});
     }
 
-    private async handlePost(room: BridgedRoom, params: {[key: string]: string|string[]}) {
+    private async handlePost(room: BridgedRoom, params: qs.ParsedUrlQuery) {
         // We can't easily query the name of a channel from its ID, but we can
         // infer its current name every time we receive a message, because slack
         // tells us.
@@ -300,10 +300,10 @@ export class SlackHookHandler extends BaseSlackHandler {
         // them by now
         PRESERVE_KEYS.forEach((k) => lookupRes.message[k] = params[k]);
         lookupRes.message.text = await this.doChannelUserReplacements(lookupRes.message, text, room.SlackClient);
-        return room.onSlackMessage(lookupRes.message, lookupRes.content);
+        return room.onSlackMessage(lookupRes.message);
     }
 
-    private async handleAuthorize(token: string, params: {[key: string]: string|string[]}) {
+    private async handleAuthorize(token: string, params: qs.ParsedUrlQuery) {
         const oauth2 = this.main.oauth2;
         if (!oauth2) {
             log.warn("Wasn't expecting to receive /authorize without OAuth2 configured");
@@ -324,7 +324,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         log.debug(`Exchanging temporary code for full OAuth2 token ${user}`);
 
         try {
-            const { response, access_scopes } = await oauth2.exchangeCodeForToken(
+            const { response } = await oauth2.exchangeCodeForToken(
                 params.code as string,
                 token,
             );
@@ -351,14 +351,8 @@ export class SlackHookHandler extends BaseSlackHandler {
                 response.user_id,
                 response.access_token,
                 response.bot === undefined,
+                response.bot?.bot_access_token,
             );
-            if (response.bot) {
-                // Rather than upsert the values we were given, use the
-                // access token to validate and make additional requests
-                await this.main.clientFactory.upsertTeamByToken(
-                    response.bot.bot_access_token,
-                );
-            }
         } catch (err) {
             log.error("Error during handling of an oauth token:", err);
             return {
@@ -381,10 +375,10 @@ export class SlackHookHandler extends BaseSlackHandler {
      * sent at the same microsecond.
      * @param {string} channelID Slack channel ID.
      * @param {string} timestamp Timestamp when message was received, in seconds
-     *     formatted as a float.
+     * formatted as a float.
      */
     private async lookupMessage(channelID: string, timestamp: string, client: WebClient): Promise<{
-        message: ISlackMessageEvent, content: Buffer|undefined}> {
+        message: ISlackMessageEvent}> {
         // Look up all messages at the exact timestamp we received.
         // This has microsecond granularity, so should return the message we want.
         const response = (await client.conversations.history({
@@ -411,17 +405,6 @@ export class SlackHookHandler extends BaseSlackHandler {
         const message = response.messages[0];
         log.debug("Looked up message from history as " + JSON.stringify(message));
 
-        if (message.subtype === "file_share") {
-            try {
-                message.file = await this.enablePublicSharing(message.file!, client);
-                const content = await this.fetchFileContent(message.file!);
-                return { message, content };
-            } catch (err) {
-                log.error("Failed to get file content: ", err);
-                // Fall through here and handle like a normal message.
-            }
-        }
-
-        return { message, content: undefined };
+        return { message };
     }
 }

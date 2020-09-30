@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression
-
 import { SlackClientFactory } from "../../SlackClientFactory";
 import { FakeDatastore } from "../utils/fakeDatastore";
 import { SlackTestApi } from "../utils/slackTestApi";
@@ -24,15 +22,14 @@ import { TeamEntry } from "../../datastore/Models";
 
 const testApi = new SlackTestApi();
 
-function createFactory() {
+const createFactory = () => {
     const fakeDatastore = new FakeDatastore();
     const calls: string[] = [];
     const updatePuppetCountCalls: {teamId : string, delta: number}[] = [];
     const factory = new SlackClientFactory(fakeDatastore, {
         slack_client_opts: testApi.opts,
         auth_interval_ms: 1,
-        }
-    , (method: string) => {
+    }, (method: string) => {
         calls.push(method);
     }, (teamId: string, delta: number) => {
         updatePuppetCountCalls.push({teamId, delta});
@@ -43,7 +40,7 @@ function createFactory() {
         updatePuppetCountCalls,
         ds: fakeDatastore
     };
-}
+};
 
 describe("SlackClientFactory", () => {
     before(async () => {

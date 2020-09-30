@@ -30,7 +30,9 @@ const RoomIdCommandOption = {
 
 export class AdminCommands {
     private yargs: yargs.Argv;
-    private commands = [
+    private commands: AdminCommand[];
+    constructor(private main: Main) {
+        this.commands = [
             this.list,
             this.show,
             this.link,
@@ -40,8 +42,8 @@ export class AdminCommands {
             this.stalerooms,
             this.doOauth,
             this.help,
-    ];
-    constructor(private main: Main) {
+        ];
+
         this.yargs = yargs.parserConfiguration({})
             .version(false)
             .help(false); // We provide our own help, and version is not required.
@@ -56,27 +58,31 @@ export class AdminCommands {
         });
     }
 
-    public get list() {
+    public get list(): AdminCommand {
         return new AdminCommand(
             "list",
             "list the linked rooms",
-            async ({respond, team, room}) => {
+            async ({respond, team, room}: {
+                respond: ResponseCallback,
+                team?: string,
+                room?: string,
+            }) => {
                 const quotemeta = (s: string) => s.replace(/\W/g, "\\$&");
                 let nameFilter: RegExp;
 
                 if (team) {
-                    nameFilter = new RegExp(`^${quotemeta(team as string)}\.#`);
+                    nameFilter = new RegExp(`^${quotemeta(team)}\\.#`);
                 }
 
                 let found = 0;
                 this.main.rooms.all.forEach((r) => {
                     const channelName = r.SlackChannelName || "UNKNOWN";
 
-                    if (nameFilter && !nameFilter.exec(channelName)) {
+                    if (nameFilter && !nameFilter.test(channelName)) {
                         return;
                     }
 
-                    if (room && !r.MatrixRoomId.includes(room as string)) {
+                    if (room && !r.MatrixRoomId.includes(room)) {
                         return;
                     }
 
@@ -85,7 +91,7 @@ export class AdminCommands {
                         channelName;
 
                     let status = r.getStatus();
-                    if (!status.match(/^ready/)) {
+                    if (!status.startsWith("ready")) {
                         status = status.toUpperCase();
                     }
 
@@ -110,16 +116,20 @@ export class AdminCommands {
         );
     }
 
-    public get show() {
+    public get show(): AdminCommand {
         return new AdminCommand(
             "show",
             "show a single connected room",
-            ({respond, channel_id, room}) => {
+            ({respond, channel_id, room}: {
+                respond: ResponseCallback,
+                channel_id?: string,
+                room?: string
+            }) => {
                 let bridgedRoom: BridgedRoom|undefined;
                 if (room) {
-                    bridgedRoom = this.main.rooms.getByMatrixRoomId(room as string);
+                    bridgedRoom = this.main.rooms.getByMatrixRoomId(room);
                 } else if (channel_id) {
-                    bridgedRoom = this.main.rooms.getBySlackChannelId(channel_id as string);
+                    bridgedRoom = this.main.rooms.getBySlackChannelId(channel_id);
                 } else {
                     respond("Require exactly one of room or channel_id");
                     return;
@@ -152,17 +162,25 @@ export class AdminCommands {
         );
     }
 
-    public get link() {
+    public get link(): AdminCommand {
         return new AdminCommand(
             "link",
             "connect a Matrix and a Slack room together",
-            async ({respond, room, channel_id, webhook_url, slack_bot_token}) => {
+            async ({respond, room, channel_id, webhook_url, slack_bot_token, team_id}: {
+                respond: ResponseCallback,
+                room?: string,
+                channel_id?: string,
+                webhook_url?: string,
+                slack_bot_token?: string,
+                team_id?: string,
+            }) => {
                 try {
                     const r = await this.main.actionLink({
-                        matrix_room_id: room as string,
-                        slack_bot_token: slack_bot_token as string,
-                        slack_channel_id: channel_id as string,
-                        slack_webhook_uri: webhook_url as string,
+                        matrix_room_id: room!,
+                        slack_bot_token,
+                        team_id,
+                        slack_channel_id: channel_id,
+                        slack_webhook_uri: webhook_url,
                     });
                     respond("Room is now " + r.getStatus());
                     if (r.SlackWebhookUri) {
@@ -189,6 +207,10 @@ export class AdminCommands {
                     alias: "t",
                     description: "Slack bot user token. Used with Slack bot user & Events api",
                 },
+                team_id: {
+                    alias: "T",
+                    description: "Slack team ID. Used with Slack bot user & Events api",
+                },
                 webhook_url: {
                     alias: "u",
                     description: "Slack webhook URL. Used with Slack outgoing hooks integration",
@@ -197,14 +219,17 @@ export class AdminCommands {
         );
     }
 
-    public get unlink() {
+    public get unlink(): AdminCommand {
         return new AdminCommand(
-            "unlink room",
+            "unlink",
             "disconnect a linked Matrix and Slack room",
-            async ({room, respond}) => {
+            async ({respond, room}: {
+                respond: ResponseCallback,
+                room?: string,
+            }) => {
                 try {
                     await this.main.actionUnlink({
-                        matrix_room_id: room as string,
+                        matrix_room_id: room!,
                         // slack_channel_name: channel,
                         // slack_channel_id: channel_id,
                     });
@@ -219,11 +244,18 @@ export class AdminCommands {
         );
     }
 
-    public get join() {
+    public get join(): AdminCommand {
         return new AdminCommand(
             "join room",
             "join a new room",
-            async ({room, respond}) => {
+            async ({respond, room}: {
+                respond: ResponseCallback,
+                room?: string,
+            }) => {
+                if (!room) {
+                    respond("No room provided");
+                    return;
+                }
                 await this.main.botIntent.join(room);
                 respond("Joined");
             },
@@ -233,17 +265,18 @@ export class AdminCommands {
         );
     }
 
-    public get leave() {
+    public get leave(): AdminCommand {
         return new AdminCommand(
             "leave room",
             "leave an unlinked room",
-            async ({room, respond}) => {
-                const roomId: string = room as string;
+            async ({respond, room}: {
+                respond: ResponseCallback,
+                room?: string,
+            }) => {
+                const roomId: string = room!;
                 const userIds = await this.main.listGhostUsers(roomId);
                 respond(`Draining ${userIds.length} ghosts from ${roomId}`);
-                await Promise.all(userIds.map((userId) => {
-                    return this.main.getIntent(userId).leave(roomId);
-                }));
+                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(roomId)));
                 await this.main.botIntent.leave(roomId);
                 respond("Drained");
             },
@@ -253,11 +286,11 @@ export class AdminCommands {
         );
     }
 
-    public get stalerooms() {
+    public get stalerooms(): AdminCommand {
         return new AdminCommand(
             "stalerooms",
             "list rooms the bot user is a member of that are unlinked",
-            async ({respond}) => {
+            async ({respond}: { respond: ResponseCallback }) => {
                 const roomIds = await this.main.listRoomsFor();
                 roomIds.forEach((id) => {
                     if (id === this.main.config.matrix_admin_room ||
@@ -270,20 +303,24 @@ export class AdminCommands {
         );
     }
 
-    public get doOauth() {
+    public get doOauth(): AdminCommand {
         return new AdminCommand(
             "oauth userId puppet",
             "generate an oauth url to bind your account with",
-            async ({userId, puppet, respond}) => {
+            async ({respond, userId, puppet}: {
+                respond: ResponseCallback,
+                userId?: string,
+                puppet?: boolean,
+            }) => {
                 if (!this.main.oauth2) {
                     respond("Oauth is not configured on this bridge");
                     return;
                 }
-                const token = this.main.oauth2.getPreauthToken(userId as string);
+                const token = this.main.oauth2.getPreauthToken(userId!);
                 const authUri = this.main.oauth2.makeAuthorizeURL(
                     token,
                     token,
-                    puppet as boolean,
+                    puppet,
                 );
                 respond(authUri);
             },
@@ -300,13 +337,16 @@ export class AdminCommands {
         );
     }
 
-    public get help() {
+    public get help(): AdminCommand {
         return new AdminCommand(
             "help [command]",
             "describes the commands available",
-            ({respond, command}) => {
+            ({respond, command}: {
+                respond: ResponseCallback,
+                command?: string,
+            }) => {
                 if (command) {
-                    const cmd = this[command as string] as AdminCommand;
+                    const cmd = this.commands.find((adminCommand) => (adminCommand.command.split(' ')[0] === command));
                     if (!cmd) {
                         respond("Command not found. No help can be provided.");
                         return;
@@ -320,7 +360,6 @@ export class AdminCommands {
             },
             {
                 command: {
-                    demandOption: false,
                     description: "Get help about a particular command",
                 },
             },
@@ -334,6 +373,7 @@ export class AdminCommands {
             try {
                 let matched = false;
                 this.yargs.parse(argv, {
+                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                     completed: (err) => { err ? reject(err) : resolve(true); },
                     matched: () => { matched = true; },
                     respond,

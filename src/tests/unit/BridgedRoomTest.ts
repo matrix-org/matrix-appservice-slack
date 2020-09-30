@@ -14,15 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression no-any
-
 import { BridgedRoom } from "../../BridgedRoom";
 
 describe("BridgedRoom", () => {
     it("constructs", () => {
-        const br = new BridgedRoom({} as any, {
+        new BridgedRoom({} as any, {
             inbound_id: "123456a",
             matrix_room_id: "!abcde:localhost",
+            slack_type: "unknown",
         });
     });
 });

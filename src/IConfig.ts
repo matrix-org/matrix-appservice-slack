@@ -19,6 +19,7 @@ limitations under the License.
 type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";
 import { ITeamSyncConfig } from "./TeamSyncer";
+import { AllowDenyConfig } from "./AllowDenyList";
 
 export const CACHING_DEFAULTS = {
     ghostUserCache: 100,
@@ -37,6 +38,11 @@ export interface IConfig {
         media_url?: string;
         max_upload_size?: number;
         appservice_port?: number;
+    };
+
+    encryption?: {
+        enabled: boolean;
+        pantalaimon_url: string;
     };
 
     tls?: {
@@ -93,10 +99,16 @@ export interface IConfig {
         limits?: {
             team_count?: number;
             room_count?: number;
+        };
+        channel_adl?: {
+            allow: string[];
+            deny: string[];
         }
     };
 
     puppeting?: {
         enabled: boolean;
+        onboard_users?: boolean;
+        direct_messages?: AllowDenyConfig;
     }
 }

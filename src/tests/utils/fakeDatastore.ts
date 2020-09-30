@@ -1,58 +1,68 @@
-import { MatrixUser } from "matrix-appservice-bridge";
-import { Datastore, UserEntry, RoomEntry, EventEntry, EventEntryExtra, TeamEntry, PuppetEntry, RoomType, SlackAccount } from "../../datastore/Models";
+import {
+    Datastore,
+    EventEntry,
+    EventEntryExtra,
+    PuppetEntry,
+    ReactionEntry,
+    RoomEntry,
+    RoomType,
+    SlackAccount,
+    TeamEntry,
+    UserEntry,
+} from "../../datastore/Models";
 import { SlackGhost } from "../../SlackGhost";
-import { BridgedRoom } from "../../BridgedRoom";
 
 export class FakeDatastore implements Datastore {
     constructor(public teams: TeamEntry[] = [], public usersInTeam: UserEntry[] = []) {
 
     }
 
-    async insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void> {
+    async insertAccount(): Promise<null> {
         throw new Error("Method not implemented.");
     }
 
-    async getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]> {
+    async getAccountsForMatrixUser(): Promise<SlackAccount[]> {
         throw new Error("Method not implemented.");
     }
 
-    async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+    async getAccountsForTeam(): Promise<SlackAccount[]> {
         throw new Error("Method not implemented.");
     }
 
-    async deleteAccount(userId: string, slackId: string): Promise<void> {
+    async deleteAccount(): Promise<null> {
         throw new Error("Method not implemented.");
     }
 
-    async deleteTeam(teamId: string): Promise<void> {
+    async deleteTeam(): Promise<null> {
         throw new Error("Method not implemented.");
     }
 
-    public async upsertUser(user: SlackGhost): Promise<void> {
+    public async upsertUser(user: SlackGhost): Promise<null> {
         this.usersInTeam.push(user.toEntry());
+        return null;
     }
 
     public async getUser(id: string): Promise<UserEntry | null> {
         return this.usersInTeam.find((i) => i.id === id) || null;
     }
 
-    public async getMatrixUser(userId: string): Promise<any> {
+    public async getMatrixUser(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async storeMatrixUser(user: MatrixUser): Promise<void> {
+    public async storeMatrixUser(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async getAllUsersForTeam(teamId: string): Promise<UserEntry[]> {
+    public async getAllUsersForTeam(): Promise<UserEntry[]> {
         return this.usersInTeam;
     }
 
-    public async upsertRoom(room: BridgedRoom): Promise<void> {
+    public async upsertRoom(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async deleteRoom(id: string): Promise<void> {
+    public async deleteRoom(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
@@ -60,23 +70,47 @@ export class FakeDatastore implements Datastore {
         throw Error("Method not implemented.");
     }
 
-    public async upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra | undefined): Promise<void>;
+    public async upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<null>;
 
-    public async upsertEvent(roomIdOrEntry: EventEntry): Promise<void>;
+    public async upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;
 
-    public async upsertEvent(roomId: any, eventId?: any, channelId?: any, ts?: any, extras?: any) {
+    public async upsertEvent(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry | null> {
+    public async getEventByMatrixId(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry | null> {
+    public async getEventBySlackId(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async upsertTeam(entry: TeamEntry) {
+    public async deleteEventByMatrixId(): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async upsertReaction(): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async getReactionByMatrixId(): Promise<ReactionEntry | null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async getReactionBySlackId(): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async deleteReactionByMatrixId(): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async deleteReactionBySlackId(): Promise<null> {
+        throw Error("Method not implemented.");
+    }
+
+    public async upsertTeam(entry: TeamEntry): Promise<void> {
         const idx = this.teams.findIndex((t) => t.id);
         if (idx === -1) {
             this.teams.push(entry);
@@ -86,30 +120,30 @@ export class FakeDatastore implements Datastore {
     }
 
     public async getTeam(teamId: string): Promise<TeamEntry | null> {
-        return this.teams.find((t) => t.id) || null;
+        return this.teams.find((t) => t.id === teamId) || null;
     }
 
     public async getAllTeams(): Promise<TeamEntry[]> {
         return this.teams;
     }
 
-    public async setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void> {
+    public async setPuppetToken(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string | null> {
+    public async getPuppetTokenBySlackId(): Promise<null> {
         return null;
     }
 
-    public async getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string | null> {
+    public async getPuppetTokenByMatrixId(): Promise<null> {
         return null;
     }
 
-    public async removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<void> {
+    public async removePuppetTokenByMatrixId(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]> {
+    public async getPuppetsByMatrixId(): Promise<PuppetEntry[]> {
         return [];
     }
 
@@ -117,11 +151,11 @@ export class FakeDatastore implements Datastore {
         return [];
     }
 
-    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<null> {
+    public async getPuppetMatrixUserBySlackId(): Promise<null> {
         return null;
     }
 
-    public async getUserAdminRoom(matrixId: string): Promise<null> {
+    public async getUserAdminRoom(): Promise<null> {
         return null;
     }
 
@@ -129,23 +163,23 @@ export class FakeDatastore implements Datastore {
         return null;
     }
 
-    public async setUserAdminRoom(matrixuser: string, roomid: string): Promise<void> {
+    public async setUserAdminRoom(): Promise<null> {
         throw Error("Method not implemented.");
     }
 
-    public async getActiveRoomsPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<Map<string, Map<RoomType, number>>> {
+    public async getActiveRoomsPerTeam(): Promise<Map<string, Map<RoomType, number>>> {
         return new Map();
     }
 
-    public async getActiveUsersPerTeam(activityThreshholdInDays?: number, historyLengthInDays?: number): Promise<Map<string, Map<boolean, number>>> {
+    public async getActiveUsersPerTeam(): Promise<Map<string, Map<boolean, number>>> {
         return new Map();
     }
 
-    public async upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void> {
-        return;
+    public async upsertActivityMetrics(): Promise<null> {
+        return null;
     }
 
-    public async getRoomCount() {
+    public async getRoomCount(): Promise<number> {
         return 0;
     }
 }

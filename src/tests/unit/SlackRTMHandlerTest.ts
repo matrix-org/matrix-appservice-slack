@@ -14,16 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression
-
-import { MatrixUser } from "../../MatrixUser";
 import { Main } from "../../Main";
 import { expect } from "chai";
 import { SlackRTMHandler } from "../../SlackRTMHandler";
 import { FakeMain } from "../utils/fakeMain";
 import { EventEmitter } from "events";
 
-function createHandler() {
+const createHandler = () => {
     const fakeMain = new FakeMain();
     const handler: any = new SlackRTMHandler(fakeMain as unknown as Main);
     handler.createRtmClient = () => {
@@ -33,7 +30,7 @@ function createHandler() {
         return rtm;
     };
     return { handler };
-}
+};
 
 describe("SlackRTMHandler", () => {
     // https://github.com/matrix-org/matrix-appservice-slack/issues/212
@@ -48,7 +45,7 @@ describe("SlackRTMHandler", () => {
         const client = handler._rtmClient;
         const messages = ["Test 1", "Test 2", "Test 3", "Test 4", "Test 5"];
         let wasCalled = 0;
-        const allDone = new Promise((resolve, reject) => {
+        const allDone = new Promise((resolve) => {
             handler.handleRtmMessage = async (a, b, c, e) => {
                 wasCalled++;
                 if (wasCalled === 5) {

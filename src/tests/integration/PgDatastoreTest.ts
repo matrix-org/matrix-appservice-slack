@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import { Logging } from "matrix-appservice-bridge";
-import * as pgInit from "pg-promise";
+import pgInit from "pg-promise";
 import { PgDatastore } from "../../datastore/postgres/PgDatastore";
 import { expect } from "chai";
 import { doDatastoreTests } from "./SharedDatastoreTests";
@@ -29,7 +29,6 @@ const POSTGRES_URL_DB = `${POSTGRES_URL}/${DATABASE}`;
 
 const pgp = pgInit();
 describeFnl("PgDatastore", () => {
-    // tslint:disable-next-line: no-any
     let superDb: pgInit.IDatabase<any>;
     let ds: PgDatastore;
     before(async () => {
@@ -49,17 +48,90 @@ describeFnl("PgDatastore", () => {
         }
     });
 
-    it("should be able to exec the current schema set succesfully", async () => {
+    it("should be able to exec the current schema set successfully", async () => {
         await ds.ensureSchema();
         const { version } = (await ds.postgresDb.one(`SELECT version FROM schema`));
         expect(version).to.equal(PgDatastore.LATEST_SCHEMA);
     });
 
     doDatastoreTests(() => ds, async () => {
-        await ds.postgresDb.none(`DELETE FROM rooms`); // Clean up rooms.
+        await ds.postgresDb.none("DELETE FROM rooms");
+    });
+
+    describe("reactions", () => {
+        afterEach(async () => {
+            await ds.postgresDb.none("DELETE FROM reactions");
+        });
+
+        it("should insert and retrieve a reaction by its Matrix identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds.upsertReaction(entry);
+            const reaction = await ds.getReactionByMatrixId(entry.roomId, entry.eventId);
+            expect(reaction).to.deep.equal(entry);
+        });
+        it("should insert and retrieve a reaction by its Slack identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds.upsertReaction(entry);
+            const reaction = await ds.getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            expect(reaction).to.deep.equal(entry);
+        });
+        it("should insert and delete a reaction by its Matrix identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds.upsertReaction(entry);
+            await ds.deleteReactionByMatrixId(entry.roomId, entry.eventId);
+            const reaction = await ds.getReactionByMatrixId(entry.roomId, entry.eventId);
+            expect(reaction).to.be.null;
+        });
+        it("should insert and delete a reaction by its Slack identifiers", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds.upsertReaction(entry);
+            await ds.deleteReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            const reaction = await ds.getReactionBySlackId(entry.slackChannelId, entry.slackMessageTs, entry.slackUserId, entry.reaction);
+            expect(reaction).to.be.null;
+        });
+        it("should not throw when an reaction is upserted twice", async () => {
+            const entry = {
+                roomId: "!foo:bar",
+                eventId: "$foo:bar",
+                slackChannelId: "F00",
+                slackMessageTs: "BAR",
+                slackUserId: "U010AAR88B1",
+                reaction: "hugging_face",
+            };
+            await ds.upsertReaction(entry);
+            await ds.upsertReaction(entry);
+        });
     });
 
     after(async () => {
-        Logging.configure({console: "silent"});
+        Logging.configure({console: "off"});
     });
 });

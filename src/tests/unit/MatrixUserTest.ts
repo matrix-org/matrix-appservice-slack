@@ -14,8 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression
-
 import { MatrixUser } from "../../MatrixUser";
 import { Main } from "../../Main";
 import { expect } from "chai";
@@ -45,7 +43,7 @@ const getStoredEventGenerator = (users: {
         }
         // Return an array of all join events
         return events;
-    }
+    };
 };
 
 describe("MatrixUser", () => {

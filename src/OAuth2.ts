@@ -64,11 +64,11 @@ export class OAuth2 {
         // Precompile oauth templates
     }
 
-    public async compileTemplates() {
+    public async compileTemplates(): Promise<void> {
         this.oauthTemplate = compile(await fs.readFile(path.resolve(this.templateFile), "utf-8"));
     }
 
-    public makeAuthorizeURL(token: string, state: string, isPuppeting: boolean = false): string {
+    public makeAuthorizeURL(token: string, state: string, isPuppeting = false): string {
         const redirectUri = this.makeRedirectURL(token);
         const scopes = isPuppeting ? PUPPET_SCOPES : REQUIRED_SCOPES;
 
@@ -83,7 +83,7 @@ export class OAuth2 {
     }
 
     public async exchangeCodeForToken(code: string, token: string)
-    : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
+        : Promise<{ response: OAuthAccessResponse, access_scopes: string[]} > {
         const redirectUri = this.makeRedirectURL(token);
         this.main.incRemoteCallCounter("oauth.access");
         const response = (await this.client.oauth.access({
@@ -124,7 +124,13 @@ export class OAuth2 {
         return v || null;
     }
 
-    public getHTMLForResult(success: boolean, code: number, userId: string|null, reason?: "error"|"limit-reached"|"token-not-known") {
+
+    public getHTMLForResult(
+        success: boolean,
+        code: number,
+        userId: string|null,
+        reason?: "error"|"limit-reached"|"token-not-known"
+    ): string {
         return this.oauthTemplate.render({
             success,
             userId,
@@ -134,6 +140,6 @@ export class OAuth2 {
     }
 
     private makeRedirectURL(token: string): string {
-        return `${this.redirectPrefix}${token}/authorize`;
+        return `${this.redirectPrefix.replace(/\/+$/, "")}/${token}/authorize`;
     }
 }

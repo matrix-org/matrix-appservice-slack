@@ -1,7 +1,6 @@
 import { IDatabase } from "pg-promise";
 
-// tslint:disable-next-line: no-any
-export async function runSchema(db: IDatabase<any>) {
+export const runSchema = async(db: IDatabase<unknown>): Promise<void> => {
     // Create schema
     await db.none(`CREATE TABLE schema (
         version	INTEGER UNIQUE NOT NULL
@@ -37,4 +36,4 @@ export async function runSchema(db: IDatabase<any>) {
         extras TEXT,
         CONSTRAINT cons_events_unique UNIQUE(eventid, roomid, slackchannel, slackts)
     );`);
-}
+};

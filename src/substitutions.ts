@@ -18,7 +18,7 @@ import { Logging } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
-import * as escapeStringRegexp from "escape-string-regexp";
+import escapeStringRegexp from "escape-string-regexp";
 
 const log = Logging.get("substitutions");
 
@@ -29,9 +29,9 @@ const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\
  * Will return the emoji's name within ':'.
  * @param name The emoji's name.
  */
-export function getFallbackForMissingEmoji(name): string {
-    return `:${name}:`;
-}
+export const getFallbackForMissingEmoji = (name: string): string => (
+    `:${name}:`
+);
 
 interface PillItem {
     id: string;
@@ -41,11 +41,12 @@ interface PillItem {
 export interface IMatrixToSlackResult {
     link_names: boolean;  // This no longer works for nicks but is needed to make @channel work.
     text?: string;
-    username: string;
+    username?: string;
     attachments?: [{
         fallback: string,
         image_url: string,
     }];
+    encrypted_file?: string;
 }
 
 class Substitutions {
@@ -86,9 +87,14 @@ class Substitutions {
      * @param main the toplevel main instance
      * @return An object which can be posted as JSON to the Slack API.
      */
-    // tslint:disable-next-line: no-any
     public async matrixToSlack(event: any, main: Main, teamId: string): Promise<IMatrixToSlackResult|null> {
-        if (!event || !event.content || !event.sender) {
+        if (
+            !event ||
+            typeof event !== 'object' ||
+            !event.content ||
+            typeof event.content !== 'object' ||
+            typeof event.sender !== "string"
+        ) {
             return null;
         }
         const msgType = event.content.msgtype || "m.text";
@@ -112,7 +118,7 @@ class Substitutions {
             body = `_${body}_`;
         }
 
-        // replace riot "pill" behavior to "@" mention for slack users
+        // replace Element "pill" behavior to "@" mention for slack users
         const format = event.content.format || "org.matrix.custom.html";
         const htmlString: string|undefined = event.content.formatted_body;
         let messageHadPills = false;
@@ -131,7 +137,7 @@ class Substitutions {
                     if (room) {
                         // aliases are faily unique in form, so we can replace these easily enough
                         const aliasRegex = new RegExp(escapeStringRegexp(alias.text), "g");
-                        body = body.replace(aliasRegex, `<#${room.SlackChannelId!}>`);
+                        body = body.replace(aliasRegex, `<#${room.SlackChannelId}>`);
                     }
                 } catch (ex) {
                     // We failed the lookup so just continue
@@ -176,7 +182,13 @@ class Substitutions {
             // in this case.
             return null;
         }
-        const url = main.getUrlForMxc(event.content.url);
+        const url = main.getUrlForMxc(event.content.url, main.encryptRoom);
+        if (main.encryptRoom) {
+            return {
+                encrypted_file: url,
+                link_names: false,
+            };
+        }
         if (msgType === "m.image") {
             // Images are special, we can send those as attachments.
             return {
@@ -320,38 +332,38 @@ export default substitutions;
  * @param room_id The room the message was sent in.
  * @return The string with replacements performed.
  */
-async function plainTextSlackMentions(main: Main, body: string, teamId: string) {
+const plainTextSlackMentions = async(main: Main, body: string, teamId: string) => {
     let users = await main.datastore.getAllUsersForTeam(teamId);
     users = users.filter((u) => u.display_name && u.display_name.length > 0);
     users.sort((u1, u2) => u2.display_name.length - u1.display_name.length);
     for (const user of users) {
         const displayName = `@${user.display_name}`;
         if (body.includes(displayName)) {
-            const userRegex = new RegExp(`${escapeStringRegexp(displayName)}(?=$|\s)`, "g");
+            const userRegex = new RegExp(`${escapeStringRegexp(displayName)}(?=$|s)`, "g");
             body = body.replace(userRegex, `<@${user.slack_id}>`);
         }
     }
     return body;
-}
+};
 
 // These functions are copied and modified from the Gitter AS
 // idx counts backwards from the end of the string; 0 is final character
-function rcharAt(s: string, idx: number) {
-    return s.charAt(s.length - 1 - idx);
-}
+const rcharAt = (s: string, idx: number) => (
+    s.charAt(s.length - 1 - idx)
+);
 
 /**
  * Gets the first word in a given string.
  */
-function firstWord(s: string): string {
+const firstWord = (s: string): string => {
     const groups = s.match(/^\s*\S+/);
     return groups ? groups[0] : "";
-}
+};
 
 /**
  * Gets the final word in a given string.
  */
-function finalWord(s: string): string {
+const finalWord = (s: string): string => {
     const groups = s.match(/\S+\s*$/);
     return groups ? groups[0] : "";
-}
+};

@@ -1,4 +1,3 @@
-
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
@@ -15,15 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// tslint:disable: no-unused-expression no-any
-
 import { SlackGhostStore } from "../../SlackGhostStore";
 import { SlackRoomStore } from "../../SlackRoomStore";
 import { FakeDatastore } from "../utils/fakeDatastore";
 import { IConfig } from "../../IConfig";
 import { expect } from "chai";
+import { Bridge, Intent } from "matrix-appservice-bridge";
 
-function getGhostStore() {
+const getGhostStore = () => {
     const rooms = new SlackRoomStore();
     const datastore = new FakeDatastore([{
         id: "faketeam",
@@ -35,31 +33,32 @@ function getGhostStore() {
         status: "ok",
         user_id: "fooo",
     }]);
-    const intentHolder: { intent: any } = { intent: null };
+    const intentHolder: { intent } = { intent: null };
+    const fakeBridge = {
+        getIntent: () => {
+            const intent = {
+                isRegistered: false,
+                ensureRegistered: () => { intent.isRegistered = true; },
+            };
+            intentHolder.intent = intent;
+            return intent as unknown as Intent;
+        },
+    } as unknown as Bridge;
     const store = new SlackGhostStore(rooms, datastore, {
         homeserver: {
             server_name: "example.com",
         },
         username_prefix: "_slack_",
-    } as IConfig, {
-        getIntent: () => {
-            const intent = {
-                isRegistered: false,
-                _ensureRegistered: () => { intent.isRegistered = true; },
-            };
-            intentHolder.intent = intent;
-            return intent;
-        },
-    });
+    } as IConfig, fakeBridge);
     return {store, datastore, intentHolder};
-}
+};
 
 describe("SlackGhostStore", () => {
     it("constructs", () => {
-       getGhostStore();
+        getGhostStore();
     });
     it("getForSlackMessage should get a ghost with a team_domain and team_id", async () => {
-        const {store, datastore, intentHolder} = getGhostStore();
+        const {store, intentHolder} = getGhostStore();
         const user = await store.getForSlackMessage({
             team_domain: "fake-team",
             user_id: "foouser",
@@ -71,7 +70,7 @@ describe("SlackGhostStore", () => {
         expect(user.intent).to.equal(intentHolder.intent);
     });
     it("getForSlackMessage should get a ghost with just a team_domain", async () => {
-        const {store, datastore, intentHolder} = getGhostStore();
+        const {store, intentHolder} = getGhostStore();
         const user = await store.getForSlackMessage({
             team_domain: "fake-team",
             user_id: "foouser",
@@ -83,7 +82,7 @@ describe("SlackGhostStore", () => {
         expect(user.intent).to.equal(intentHolder.intent);
     });
     it("getForSlackMessage should get a ghost with just a team_id", async () => {
-        const {store, datastore, intentHolder} = getGhostStore();
+        const {store, intentHolder} = getGhostStore();
         const user = await store.getForSlackMessage({
             user_id: "foouser",
         }, "faketeam");

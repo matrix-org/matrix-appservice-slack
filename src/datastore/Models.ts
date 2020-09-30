@@ -16,6 +16,7 @@ limitations under the License.
 import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
 import { MatrixUser } from "matrix-appservice-bridge";
+import { MatrixUser as BridgeMatrixUser } from "../MatrixUser";
 
 export interface RoomEntry {
     id: string;
@@ -52,6 +53,15 @@ export interface EventEntryExtra {
     slackThreadMessages?: string[];
 }
 
+export interface ReactionEntry {
+    eventId: string;
+    roomId: string;
+    slackChannelId: string;
+    slackMessageTs: string;
+    slackUserId: string;
+    reaction: string;
+}
+
 export type TeamStatus = "ok"|"archived"|"bad_auth";
 
 export interface TeamEntry {
@@ -83,47 +93,55 @@ export type RoomType = "user" | "channel";
 
 export interface Datastore {
     // Users
-    upsertUser(user: SlackGhost): Promise<void>;
+    upsertUser(user: SlackGhost): Promise<null>;
     getUser(id: string): Promise<UserEntry|null>;
     getMatrixUser(userId: string): Promise<MatrixUser|null>;
-    storeMatrixUser(user: MatrixUser): Promise<void>;
+    storeMatrixUser(user: MatrixUser): Promise<null>;
     getAllUsersForTeam(teamId: string): Promise<UserEntry[]>;
 
-    insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<void>;
+    insertAccount(userId: string, slackId: string, teamId: string, accessToken: string): Promise<null>;
     getAccountsForMatrixUser(userId: string): Promise<SlackAccount[]>;
     getAccountsForTeam(teamId: string): Promise<SlackAccount[]>;
-    deleteAccount(userId: string, slackId: string): Promise<void>;
+    deleteAccount(userId: string, slackId: string): Promise<null>;
 
     // Rooms
-    upsertRoom(room: BridgedRoom): Promise<void>;
-    deleteRoom(id: string): Promise<void>;
+    upsertRoom(room: BridgedRoom): Promise<null>;
+    deleteRoom(id: string): Promise<null>;
     getAllRooms(): Promise<RoomEntry[]>;
 
     // Events
-    upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<void>;
-    upsertEvent(roomIdOrEntry: EventEntry): Promise<void>;
+    upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<null>;
+    upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;
     getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null>;
+    deleteEventByMatrixId(roomId: string, eventId: string): Promise<null>;
+
+    // Reactions
+    upsertReaction(entry: ReactionEntry): Promise<null>;
+    getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null>;
+    getReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<ReactionEntry|null>;
+    deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null>;
+    deleteReactionBySlackId(channelId: string, messageTs: string, userId: string, reaction: string): Promise<null>;
 
     // Teams
     upsertTeam(entry: TeamEntry);
     getTeam(teamId: string): Promise<TeamEntry|null>;
     getAllTeams(): Promise<TeamEntry[]>;
-    deleteTeam(teamId: string): Promise<void>;
+    deleteTeam(teamId: string): Promise<null>;
 
     // Puppets
-    setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<void>;
+    setPuppetToken(teamId: string, slackUser: string, matrixId: string, token: string): Promise<null>;
     getPuppetTokenBySlackId(teamId: string, slackId: string): Promise<string|null>;
     getPuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<string|null>;
     getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<string|null>;
-    removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<void>;
+    removePuppetTokenByMatrixId(teamId: string, matrixId: string): Promise<null>;
     getPuppetsByMatrixId(userId: string): Promise<PuppetEntry[]>;
     getPuppetedUsers(): Promise<PuppetEntry[]>;
 
     // Admin rooms
     getUserAdminRoom(matrixId: string): Promise<string|null>;
     getUserForAdminRoom(roomId: string): Promise<string|null>;
-    setUserAdminRoom(matrixuser: string, roomId: string): Promise<void>;
+    setUserAdminRoom(matrixuser: string, roomId: string): Promise<null>;
 
     // Metrics
     /**
@@ -145,7 +163,7 @@ export interface Datastore {
      * @param room The room an action was taken in
      * @param date The date of the action (defaults to the current date)
      */
-    upsertActivityMetrics(user: MatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<void>;
+    upsertActivityMetrics(user: BridgeMatrixUser | SlackGhost, room: BridgedRoom, date?: Date): Promise<null>;
 
     /**
      * Get the number of connected rooms on this instance.

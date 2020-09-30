@@ -21,12 +21,16 @@ import * as path from "path";
 
 const cli = new Cli({
     bridgeConfig: {
+        defaults: {},
         affectsRegistration: true,
         schema: path.join(__dirname, "../config/slack-config-schema.yaml"),
     },
     registrationPath: "slack-registration.yaml",
-    generateRegistration(reg, callback) {
-        const config = cli.getConfig();
+    generateRegistration: (reg, callback) => {
+        const config = cli.getConfig() as IConfig|null;
+        if (!config) {
+            throw Error('Config not ready');
+        }
         reg.setId(AppServiceRegistration.generateToken());
         reg.setHomeserverToken(AppServiceRegistration.generateToken());
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
@@ -34,11 +38,16 @@ const cli = new Cli({
         reg.addRegexPattern("users", `@${config.username_prefix}.*:${config.homeserver.server_name}`, true);
         callback(reg);
     },
-    run(port: number, config: IConfig, registration: any) {
+    run: (cliPort: number, rawConfig: Record<string, undefined>|null, registration: any) => {
+        const config = rawConfig as IConfig|null;
+        if (!config) {
+            throw Error('Config not ready');
+        }
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
+        // Format config
         const main = new Main(config, registration);
-        main.run(port).then(() => {
+        main.run(cliPort).then((port) => {
             log.info("Matrix-side listening on port", port);
         }).catch((ex) => {
             log.error("Failed to start:", ex);
