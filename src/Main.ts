@@ -153,7 +153,7 @@ export class Main {
         }
 
         let bridgeStores = {};
-        const usingNeDB = config.db === undefined;
+        const usingNeDB = config.db === undefined || config.db?.engine === "nedb";
         if (usingNeDB) {
             const dbdir = config.dbdir || "";
             const URL = "https://github.com/matrix-org/matrix-appservice-slack/blob/master/docs/datastores.md";
