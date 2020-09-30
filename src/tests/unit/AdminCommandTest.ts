@@ -130,11 +130,12 @@ describe("AdminCommand", () => {
                     },
                 },
             );
-            expect(commad.simpleHelp()).to.equal("help [command] --other_flag OTHER_FLAG [--flag FLAG] - describes the commands available");
+            expect(command.simpleHelp()).to.equal("help [command] --other_flag OTHER_FLAG [--flag FLAG] - describes the commands available");
         });
         it("for the complex link command", () => {
             expect(LINK_COMMAND.simpleHelp()).to.equal(
-                "link --room ROOM [--channel_id CHANNEL_ID] [--slack_bot_token SLACK_BOT_TOKEN] [--webhook_url WEBHOOK_URL] - connect a Matrix and a Slack room together"
+                "link --room ROOM [--channel_id CHANNEL_ID] [--slack_bot_token SLACK_BOT_TOKEN] " +
+                "[--webhook_url WEBHOOK_URL] - connect a Matrix and a Slack room together"
             );
         });
     });

@@ -18,7 +18,7 @@ import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
-import { Logging, MatrixUser } from "matrix-appservice-bridge";
+import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -41,8 +41,8 @@ const pgp: IMain = pgInit({
 
 const log = Logging.get("PgDatastore");
 
-export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 9;
+export class PgDatastore implements Datastore, ClientEncryptionStore {
+    public static readonly LATEST_SCHEMA = 10;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -469,6 +469,32 @@ export class PgDatastore implements Datastore {
             teamData.set(activeUser.remote, (teamData.get(activeUser.remote) || 0) + 1);
         });
         return usersByTeamAndRemote;
+    }
+
+    public async getStoredSession(userId: string): Promise<ClientEncryptionSession|null> {
+        log.debug(`getStoredSession: ${userId}`);
+        const result = await this.postgresDb.oneOrNone(
+            "SELECT device_id, access_token FROM encryption_sessions WHERE user_id = ${userId}",
+            {userId}
+        );
+        if (!result) {
+            return null;
+        }
+        return {
+            userId,
+            accessToken: result.access_token,
+            deviceId: result.device_id,
+        };
+    }
+
+    public async setStoredSession(session: ClientEncryptionSession) {
+        const params = {
+            user_id: session.userId,
+            access_token: session.accessToken,
+            device_id: session.deviceId,
+        };
+        const statement = PgDatastore.BuildUpsertStatement("encryption_sessions", ["user_id"], [params]);
+        await this.postgresDb.none(statement, params);
     }
 
     public async getRoomCount(): Promise<number> {

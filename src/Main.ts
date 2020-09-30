@@ -16,7 +16,7 @@ limitations under the License.
 
 import {
     Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
-    Logging, Intent, UserMembership } from "matrix-appservice-bridge";
+    Logging, Intent, UserMembership, PresenceEvent } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -110,7 +110,6 @@ export class Main {
     private stateStorage: StateLookup|null = null;
 
     private slackHookHandler?: SlackHookHandler;
-    private slackRtm?: SlackRTMHandler;
     private metrics?: {
         prometheus: PrometheusMetrics;
         metricActiveRooms: Gauge<string>;
@@ -123,6 +122,7 @@ export class Main {
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
     public readonly allowDenyList: AllowDenyList;
+    public readonly slackRtm?: SlackRTMHandler;
 
     private provisioner: Provisioner;
 
@@ -176,16 +176,50 @@ export class Main {
             };
         }
 
+        if (config.db?.engine === "postgres") {
+            // Need to create this early for encryption support
+            const postgresDb = new PgDatastore(config.db.connectionString);
+            this.datastore = postgresDb;
+        }
+
+        if (config.encryption?.enabled && config.db?.engine !== "postgres") {
+            throw Error('Encrypted bridge support only works with PostgreSQL.');
+        }
+
         this.bridge = new Bridge({
             controller: {
                 onEvent: async(request) => {
                     const ev = request.getData();
-                    void this.stateStorage?.onEvent(ev);
+                    if (ev.state_key) {
+                        await this.stateStorage?.onEvent({
+                            ...ev,
+                            state_key: ev.state_key as string,
+                        });
+                    }
                     this.onMatrixEvent(ev).then(() => {
                         log.info(`Handled ${ev.event_id} (${ev.room_id})`);
                     }).catch((ex) => {
                         log.error(`Failed to handle ${ev.event_id} (${ev.room_id})`, ex);
                     });
+                },
+                onEphemeralEvent: async request => {
+                    const ev = request.getData();
+                    try {
+                        if (ev.type === "m.typing") {
+                            const room = this.rooms.getByMatrixRoomId(ev.room_id);
+                            if (room) {
+                                await room.onMatrixTyping(ev.content.user_ids);
+                            }
+                            log.debug(`Handled typing event for ${ev.room_id}`);
+                        } else if (ev.type === "m.presence") {
+                            await this.onMatrixPresence(ev);
+                            log.debug(`Handled presence for ${ev.sender} (${ev.content.presence})`);
+                        }
+                        // Slack has no concept of receipts, we can't bridge those.
+                    } catch (ex) {
+                        log.error(`Failed to handle ephemeral event`, ex);
+                    }
+
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
             },
@@ -200,6 +234,10 @@ export class Main {
             registration,
             ...bridgeStores,
             disableContext: true,
+            bridgeEncryption: config.encryption?.enabled ? {
+                homeserverUrl: config.encryption.pantalaimon_url,
+                store: this.datastore as PgDatastore,
+            } : undefined,
         });
 
         this.provisioner = new Provisioner(this, this.bridge);
@@ -369,9 +407,15 @@ export class Main {
         return this.metrics ? this.metrics.prometheus.startTimer(name, labels) : () => {};
     }
 
-    public getUrlForMxc(mxcUrl: string): string {
-        const hs = this.config.homeserver;
-        return `${(hs.media_url || hs.url)}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
+    public getUrlForMxc(mxcUrl: string, local = false): string {
+        // Media may be encrypted, use this.
+        let baseUrl = this.config.homeserver.url;
+        if (this.config.encryption?.enabled && local) {
+            baseUrl = this.config.encryption?.pantalaimon_url;
+        } else if (this.config.homeserver.media_url) {
+            baseUrl = this.config.homeserver.media_url;
+        }
+        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
     }
 
     public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
@@ -854,11 +898,7 @@ export class Main {
     private async applyBotProfile() {
         log.info("Ensuring the bridge bot is registered");
         const intent = this.botIntent;
-        // TODO: Expose these
-        // The bot believes itself to always be registered, even when it isn't.
-        (intent as unknown as any).opts.registered = false;
-        await (intent as unknown as any)._ensureRegistered();
-        // https://github.com/matrix-org/matrix-appservice-bridge/pull/232
+        await intent.ensureRegistered(true);
         const profile = await intent.getProfileInfo(this.botUserId, null as any);
         if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile?.displayname) {
             await intent.setDisplayName(this.config.bot_profile?.displayname);
@@ -883,9 +923,9 @@ export class Main {
 
         const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
         if (dbEngine === "postgres") {
-            const postgresDb = new PgDatastore(this.config.db!.connectionString);
-            await postgresDb.ensureSchema();
-            this.datastore = postgresDb;
+            // We create this in the constructor because we need it for encryption
+            // support.
+            await (this.datastore as PgDatastore).ensureSchema();
         } else if (dbEngine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
@@ -1381,6 +1421,20 @@ export class Main {
         return { deleted: true };
     }
 
+    public async getClientForPrivateChannel(teamId: string, roomId: string): Promise<WebClient|null> {
+        // This only works for private rooms
+        const bot = this.bridge.getBot();
+        const members = Object.keys(await bot.getJoinedMembers(roomId));
+
+        for (const matrixId of members) {
+            const client = await this.clientFactory.getClientForUser(teamId, matrixId);
+            if (client) {
+                return client;
+            }
+        }
+        return null;
+    }
+
     public async killBridge(): Promise<void> {
         log.info("Killing bridge");
         if (this.metricsCollectorInterval) {
@@ -1393,6 +1447,10 @@ export class Main {
         log.info("Closing appservice");
         await this.appservice.close();
         log.info("Bridge killed");
+    }
+
+    public get encryptRoom() {
+        return this.config.encryption?.enabled;
     }
 
     private async onRoomUpgrade(oldRoomId: string, newRoomId: string) {
@@ -1409,6 +1467,20 @@ export class Main {
             log.info("Migrating admin room");
             await this.datastore.setUserAdminRoom(adminRoomUser, newRoomId);
         } // Otherwise, not a known room.
+    }
+
+    private async onMatrixPresence(ev: PresenceEvent) {
+        log.debug(`Presence for ${ev.sender}`, ev);
+        const presence = ev.content.presence === "online" ? "auto" : "away";
+        const clients = await this.clientFactory.getClientsForUser(ev.sender);
+        for (const client of clients) {
+            log.debug(`Set presece of user on Slack to ${presence}`);
+            await client.users.setPresence({
+                presence,
+            });
+            // TODO: We need to bridge the status_msg somehow, but nothing in Slack
+            // really fits.
+        }
     }
 
     private onHealthProbe(_, res: Response) {

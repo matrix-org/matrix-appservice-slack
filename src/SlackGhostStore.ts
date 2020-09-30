@@ -90,7 +90,7 @@ export class SlackGhostStore {
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
         // TODO: Expose this
-        await (intent as unknown as any)._ensureRegistered();
+        await (intent as unknown as any).ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {

@@ -4,13 +4,13 @@ Features
 The list below is a exhuastive list of features that the bridge supports.
 
 Symbols:
-- 🇵 means that the feature is available to puppeted users.
-- 🧪 means that the feature is experimental.
+- 🇵 means that the feature is available to puppeted users.  
+- 🧪 means that the feature is experimental.  
 
 Notes:
-- [1] - Users who are not puppeted are not able to send reactions as themselves.
-- [2] - Matrix replies appear as threads on Slack. Slack threads appear as replies on Matrix.
-- [3] - Edits are not currently supported if the source Slack message included an image.
+- [1] Users who are not puppeted are not able to send reactions as themselves.  
+- [2] Matrix replies appear as threads on Slack. Slack threads appear as replies on Matrix.  
+- [3] Edits are not currently supported if the source Slack message included an image.  
 
 ## Channel Types
 
@@ -31,7 +31,7 @@ These types are supported in both directions.
 - Redactions
 - Edits [3]
 - Threading / Replies [2]
-- Encrypted Messages 🧪
+- [Encrypted Messages](./bridge-encryption) 🧪
 
 ## Membership
 

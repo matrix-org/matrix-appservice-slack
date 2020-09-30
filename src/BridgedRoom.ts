@@ -23,7 +23,7 @@ import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent, ISlackFile } from "./BaseSlackHandler";
 import { WebAPIPlatformError, WebClient } from "@slack/web-api";
 import { ChatUpdateResponse,
-    ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse } from "./SlackResponses";
+    ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse, FilesSharedPublicURLResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("BridgedRoom");
@@ -50,7 +50,7 @@ interface ISlackChatMessagePayload extends IMatrixToSlackResult {
 }
 
 const RECENT_MESSAGE_MAX = 10;
-const PUPPET_INCOMING_DELAY_MS = 1500;
+const PUPPET_INCOMING_DELAY_MS = 5000;
 
 
 /**
@@ -161,6 +161,9 @@ export class BridgedRoom {
 
     private slackSendLock: Promise<void> = Promise.resolve();
 
+    private waitingForJoin?: Promise<void>;
+    private waitingForJoinResolve?: () => void;
+
     /**
      * True if this instance has changed from the version last read/written to the RoomStore.
      */
@@ -189,6 +192,14 @@ export class BridgedRoom {
         this.isPrivate = opts.is_private;
         this.puppetOwner = opts.puppet_owner;
         this.dirty = true;
+    }
+
+    public waitForJoin() {
+        if (this.main.encryptRoom && (this.SlackType === "im" || this.SlackType === "group")) {
+            log.debug(`Will wait for user to join room, since room type is a ${this.SlackType}`);
+            // This might be an encrypted message room. Delay sending until at least one matrix user joins.
+            this.waitingForJoin = new Promise((resolve) => this.waitingForJoinResolve = resolve);
+        }
     }
 
     public updateUsingChannelInfo(channelInfo: ConversationsInfoResponse): void {
@@ -373,7 +384,7 @@ export class BridgedRoom {
     }
 
     public async onMatrixEdit(message: any): Promise<boolean> {
-        const clientForRequest = await this.getClientForRequest(message.user_id);
+        const clientForRequest = await this.getClientForRequest(message.sender);
         if (!clientForRequest) {
             log.warn("No client to handle edit");
             return false;
@@ -428,16 +439,49 @@ export class BridgedRoom {
     }
 
     public async onMatrixMessage(message: any): Promise<boolean> {
-        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.user_id);
+        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, message.sender);
         if (!this.slackWebhookUri && !this.botClient && !puppetedClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
-        const user = this.main.getOrCreateMatrixUser(message.user_id);
+        const user = this.main.getOrCreateMatrixUser(message.sender);
         message = await this.stripMatrixReplyFallback(message);
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
         if (!matrixToSlackResult) {
             // Could not handle content, dropped.
             log.warn(`Dropped ${message.event_id}, message content could not be identified`);
             return false;
+        }
+        if (matrixToSlackResult.encrypted_file) {
+            if (!slackClient) {
+                // No client
+                return false;
+            }
+            log.debug("Room might be encrypted, uploading file to Slack");
+            // Media might be encrypted, upload it to Slack to be safe.
+            const response = await axios.get<ArrayBuffer>(matrixToSlackResult.encrypted_file, {
+                headers: {
+                    Authorization: `Bearer ${slackClient.token}`,
+                },
+                responseType: "arraybuffer",
+            });
+            if (response.status !== 200) {
+                throw Error('Failed to get file');
+            }
+
+            const fileResponse = (await slackClient.files.upload({
+                file: Buffer.from(response.data),
+                filename: message.content.body,
+                channels: this.slackChannelId,
+            })) as FilesSharedPublicURLResponse;
+
+            // The only way to dedupe these is to fetch the ts's from the response
+            // of this upload.
+            if (fileResponse.file.shares) {
+                Object.values(fileResponse.file.shares.private || {}).concat(
+                    Object.values(fileResponse.file.shares.public || {})
+                ).forEach(share =>
+                    this.addRecentSlackMessage(share[0].ts)
+                );
+            }
         }
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
@@ -606,13 +650,20 @@ export class BridgedRoom {
     }
 
     public async onMatrixJoin(userId: string): Promise<void> {
-        log.info(`Joining ${userId} to ${this.SlackChannelId}`);
+        log.info(`${userId} joined ${this.MatrixRoomId} (${this.SlackChannelId})`);
+        if (this.waitingForJoinResolve) {
+            this.waitingForJoinResolve();
+        }
         const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
         if (!puppetedClient) {
             log.debug("No client");
             return;
         }
-        await puppetedClient.conversations.join({ channel: this.SlackChannelId! });
+        if (this.SlackType !== "im") {
+            log.info(`Joining ${userId} to ${this.SlackChannelId}`);
+            // DMs don't need joining
+            await puppetedClient.conversations.join({ channel: this.SlackChannelId! });
+        }
     }
 
     public async onMatrixInvite(inviter: string, invitee: string): Promise<void> {
@@ -630,6 +681,12 @@ export class BridgedRoom {
     }
 
     public async onSlackMessage(message: ISlackMessageEvent): Promise<void> {
+        if (this.waitingForJoin) {
+            log.debug("Waiting for user to join before sending DM message");
+            // Encrypted rooms shouldn't send DM messages until the user has joined.
+            await this.waitingForJoin;
+            this.waitingForJoin = undefined;
+        }
         if (this.slackTeamId && message.user) {
             // This just checks if the user *could* be puppeted. If they are, delay handling their incoming messages.
             const hasPuppet = null !== await this.main.datastore.getPuppetTokenBySlackId(this.slackTeamId, message.user);
@@ -642,8 +699,8 @@ export class BridgedRoom {
             return;
         }
         try {
-            const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId!);
-            await ghost.update(message, this);
+            const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
+            await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             this.slackSendLock = this.slackSendLock.finally(async () => {
                 // Check again
@@ -686,7 +743,7 @@ export class BridgedRoom {
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
-        await ghost.update(message, this);
+        await ghost.update(message, this.SlackClient);
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 
@@ -780,7 +837,12 @@ export class BridgedRoom {
         }
 
         let sendAsLink = false;
-        const authToken = this.SlackClient?.token;
+        let authToken = this.SlackClient?.token;
+        if (this.slackTeamId && (this.SlackType === "channel" || this.SlackType === "group") && this.isPrivate) {
+            // This is a private channel, so bots cannot see images.
+            const userClient = await this.main.getClientForPrivateChannel(this.slackTeamId, this.matrixRoomId);
+            authToken = userClient?.token;
+        }
 
         if (!authToken) {
             log.error("We have no client (or token) that can handle this file, sending as link");
@@ -1008,9 +1070,30 @@ export class BridgedRoom {
             if (message.text) {
                 return ghost.sendText(this.matrixRoomId, message.text, channelId, eventTS);
             }
+        } else if (message.subtype === "group_join" && message.user) {
+            /* Private rooms don't send the usual join events so we listen for these */
+            return this.onSlackUserJoin(message.user, message.inviter);
         } else {
             log.warn(`Ignoring message with subtype: ${subtype}`);
         }
+    }
+
+    public async onMatrixTyping(currentlyTyping: string[]) {
+        log.debug(`${currentlyTyping} are typing in ${this.matrixRoomId}`);
+        if (!this.SlackTeamId || !this.SlackChannelId) {
+            // We don't handle typing on non-teamed rooms
+            return;
+        }
+        const teamId = this.SlackTeamId;
+        const convoId = this.SlackChannelId;
+        await Promise.all(currentlyTyping.map(async userId => {
+            const res = await this.main.slackRtm?.getUserClient(teamId, userId);
+            if (!res) {
+                // We don't have a client for this user.
+                return;
+            }
+            return res.sendTyping(convoId);
+        }));
     }
 
     private async getReplyEvent(roomID: string, message: ISlackMessageEvent, slackRoomID: string) {

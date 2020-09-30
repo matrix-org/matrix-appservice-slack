@@ -226,6 +226,20 @@ export class SlackClientFactory {
         return res !== null ? res.client : null;
     }
 
+    public async getClientsForUser(matrixUser: string): Promise<WebClient[]> {
+        const clients: WebClient[] = [];
+        // This is not particularly great for performance, but I'm not in the
+        // mood for yet-another-refactor.
+        for (const [teamIdUserId, client] of this.puppets.entries()) {
+            // This is safe, teams don't contain a @.
+            // Users may only start with one.
+            if (teamIdUserId.endsWith(matrixUser)) {
+                clients.push(client.client);
+            }
+        }
+        return clients;
+    }
+
     public async createTeamClient(token: string): Promise<{
         slackClient: WebClient,
         team: { id: string, name: string, domain: string },

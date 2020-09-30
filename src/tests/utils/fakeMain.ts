@@ -73,5 +73,3 @@ export class FakeMain {
         return null;
     }
 }
-
-

@@ -46,6 +46,7 @@ export interface IMatrixToSlackResult {
         fallback: string,
         image_url: string,
     }];
+    encrypted_file?: string;
 }
 
 class Substitutions {
@@ -136,7 +137,7 @@ class Substitutions {
                     if (room) {
                         // aliases are faily unique in form, so we can replace these easily enough
                         const aliasRegex = new RegExp(escapeStringRegexp(alias.text), "g");
-                        body = body.replace(aliasRegex, `<#${room.SlackChannelId!}>`);
+                        body = body.replace(aliasRegex, `<#${room.SlackChannelId}>`);
                     }
                 } catch (ex) {
                     // We failed the lookup so just continue
@@ -181,7 +182,13 @@ class Substitutions {
             // in this case.
             return null;
         }
-        const url = main.getUrlForMxc(event.content.url);
+        const url = main.getUrlForMxc(event.content.url, main.encryptRoom);
+        if (main.encryptRoom) {
+            return {
+                encrypted_file: url,
+                link_names: false,
+            };
+        }
         if (msgType === "m.image") {
             // Images are special, we can send those as attachments.
             return {

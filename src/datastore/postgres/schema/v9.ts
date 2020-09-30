@@ -1,6 +1,6 @@
 import { IDatabase } from "pg-promise";
 
-export const runSchema = async(db: IDatabase<any>): Promise<void> => {
+export const runSchema = async(db: IDatabase<unknown>): Promise<void> => {
     await db.none(`
         CREATE TABLE reactions (
             room_id TEXT NOT NULL,

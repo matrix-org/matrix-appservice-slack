@@ -101,6 +101,18 @@ export interface ISlackFile {
     public_url_shared?: string;
     permalink?: string;
     size: number;
+    shares?: {
+        public?: {
+            [channelId: string]: {
+                ts: string;
+            }
+        },
+        private?: {
+            [channelId: string]: {
+                ts: string;
+            }[]
+        }
+    }
 }
 
 export interface ISlackUser {

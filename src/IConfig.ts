@@ -40,6 +40,11 @@ export interface IConfig {
         appservice_port?: number;
     };
 
+    encryption?: {
+        enabled: boolean;
+        pantalaimon_url: string;
+    };
+
     tls?: {
         key_file: string;
         crt_file: string;

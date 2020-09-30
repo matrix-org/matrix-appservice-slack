@@ -15,7 +15,7 @@ const COMMAND_HELP = {
 const onboardingTemplatePath = path.resolve(path.join(__dirname, "../.." , "templates/onboarding"));
 
 export class UserAdminRoom {
-    public static IsAdminRoomInvite(event: {content?: Record<string, unknown>, state_key?: unknown}, botId: string): boolean {
+    public static IsAdminRoomInvite(event: {content?: Record<string, unknown>, state_key?: string}, botId: string): boolean {
         return (event.content?.membership === "invite" &&
                 event.state_key === botId &&
                 event.content?.is_direct === true);
