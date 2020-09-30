@@ -38,7 +38,7 @@ const getGhostStore = () => {
         getIntent: () => {
             const intent = {
                 isRegistered: false,
-                _ensureRegistered: () => { intent.isRegistered = true; },
+                ensureRegistered: () => { intent.isRegistered = true; },
             };
             intentHolder.intent = intent;
             return intent as unknown as Intent;

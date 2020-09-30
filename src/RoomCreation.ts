@@ -16,9 +16,21 @@ limitations under the License.
 
 import { Intent } from "matrix-appservice-bridge";
 
-export const createDM = async (senderIntent: Intent, recipients: string|string[], name?: string): Promise<string> => {
+export const createDM = async (senderIntent: Intent, recipients: string|string[], name?: string, encrypted = false): Promise<string> => {
     if (!Array.isArray(recipients)) {
         recipients = [recipients];
+    }
+    const extraContent: Record<string, unknown>[] = [];
+    if (encrypted) {
+        extraContent.push(
+            {
+                type: "m.room.encryption",
+                state_key: "",
+                content: {
+                    algorithm: "m.megolm.v1.aes-sha2",
+                }
+            }
+        );
     }
     const { room_id } = await senderIntent.createRoom({
         createAsClient: true,
@@ -27,6 +39,7 @@ export const createDM = async (senderIntent: Intent, recipients: string|string[]
             preset: "private_chat",
             is_direct: true,
             name,
+            initial_state: extraContent,
         },
     });
     return room_id;

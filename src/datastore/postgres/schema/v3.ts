@@ -1,6 +1,6 @@
 import { IDatabase } from "pg-promise";
 
-export const runSchema = async(db: IDatabase<any>): Promise<void> => {
+export const runSchema = async(db: IDatabase<unknown>): Promise<void> => {
     await db.none(`
         ALTER TABLE teams ADD COLUMN status TEXT;
         ALTER TABLE teams ADD COLUMN domain TEXT;

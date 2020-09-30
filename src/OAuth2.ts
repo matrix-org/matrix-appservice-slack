@@ -124,6 +124,7 @@ export class OAuth2 {
         return v || null;
     }
 
+
     public getHTMLForResult(
         success: boolean,
         code: number,
@@ -139,6 +140,6 @@ export class OAuth2 {
     }
 
     private makeRedirectURL(token: string): string {
-        return path.join(this.redirectPrefix, token, "authorize");
+        return `${this.redirectPrefix.replace(/\/+$/, "")}/${token}/authorize`;
     }
 }

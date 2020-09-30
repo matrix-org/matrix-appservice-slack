@@ -1,7 +1,7 @@
 import pgp from "pg-promise";
 import { MatrixUser } from "matrix-appservice-bridge";
 
-export const runSchema = async(db: pgp.IDatabase<any>): Promise<void> => {
+export const runSchema = async(db: pgp.IDatabase<unknown>): Promise<void> => {
     // Create database
     await db.none(`
         CREATE TABLE linked_accounts (

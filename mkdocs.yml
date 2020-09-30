@@ -16,6 +16,7 @@ nav:
 - Guide:
     - Getting Started: getting_started.md
     - Linking Channels: link_channels.md
-    - Datastores: datastores.md
     - Team Sync: team_sync.md
     - Puppeting: puppeting.md
+    - Bridge Encryption: bridge-encryption.md
+    - Datastores: datastores.md

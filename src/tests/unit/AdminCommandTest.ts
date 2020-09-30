@@ -90,13 +90,13 @@ describe("AdminCommand", () => {
     describe("returns the simple help as expected", () => {
         it("when there are no options", () => {
             const command = new AdminCommand(
-                "help [command]",
+                "help",
                 "describes the commands available",
                 () => {},
             );
-            expect(command.simpleHelp()).to.equal("help [command] - describes the commands available");
+            expect(command.simpleHelp()).to.equal("help - describes the commands available");
         });
-        it("when there is an option", () => {
+        it("when there is a positional option", () => {
             const command = new AdminCommand(
                 "help [command]",
                 "describes the commands available",
@@ -110,9 +110,32 @@ describe("AdminCommand", () => {
             );
             expect(command.simpleHelp()).to.equal("help [command] - describes the commands available");
         });
+        it("when there is two types of options", () => {
+            const command = new AdminCommand(
+                "help [command]",
+                "describes the commands available",
+                () => {},
+                {
+                    command: {
+                        demandOption: false,
+                        description: "Get help about a particular command",
+                    },
+                    flag: {
+                        demandOption: false,
+                        description: "Some flag",
+                    },
+                    other_flag: {
+                        demandOption: true,
+                        description: "Some other flag",
+                    },
+                },
+            );
+            expect(command.simpleHelp()).to.equal("help [command] --other_flag OTHER_FLAG [--flag FLAG] - describes the commands available");
+        });
         it("for the complex link command", () => {
             expect(LINK_COMMAND.simpleHelp()).to.equal(
-                "link room [channel_id] [slack_bot_token] [webhook_url] - connect a Matrix and a Slack room together"
+                "link --room ROOM [--channel_id CHANNEL_ID] [--slack_bot_token SLACK_BOT_TOKEN] " +
+                "[--webhook_url WEBHOOK_URL] - connect a Matrix and a Slack room together"
             );
         });
     });

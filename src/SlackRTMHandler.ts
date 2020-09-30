@@ -65,7 +65,7 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
-        const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
+        const chanInfo = (await slackClient.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.
         chanInfo.channel.is_private = chanInfo.channel.is_private || chanInfo.channel.is_im || chanInfo.channel.is_group;
         if (!chanInfo.channel.is_private) {
@@ -122,6 +122,11 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     public async startTeamClientIfNotStarted(expectedTeam: string): Promise<void> {
+        const team = (await this.main.datastore.getTeam(expectedTeam));
+        if (!team) {
+            log.warn("startTeamClientIfNotStarted: could not find team");
+            return;
+        }
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
             try {
@@ -135,7 +140,6 @@ export class SlackRTMHandler extends SlackEventHandler {
             // Cannot use RTM, no-op.
             return;
         }
-        const team = (await this.main.datastore.getTeam(expectedTeam))!;
         const promise = this.startTeamClient(expectedTeam, team.bot_token);
         this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
         await promise;
@@ -156,7 +160,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                         log.error("Cannot handle event, no active teamId!");
                         return;
                     }
-                    await this.handle(event, rtm.activeTeamId! , () => {}, false);
+                    await this.handle(event, rtm.activeTeamId , () => {}, false);
                 } catch (ex) {
                     log.error(`Failed to handle '${eventName}' event`);
                 }
@@ -177,7 +181,7 @@ export class SlackRTMHandler extends SlackEventHandler {
     private createRtmClient(token: string, logLabel: string): RTMClient {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
         const connLog = Logging.get(`RTM-${logLabel.substr(0, LOG_TEAM_LEN)}`);
-        const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm!.log_level || "silent");
+        const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm?.log_level || "silent");
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
@@ -228,12 +232,16 @@ export class SlackRTMHandler extends SlackEventHandler {
             }
         }
 
+        const team = (await this.main.datastore.getTeam(puppet.teamId));
+        if (!team) {
+            throw Error("Could not find team in datastore, cannot handle RTM event!");
+        }
 
         if (isIm) {
             const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
             const ghosts = (await Promise.all(channelMembersRes.members.map(
                 async (id) =>
-                    id ? this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId) : null,
+                    id ? this.main.ghostStore.get(id, event.team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];
 
             const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
@@ -242,12 +250,13 @@ export class SlackRTMHandler extends SlackEventHandler {
             const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId);
             const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
             // Create a new DM room.
+            await ghost.update({ user: ghost.slackId });
             const roomId = await createDM(
                 ghost.intent,
-                [puppet.matrixId].concat(ghosts.map((g) => g.userId!)),
-                name
+                [puppet.matrixId].concat(ghosts.map((g) => g.userId)),
+                name,
+                this.main.encryptRoom,
             );
-            const team = (await this.main.datastore.getTeam(puppet.teamId))!;
             room = new BridgedRoom(this.main, {
                 inbound_id: chanInfo.channel.id,
                 matrix_room_id: roomId,
@@ -260,7 +269,8 @@ export class SlackRTMHandler extends SlackEventHandler {
             }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
-            await this.main.datastore.upsertRoom(room);
+            room.waitForJoin();
+
             await Promise.all(otherGhosts.map(async(g) => g.intent.join(roomId)));
             return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
