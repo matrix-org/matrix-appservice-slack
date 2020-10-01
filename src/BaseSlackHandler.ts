@@ -171,11 +171,14 @@ export abstract class BaseSlackHandler {
             // If we bridge the room, attempt to look up its canonical alias.
             if (room !== undefined) {
                 const client = this.main.botIntent.getClient();
-                const canonical = await client.getStateEvent(room.MatrixRoomId, "m.room.canonical_alias");
-                if (canonical !== undefined && canonical.alias !== undefined) {
-                    text = text.slice(0, match.index) + canonical.alias + text.slice(match.index + match[0].length);
-                } else {
+                try {
+                    const canonical = await client.getStateEvent(room.MatrixRoomId, "m.room.canonical_alias");
+                    if (canonical !== undefined && canonical.alias !== undefined) {
+                        text = text.slice(0, match.index) + canonical.alias + text.slice(match.index + match[0].length);
+                    }
+                } catch (ex) {
                     // If we can't find a canonical alias fall back to just the Slack channel name.
+                    log.debug(`Room ${room.MatrixRoomId} does not have a canonical alias set.`);
                     room = undefined;
                 }
             }
