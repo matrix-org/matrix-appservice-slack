@@ -597,6 +597,11 @@ export class Main {
     }
 
     public async onMatrixEvent(ev: WeakEvent): Promise<void> {
+        if (ev.sender === this.botUserId) {
+            // We don't want to handle echo.
+            return;
+        }
+
         this.incCounter(METRIC_RECEIVED_MESSAGE, {side: "matrix"});
         const endTimer = this.startTimer("matrix_request_seconds");
 
@@ -852,8 +857,8 @@ export class Main {
             // This will return true or false if the command matched.
             const matched = await this.adminCommands.parse(cmd, respond);
             if (!matched) {
-                log.debug("Unrecognised command");
-                respond("Unrecognised command");
+                log.debug(`Unrecognised command "${cmd}"`);
+                respond(`Unrecognised command "${cmd}"`);
             } else if (response.length === 0) {
                 respond("Done");
             }
