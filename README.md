@@ -22,7 +22,7 @@ to it. You will also need Node.JS 10+ or Docker on your system.
 
 ## Setting up
 
-See [the getting started docs](https://matrix-appservice-slack.rtfd.io/en/stable/getting_started)
+See [the getting started docs](https://matrix-appservice-slack.rtfd.io/en/latest/getting_started)
 for instructions on how to set up the bridge.
 
 ## Helping out
@@ -33,7 +33,3 @@ has the time to spare. If you want to work on the bridge, please see
 Please come visit us in the 
 [support room](https://matrix.to/#/#matrix_appservice_slack:cadair.com/) if you
 have any questions.
-
-# Documentation
-
-This documentation is hosted on [Read the Docs](https://matrix-appservice-slack.rtfd.io/).
