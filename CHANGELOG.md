@@ -1,4 +1,13 @@
- 1.6.0-rc1 (2020-10-01)
+ 1.6.0-rc2 (2020-10-01)
+=======================
+
+Bugfixes
+--------
+
+- Fix bot responding to its own messages. ([\#527](https://github.com/matrix-org/matrix-appservice-slack/issues/527))
+
+
+1.6.0-rc1 (2020-10-01)
 =======================
 
 Features
