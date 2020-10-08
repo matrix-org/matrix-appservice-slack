@@ -798,6 +798,11 @@ export class BridgedRoom {
     }
 
     public async onSlackTyping(event: ISlackEvent, teamId: string): Promise<void> {
+        const puppet = await this.main.datastore.getPuppetTokenBySlackId(teamId, event.user_id);
+        if (puppet) {
+            // Could be us, don't show typing
+            return;
+        }
         const ghost = await this.main.ghostStore.getForSlackMessage(event, teamId);
         await ghost.sendTyping(this.MatrixRoomId);
     }
