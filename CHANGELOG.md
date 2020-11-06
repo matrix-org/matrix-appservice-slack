@@ -1,3 +1,31 @@
+ 1.6.1 (2020-11-06)
+===================
+
+Features
+--------
+
+- Allow docker to reuse cache when building the image by copying only npm related file before running `npm install` ([\#531](https://github.com/matrix-org/matrix-appservice-slack/issues/531))
+
+
+Bugfixes
+--------
+
+- Hide typing notifications from puppeted users on Matrix ([\#528](https://github.com/matrix-org/matrix-appservice-slack/issues/528))
+- Fix an issue where the bridge may send duplicate messages to Slack when encryption is enabled. ([\#539](https://github.com/matrix-org/matrix-appservice-slack/issues/539))
+
+
+Improved Documentation
+----------------------
+
+- Improve the installation docs and the sample config file ([\#389](https://github.com/matrix-org/matrix-appservice-slack/issues/389))
+
+
+Internal Changes
+----------------
+
+- Added missing encryption config to the schema and sample config. ([\#538](https://github.com/matrix-org/matrix-appservice-slack/issues/538))
+
+
 1.6.0 (2020-10-02)
 ===================
 

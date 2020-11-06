@@ -1,1 +1,0 @@
-Fix an issue where the bridge may send duplicate messages to Slack when encryption is enabled.
