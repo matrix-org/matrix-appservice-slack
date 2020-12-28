@@ -130,7 +130,7 @@ Once a Slack Workspace is connected, you can offer automatic hints on how
 to bridge existing and new channels by enabling [Workspace Sync](team_sync.md).
 
 ## Upgrading
-1. Build the latest version of the application service. [Follow the Installation section instructions.](##Installation)
+1. Build the latest version of the application service. [Follow the Installation section instructions.](#installation)
 1. Restart the application service.
 
 Note: You do NOT need to regenerate an appservice registration file.
