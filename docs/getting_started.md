@@ -78,7 +78,7 @@ ever stuck, you can post a question in the
    
 ```sh
 $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
+    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
 ```
 
 1. Start the actual application service:
