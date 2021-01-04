@@ -1,1 +1,0 @@
-Fix issue where a thread chain on Slack would not correctly chain replies on Matrix

@@ -219,3 +219,13 @@ bot_profile:
   # Optional. Set the avatar.
   #
   avatar_url: "mxc://half-shot.uk/ea64c71ee946ca2f61379abefe2c7d977d276fbb"
+
+# Optional. Enable encryption in DMs and private rooms.
+encryption:
+  # Should encryption be enabled
+  #
+  enabled: false
+
+  # The URL where the bridge can access pantalaimon
+  #
+  pantalaimon_url: "http://localhost:8004"

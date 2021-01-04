@@ -1,1 +1,0 @@
-Add support for bridge message encryption.

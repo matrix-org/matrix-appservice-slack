@@ -171,3 +171,11 @@ properties:
         type: string
       avatar_url:
         type: string
+  encryption:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      pantalaimon_url:
+        type: string
+    required: ["enabled"]
