@@ -42,7 +42,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 10;
+    public static readonly LATEST_SCHEMA = 11;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
