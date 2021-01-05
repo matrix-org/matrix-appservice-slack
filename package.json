@@ -32,7 +32,7 @@
     "@slack/rtm-api": "^5.0.5",
     "@slack/web-api": "^5.12.0",
     "Slackdown": "Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
-    "axios": "^0.20.0",
+    "axios": "^0.21.1",
     "chai": "^4.2.0",
     "escape-string-regexp": "^4.0.0",
     "matrix-appservice": "^0.7.1",
