@@ -1401,6 +1401,8 @@ export class Main {
             // Even if this fails, we remove the token locally.
         }
 
+        // Ensure we disconnect the account too
+        await this.slackRtm?.disconnectClient(userId, slackId);
         await this.datastore.deleteAccount(userId, slackId);
         log.info(`Removed account ${slackId} from ${slackId}`);
         return { deleted: true };
