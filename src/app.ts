@@ -19,6 +19,9 @@ import { Main } from "./Main";
 import { IConfig } from "./IConfig";
 import * as path from "path";
 
+// To avoid log spam - https://github.com/matrix-org/matrix-appservice-slack/issues/554
+process.setMaxListeners(0);
+
 const cli = new Cli({
     bridgeConfig: {
         defaults: {},
