@@ -1,0 +1,1 @@
+Fix a bug where DMs from Slack are not persisted in the DB.
