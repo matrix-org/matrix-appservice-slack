@@ -45,7 +45,7 @@ describe("SlackRTMHandler", () => {
         const client = handler._rtmClient;
         const messages = ["Test 1", "Test 2", "Test 3", "Test 4", "Test 5"];
         let wasCalled = 0;
-        const allDone = new Promise((resolve) => {
+        const allDone = new Promise<void>((resolve) => {
             handler.handleRtmMessage = async (a, b, c, e) => {
                 wasCalled++;
                 if (wasCalled === 5) {
