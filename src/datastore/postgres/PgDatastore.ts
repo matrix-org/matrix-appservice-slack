@@ -42,7 +42,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 10;
+    public static readonly LATEST_SCHEMA = 11;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -419,7 +419,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             "INSERT INTO metrics_activities (user_id, room_id, date) " +
             "VALUES(${userId}, ${roomId}, ${date}) " +
             "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING", {
-                date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+                date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
                 roomId: room.toEntry().id,
                 userId,
             });
