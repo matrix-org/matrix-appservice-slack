@@ -105,7 +105,7 @@ export class UserAdminRoom {
                 body += `\n - ${puppet.slackId} for ${team?.name || puppet.teamId}`;
                 formattedBody += `<li>${puppet.slackId} for ${team?.name || puppet.teamId}</li>`;
             }
-            formattedBody +  "</ul>";
+            formattedBody += "</ul>";
             return this.sendNotice(body, formattedBody);
         } else if (!accountId) {
             // Default to the first
