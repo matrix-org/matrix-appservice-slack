@@ -10,7 +10,6 @@ import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
 import { createDM } from "./RoomCreation";
-import { cli } from "winston/lib/winston/config";
 
 const log = Logging.get("SlackRTMHandler");
 
