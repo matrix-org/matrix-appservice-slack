@@ -95,6 +95,16 @@ export class SlackRTMHandler extends SlackEventHandler {
         return true; // Bots can use RTM by default, yay \o/.
     }
 
+    public async disconnectClient(teamId: string, userId: string) {
+        const key = `${teamId}:${userId}`;
+        const client = this.rtmUserClients.get(`${teamId}:${userId}`);
+        if (!client) {
+            return;
+        }
+        await client.disconnect();
+        this.rtmUserClients.delete(key);
+    }
+
     public async disconnectAll(): Promise<void> {
         const promises: Promise<void>[] = [];
         for (const kv of this.rtmTeamClients.entries()) {
@@ -118,6 +128,8 @@ export class SlackRTMHandler extends SlackEventHandler {
             })());
         }
 
+        this.rtmUserClients.clear();
+        this.rtmTeamClients.clear();
         await Promise.all(promises);
     }
 

@@ -10,6 +10,7 @@ const log = Logging.get("UserAdminRoom");
 const COMMAND_HELP = {
     help: { desc: "Shows you this help text" },
     login: { desc: "Log into a Slack account" },
+    logout: { desc: "Log out of your Slack account"}
 };
 
 const onboardingTemplatePath = path.resolve(path.join(__dirname, "../.." , "templates/onboarding"));
@@ -54,6 +55,9 @@ export class UserAdminRoom {
         if (command === "login") {
             return this.handleLogin();
         }
+        if (command === "logout") {
+            return this.handleLogout(args[1]);
+        }
         if (command === "whoami") {
             return this.handleWhoAmI();
         }
@@ -84,6 +88,34 @@ export class UserAdminRoom {
             `Follow ${authUri} to connect your account.`,
             `Follow <a href="${authUri}">this link</a> to connect your account.`,
         );
+    }
+
+    public async handleLogout(accountId?: string) {
+        const puppets = await this.main.datastore.getPuppetsByMatrixId(this.userId);
+        if (puppets.length === 0) {
+            return this.sendNotice("You are not logged into any accounts.");
+        } else if (puppets.length > 1 && !accountId) {
+            await this.sendNotice(
+                "You are connected to multiple accounts. Please choose one and then say `logout $accountId`"
+            );
+            let body = "List of connected accounts:\n";
+            let formattedBody = "<p>List of connected accounts:</p><ul>";
+            for (const puppet of puppets) {
+                const team = await this.main.datastore.getTeam(puppet.teamId);
+                body += `\n - ${puppet.slackId} for ${team?.name || puppet.teamId}`;
+                formattedBody += `<li>${puppet.slackId} for ${team?.name || puppet.teamId}</li>`;
+            }
+            formattedBody += "</ul>";
+            return this.sendNotice(body, formattedBody);
+        } else if (!accountId) {
+            // Default to the first
+            accountId = puppets[0].slackId;
+        }
+        const result = await this.main.logoutAccount(this.userId, accountId.trim());
+        if (result.deleted) {
+            return this.sendNotice("You have been logged out.");
+        }
+        return this.sendNotice(`Could not log out of your account: ${result.msg}`);
     }
 
     public async handleWhoAmI(): Promise<unknown> {
