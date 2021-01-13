@@ -920,14 +920,14 @@ export class Main {
                 autoload: true,
                 filename: path.join(this.config.dbdir || "", "teams.db"),
             });
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 teamDatastore.loadDatabase(err => err ? reject(err) : resolve());
             });
             const reactionDatastore = new NedbDs({
                 autoload: true,
                 filename: path.join(this.config.dbdir || "", "reactions.db"),
             });
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 reactionDatastore.loadDatabase(err => err ? reject(err) : resolve());
             });
             const userStore = this.bridge.getUserStore();
