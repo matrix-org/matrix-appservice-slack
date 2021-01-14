@@ -195,15 +195,17 @@ export class TeamSyncer {
             return;
         }
         if (channelItem.is_im || channelItem.is_mpim || !channelItem.is_private) {
-            log.warn("Not creating channel: Is not a private channel");
-            return;
+            throw Error(`Not creating channel: Is not a private channel`);
+        }
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!team) {
+            throw Error(`team could not be found for channel`);
         }
         log.info(`Attempting to dynamically bridge private ${channelItem.id} ${channelItem.name}`);
         // Create the room first.
         try {
             const members = await this.mapChannelMembershipToMatrixIds(teamId, client, channelItem.id);
             const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem, false, members);
-            const team = await this.main.datastore.getTeam(teamId);
             const inboundId = this.main.genInboundId();
             const room = new BridgedRoom(this.main, {
                 inbound_id: inboundId,
@@ -258,6 +260,8 @@ export class TeamSyncer {
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
         log.info(`Syncing channel ${teamId} ${channelItem.id}`);
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private)) {
+        log.info(`Syncing channel ${teamId} ${channelItem.name} (${channelItem.id})`);
+        if (!config) {
             return;
         }
         if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
@@ -269,7 +273,7 @@ export class TeamSyncer {
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
         let roomId: string;
         if (!existingChannel) {
-            if (!channelItem.is_channel || channelItem.is_private) {
+            if (!channelItem.is_channel && !(config.channels?.allow_private && channelItem.is_private)) {
                 log.debug("Not creating room for channel: Is either private or not a channel");
                 return;
             }
