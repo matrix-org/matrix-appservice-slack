@@ -184,8 +184,10 @@ export class TeamSyncer {
         log.info(`Discovered private channel ${teamId} ${chanInfo.channel.id}`);
         const channelItem = chanInfo.channel;
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, true)) {
-            log.info(`Not syncing`);
-            return;
+            throw Error(`Not syncing due to team sync config`);
+        }
+        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
+            throw Error(`Not syncing due to ADL list`);
         }
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
         if (existingChannel) {
