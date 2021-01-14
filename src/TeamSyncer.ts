@@ -84,7 +84,8 @@ export class TeamSyncer {
     }
 
     public async syncItems(teamId: string, client: WebClient, type: "user"|"channel"): Promise<void> {
-        if (!this.getTeamSyncConfig(teamId, type)) {
+        const teamConfig = this.getTeamSyncConfig(teamId, type);
+        if (!teamConfig) {
             log.warn(`Not syncing ${type}s for ${teamId}`);
             return;
         }
@@ -93,10 +94,11 @@ export class TeamSyncer {
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
             let res: ConversationsListResponse|UsersListResponse;
             if (type === "channel") {
+                const types = teamConfig.channels?.allow_private ? "public_channel,private_channel" : "public_channel";
                 res = (await client.conversations.list({
                     limit: 1000,
                     exclude_archived: true,
-                    type: "public_channel",
+                    types,
                     cursor,
                 })) as ConversationsListResponse;
                 itemList = itemList.concat(res.channels);
