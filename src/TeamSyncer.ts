@@ -214,7 +214,7 @@ export class TeamSyncer {
                 slack_channel_id: channelItem.id,
                 is_private: true,
                 slack_type: "channel",
-            }, team!, client);
+            }, team, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
             await this.main.datastore.upsertRoom(room);
@@ -258,8 +258,7 @@ export class TeamSyncer {
     }
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
-        log.info(`Syncing channel ${teamId} ${channelItem.id}`);
-        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private)) {
+        const config = this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private);
         log.info(`Syncing channel ${teamId} ${channelItem.name} (${channelItem.id})`);
         if (!config) {
             return;
@@ -343,7 +342,10 @@ export class TeamSyncer {
     public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient): Promise<void> {
         const existingGhosts = await this.main.listGhostUsers(roomId);
         // We assume that we have this
-        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
+        const teamInfo = (await this.main.datastore.getTeam(teamId));
+        if (!teamInfo) {
+            throw Error("Could not find team");
+        }
         // Finally, sync membership for the channel.
         const members = await client.conversations.members({channel: channelId}) as ConversationsMembersResponse;
         // Ghosts will exist already: We joined them in the user sync.
@@ -375,13 +377,19 @@ export class TeamSyncer {
     }
 
     private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient) {
-        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
+        const teamInfo = (await this.main.datastore.getTeam(teamId));
+        if (!teamInfo) {
+            throw Error("Could not find team");
+        }
         log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
         if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
             log.warn("Channel is not allowed to be bridged");
         }
 
         const {user} = (await client.users.info({ user: teamInfo.user_id })) as UsersInfoResponse;
+        if (!user) {
+            throw Error("Could not find user info");
+        }
         try {
             const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);
             if (!creatorClient) {
@@ -396,7 +404,7 @@ export class TeamSyncer {
             try {
                 await client.chat.postEphemeral({
                     user: channelItem.creator,
-                    text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
+                    text: `Hint: To bridge to Matrix, run the \`/invite @${user.name}\` command in this channel.`,
                     channel: channelItem.id,
                 });
             } catch (error) {
