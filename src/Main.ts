@@ -1045,7 +1045,7 @@ export class Main {
                 if (this.slackRtm && team.bot_token.startsWith("xoxb")) {
                     log.info(`Starting RTM for ${team.id}`);
                     try {
-                        await this.slackRtm!.startTeamClientIfNotStarted(team.id);
+                        await this.slackRtm.startTeamClientIfNotStarted(team.id);
                     } catch (ex) {
                         log.warn(`Failed to start RTM for ${team.id}, rooms may be missing slack messages: ${ex}`);
                     }
