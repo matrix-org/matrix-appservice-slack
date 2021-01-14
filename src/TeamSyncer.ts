@@ -405,8 +405,13 @@ export class TeamSyncer {
             }
         }
 
+        let members: string[] = [];
+        if (channelItem.is_private) {
+            members = await this.mapChannelMembershipToMatrixIds(teamId, client, channelItem.id);
+        }
+
         // Create the room.
-        const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
+        const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem, !channelItem.is_private, members);
         await this.main.actionLink({
             matrix_room_id: roomId,
             slack_channel_id: channelItem.id,
