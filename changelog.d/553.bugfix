@@ -1,1 +1,0 @@
-Fix metrics bug: Month has been off by one (e.g. January = 0)

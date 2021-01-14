@@ -1,4 +1,19 @@
- 1.6.1 (2020-11-06)
+1.6.2 (2021-01-14)
+===================
+
+Bugfixes
+--------
+
+- Fix metrics bug: Month has been off by one (e.g. January = 0) ([\#553](https://github.com/matrix-org/matrix-appservice-slack/issues/553))
+
+
+Improved Documentation
+----------------------
+
+- Clarify upgrade steps in documentation. Contributed by Cameron Otsuka. ([\#545](https://github.com/matrix-org/matrix-appservice-slack/issues/545))
+
+
+1.6.1 (2020-11-06)
 ===================
 
 Features
