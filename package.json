@@ -36,7 +36,7 @@
     "chai": "^4.2.0",
     "escape-string-regexp": "^4.0.0",
     "matrix-appservice": "^0.7.1",
-    "matrix-appservice-bridge": "^2.4.1",
+    "matrix-appservice-bridge": "github:matrix-org/matrix-appservice-bridge#729a604bd4d3dcddf1b901907a7bd9e1f2caa625",
     "minimist": "^1.2.5",
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",

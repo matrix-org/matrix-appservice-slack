@@ -42,7 +42,7 @@ const pgp: IMain = pgInit({
 const log = Logging.get("PgDatastore");
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 11;
+    public static readonly LATEST_SCHEMA = 12;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -484,6 +484,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             userId,
             accessToken: result.access_token,
             deviceId: result.device_id,
+            syncToken: result.sync_token,
         };
     }
 
@@ -495,6 +496,10 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         };
         const statement = PgDatastore.BuildUpsertStatement("encryption_sessions", ["user_id"], [params]);
         await this.postgresDb.none(statement, params);
+    }
+
+    public async updateSyncToken(userId: string, token: string) {
+        await this.postgresDb.none("UPDATE encryption_sessions SET sync_token = ${token} WHERE user_id = ${userId}", {userId, token});
     }
 
     public async getRoomCount(): Promise<number> {
