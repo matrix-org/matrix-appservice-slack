@@ -1083,10 +1083,6 @@ export class Main {
                 });
             }, ONE_HOUR);
             await this.updateActivityMetrics();
-
-            // Send process stats again just to make the counters update sooner after
-            // startup
-            this.metrics.prometheus.refresh();
         }
         await puppetsWaiting;
         await teamSyncPromise;
