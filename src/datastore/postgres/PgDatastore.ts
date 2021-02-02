@@ -41,6 +41,13 @@ const pgp: IMain = pgInit({
 
 const log = Logging.get("PgDatastore");
 
+interface ClientSessionSchema {
+    user_id: string;
+    access_token: string;
+    device_id: string;
+    sync_token?: string;
+}
+
 export class PgDatastore implements Datastore, ClientEncryptionStore {
     public static readonly LATEST_SCHEMA = 12;
     public readonly postgresDb: IDatabase<any>;
@@ -473,7 +480,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
 
     public async getStoredSession(userId: string): Promise<ClientEncryptionSession|null> {
         log.debug(`getStoredSession: ${userId}`);
-        const result = await this.postgresDb.oneOrNone(
+        const result: ClientSessionSchema|null = await this.postgresDb.oneOrNone(
             "SELECT device_id, access_token FROM encryption_sessions WHERE user_id = ${userId}",
             {userId}
         );
@@ -484,17 +491,20 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             userId,
             accessToken: result.access_token,
             deviceId: result.device_id,
-            syncToken: result.sync_token,
+            syncToken: result.sync_token || null,
         };
     }
 
     public async setStoredSession(session: ClientEncryptionSession) {
-        const params = {
+        const params: ClientSessionSchema = {
             user_id: session.userId,
             access_token: session.accessToken,
             device_id: session.deviceId,
         };
-        const statement = PgDatastore.BuildUpsertStatement("encryption_sessions", ["user_id"], [params]);
+        if (session.syncToken) {
+            params.sync_token = session.syncToken;
+        }
+        const statement = PgDatastore.BuildUpsertStatement("encryption_sessions", ["user_id"], [params as unknown as Record<string, unknown>]);
         await this.postgresDb.none(statement, params);
     }
 
