@@ -1,1 +1,0 @@
-Ensure private channels are synchronised on startup.
