@@ -62,7 +62,7 @@ rtm:
 
   # Logging level specific to RTM traffic.
   #
-  logging: "silent"
+  log_level: "silent"
 
 # Port for incoming Slack requests from webhooks and event API messages
 # Optional if using RTM API, required otherwise.
