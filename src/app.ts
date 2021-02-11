@@ -19,6 +19,9 @@ import { Main } from "./Main";
 import { IConfig } from "./IConfig";
 import * as path from "path";
 
+// To avoid log spam - https://github.com/matrix-org/matrix-appservice-slack/issues/554
+process.setMaxListeners(0);
+
 const cli = new Cli({
     bridgeConfig: {
         defaults: {},
@@ -36,6 +39,12 @@ const cli = new Cli({
         reg.setAppServiceToken(AppServiceRegistration.generateToken());
         reg.setSenderLocalpart("slackbot");
         reg.addRegexPattern("users", `@${config.username_prefix}.*:${config.homeserver.server_name}`, true);
+        const teamSyncEntries = config.team_sync && Object.values(config.team_sync) || [];
+        for (const teamEntry of teamSyncEntries) {
+            if (teamEntry.channels?.alias_prefix) {
+                reg.addRegexPattern("aliases", `#${teamEntry.channels?.alias_prefix}.*:${config.homeserver.server_name}`, true);
+            }
+        }
         callback(reg);
     },
     run: (cliPort: number, rawConfig: Record<string, undefined>|null, registration: any) => {

@@ -95,6 +95,16 @@ export class SlackRTMHandler extends SlackEventHandler {
         return true; // Bots can use RTM by default, yay \o/.
     }
 
+    public async disconnectClient(teamId: string, userId: string) {
+        const key = `${teamId}:${userId}`;
+        const client = this.rtmUserClients.get(`${teamId}:${userId}`);
+        if (!client) {
+            return;
+        }
+        await client.disconnect();
+        this.rtmUserClients.delete(key);
+    }
+
     public async disconnectAll(): Promise<void> {
         const promises: Promise<void>[] = [];
         for (const kv of this.rtmTeamClients.entries()) {
@@ -118,6 +128,8 @@ export class SlackRTMHandler extends SlackEventHandler {
             })());
         }
 
+        this.rtmUserClients.clear();
+        this.rtmTeamClients.clear();
         await Promise.all(promises);
     }
 
@@ -265,17 +277,22 @@ export class SlackRTMHandler extends SlackEventHandler {
                 slack_channel_name: chanInfo.channel.name,
                 puppet_owner: puppet.matrixId,
                 is_private: chanInfo.channel.is_private,
-                slack_type: "unknown",
+                slack_type: chanInfo.channel.is_im ? "im" : "mpim",
             }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
+            await this.main.datastore.upsertRoom(room);
             room.waitForJoin();
 
             await Promise.all(otherGhosts.map(async(g) => g.intent.join(roomId)));
             return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
             // A private channel may not have is_group set if it's an older channel.
-            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            try {
+                await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            } catch (ex) {
+                log.warn(`Could not create room for ${event.channel}: ${ex}`);
+            }
             return this.handleEvent(event, puppet.teamId);
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);

@@ -1,4 +1,3 @@
-# RTD is pinning mkdocs to 1.1 so do the same here
-mkdocs<1.1
-mkdocs-bootswatch<1.1
+mkdocs==1.1.2
+mkdocs-bootswatch==1.1
 pygments

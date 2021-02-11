@@ -920,14 +920,14 @@ export class Main {
                 autoload: true,
                 filename: path.join(this.config.dbdir || "", "teams.db"),
             });
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 teamDatastore.loadDatabase(err => err ? reject(err) : resolve());
             });
             const reactionDatastore = new NedbDs({
                 autoload: true,
                 filename: path.join(this.config.dbdir || "", "reactions.db"),
             });
-            await new Promise((resolve, reject) => {
+            await new Promise<void>((resolve, reject) => {
                 reactionDatastore.loadDatabase(err => err ? reject(err) : resolve());
             });
             const userStore = this.bridge.getUserStore();
@@ -1045,7 +1045,7 @@ export class Main {
                 if (this.slackRtm && team.bot_token.startsWith("xoxb")) {
                     log.info(`Starting RTM for ${team.id}`);
                     try {
-                        await this.slackRtm!.startTeamClientIfNotStarted(team.id);
+                        await this.slackRtm.startTeamClientIfNotStarted(team.id);
                     } catch (ex) {
                         log.warn(`Failed to start RTM for ${team.id}, rooms may be missing slack messages: ${ex}`);
                     }
@@ -1083,10 +1083,6 @@ export class Main {
                 });
             }, ONE_HOUR);
             await this.updateActivityMetrics();
-
-            // Send process stats again just to make the counters update sooner after
-            // startup
-            this.metrics.prometheus.refresh();
         }
         await puppetsWaiting;
         await teamSyncPromise;
@@ -1401,6 +1397,8 @@ export class Main {
             // Even if this fails, we remove the token locally.
         }
 
+        // Ensure we disconnect the account too
+        await this.slackRtm?.disconnectClient(userId, slackId);
         await this.datastore.deleteAccount(userId, slackId);
         log.info(`Removed account ${slackId} from ${slackId}`);
         return { deleted: true };

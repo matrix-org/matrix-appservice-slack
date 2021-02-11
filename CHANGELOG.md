@@ -1,3 +1,34 @@
+ 1.7.0 (2021-02-11)
+===================
+
+No significant changes.
+
+
+1.7.0-rc1 (2021-02-05)
+=======================
+
+Features
+--------
+
+- Add `logout` user admin room command ([\#559](https://github.com/matrix-org/matrix-appservice-slack/issues/559))
+- Ensure private channels are synchronised on startup. ([\#563](https://github.com/matrix-org/matrix-appservice-slack/issues/563))
+
+
+Bugfixes
+--------
+
+- Fixed a problem where automatically created rooms would not get an alias. ([\#544](https://github.com/matrix-org/matrix-appservice-slack/issues/544))
+- Fix a bug where DMs from Slack are not persisted in the DB. ([\#558](https://github.com/matrix-org/matrix-appservice-slack/issues/558))
+
+
+Internal Changes
+----------------
+
+- Stop the bridge from emitting "MaxListenersExceededWarning" warnings. ([\#556](https://github.com/matrix-org/matrix-appservice-slack/issues/556))
+- Bump package versions ([\#557](https://github.com/matrix-org/matrix-appservice-slack/issues/557))
+- Use improved encryption support from matrix-appservice-bridge ([\#564](https://github.com/matrix-org/matrix-appservice-slack/issues/564))
+
+
 1.6.2 (2021-01-14)
 ===================
 
