@@ -28,7 +28,7 @@ interface DecoratedCommandFunc {
 }
 
 type Param = string | { param: string, required: boolean};
-type Verbs = "getbotid"|"authurl"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
+type Verbs = "getbotid"|"authurl"|"channelinfo"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
 // Decorator
 const command = (...params: Param[]) => (
@@ -279,6 +279,24 @@ export class Provisioner {
             slack_webhook_uri: room.SlackWebhookUri,
             status,
             team_id: room.SlackTeamId,
+        });
+    }
+
+    private async channelinfo(req, res) {
+        const params = req.body;
+        const opts = {
+            slack_channel_id: params.channel_id,
+            slack_webhook_uri: params.slack_webhook_uri,
+            team_id: params.team_id,
+            user_id: params.user_id,
+        };
+
+        log.info(`Someone requested the room info of ${opts.slack_channel_id}`);
+
+        const channelInfo = await this.main.getChannelInfo(opts);
+
+        res.json({
+
         });
     }
 

@@ -1131,6 +1131,81 @@ export class Main {
         }
     }
 
+    public async getChannelInfo(opts: {
+        slack_webhook_uri?: string,
+        slack_channel_id: string,
+        slack_bot_token?: string,
+        team_id?: string,
+    }): Promise<ConversationsInfoResponse|void> {
+        let slackClient: WebClient | undefined;
+        let teamEntry: TeamEntry | null = null;
+        let teamId: string = opts.team_id!;
+
+        const existingChannel = opts.slack_channel_id ? this.rooms.getBySlackChannelId(opts.slack_channel_id) : null;
+
+        if (existingChannel) {
+            throw Error("Channel is already bridged! Unbridge the channel first.");
+        }
+
+        if (!opts.team_id && !opts.slack_bot_token) {
+            if (!opts.slack_webhook_uri) {
+                throw Error("Neither a team_id nor a slack_bot_token were provided");
+            }
+        }
+
+        if (opts.slack_bot_token) {
+            if (!opts.slack_bot_token.startsWith("xoxb-")) {
+                throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
+            }
+            // We may have this team already and want to update the token, or this might be new.
+            // But first check that the token works.
+            try {
+                teamId = await this.clientFactory.upsertTeamByToken(opts.slack_bot_token);
+                log.info(`Found ${teamId} for token`);
+            } catch (ex) {
+                log.error("Failed to action link because the token couldn't used:", ex);
+                throw Error("Token did not work, unable to get team");
+            }
+        }
+
+        // else, assume we have a teamId
+        if (teamId) {
+            try {
+                slackClient = await this.clientFactory.getTeamClient(teamId);
+            } catch (ex) {
+                log.error("Failed to action link because the team client couldn't be fetched:", ex);
+                throw Error("Team is known, but unable to get team client");
+            }
+
+            teamEntry = await this.datastore.getTeam(teamId);
+            if (!teamEntry) {
+                throw Error("Team ID provided, but no team found in database");
+            }
+        }
+
+        let channelInfo: ConversationsInfoResponse | undefined;
+        if (slackClient && opts.slack_channel_id && opts.team_id) {
+            // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
+
+            channelInfo = (await slackClient.conversations.info({ channel: opts.slack_channel_id })) as ConversationsInfoResponse;
+            if (!channelInfo.ok) {
+                if (channelInfo.error === 'channel_not_found') {
+                    return;
+                }
+                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, channelInfo.error);
+                throw Error("Failed to get channel info");
+            }
+        }
+
+        if (opts.slack_channel_id &&
+            this.allowDenyList.allowSlackChannel(opts.slack_channel_id, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
+            log.warn(`Channel ${opts.slack_channel_id} is not allowed to be bridged`);
+            throw Error("The bridge config denies bridging this channel");
+        }
+
+        return channelInfo;
+    }
+
     // This so-called "link" action is really a multi-function generic provisioning
     // interface. It will
     //  * Create a BridgedRoom instance, linked to the given Matrix room ID
