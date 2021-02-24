@@ -282,21 +282,36 @@ export class Provisioner {
         });
     }
 
-    private async channelinfo(req, res) {
+    @command("user_id")
+    private async channelinfo(req, res, userId) {
         const params = req.body;
         const opts = {
             slack_channel_id: params.channel_id,
-            slack_webhook_uri: params.slack_webhook_uri,
             team_id: params.team_id,
             user_id: params.user_id,
         };
 
-        log.info(`Someone requested the room info of ${opts.slack_channel_id}`);
+        log.info(`${userId} requested the room info of ${opts.slack_channel_id}`);
+
+        // Check if the user is in the team.
+        if (opts.team_id && !(await this.main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
+            return Promise.reject({
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not in this team.`,
+            });
+        }
 
         const channelInfo = await this.main.getChannelInfo(opts);
 
-        res.json({
+        if (!channelInfo) {
+            return res.status(404).json({
+                message: 'Slack channel not found',
+            });
+        }
 
+        res.json({
+            name: channelInfo.channel.name,
+            membersCounts: channelInfo.channel.num_members,
         });
     }
 
