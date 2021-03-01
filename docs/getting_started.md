@@ -51,7 +51,7 @@ ever stuck, you can post a question in the
 1. Create a new Matrix room to act as the administration control room. Note its
    internal room ID (Example: !abcdefg12345hijk:coolserver.com).
 
-1. Decide on a spare local TCP port number to use. It will listen for messages
+1. Decide on a spare local TCP port number to use. The Default is 5858.  It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
    firewalls appropriately. This port will be notated as `$MATRIX_PORT` in
    the remaining instructions.
@@ -66,9 +66,11 @@ ever stuck, you can post a question in the
   
   1. For `matrix_admin_room`, enter the internal room ID of the administration control
      room (Example: !abcdefg12345hijk:coolserver.com).
+  
+  1. For `homeserver.appservice_port`, specify the above $MATRIX_PORT if you would like to override
 
 1. Generate the appservice registration file. This will be used by the
-   Matrix homeserver. Here, you must specify the direct link the
+   Matrix homeserver. Here, you must specify the direct link (the field url) the
    **Matrix Homserver** can use to access the bridge, including the Matrix
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
@@ -78,7 +80,7 @@ ever stuck, you can post a question in the
    
 ```sh
 $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack.yaml
+    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
 ```
 
 1. Start the actual application service:
