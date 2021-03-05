@@ -972,13 +972,6 @@ export class Main {
         await this.bridge.run(port, this.config, this.appservice);
 
         this.bridge.addAppServicePath({
-            handler: this.onHealthProbe.bind(this.bridge),
-            method: "GET",
-            path: "/health",
-            checkToken: false,
-        });
-
-        this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
             path: "/ready",
@@ -1465,11 +1458,6 @@ export class Main {
             // really fits.
         }
     }
-
-    private onHealthProbe(_, res: Response) {
-        res.status(201).send("");
-    }
-
     private onReadyProbe(_, res: Response) {
         res.status(this.ready ? 201 : 425).send("");
     }
