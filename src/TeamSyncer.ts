@@ -169,10 +169,10 @@ export class TeamSyncer {
             if (!teamConfig.channels?.enabled) {
                 return false;
             }
-            if (isPrivate && teamConfig.channels.allow_private) {
+            if (isPrivate && !teamConfig.channels.allow_private) {
                 return false;
             }
-            if (!isPrivate && teamConfig.channels.allow_public) {
+            if (!isPrivate && !teamConfig.channels.allow_public) {
                 return false;
             }
         }
