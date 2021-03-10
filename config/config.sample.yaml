@@ -111,6 +111,12 @@ team_sync:
   #     # Allow or deny private channels from being synced. Defaults to true.
   #     #
   #     allow_private: true
+  #    
+  #    # Optional. 
+  #    # Allow or deny public channels from being synced. Defaults to true.
+  #    #
+  #    allow_public: true
+  #  
   #
   #     # Optional. blacklist for channel ids. Trumps the whitelist.
   #     #
