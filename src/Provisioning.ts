@@ -329,7 +329,7 @@ export class Provisioner {
 
         res.json({
             name: channelInfo.channel.name,
-            membersCounts: channelInfo.channel.num_members,
+            memberCount: channelInfo.channel.num_members,
         });
     }
 
