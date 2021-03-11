@@ -1,1 +1,0 @@
-Stop the bridge from emitting "MaxListenersExceededWarning" warnings.

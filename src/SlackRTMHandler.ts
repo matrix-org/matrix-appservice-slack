@@ -277,7 +277,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 slack_channel_name: chanInfo.channel.name,
                 puppet_owner: puppet.matrixId,
                 is_private: chanInfo.channel.is_private,
-                slack_type: "unknown",
+                slack_type: chanInfo.channel.is_im ? "im" : "mpim",
             }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
@@ -288,7 +288,11 @@ export class SlackRTMHandler extends SlackEventHandler {
             return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
             // A private channel may not have is_group set if it's an older channel.
-            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            try {
+                await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            } catch (ex) {
+                log.warn(`Could not create room for ${event.channel}: ${ex}`);
+            }
             return this.handleEvent(event, puppet.teamId);
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);

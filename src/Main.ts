@@ -972,13 +972,6 @@ export class Main {
         await this.bridge.run(port, this.config, this.appservice);
 
         this.bridge.addAppServicePath({
-            handler: this.onHealthProbe.bind(this.bridge),
-            method: "GET",
-            path: "/health",
-            checkToken: false,
-        });
-
-        this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
             path: "/ready",
@@ -1045,7 +1038,7 @@ export class Main {
                 if (this.slackRtm && team.bot_token.startsWith("xoxb")) {
                     log.info(`Starting RTM for ${team.id}`);
                     try {
-                        await this.slackRtm!.startTeamClientIfNotStarted(team.id);
+                        await this.slackRtm.startTeamClientIfNotStarted(team.id);
                     } catch (ex) {
                         log.warn(`Failed to start RTM for ${team.id}, rooms may be missing slack messages: ${ex}`);
                     }
@@ -1083,10 +1076,6 @@ export class Main {
                 });
             }, ONE_HOUR);
             await this.updateActivityMetrics();
-
-            // Send process stats again just to make the counters update sooner after
-            // startup
-            this.metrics.prometheus.refresh();
         }
         await puppetsWaiting;
         await teamSyncPromise;
@@ -1533,11 +1522,6 @@ export class Main {
             // really fits.
         }
     }
-
-    private onHealthProbe(_, res: Response) {
-        res.status(201).send("");
-    }
-
     private onReadyProbe(_, res: Response) {
         res.status(this.ready ? 201 : 425).send("");
     }
