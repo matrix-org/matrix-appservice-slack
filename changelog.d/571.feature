@@ -1,0 +1,1 @@
+Add provisioning endpoint to get Slack channel info
