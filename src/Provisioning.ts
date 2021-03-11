@@ -282,29 +282,47 @@ export class Provisioner {
         });
     }
 
-    @command("user_id")
-    private async channelinfo(req, res, userId) {
-        const params = req.body;
+    @command("user_id", "channel_id", "team_id", "bot_token")
+    private async channelinfo(_, res, userId, channelId, teamId, botToken) {
+        if (typeof userId !== 'string' ||
+            typeof channelId !== 'string' ||
+            typeof teamId !== 'string' ||
+            typeof botToken !== 'string') {
+            return res.status(HTTP_CODES.CLIENT_ERROR).json({
+                message: 'user_id, channel_id, team_id and bot_token must be strings',
+            });
+        }
+
         const opts = {
-            slack_channel_id: params.channel_id,
-            team_id: params.team_id,
-            user_id: params.user_id,
+            slack_bot_token: botToken,
+            slack_channel_id: channelId,
+            team_id: teamId,
         };
 
         log.info(`${userId} requested the room info of ${opts.slack_channel_id}`);
 
         // Check if the user is in the team.
-        if (opts.team_id && !(await this.main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
+        if (!(await this.main.matrixUserInSlackTeam(opts.team_id, userId))) {
             return Promise.reject({
                 code: HTTP_CODES.FORBIDDEN,
                 text: `${userId} is not in this team.`,
             });
         }
 
-        const channelInfo = await this.main.getChannelInfo(opts);
+        let channelInfo;
+        try {
+            channelInfo = await this.main.getChannelInfo(opts);
+        } catch (error) {
+            log.error('Failed to get channel info.');
+            log.error(error);
+            return Promise.reject({
+                code: HTTP_CODES.SERVER_ERROR,
+                text: 'Failed to get channel info',
+            });
+        }
 
         if (!channelInfo) {
-            return res.status(404).json({
+            return res.status(HTTP_CODES.NOT_FOUND).json({
                 message: 'Slack channel not found',
             });
         }

@@ -1121,25 +1121,18 @@ export class Main {
     }
 
     public async getChannelInfo(opts: {
-        slack_webhook_uri?: string,
         slack_channel_id: string,
-        slack_bot_token?: string,
-        team_id?: string,
+        slack_bot_token: string,
+        team_id: string,
     }): Promise<ConversationsInfoResponse|void> {
         let slackClient: WebClient | undefined;
         let teamEntry: TeamEntry | null = null;
-        let teamId: string = opts.team_id!;
+        let teamId: string = opts.team_id;
 
         const existingChannel = opts.slack_channel_id ? this.rooms.getBySlackChannelId(opts.slack_channel_id) : null;
 
         if (existingChannel) {
             throw Error("Channel is already bridged! Unbridge the channel first.");
-        }
-
-        if (!opts.team_id && !opts.slack_bot_token) {
-            if (!opts.slack_webhook_uri) {
-                throw Error("Neither a team_id nor a slack_bot_token were provided");
-            }
         }
 
         if (opts.slack_bot_token) {
@@ -1201,7 +1194,8 @@ export class Main {
     //  * Associate a webhook_uri to an existing instance
     public async actionLink(opts: {
         matrix_room_id: string,
-        slack_channel_id: string,
+        slack_webhook_uri?: string,
+        slack_channel_id?: string,
         slack_bot_token?: string,
         team_id?: string,
     }): Promise<BridgedRoom> {
@@ -1216,6 +1210,12 @@ export class Main {
 
         if (existingChannel) {
             throw Error("Channel is already bridged! Unbridge the channel first.");
+        }
+
+        if (!opts.team_id && !opts.slack_bot_token) {
+            if (!opts.slack_webhook_uri) {
+                throw Error("Neither a team_id nor a slack_bot_token were provided");
+            }
         }
 
         if (opts.slack_bot_token) {
@@ -1292,12 +1292,16 @@ export class Main {
             room = existingRoom;
         }
 
+        if (opts.slack_webhook_uri) {
+            room.SlackWebhookUri = opts.slack_webhook_uri;
+        }
+
         if (opts.slack_channel_id) {
             room.SlackChannelId = opts.slack_channel_id;
         }
 
-        if (!room.SlackChannelId) {
-            throw Error("Missing channel_id");
+        if (!room.SlackChannelId && !room.SlackWebhookUri) {
+            throw Error("Missing webhook_id OR channel_id");
         }
 
         if (slackClient) {
