@@ -91,6 +91,8 @@ properties:
               type: boolean
             allow_private:
               type: boolean
+            allow_public:
+              type: boolean
             whitelist:
               type: "array"
               items:
