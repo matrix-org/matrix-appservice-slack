@@ -175,8 +175,14 @@ export class AdminCommands {
                 team_id?: string,
             }) => {
                 try {
+                    if (!room) {
+                        throw Error('The parameter room is required.');
+                    }
+                    if (!channel_id) {
+                        throw Error('The parameter channel_id is required.');
+                    }
                     const r = await this.main.actionLink({
-                        matrix_room_id: room!,
+                        matrix_room_id: room,
                         slack_bot_token,
                         team_id,
                         slack_channel_id: channel_id,
