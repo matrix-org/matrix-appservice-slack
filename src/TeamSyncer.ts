@@ -478,7 +478,7 @@ export class TeamSyncer {
         inviteList = inviteList.filter((s) => s !== creatorUserId || s !== this.main.botUserId);
         inviteList.push(this.main.botUserId);
         const extraContent: Record<string, unknown>[] = [];
-        if (this.main.encryptRoom) {
+        if (this.main.encryptRoom && !isPublic) {
             extraContent.push({
                 type: "m.room.encryption",
                 state_key: "",
