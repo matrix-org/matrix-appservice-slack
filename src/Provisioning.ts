@@ -302,9 +302,19 @@ export class Provisioner {
             });
         }
 
-        let channelInfo;
         try {
-            channelInfo = await this.main.getChannelInfo(channelId, teamId);
+            const channelInfo = await this.main.getChannelInfo(channelId, teamId);
+
+            if (!channelInfo) {
+                return res.status(HTTP_CODES.NOT_FOUND).json({
+                    message: 'Slack channel not found or not allowed to be bridged',
+                });
+            }
+
+            return res.json({
+                name: channelInfo.channel.name,
+                memberCount: channelInfo.channel.num_members,
+            });
         } catch (error) {
             log.error('Failed to get channel info.');
             log.error(error);
@@ -313,17 +323,6 @@ export class Provisioner {
                 text: 'Failed to get channel info',
             });
         }
-
-        if (!channelInfo) {
-            return res.status(HTTP_CODES.NOT_FOUND).json({
-                message: 'Slack channel not found or not allowed to be bridged',
-            });
-        }
-
-        res.json({
-            name: channelInfo.channel.name,
-            memberCount: channelInfo.channel.num_members,
-        });
     }
 
     @command("matrix_room_id", "user_id")
