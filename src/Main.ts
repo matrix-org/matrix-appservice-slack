@@ -1120,6 +1120,41 @@ export class Main {
         }
     }
 
+    public async getChannelInfo(
+        slackChannelId: string,
+        teamId: string,
+    ): Promise<ConversationsInfoResponse|'channel_not_allowed'|'channel_not_found'> {
+        let slackClient: WebClient;
+        let teamEntry: TeamEntry|null = null;
+
+        try {
+            slackClient = await this.clientFactory.getTeamClient(teamId);
+        } catch (ex) {
+            log.error("Failed to action link because the team client couldn't be fetched:", ex);
+            throw Error("Team is known, but unable to get team client");
+        }
+
+        teamEntry = await this.datastore.getTeam(teamId);
+        if (!teamEntry) {
+            throw Error("Team ID provided, but no team found in database");
+        }
+
+        const channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
+        if (!channelInfo.ok) {
+            if (channelInfo.error === 'channel_not_found') {
+                return 'channel_not_found';
+            }
+            log.error(`conversations.info for ${slackChannelId} errored:`, channelInfo.error);
+            throw Error("Failed to get channel info");
+        }
+
+        if (this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
+            return 'channel_not_allowed';
+        }
+
+        return channelInfo;
+    }
+
     // This so-called "link" action is really a multi-function generic provisioning
     // interface. It will
     //  * Create a BridgedRoom instance, linked to the given Matrix room ID
