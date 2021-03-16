@@ -1123,9 +1123,9 @@ export class Main {
     public async getChannelInfo(
         slackChannelId: string,
         teamId: string,
-    ): Promise<ConversationsInfoResponse|void> {
+    ): Promise<ConversationsInfoResponse|'channel_not_allowed'|'channel_not_found'> {
         let slackClient: WebClient|undefined;
-        let teamEntry: TeamEntry | null = null;
+        let teamEntry: TeamEntry|null = null;
 
         try {
             slackClient = await this.clientFactory.getTeamClient(teamId);
@@ -1144,7 +1144,7 @@ export class Main {
             channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
             if (!channelInfo.ok) {
                 if (channelInfo.error === 'channel_not_found') {
-                    return;
+                    return 'channel_not_found';
                 }
                 log.error(`conversations.info for ${slackChannelId} errored:`, channelInfo.error);
                 throw Error("Failed to get channel info");
@@ -1152,8 +1152,7 @@ export class Main {
         }
 
         if (this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
-            log.warn(`Channel ${slackChannelId} is not allowed to be bridged`);
-            return;
+            return 'channel_not_allowed';
         }
 
         return channelInfo;
