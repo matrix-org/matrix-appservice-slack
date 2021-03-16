@@ -1124,7 +1124,7 @@ export class Main {
         slackChannelId: string,
         teamId: string,
     ): Promise<ConversationsInfoResponse|'channel_not_allowed'|'channel_not_found'> {
-        let slackClient: WebClient|undefined;
+        let slackClient: WebClient;
         let teamEntry: TeamEntry|null = null;
 
         try {
@@ -1139,16 +1139,13 @@ export class Main {
             throw Error("Team ID provided, but no team found in database");
         }
 
-        let channelInfo: ConversationsInfoResponse | undefined;
-        if (slackClient) {
-            channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
-            if (!channelInfo.ok) {
-                if (channelInfo.error === 'channel_not_found') {
-                    return 'channel_not_found';
-                }
-                log.error(`conversations.info for ${slackChannelId} errored:`, channelInfo.error);
-                throw Error("Failed to get channel info");
+        const channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
+        if (!channelInfo.ok) {
+            if (channelInfo.error === 'channel_not_found') {
+                return 'channel_not_found';
             }
+            log.error(`conversations.info for ${slackChannelId} errored:`, channelInfo.error);
+            throw Error("Failed to get channel info");
         }
 
         if (this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
