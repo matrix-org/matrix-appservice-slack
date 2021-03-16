@@ -1122,50 +1122,25 @@ export class Main {
 
     public async getChannelInfo(
         slackChannelId: string,
-        slack_bot_token: string,
         teamId: string,
     ): Promise<ConversationsInfoResponse|void> {
         let slackClient: WebClient|undefined;
         let teamEntry: TeamEntry | null = null;
 
-        const existingChannel = slackChannelId ? this.rooms.getBySlackChannelId(slackChannelId) : null;
-
-        if (existingChannel) {
-            throw Error("Channel is already bridged! Unbridge the channel first.");
+        try {
+            slackClient = await this.clientFactory.getTeamClient(teamId);
+        } catch (ex) {
+            log.error("Failed to action link because the team client couldn't be fetched:", ex);
+            throw Error("Team is known, but unable to get team client");
         }
 
-        if (slack_bot_token) {
-            if (!slack_bot_token.startsWith("xoxb-")) {
-                throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
-            }
-            // We may have this team already and want to update the token, or this might be new.
-            // But first check that the token works.
-            try {
-                teamId = await this.clientFactory.upsertTeamByToken(slack_bot_token);
-                log.info(`Found ${teamId} for token`);
-            } catch (ex) {
-                log.error("Failed to action link because the token couldn't used:", ex);
-                throw Error("Token did not work, unable to get team");
-            }
-        }
-
-        // else, assume we have a teamId
-        if (teamId) {
-            try {
-                slackClient = await this.clientFactory.getTeamClient(teamId);
-            } catch (ex) {
-                log.error("Failed to action link because the team client couldn't be fetched:", ex);
-                throw Error("Team is known, but unable to get team client");
-            }
-
-            teamEntry = await this.datastore.getTeam(teamId);
-            if (!teamEntry) {
-                throw Error("Team ID provided, but no team found in database");
-            }
+        teamEntry = await this.datastore.getTeam(teamId);
+        if (!teamEntry) {
+            throw Error("Team ID provided, but no team found in database");
         }
 
         let channelInfo: ConversationsInfoResponse | undefined;
-        if (slackClient && slackChannelId && teamId) {
+        if (slackClient) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
             channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
@@ -1178,10 +1153,9 @@ export class Main {
             }
         }
 
-        if (slackChannelId &&
-            this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
+        if (this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
             log.warn(`Channel ${slackChannelId} is not allowed to be bridged`);
-            throw Error("The bridge config denies bridging this channel");
+            return;
         }
 
         return channelInfo;

@@ -282,27 +282,20 @@ export class Provisioner {
         });
     }
 
-    @command("user_id", "channel_id", "team_id", "bot_token")
-    private async channelinfo(_, res, userId, channelId, teamId, botToken) {
-        if (typeof userId !== 'string' ||
-            typeof channelId !== 'string' ||
-            typeof teamId !== 'string' ||
-            typeof botToken !== 'string') {
+    @command("user_id", "channel_id", "team_id")
+    private async channelinfo(_, res, userId, channelId, teamId) {
+        if (typeof userId !== 'string' || !userId ||
+            typeof channelId !== 'string' || !channelId ||
+            typeof teamId !== 'string' || !teamId) {
             return res.status(HTTP_CODES.CLIENT_ERROR).json({
                 message: 'user_id, channel_id, team_id and bot_token must be strings',
             });
         }
 
-        const opts = {
-            slack_bot_token: botToken,
-            slack_channel_id: channelId,
-            team_id: teamId,
-        };
-
-        log.info(`${userId} requested the room info of ${opts.slack_channel_id}`);
+        log.info(`${userId} requested the room info of ${channelId}`);
 
         // Check if the user is in the team.
-        if (!(await this.main.matrixUserInSlackTeam(opts.team_id, userId))) {
+        if (!(await this.main.matrixUserInSlackTeam(teamId, userId))) {
             return Promise.reject({
                 code: HTTP_CODES.FORBIDDEN,
                 text: `${userId} is not in this team.`,
@@ -311,7 +304,7 @@ export class Provisioner {
 
         let channelInfo;
         try {
-            channelInfo = await this.main.getChannelInfo(opts.slack_channel_id, opts.slack_bot_token, opts.team_id);
+            channelInfo = await this.main.getChannelInfo(channelId, teamId);
         } catch (error) {
             log.error('Failed to get channel info.');
             log.error(error);
@@ -323,7 +316,7 @@ export class Provisioner {
 
         if (!channelInfo) {
             return res.status(HTTP_CODES.NOT_FOUND).json({
-                message: 'Slack channel not found',
+                message: 'Slack channel not found or not allowed to be bridged',
             });
         }
 
