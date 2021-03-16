@@ -1120,29 +1120,28 @@ export class Main {
         }
     }
 
-    public async getChannelInfo(opts: {
-        slack_channel_id: string,
+    public async getChannelInfo(
+        slackChannelId: string,
         slack_bot_token: string,
-        team_id: string,
-    }): Promise<ConversationsInfoResponse|void> {
-        let slackClient: WebClient | undefined;
+        teamId: string,
+    ): Promise<ConversationsInfoResponse|void> {
+        let slackClient: WebClient|undefined;
         let teamEntry: TeamEntry | null = null;
-        let teamId: string = opts.team_id;
 
-        const existingChannel = opts.slack_channel_id ? this.rooms.getBySlackChannelId(opts.slack_channel_id) : null;
+        const existingChannel = slackChannelId ? this.rooms.getBySlackChannelId(slackChannelId) : null;
 
         if (existingChannel) {
             throw Error("Channel is already bridged! Unbridge the channel first.");
         }
 
-        if (opts.slack_bot_token) {
-            if (!opts.slack_bot_token.startsWith("xoxb-")) {
+        if (slack_bot_token) {
+            if (!slack_bot_token.startsWith("xoxb-")) {
                 throw Error("Provided token is not a bot token. Ensure the token starts with xoxb-");
             }
             // We may have this team already and want to update the token, or this might be new.
             // But first check that the token works.
             try {
-                teamId = await this.clientFactory.upsertTeamByToken(opts.slack_bot_token);
+                teamId = await this.clientFactory.upsertTeamByToken(slack_bot_token);
                 log.info(`Found ${teamId} for token`);
             } catch (ex) {
                 log.error("Failed to action link because the token couldn't used:", ex);
@@ -1166,22 +1165,22 @@ export class Main {
         }
 
         let channelInfo: ConversationsInfoResponse | undefined;
-        if (slackClient && opts.slack_channel_id && opts.team_id) {
+        if (slackClient && slackChannelId && teamId) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
-            channelInfo = (await slackClient.conversations.info({ channel: opts.slack_channel_id })) as ConversationsInfoResponse;
+            channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
             if (!channelInfo.ok) {
                 if (channelInfo.error === 'channel_not_found') {
                     return;
                 }
-                log.error(`conversations.info for ${opts.slack_channel_id} errored:`, channelInfo.error);
+                log.error(`conversations.info for ${slackChannelId} errored:`, channelInfo.error);
                 throw Error("Failed to get channel info");
             }
         }
 
-        if (opts.slack_channel_id &&
-            this.allowDenyList.allowSlackChannel(opts.slack_channel_id, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
-            log.warn(`Channel ${opts.slack_channel_id} is not allowed to be bridged`);
+        if (slackChannelId &&
+            this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
+            log.warn(`Channel ${slackChannelId} is not allowed to be bridged`);
             throw Error("The bridge config denies bridging this channel");
         }
 

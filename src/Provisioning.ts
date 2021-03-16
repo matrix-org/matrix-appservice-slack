@@ -311,7 +311,7 @@ export class Provisioner {
 
         let channelInfo;
         try {
-            channelInfo = await this.main.getChannelInfo(opts);
+            channelInfo = await this.main.getChannelInfo(opts.slack_channel_id, opts.slack_bot_token, opts.team_id);
         } catch (error) {
             log.error('Failed to get channel info.');
             log.error(error);
