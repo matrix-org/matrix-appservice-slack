@@ -305,9 +305,13 @@ export class Provisioner {
         try {
             const channelInfo = await this.main.getChannelInfo(channelId, teamId);
 
-            if (!channelInfo) {
+            if (channelInfo === 'channel_not_found') {
                 return res.status(HTTP_CODES.NOT_FOUND).json({
-                    message: 'Slack channel not found or not allowed to be bridged',
+                    message: 'Slack channel not found',
+                });
+            } else if (channelInfo === 'channel_not_allowed') {
+                return res.status(HTTP_CODES.NOT_FOUND).json({
+                    message: 'Slack channel not not allowed to be bridged',
                 });
             }
 
