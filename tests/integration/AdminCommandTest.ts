@@ -13,15 +13,21 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+import { Main } from "../../src/Main";
+import { constructHarness } from "../utils/harness";
+import { FakeDatastore } from "../utils/fakeDatastore";
 
-import { BridgedRoom } from "../../BridgedRoom";
+let harness: { main: Main };
 
-describe("BridgedRoom", () => {
-    it("constructs", () => {
-        new BridgedRoom({} as any, {
-            inbound_id: "123456a",
-            matrix_room_id: "!abcde:localhost",
-            slack_type: "unknown",
-        });
+describe("AdminCommandTest", () => {
+
+    beforeEach(async () => {
+        harness = constructHarness();
+        await harness.main.run(57000);
+        harness.main.datastore = new FakeDatastore();
+    });
+
+    afterEach(async () => {
+        await harness.main.killBridge();
     });
 });

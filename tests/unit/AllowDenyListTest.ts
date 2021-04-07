@@ -15,7 +15,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { AllowDenyList, DenyReason } from "../../AllowDenyList";
+import { AllowDenyList, DenyReason } from "../../src/AllowDenyList";
 import { expect } from "chai";
 
 

@@ -13,11 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { Datastore } from "../../datastore/Models";
+import { Datastore } from "../../src/datastore/Models";
 import { MatrixUser } from "matrix-appservice-bridge";
 import { expect } from "chai";
-import { SlackGhost } from "../../SlackGhost";
-import { BridgedRoom } from "../../BridgedRoom";
+import { SlackGhost } from "../../src/SlackGhost";
+import { BridgedRoom } from "../../src/BridgedRoom";
 
 export const doDatastoreTests = (ds: () => Datastore, truncateTables: () => void): void => {
     describe("users", () => {

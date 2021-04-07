@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { SlackRoomStore } from "../../SlackRoomStore";
+import { SlackRoomStore } from "../../src/SlackRoomStore";
 import { expect } from "chai";
-import { BridgedRoom } from "../../BridgedRoom";
+import { BridgedRoom } from "../../src/BridgedRoom";
 
 describe("SlackRoomStore", () => {
     it("should construct", () => {

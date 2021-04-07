@@ -13,18 +13,25 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { Main } from "../../Main";
+import { Main } from "../../src/Main";
+import { expect } from "chai";
+import axios from "axios";
+
 import { constructHarness } from "../utils/harness";
-import { FakeDatastore } from "../utils/fakeDatastore";
 
 let harness: { main: Main };
 
-describe("AdminCommandTest", () => {
+describe("HttpTests", () => {
 
-    beforeEach(async () => {
+    beforeEach(() => {
         harness = constructHarness();
+    });
+
+    it("will respond 200 to a health check", async () => {
         await harness.main.run(57000);
-        harness.main.datastore = new FakeDatastore();
+        const res = await axios.get("http://localhost:57000/health");
+        expect(res.status).to.equal(200);
+        expect(res.data).to.equal("OK");
     });
 
     afterEach(async () => {
