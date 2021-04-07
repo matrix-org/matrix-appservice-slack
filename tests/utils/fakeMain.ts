@@ -1,12 +1,12 @@
-import { OAuth2 } from "../../OAuth2";
-import { SlackRoomStore } from "../../SlackRoomStore";
+import { OAuth2 } from "../../src/OAuth2";
+import { SlackRoomStore } from "../../src/SlackRoomStore";
 import { FakeClientFactory } from "./fakeClientFactory";
 import { FakeDatastore } from "./fakeDatastore";
-import { TeamEntry, UserEntry } from "../../datastore/Models";
+import { TeamEntry, UserEntry } from "../../src/datastore/Models";
 import { FakeIntent } from "./fakeIntent";
-import { SlackGhost } from "../../SlackGhost";
-import { SlackGhostStore } from "../../SlackGhostStore";
-import { IConfig } from "../../IConfig";
+import { SlackGhost } from "../../src/SlackGhost";
+import { SlackGhostStore } from "../../src/SlackGhostStore";
+import { IConfig } from "../../src/IConfig";
 import { Bridge } from "matrix-appservice-bridge";
 
 const DEFAULT_OPTS = {

@@ -14,10 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { SlackGhostStore } from "../../SlackGhostStore";
-import { SlackRoomStore } from "../../SlackRoomStore";
+import { SlackGhostStore } from "../../src/SlackGhostStore";
+import { SlackRoomStore } from "../../src/SlackRoomStore";
 import { FakeDatastore } from "../utils/fakeDatastore";
-import { IConfig } from "../../IConfig";
+import { IConfig } from "../../src/IConfig";
 import { expect } from "chai";
 import { Bridge, Intent } from "matrix-appservice-bridge";
 

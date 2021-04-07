@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { SlackClientFactory } from "../../SlackClientFactory";
+import { SlackClientFactory } from "../../src/SlackClientFactory";
 import { FakeDatastore } from "../utils/fakeDatastore";
 import { SlackTestApi } from "../utils/slackTestApi";
 import { expect } from "chai";
-import { TeamEntry } from "../../datastore/Models";
+import { TeamEntry } from "../../src/datastore/Models";
 
 const testApi = new SlackTestApi();
 

@@ -15,7 +15,7 @@ limitations under the License.
 */
 import { Logging } from "matrix-appservice-bridge";
 import pgInit from "pg-promise";
-import { PgDatastore } from "../../datastore/postgres/PgDatastore";
+import { PgDatastore } from "../../src/datastore/postgres/PgDatastore";
 import { expect } from "chai";
 import { doDatastoreTests } from "./SharedDatastoreTests";
 const log = Logging.get("PgDatastoreTest");

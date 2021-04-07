@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { SlackHookHandler } from "../../SlackHookHandler";
+import { SlackHookHandler } from "../../src/SlackHookHandler";
 import { expect } from "chai";
 
 describe("SlackHookHandler", () => {
