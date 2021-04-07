@@ -15,7 +15,7 @@ limitations under the License.
 */
 import { ConfigValidator } from "matrix-appservice-bridge";
 import * as yaml from "js-yaml";
-import { readFile } from "fs/promises";
+import { promises as fs } from "fs";
 import * as path from "path";
 
 const SCHEMA_PATH = path.resolve(__dirname, "../../config/slack-config-schema.yaml");
@@ -25,11 +25,11 @@ const SAMPLE_COMPLETE_CONFIG_PATH = path.resolve(__dirname, "../../config/config
 describe("Config", () => {
     let validator: ConfigValidator;
     before(async () => {
-        validator = new ConfigValidator(yaml.load(await readFile(SCHEMA_PATH, "utf-8")));
+        validator = new ConfigValidator(yaml.load(await fs.readFile(SCHEMA_PATH, "utf-8")));
     });
 
     it("should pass the sample config", async () => {
-        const config = yaml.load(await readFile(SAMPLE_CONFIG_PATH, "utf-8"))
+        const config = yaml.load(await fs.readFile(SAMPLE_CONFIG_PATH, "utf-8"))
         try {
             validator.validate(config);
         } catch (ex) {
@@ -41,7 +41,7 @@ describe("Config", () => {
     });
 
     it("should pass the complete sample config", async () => {
-        const config = yaml.load(await readFile(SAMPLE_COMPLETE_CONFIG_PATH, "utf-8"))
+        const config = yaml.load(await fs.readFile(SAMPLE_COMPLETE_CONFIG_PATH, "utf-8"))
         try {
             validator.validate(config);
         } catch (ex) {
