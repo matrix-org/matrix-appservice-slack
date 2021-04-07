@@ -20,6 +20,7 @@ import * as path from "path";
 
 const SCHEMA_PATH = path.resolve(__dirname, "../../config/slack-config-schema.yaml");
 const SAMPLE_CONFIG_PATH = path.resolve(__dirname, "../../config/config.sample.yaml");
+const SAMPLE_COMPLETE_CONFIG_PATH = path.resolve(__dirname, "../../config/config.sample-complete.yaml");
 
 describe("Config", () => {
     let validator: ConfigValidator;
@@ -29,6 +30,18 @@ describe("Config", () => {
 
     it("should pass the sample config", async () => {
         const config = yaml.load(await readFile(SAMPLE_CONFIG_PATH, "utf-8"))
+        try {
+            validator.validate(config);
+        } catch (ex) {
+            if (ex._validationErrors) {
+                throw new Error(`Failed to validate:\n` + ex._validationErrors.map((err) => `      '${err.field}' ${err.message}'`).join("\n"))
+            }
+            throw ex;
+        }
+    });
+
+    it("should pass the complete sample config", async () => {
+        const config = yaml.load(await readFile(SAMPLE_COMPLETE_CONFIG_PATH, "utf-8"))
         try {
             validator.validate(config);
         } catch (ex) {
