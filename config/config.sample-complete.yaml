@@ -1,0 +1,99 @@
+homeserver:
+  server_name: my.server.here
+  url: http://localhost:8008
+  media_url: "http://my.server.here"
+  max_upload_size: 104857600
+  appservice_port: 5858
+
+username_prefix: "slack_"
+
+db:
+  engine: "postgres"
+  connectionString: "postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge"
+
+matrix_admin_room: "!aBcDeF:matrix.org"
+
+tls:
+  key_file: /path/to/tls.key
+  crt_file: /path/to/tls.crt
+
+rtm:
+  enable: true
+  logging: "silent"
+
+slack_hook_port: 9898
+
+inbound_uri_prefix: "https://my.server.here:9898/"
+
+oauth2:
+  client_id: ""
+  client_secret: ""
+  redirect_prefix: "https://my.server.here:9898/mycustomoauthendpoint"
+
+logging:
+  console: "info"
+  files:
+      "./debug.log": "info"
+      "./error.log": "error"
+
+enable_metrics: true
+
+team_sync:
+  T0123ABCDEF:
+    channels:
+      enabled: true
+      allow_private: true
+      allow_public: true
+      blacklist: ['CVCCPEY9X', 'C0108F9K37X']
+      whitelist: []
+      alias_prefix: "slack_"
+    users:
+      enabled: true
+  all:
+    channels:
+      enabled: false
+      whitelist: ["CVCCPEY9X"]
+      blacklist: []
+      alias_prefix: "slack_"
+    users:
+      enabled: false
+
+provisioning:
+  enabled: true
+  require_public_room: true
+  allow_private_channels: true
+  limits:
+    room_count: 20
+    team_count: 1
+  channel_adl:
+    allow: 
+      - "CCZ41UJV7"
+      - "#open.*"
+    deny:
+      - "CRBCPA771"
+      - "#secret.*"
+
+puppeting:
+  enabled: false
+  onboard_users: false
+  direct_messages:
+    allow:
+      slack: 
+        - "U0156TG3W48"
+      matrix: 
+        - "@badactor:badhost"
+        - "@.*:badhost"
+    deny:
+      slack: 
+        - "U0156TG3W48"
+      matrix: 
+        - "@badactor:badhost"
+        - "@.*:badhost"
+
+bot_profile:
+  displayname: "Slack Bridge"
+  avatar_url: "mxc://half-shot.uk/ea64c71ee946ca2f61379abefe2c7d977d276fbb"
+
+encryption:
+  enabled: true
+  pantalaimon_url: "http://localhost:8004"
