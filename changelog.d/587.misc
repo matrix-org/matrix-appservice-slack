@@ -1,1 +1,2 @@
 Config samples: Corrected rtm.logging to rtm.log_level
+rtm.log_level: "off" is not a valid value and should be "silent"
