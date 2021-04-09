@@ -1,1 +1,1 @@
-Run "npm install" to fix missing js-yaml issue
+Regenerate package-lock.json to fix a build issue
