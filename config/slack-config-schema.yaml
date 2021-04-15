@@ -33,7 +33,7 @@ properties:
         type: boolean
       log_level:
         type: "string"
-        enum: ["error", "warn", "info", "debug", "off"]
+        enum: ["error", "warn", "info", "debug", "silent"]
   db:
     type: object
     required: ["engine", "connectionString"]

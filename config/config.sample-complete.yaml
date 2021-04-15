@@ -19,7 +19,7 @@ tls:
 
 rtm:
   enable: true
-  logging: "silent"
+  log_level: "silent"
 
 slack_hook_port: 9898
 
