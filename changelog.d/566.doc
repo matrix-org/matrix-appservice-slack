@@ -1,0 +1,1 @@
+Fix sample RTM config to use `log_level` key.
