@@ -1,1 +1,0 @@
-The unit/integration tests have been moved to the root level, and are not built by default.

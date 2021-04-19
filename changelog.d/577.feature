@@ -1,1 +1,0 @@
-Add `teamSync.xyz.channels.allow_public` option to disable public channel syncing
