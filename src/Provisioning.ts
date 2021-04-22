@@ -28,7 +28,7 @@ interface DecoratedCommandFunc {
 }
 
 type Param = string | { param: string, required: boolean};
-type Verbs = "getbotid"|"authurl"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
+type Verbs = "getbotid"|"authurl"|"channelinfo"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
 // Decorator
 const command = (...params: Param[]) => (
@@ -280,6 +280,53 @@ export class Provisioner {
             status,
             team_id: room.SlackTeamId,
         });
+    }
+
+    @command("user_id", "channel_id", "team_id")
+    private async channelinfo(_, res, userId, channelId, teamId) {
+        if (typeof userId !== 'string' || !userId ||
+            typeof channelId !== 'string' || !channelId ||
+            typeof teamId !== 'string' || !teamId) {
+            return res.status(HTTP_CODES.CLIENT_ERROR).json({
+                message: 'user_id, channel_id, team_id and bot_token must be strings',
+            });
+        }
+
+        log.info(`${userId} requested the room info of ${channelId}`);
+
+        // Check if the user is in the team.
+        if (!(await this.main.matrixUserInSlackTeam(teamId, userId))) {
+            return Promise.reject({
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not in this team.`,
+            });
+        }
+
+        try {
+            const channelInfo = await this.main.getChannelInfo(channelId, teamId);
+
+            if (channelInfo === 'channel_not_found') {
+                return res.status(HTTP_CODES.NOT_FOUND).json({
+                    message: 'Slack channel not found',
+                });
+            } else if (channelInfo === 'channel_not_allowed') {
+                return res.status(HTTP_CODES.NOT_FOUND).json({
+                    message: 'Slack channel not not allowed to be bridged',
+                });
+            }
+
+            return res.json({
+                name: channelInfo.channel.name,
+                memberCount: channelInfo.channel.num_members,
+            });
+        } catch (error) {
+            log.error('Failed to get channel info.');
+            log.error(error);
+            return Promise.reject({
+                code: HTTP_CODES.SERVER_ERROR,
+                text: 'Failed to get channel info',
+            });
+        }
     }
 
     @command("matrix_room_id", "user_id")

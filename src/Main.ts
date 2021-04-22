@@ -972,13 +972,6 @@ export class Main {
         await this.bridge.run(port, this.config, this.appservice);
 
         this.bridge.addAppServicePath({
-            handler: this.onHealthProbe.bind(this.bridge),
-            method: "GET",
-            path: "/health",
-            checkToken: false,
-        });
-
-        this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
             path: "/ready",
@@ -1125,6 +1118,41 @@ export class Main {
                 room.MatrixRoomActive = false;
             }
         }
+    }
+
+    public async getChannelInfo(
+        slackChannelId: string,
+        teamId: string,
+    ): Promise<ConversationsInfoResponse|'channel_not_allowed'|'channel_not_found'> {
+        let slackClient: WebClient;
+        let teamEntry: TeamEntry|null = null;
+
+        try {
+            slackClient = await this.clientFactory.getTeamClient(teamId);
+        } catch (ex) {
+            log.error("Failed to action link because the team client couldn't be fetched:", ex);
+            throw Error("Team is known, but unable to get team client");
+        }
+
+        teamEntry = await this.datastore.getTeam(teamId);
+        if (!teamEntry) {
+            throw Error("Team ID provided, but no team found in database");
+        }
+
+        const channelInfo = (await slackClient.conversations.info({ channel: slackChannelId })) as ConversationsInfoResponse;
+        if (!channelInfo.ok) {
+            if (channelInfo.error === 'channel_not_found') {
+                return 'channel_not_found';
+            }
+            log.error(`conversations.info for ${slackChannelId} errored:`, channelInfo.error);
+            throw Error("Failed to get channel info");
+        }
+
+        if (this.allowDenyList.allowSlackChannel(slackChannelId, channelInfo?.channel.name) !== DenyReason.ALLOWED) {
+            return 'channel_not_allowed';
+        }
+
+        return channelInfo;
     }
 
     // This so-called "link" action is really a multi-function generic provisioning
@@ -1465,11 +1493,6 @@ export class Main {
             // really fits.
         }
     }
-
-    private onHealthProbe(_, res: Response) {
-        res.status(201).send("");
-    }
-
     private onReadyProbe(_, res: Response) {
         res.status(this.ready ? 201 : 425).send("");
     }

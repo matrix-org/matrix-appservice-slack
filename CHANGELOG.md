@@ -1,4 +1,43 @@
- 1.7.0 (2021-02-11)
+ 1.8.0 (2021-04-22)
+===================
+
+No significant changes.
+
+
+1.8.0-rc1 (2021-04-19)
+=======================
+
+Features
+--------
+
+- Add provisioning endpoint to get Slack channel info ([\#571](https://github.com/matrix-org/matrix-appservice-slack/issues/571))
+- Add `teamSync.xyz.channels.allow_public` option to disable public channel syncing ([\#577](https://github.com/matrix-org/matrix-appservice-slack/issues/577))
+
+
+Bugfixes
+--------
+
+- Autocreated public rooms will no longer be encrypted by default ([\#576](https://github.com/matrix-org/matrix-appservice-slack/issues/576))
+
+
+Improved Documentation
+----------------------
+
+- Mention the need for a classic app in the documentation. ([\#427](https://github.com/matrix-org/matrix-appservice-slack/issues/427))
+
+
+Internal Changes
+----------------
+
+- Update to matrix-appservice-bridge 2.6.0-rc1 ([\#575](https://github.com/matrix-org/matrix-appservice-slack/issues/575))
+- The unit/integration tests have been moved to the root level, and are not built by default. ([\#582](https://github.com/matrix-org/matrix-appservice-slack/issues/582))
+- Regenerate package-lock.json to fix a build issue ([\#586](https://github.com/matrix-org/matrix-appservice-slack/issues/586))
+- Config samples: Corrected rtm.logging to rtm.log_level
+  rtm.log_level: "off" is not a valid value and should be "silent" ([\#587](https://github.com/matrix-org/matrix-appservice-slack/issues/587))
+- Update to matrix-appservice-bridge 2.6.0 ([\#589](https://github.com/matrix-org/matrix-appservice-slack/issues/589))
+
+
+1.7.0 (2021-02-11)
 ===================
 
 No significant changes.

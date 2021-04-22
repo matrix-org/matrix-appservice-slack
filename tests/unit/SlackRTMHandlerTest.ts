@@ -14,9 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Main } from "../../Main";
+import { Main } from "../../src/Main";
 import { expect } from "chai";
-import { SlackRTMHandler } from "../../SlackRTMHandler";
+import { SlackRTMHandler } from "../../src/SlackRTMHandler";
 import { FakeMain } from "../utils/fakeMain";
 import { EventEmitter } from "events";
 

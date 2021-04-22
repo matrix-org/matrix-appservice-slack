@@ -33,6 +33,7 @@ export interface ITeamSyncConfig {
         blacklist?: string[];
         alias_prefix?: string;
         allow_private?: boolean;
+        allow_public?: boolean;
     };
     users?: {
         enabled: boolean;
@@ -56,7 +57,19 @@ export class TeamSyncer {
         if (!config.team_sync) {
             throw Error("team_sync is not defined in the config");
         }
+        // Apply defaults to configs
         this.teamConfigs = config.team_sync;
+        for (const teamConfig of Object.values(this.teamConfigs)) {
+            if (teamConfig.channels?.enabled) {
+                // Allow public by default
+                teamConfig.channels.allow_public = teamConfig.channels.allow_public === undefined ? true : teamConfig.channels.allow_public;
+                // Allow private by default
+                teamConfig.channels.allow_private = teamConfig.channels.allow_private === undefined ? true : teamConfig.channels.allow_private;
+                if (!teamConfig.channels.allow_public && !teamConfig.channels.allow_private) {
+                    throw Error('At least one of allow_public, allow_private must be true in the teamSync config');
+                }
+            }
+        }
     }
 
     public async syncAllTeams(teamClients: { [id: string]: WebClient; }): Promise<void> {
@@ -94,11 +107,20 @@ export class TeamSyncer {
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
             let res: ConversationsListResponse|UsersListResponse;
             if (type === "channel") {
-                const types = teamConfig.channels?.allow_private ? "public_channel,private_channel" : "public_channel";
+                const types: string[] = [];
+                if (teamConfig.channels?.allow_private) {
+                    types.push("private_channel");
+                }
+                if (teamConfig.channels?.allow_public) {
+                    types.push("public_channel");
+                }
+                if (!types.length) {
+                    throw Error('No types specified');
+                }
                 res = (await client.conversations.list({
                     limit: 1000,
                     exclude_archived: true,
-                    types,
+                    types: types.join(","),
                     cursor,
                 })) as ConversationsListResponse;
                 itemList = itemList.concat(res.channels);
@@ -147,8 +169,10 @@ export class TeamSyncer {
             if (!teamConfig.channels?.enabled) {
                 return false;
             }
-            if (isPrivate && teamConfig.channels.allow_private === false) {
-                // Default to true.
+            if (isPrivate && !teamConfig.channels.allow_private) {
+                return false;
+            }
+            if (!isPrivate && !teamConfig.channels.allow_public) {
                 return false;
             }
         }
@@ -454,7 +478,7 @@ export class TeamSyncer {
         inviteList = inviteList.filter((s) => s !== creatorUserId || s !== this.main.botUserId);
         inviteList.push(this.main.botUserId);
         const extraContent: Record<string, unknown>[] = [];
-        if (this.main.encryptRoom) {
+        if (this.main.encryptRoom && !isPublic) {
             extraContent.push({
                 type: "m.room.encryption",
                 state_key: "",

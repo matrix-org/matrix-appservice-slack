@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 import { UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
-import { NedbDatastore } from "../../datastore/NedbDatastore";
+import { NedbDatastore } from "../../src/datastore/NedbDatastore";
 import NedbDs from "nedb";
 import { doDatastoreTests } from "./SharedDatastoreTests";
 

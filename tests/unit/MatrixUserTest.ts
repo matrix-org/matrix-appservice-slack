@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { MatrixUser } from "../../MatrixUser";
-import { Main } from "../../Main";
+import { MatrixUser } from "../../src/MatrixUser";
+import { Main } from "../../src/Main";
 import { expect } from "chai";
 
 /**

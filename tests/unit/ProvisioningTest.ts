@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Provisioner } from "../../Provisioning";
+import { Provisioner } from "../../src/Provisioning";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";
 import { FakeExpressResponse } from "../utils/fakeExpress";

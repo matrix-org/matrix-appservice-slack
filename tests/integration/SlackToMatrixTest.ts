@@ -13,13 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { SlackHookHandler } from "../../SlackHookHandler";
+import { SlackHookHandler } from "../../src/SlackHookHandler";
 import { FakeMain } from "../utils/fakeMain";
-import { Main } from "../../Main";
+import { Main } from "../../src/Main";
 import { expect } from "chai";
-import { SlackEventHandler } from "../../SlackEventHandler";
-import { ISlackMessageEvent } from "../../BaseSlackHandler";
-import { BridgedRoom } from "../../BridgedRoom";
+import { SlackEventHandler } from "../../src/SlackEventHandler";
+import { ISlackMessageEvent } from "../../src/BaseSlackHandler";
+import { BridgedRoom } from "../../src/BridgedRoom";
 
 const constructHarness = () => {
     const main = new FakeMain({

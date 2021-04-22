@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { AdminCommand } from "../../AdminCommand";
+import { AdminCommand } from "../../src/AdminCommand";
 import { expect } from "chai";
 
 const LINK_COMMAND = new AdminCommand(

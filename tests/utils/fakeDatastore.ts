@@ -9,8 +9,8 @@ import {
     SlackAccount,
     TeamEntry,
     UserEntry,
-} from "../../datastore/Models";
-import { SlackGhost } from "../../SlackGhost";
+} from "../../src/datastore/Models";
+import { SlackGhost } from "../../src/SlackGhost";
 
 export class FakeDatastore implements Datastore {
     constructor(public teams: TeamEntry[] = [], public usersInTeam: UserEntry[] = []) {

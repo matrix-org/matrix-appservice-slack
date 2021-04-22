@@ -14,11 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { default as substitutions, IMatrixToSlackResult } from "../../substitutions";
+import { default as substitutions, IMatrixToSlackResult } from "../../src/substitutions";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";
-import { Main } from "../../Main";
-import { BridgedRoom } from "../../BridgedRoom";
+import { Main } from "../../src/Main";
+import { BridgedRoom } from "../../src/BridgedRoom";
 
 describe("Substitutions", () => {
     const fakeMain = new FakeMain({

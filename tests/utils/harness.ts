@@ -1,5 +1,5 @@
 import { AppServiceRegistration } from "matrix-appservice";
-import { Main } from "../../Main";
+import { Main } from "../../src/Main";
 
 export const constructHarness = (): { main: Main } => {
     const reg = new AppServiceRegistration("foobar");
