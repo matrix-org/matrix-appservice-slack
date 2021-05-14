@@ -300,10 +300,11 @@ export class TeamSyncer {
         const config = this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private);
         log.info(`Syncing channel ${teamId} ${channelItem.name} (${channelItem.id})`);
         if (!config) {
+            log.warn("Channel is not allowed to be bridged by the sync config");
             return;
         }
         if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
-            log.warn("Channel is not allowed to be bridged");
+            log.warn("Channel is not allowed to be bridged by the allow / deny list");
             return;
         }
 
