@@ -23,6 +23,7 @@ import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
 import { DenyReason } from "./AllowDenyList";
+import { TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("TeamSyncer");
 
@@ -77,17 +78,16 @@ export class TeamSyncer {
         const functionsForQueue: (() => Promise<void>)[] = [];
         for (const [teamId, client] of Object.entries(teamClients)) {
             if (!this.getTeamSyncConfig(teamId)) {
-                log.debug(`Not syncing ${teamId}, team is not configured to sync`);
+                log.info(`Not syncing ${teamId}, team is not configured to sync`);
                 continue;
             }
-            functionsForQueue.push(async () => {
-                log.info("Syncing users for team", teamId);
-                await this.syncItems(teamId, client, "user");
-            });
-            functionsForQueue.push(async () => {
-                log.info("Syncing channels for team", teamId);
-                await this.syncItems(teamId, client, "channel");
-            });
+            const team = await this.main.datastore.getTeam(teamId);
+            if (!team || !team.domain) {
+                log.info(`Not syncing ${teamId}, no team configured in store`);
+                continue;
+            }
+            functionsForQueue.push(async () => this.syncUsers(teamId, client, team));
+            functionsForQueue.push(async () => this.syncChannels(teamId, client));
         }
         try {
             log.info("Waiting for all teams to sync");
@@ -99,41 +99,64 @@ export class TeamSyncer {
         }
     }
 
-    public async syncItems(teamId: string, client: WebClient, type: "user"|"channel"): Promise<void> {
-        const teamConfig = this.getTeamSyncConfig(teamId, type);
+    public async syncUsers(teamId: string, client: WebClient, team: TeamEntry): Promise<void> {
+        const teamConfig = this.getTeamSyncConfig(teamId, "user");
         if (!teamConfig) {
-            log.warn(`Not syncing ${type}s for ${teamId}`);
+            log.warn(`Not syncing userss for ${teamId}`);
             return;
         }
-        let itemList: any[] = [];
+        const itemList: ISlackUser[] = [];
         let cursor: string|undefined;
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
-            let res: ConversationsListResponse|UsersListResponse;
-            if (type === "channel") {
-                const types: string[] = [];
-                if (teamConfig.channels?.allow_private) {
-                    types.push("private_channel");
-                }
-                if (teamConfig.channels?.allow_public) {
-                    types.push("public_channel");
-                }
-                if (!types.length) {
-                    throw Error('No types specified');
-                }
-                res = (await client.conversations.list({
-                    limit: 1000,
-                    exclude_archived: true,
-                    types: types.join(","),
-                    cursor,
-                })) as ConversationsListResponse;
-                itemList = itemList.concat(res.channels);
-            } else {
-                res = (await client.users.list({
-                    limit: 1000,
-                    cursor,
-                })) as UsersListResponse;
-                itemList = itemList.concat(res.members);
+            const res = (await client.users.list({
+                limit: 1000,
+                cursor,
+            })) as UsersListResponse;
+            itemList.push(...res.members);
+
+            cursor = res.response_metadata.next_cursor;
+            if (cursor !== "") {
+                // Get an evenly distributed number >= TEAM_SYNC_MIN_WAIT and < TEAM_SYNC_MAX_WAIT.
+                const ms = Math.random() * (TEAM_SYNC_MAX_WAIT - TEAM_SYNC_MIN_WAIT) + TEAM_SYNC_MIN_WAIT;
+                log.debug(`Waiting ${ms}ms before returning more rows`);
+                await new Promise((r) => setTimeout(
+                    r,
+                    ms,
+                ));
             }
+        }
+        log.info(`Found ${itemList.length} total users`);
+        const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
+        // .addAll waits for all promises to resolve.
+        await queue.addAll(itemList.map(item => this.syncUser.bind(this, teamId, team.domain, item)));
+    }
+
+    public async syncChannels(teamId: string, client: WebClient): Promise<void> {
+        const teamConfig = this.getTeamSyncConfig(teamId, "channel");
+        if (!teamConfig) {
+            log.warn(`Not syncing channels for ${teamId}`);
+            return;
+        }
+        const itemList: ConversationsInfo[] = [];
+        let cursor: string|undefined;
+        for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
+            const types: string[] = [];
+            if (teamConfig.channels?.allow_private) {
+                types.push("private_channel");
+            }
+            if (teamConfig.channels?.allow_public) {
+                types.push("public_channel");
+            }
+            if (!types.length) {
+                throw Error('No types specified');
+            }
+            const res = await client.conversations.list({
+                limit: 1000,
+                exclude_archived: true,
+                types: types.join(","),
+                cursor,
+            }) as ConversationsListResponse;
+            itemList.push(...res.channels);
 
             cursor = res.response_metadata.next_cursor;
             if (cursor !== "") {
@@ -146,21 +169,10 @@ export class TeamSyncer {
                 ));
             }
         }
-        log.info(`Found ${itemList.length} total ${type}s`);
-        const team = await this.main.datastore.getTeam(teamId);
-        if (!team || !team.domain) {
-            throw Error("No team domain!");
-        }
-        // Create all functions that will create promises.
-        // With .bind(this, ...params) they won't immediately execute.
-        const syncFunctionPromises = itemList.map(item => (
-            (type === "channel")
-                ? this.syncChannel.bind(this, teamId, item)
-                : this.syncUser.bind(this, teamId, team.domain, item)
-        ));
+        log.info(`Found ${itemList.length} total channels`);
         const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
         // .addAll waits for all promises to resolve.
-        await queue.addAll(syncFunctionPromises);
+        await queue.addAll(itemList.map(item => this.syncChannel.bind(this, teamId, item)));
     }
 
     private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string, isPrivate = false) {
