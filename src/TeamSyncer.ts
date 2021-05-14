@@ -81,8 +81,11 @@ export class TeamSyncer {
                 continue;
             }
             functionsForQueue.push(async () => {
-                log.info("Syncing team", teamId);
+                log.info("Syncing users for team", teamId);
                 await this.syncItems(teamId, client, "user");
+            });
+            functionsForQueue.push(async () => {
+                log.info("Syncing channels for team", teamId);
                 await this.syncItems(teamId, client, "channel");
             });
         }
