@@ -86,7 +86,7 @@ export class TeamSyncer {
                 log.info(`Not syncing ${teamId}, no team configured in store`);
                 continue;
             }
-            functionsForQueue.push(async () => this.syncUsers(teamId, client, team));
+            functionsForQueue.push(async () => this.syncUsers(team, client));
             functionsForQueue.push(async () => this.syncChannels(teamId, client));
         }
         try {
@@ -99,10 +99,10 @@ export class TeamSyncer {
         }
     }
 
-    public async syncUsers(teamId: string, client: WebClient, team: TeamEntry): Promise<void> {
-        const teamConfig = this.getTeamSyncConfig(teamId, "user");
+    public async syncUsers(team: TeamEntry, client: WebClient): Promise<void> {
+        const teamConfig = this.getTeamSyncConfig(team.id, "user");
         if (!teamConfig) {
-            log.warn(`Not syncing userss for ${teamId}`);
+            log.warn(`Not syncing userss for ${team.id}`);
             return;
         }
         const itemList: ISlackUser[] = [];
@@ -128,7 +128,7 @@ export class TeamSyncer {
         log.info(`Found ${itemList.length} total users`);
         const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
         // .addAll waits for all promises to resolve.
-        await queue.addAll(itemList.map(item => this.syncUser.bind(this, teamId, team.domain, item)));
+        await queue.addAll(itemList.map(item => this.syncUser.bind(this, team.id, team.domain, item)));
     }
 
     public async syncChannels(teamId: string, client: WebClient): Promise<void> {

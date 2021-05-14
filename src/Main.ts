@@ -1357,21 +1357,24 @@ export class Main {
         }
         if (!existingTeam && !puppeting && this.teamSyncer) {
             log.info("This is a new team, so syncing members and channels");
+            const team = await this.datastore.getTeam(teamId);
+            const teamClient = await this.clientFactory.getTeamClient(teamId);
+            if (!team) {
+                throw Error("Team does not exist AFTER upserting. This should't happen");
+            }
             try {
-                await this.teamSyncer.syncItems(
-                    teamId,
-                    await this.clientFactory.getTeamClient(teamId),
-                    "user",
+                await this.teamSyncer.syncUsers(
+                    team,
+                    teamClient,
                 );
             } catch (ex) {
                 log.warn("Failed to sync members", ex);
             }
 
             try {
-                await this.teamSyncer.syncItems(
+                await this.teamSyncer.syncChannels(
                     teamId,
-                    await this.clientFactory.getTeamClient(teamId),
-                    "channel",
+                    teamClient,
                 );
             } catch (ex) {
                 log.warn("Failed to sync channels", ex);
