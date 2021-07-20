@@ -33,7 +33,7 @@ properties:
         type: boolean
       log_level:
         type: "string"
-        enum: ["error", "warn", "info", "debug", "off"]
+        enum: ["error", "warn", "info", "debug", "silent"]
   db:
     type: object
     required: ["engine", "connectionString"]
@@ -91,6 +91,8 @@ properties:
               type: boolean
             allow_private:
               type: boolean
+            allow_public:
+              type: boolean
             whitelist:
               type: "array"
               items:
@@ -140,6 +142,8 @@ properties:
     properties:
       enabled:
         type: boolean
+      onboard_users:
+        type: boolean
       direct_messages:
         type: object
         additionalProperties: false
@@ -169,3 +173,11 @@ properties:
         type: string
       avatar_url:
         type: string
+  encryption:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      pantalaimon_url:
+        type: string
+    required: ["enabled"]

@@ -118,7 +118,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         super(main);
     }
 
-    public onVerifyUrl(challenge: string, response: EventHandlerCallback) {
+    public onVerifyUrl(challenge: string, response: EventHandlerCallback): void {
         response(
             HTTP_OK,
             JSON.stringify({challenge}),
@@ -130,7 +130,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Handles a slack event request.
      * @param ISlackEventParams
      */
-    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback, isEventAndUsingRtm: boolean) {
+    public async handle(event: ISlackEvent, teamId: string, response: EventHandlerCallback, isEventAndUsingRtm: boolean): Promise<void> {
         try {
             // See https://api.slack.com/events-api#responding_to_events
             // We must respond within 3 seconds or it will be sent again!
@@ -187,7 +187,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         }
     }
 
-    protected async handleEvent(event: ISlackEvent, teamId: string) {
+    protected async handleEvent(event: ISlackEvent, teamId: string): Promise<void> {
         switch (event.type) {
             case "message":
                 await this.handleMessageEvent(event as ISlackMessageEvent, teamId);
@@ -231,7 +231,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Attempts to make the message as native-matrix feeling as it can.
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
-    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string) {
+    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string): Promise<any> {
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
@@ -269,7 +269,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (msg.type === "message" && msg.attachments) {
             for (const attachment of msg.attachments) {
                 msg.text = attachment.fallback;
-                msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
+                msg.text = await this.doChannelUserReplacements(msg, msg.text, room.SlackClient);
                 return await room.onSlackMessage(msg);
             }
             if (msg.text === "") {
@@ -284,9 +284,9 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (msg.subtype === "message_changed" && msg.message && msg.previous_message) {
             msg.user_id = msg.message.user!;
             msg.text = msg.message.text;
-            msg.previous_message.text = (await this.doChannelUserReplacements(
-                msg, msg.previous_message!.text!, room.SlackClient)
-            )!;
+            msg.previous_message.text = await this.doChannelUserReplacements(
+                msg, msg.previous_message?.text, room.SlackClient
+            );
 
             // Check if the edit was sent by a bot
             if (msg.message.bot_id !== undefined) {
@@ -319,7 +319,7 @@ export class SlackEventHandler extends BaseSlackHandler {
             return room.onSlackMessage(event);
         }
 
-        msg.text = await this.doChannelUserReplacements(msg, msg.text!, room.SlackClient);
+        msg.text = await this.doChannelUserReplacements(msg, msg.text, room.SlackClient);
         return room.onSlackMessage(msg);
     }
 
@@ -344,7 +344,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         if (event.type === "reaction_added") {
             await room.onSlackReactionAdded(msg, teamId);
         } else if (event.type === "reaction_removed") {
-            await room.onSlackReactionRemoved(msg, teamId);
+            await room.onSlackReactionRemoved(msg);
         }
     }
 

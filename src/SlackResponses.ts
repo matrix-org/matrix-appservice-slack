@@ -160,6 +160,7 @@ export interface ConversationsInfo {
     purpose?: {
         value: string;
     };
+    num_members?: number;
 }
 
 /**

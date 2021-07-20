@@ -57,7 +57,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         this.eventHandler = new SlackEventHandler(main);
     }
 
-    public async startAndListen(port: number, tlsConfig?: {key_file: string, crt_file: string}) {
+    public async startAndListen(port: number, tlsConfig?: {key_file: string, crt_file: string}): Promise<unknown> {
         let createServer: (cb?: RequestListener) => Server = httpCreate;
         if (tlsConfig) {
             const tlsOptions = {
@@ -66,7 +66,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             };
             createServer = (cb) => httpsCreate(tlsOptions, cb);
         }
-        return new Promise((resolve: () => void, reject: (err: Error) => void) => {
+        return new Promise<void>((resolve, reject) => {
             const srv = createServer(this.onRequest.bind(this));
             srv.once("error", reject);
             srv.listen(port, () => {
@@ -79,7 +79,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
-    public async close() {
+    public async close(): Promise<void> {
         if (this.server) {
             return promisify(this.server.close).bind(this.server)();
         }
@@ -150,7 +150,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         });
     }
 
-    public static getUrlParts(url: string) {
+    public static getUrlParts(url: string): { inboundId: string, path: string } {
         const urlMatch = url.match(/^(\/?.*\/)*(.{32})(?:\/(.*))?$/);
         if (!urlMatch) {
             throw Error("URL is in incorrect format");
@@ -324,7 +324,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         log.debug(`Exchanging temporary code for full OAuth2 token ${user}`);
 
         try {
-            const { response, access_scopes } = await oauth2.exchangeCodeForToken(
+            const { response } = await oauth2.exchangeCodeForToken(
                 params.code as string,
                 token,
             );

@@ -1,4 +1,180 @@
- 1.5.0 (2020-09-01)
+ 1.8.0 (2021-04-22)
+===================
+
+No significant changes.
+
+
+1.8.0-rc1 (2021-04-19)
+=======================
+
+Features
+--------
+
+- Add provisioning endpoint to get Slack channel info ([\#571](https://github.com/matrix-org/matrix-appservice-slack/issues/571))
+- Add `teamSync.xyz.channels.allow_public` option to disable public channel syncing ([\#577](https://github.com/matrix-org/matrix-appservice-slack/issues/577))
+
+
+Bugfixes
+--------
+
+- Autocreated public rooms will no longer be encrypted by default ([\#576](https://github.com/matrix-org/matrix-appservice-slack/issues/576))
+
+
+Improved Documentation
+----------------------
+
+- Mention the need for a classic app in the documentation. ([\#427](https://github.com/matrix-org/matrix-appservice-slack/issues/427))
+
+
+Internal Changes
+----------------
+
+- Update to matrix-appservice-bridge 2.6.0-rc1 ([\#575](https://github.com/matrix-org/matrix-appservice-slack/issues/575))
+- The unit/integration tests have been moved to the root level, and are not built by default. ([\#582](https://github.com/matrix-org/matrix-appservice-slack/issues/582))
+- Regenerate package-lock.json to fix a build issue ([\#586](https://github.com/matrix-org/matrix-appservice-slack/issues/586))
+- Config samples: Corrected rtm.logging to rtm.log_level
+  rtm.log_level: "off" is not a valid value and should be "silent" ([\#587](https://github.com/matrix-org/matrix-appservice-slack/issues/587))
+- Update to matrix-appservice-bridge 2.6.0 ([\#589](https://github.com/matrix-org/matrix-appservice-slack/issues/589))
+
+
+1.7.0 (2021-02-11)
+===================
+
+No significant changes.
+
+
+1.7.0-rc1 (2021-02-05)
+=======================
+
+Features
+--------
+
+- Add `logout` user admin room command ([\#559](https://github.com/matrix-org/matrix-appservice-slack/issues/559))
+- Ensure private channels are synchronised on startup. ([\#563](https://github.com/matrix-org/matrix-appservice-slack/issues/563))
+
+
+Bugfixes
+--------
+
+- Fixed a problem where automatically created rooms would not get an alias. ([\#544](https://github.com/matrix-org/matrix-appservice-slack/issues/544))
+- Fix a bug where DMs from Slack are not persisted in the DB. ([\#558](https://github.com/matrix-org/matrix-appservice-slack/issues/558))
+
+
+Internal Changes
+----------------
+
+- Stop the bridge from emitting "MaxListenersExceededWarning" warnings. ([\#556](https://github.com/matrix-org/matrix-appservice-slack/issues/556))
+- Bump package versions ([\#557](https://github.com/matrix-org/matrix-appservice-slack/issues/557))
+- Use improved encryption support from matrix-appservice-bridge ([\#564](https://github.com/matrix-org/matrix-appservice-slack/issues/564))
+
+
+1.6.2 (2021-01-14)
+===================
+
+Bugfixes
+--------
+
+- Fix metrics bug: Month has been off by one (e.g. January = 0) ([\#553](https://github.com/matrix-org/matrix-appservice-slack/issues/553))
+
+
+Improved Documentation
+----------------------
+
+- Clarify upgrade steps in documentation. Contributed by Cameron Otsuka. ([\#545](https://github.com/matrix-org/matrix-appservice-slack/issues/545))
+
+
+1.6.1 (2020-11-06)
+===================
+
+Features
+--------
+
+- Allow docker to reuse cache when building the image by copying only npm related file before running `npm install` ([\#531](https://github.com/matrix-org/matrix-appservice-slack/issues/531))
+
+
+Bugfixes
+--------
+
+- Hide typing notifications from puppeted users on Matrix ([\#528](https://github.com/matrix-org/matrix-appservice-slack/issues/528))
+- Fix an issue where the bridge may send duplicate messages to Slack when encryption is enabled. ([\#539](https://github.com/matrix-org/matrix-appservice-slack/issues/539))
+
+
+Improved Documentation
+----------------------
+
+- Improve the installation docs and the sample config file ([\#389](https://github.com/matrix-org/matrix-appservice-slack/issues/389))
+
+
+Internal Changes
+----------------
+
+- Added missing encryption config to the schema and sample config. ([\#538](https://github.com/matrix-org/matrix-appservice-slack/issues/538))
+
+
+1.6.0 (2020-10-02)
+===================
+
+No significant changes since the previous RC.
+
+
+1.6.0-rc2 (2020-10-01)
+=======================
+
+Bugfixes
+--------
+
+- Fix bot responding to its own messages. ([\#527](https://github.com/matrix-org/matrix-appservice-slack/issues/527))
+
+
+1.6.0-rc1 (2020-10-01)
+=======================
+
+Features
+--------
+
+- New configuration option `provisioning.channel_adl` to manage which Slack channels may be bridged.
+  New configuration option `team_sync.*.allow_private` to allow/deny bridging private channels. ([\#476](https://github.com/matrix-org/matrix-appservice-slack/issues/476))
+- Support removing reactions from Slack and Matrix messages ([\#485](https://github.com/matrix-org/matrix-appservice-slack/issues/485))
+- Add support for bridge message encryption. ([\#493](https://github.com/matrix-org/matrix-appservice-slack/issues/493))
+- Add onboarding message for new users when puppeting is enabled ([\#506](https://github.com/matrix-org/matrix-appservice-slack/issues/506))
+- Join puppet to Slack channel if they are not already joined when sending a message ([\#515](https://github.com/matrix-org/matrix-appservice-slack/issues/515))
+- The help command now distinguishes positional and named parameters. ([\#520](https://github.com/matrix-org/matrix-appservice-slack/issues/520))
+- Fixed a bug where Slack messages would not bridge if a mentioned channel lacked an alias ([\#525](https://github.com/matrix-org/matrix-appservice-slack/issues/525))
+
+
+Bugfixes
+--------
+
+- Ensure that the bridge still syncs created and deleted channels, as well as new slack users, when using the RTM API. ([\#477](https://github.com/matrix-org/matrix-appservice-slack/issues/477))
+- Do not join the Slack bot to the Matrix side ([\#478](https://github.com/matrix-org/matrix-appservice-slack/issues/478))
+- Reduce chance of duplicate messages arriving on Matrix when using puppeting ([\#482](https://github.com/matrix-org/matrix-appservice-slack/issues/482))
+- Stop handling the deprecated events channel_join and channel_leave. We already handle the new event types. ([\#487](https://github.com/matrix-org/matrix-appservice-slack/issues/487))
+- Update `matrix-appservice-bridge` dependency to version `2.0` ([\#491](https://github.com/matrix-org/matrix-appservice-slack/issues/491))
+- Fix issue where a thread chain on Slack would not correctly chain replies on Matrix ([\#499](https://github.com/matrix-org/matrix-appservice-slack/issues/499))
+- OAuth2 URLs no longer break when `oauth2.redirect_prefix` is missing a trailing slash ([\#504](https://github.com/matrix-org/matrix-appservice-slack/issues/504))
+- Fix issue where generated OAuth2s would be malformed ([\#508](https://github.com/matrix-org/matrix-appservice-slack/issues/508))
+- Bridge 👍️ and 👎️ reactions more accurately from Slack to Matrix by appending U+FE0F (Emoji-style variant) ([\#509](https://github.com/matrix-org/matrix-appservice-slack/issues/509))
+
+
+Improved Documentation
+----------------------
+
+- Add documenation to enable puppeting support ([\#505](https://github.com/matrix-org/matrix-appservice-slack/issues/505))
+- Reformat feature documentation and include new features ([\#507](https://github.com/matrix-org/matrix-appservice-slack/issues/507))
+
+
+Internal Changes
+----------------
+
+- Upgrade dependencies ([\#484](https://github.com/matrix-org/matrix-appservice-slack/issues/484), [\#521](https://github.com/matrix-org/matrix-appservice-slack/issues/521))
+- Remove support for removing reactions removal for NeDB ([\#489](https://github.com/matrix-org/matrix-appservice-slack/issues/489))
+- Migrate from TSLint to ESLint ([\#490](https://github.com/matrix-org/matrix-appservice-slack/issues/490))
+- Fix plenty of ESLint warnings ([\#502](https://github.com/matrix-org/matrix-appservice-slack/issues/502))
+- Be stricter about API responses and reduce linter warnings ([\#510](https://github.com/matrix-org/matrix-appservice-slack/issues/510))
+- Remove code to deduplicate incoming Matrix events ([\#516](https://github.com/matrix-org/matrix-appservice-slack/issues/516))
+
+
+1.5.0 (2020-09-01)
 ===================
 
 Features

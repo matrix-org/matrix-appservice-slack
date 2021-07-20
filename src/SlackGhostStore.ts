@@ -18,7 +18,9 @@ export class SlackGhostStore {
         this.ghostsByUserId = new QuickLRU({ maxSize: 50 });
     }
 
-    public get cached() { return this.ghostsByUserId; }
+    public get cached(): QuickLRU<string, SlackGhost> {
+        return this.ghostsByUserId;
+    }
 
     /**
      * Get the domain of a message by getting it from it's keys, or by resolving the teamId.
@@ -88,7 +90,7 @@ export class SlackGhostStore {
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
         // TODO: Expose this
-        await (intent as unknown as any)._ensureRegistered();
+        await (intent as unknown as any).ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {

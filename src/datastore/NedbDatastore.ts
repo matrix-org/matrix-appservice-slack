@@ -63,7 +63,7 @@ export class NedbDatastore implements Datastore {
         private readonly teamStore: NedbDb) {
     }
 
-    public async upsertUser(user: SlackGhost) {
+    public async upsertUser(user: SlackGhost): Promise<null> {
         const entry = user.toEntry();
         await this.userStore.upsert({id: entry.id}, entry);
         return null;
@@ -131,7 +131,7 @@ export class NedbDatastore implements Datastore {
         }));
     }
 
-    public async getAccountsForTeam(teamId: string): Promise<SlackAccount[]> {
+    public async getAccountsForTeam(): Promise<SlackAccount[]> {
         // TODO: Can we implement this?
         return [];
     }
@@ -145,7 +145,6 @@ export class NedbDatastore implements Datastore {
         if (!accounts[slackId]) {
             return null;
         }
-        const teamId = accounts[slackId].team_id;
         // Identify if this is the only account.
         delete accounts[slackId];
         matrixUser.set("accounts", accounts);
@@ -161,13 +160,13 @@ export class NedbDatastore implements Datastore {
         return null;
     }
 
-    public async upsertRoom(room: BridgedRoom) {
+    public async upsertRoom(room: BridgedRoom): Promise<null> {
         const entry = room.toEntry();
         await this.roomStore.upsert({id: entry.id}, entry);
         return null;
     }
 
-    public async deleteRoom(id: string) {
+    public async deleteRoom(id: string): Promise<null> {
         await this.roomStore.delete({id});
         return null;
     }
@@ -268,43 +267,34 @@ export class NedbDatastore implements Datastore {
         }));
     }
 
-    public async upsertReaction(entry: ReactionEntry): Promise<null> {
+    public async upsertReaction(): Promise<null> {
         // Reaction removal not supported by NeDB - noop
         return null;
     }
 
-    public async getReactionByMatrixId(roomId: string, eventId: string): Promise<ReactionEntry|null> {
+    public async getReactionByMatrixId(): Promise<ReactionEntry|null> {
         // Reaction removal not supported by NeDB - noop
         return null;
     }
 
-    public async getReactionBySlackId(
-        slackChannelId: string,
-        slackMessageTs: string,
-        slackUserId: string,
-        reaction: string,
-    ): Promise<ReactionEntry|null> {
+    public async getReactionBySlackId(): Promise<ReactionEntry|null> {
         // Reaction removal not supported by NeDB - noop
         return null;
     }
 
-    public async deleteReactionByMatrixId(roomId: string, eventId: string): Promise<null> {
+    public async deleteReactionByMatrixId(): Promise<null> {
         // Reaction removal not supported by NeDB - noop
         return null;
     }
 
-    public async deleteReactionBySlackId(
-        slackChannelId: string,
-        slackMessageTs: string,
-        slackUserId: string,
-        reaction: string,
-    ): Promise<null> {
+    public async deleteReactionBySlackId(): Promise<null> {
         // Reaction removal not supported by NeDB - noop
         return null;
     }
 
-    public async upsertTeam(entry: TeamEntry) {
-        return this.teamStore.update({id: entry.id}, entry, {upsert: true});
+    public async upsertTeam(entry: TeamEntry): Promise<null> {
+        this.teamStore.update({id: entry.id}, entry, {upsert: true});
+        return null;
     }
 
     public async deleteTeam(teamId: string): Promise<null> {
@@ -315,7 +305,6 @@ export class NedbDatastore implements Datastore {
     public async getTeam(teamId: string): Promise<TeamEntry|null> {
         return new Promise((resolve, reject) => {
             // These are technically schemaless
-            // tslint:disable-next-line: no-any
             this.teamStore.findOne({id: teamId}, { _id: 0 }, (err: Error|null, doc: any) => {
                 if (err) {
                     reject(err);
@@ -364,7 +353,7 @@ export class NedbDatastore implements Datastore {
         return [];
     }
 
-    public async getPuppetMatrixUserBySlackId(teamId: string, slackId: string): Promise<null> {
+    public async getPuppetMatrixUserBySlackId(): Promise<null> {
         return null;
     }
 

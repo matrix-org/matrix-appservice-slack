@@ -1,49 +1,56 @@
 Features
 ========
 
-The list below is a mostly exhuastive list of features that
-the bridge supports.
+The list below is a exhuastive list of features that the bridge supports.
 
-- Bridging Slack Channels
-    - [x] Public
-    - [x] Private
-    - [x] IM (puppeting)
-- Administration
-    - [x] Provisioning API
-    - [x] Admin Room
-    - [ ] User Admin Rooms
-- [x] Metrics - via prometheus
-- Direct Messaging (puppeting) [1]
-    - [x] Matrix -> Slack
-    - [x] Slack -> Matrix
-- Content bridging (in both directions)
-    - [x] Text (m.text)
-    - [x] Formatted Text (m.text html)
-    - [x] Audio/Video (m.audio/m.video)
-    - [x] Files (m.file)
+Symbols:
+- 🇵 means that the feature is available to puppeted users.  
+- 🧪 means that the feature is experimental.  
+
+Notes:
+- [1] Users who are not puppeted are not able to send reactions as themselves.  
+- [2] Matrix replies appear as threads on Slack. Slack threads appear as replies on Matrix.  
+- [3] Edits are not currently supported if the source Slack message included an image.  
+
+## Channel Types
+
+The bridge supports connecting all channel types to Matrix rooms.
+
+- Public
+- Private
+- Group Chats 🇵
+- DMs 🇵
+
+## Content Types
+
+These types are supported in both directions.
+
+- Text / Formatted Text
+- Images / Videos / Audio / Files
+- Reactions [1]
 - Redactions
-    - [x] Matrix -> Slack
-    - [x] Slack -> Matrix
-- Reactions
-    - [x] Matrix -> Slack [2]
-    - [x] Slack -> Matrix [3]
-- Edits
-    - [x] Matrix -> Slack
-    - [x] Slack -> Matrix
-- Threading
-    - [x] Matrix -> Slack
-    - [x] Slack -> Matrix
-- Membership Syncing
-    - [ ] Matrix -> Slack
-    - [ ] Slack -> Matrix
-- Topics
-    - [ ] Matrix -> Slack
-    - [ ] Slack -> Matrix
+- Edits [3]
+- Threading / Replies [2]
+- [Encrypted Messages](./bridge-encryption) 🧪
 
+## Membership
 
-1. Cannot initiate a DM from Matrix to Slack currently [if the user
-   on Slack has not yet spoken](https://github.com/matrix-org/matrix-appservice-slack/issues/211).
-2. Can only bridge on reaction of each type, as the Slack bot
-   can only react once. This is not a limitation for puppeted users.
-3. Slack users cannot currently remove reactions on Matrix due
-   to [a limitation](https://github.com/matrix-org/matrix-appservice-slack/issues/154).
+Membership is synced from Slack so that all users who are inside the
+Slack channel appear as members in the Matrix room. Members who are puppeted
+on Matrix appear on Slack. 
+
+- Sync channel membership to Matrix on startup
+- Sync channel membership to Matrix when new users join
+- Sync room membership to Slack on startup 🇵
+- Sync Matrix users to Slack channels when they join Matrix rooms 🇵
+
+## Channel/User Syncronisation
+
+- Sync public Slack channels to the Matrix room directory on startup
+- Sync members of the Slack workspace to Matix on startup
+
+## Administration Features
+
+- CLI interface via a Matrix admin room
+- Configure rooms via a provisioning API and a compatible integration manager
+- Metrics for the bridge are exposed via a prometheus-compatible endpoint

@@ -18,7 +18,7 @@ import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
-import { Logging, MatrixUser } from "matrix-appservice-bridge";
+import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -41,9 +41,16 @@ const pgp: IMain = pgInit({
 
 const log = Logging.get("PgDatastore");
 
-export class PgDatastore implements Datastore {
-    public static readonly LATEST_SCHEMA = 10;
-    public readonly postgresDb: IDatabase<unknown>;
+interface ClientSessionSchema {
+    user_id: string;
+    access_token: string;
+    device_id: string;
+    sync_token?: string;
+}
+
+export class PgDatastore implements Datastore, ClientEncryptionStore {
+    public static readonly LATEST_SCHEMA = 13;
+    public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
         this.postgresDb = pgp(connectionString);
@@ -149,7 +156,7 @@ export class PgDatastore implements Datastore {
     }
 
     public async upsertEvent(
-        roomIdOrEntry: string|EventEntry,
+        roomIdOrEntry: string | EventEntry,
         eventId?: string,
         channelId?: string,
         ts?: string,
@@ -186,8 +193,9 @@ export class PgDatastore implements Datastore {
     }
 
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
+        log.debug(`getEventBySlackId: ${slackChannel} ${slackTs}`);
         return this.postgresDb.oneOrNone(
-            "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
+            "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs} LIMIT 1",
             { slackChannel, slackTs }, e => e && {
                 roomId: e.roomid,
                 eventId: e.eventid,
@@ -447,7 +455,7 @@ export class PgDatastore implements Datastore {
             "INSERT INTO metrics_activities (user_id, room_id, date) " +
             "VALUES(${userId}, ${roomId}, ${date}) " +
             "ON CONFLICT ON CONSTRAINT cons_activities_unique DO NOTHING", {
-                date: `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+                date: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
                 roomId: room.toEntry().id,
                 userId,
             });
@@ -497,6 +505,40 @@ export class PgDatastore implements Datastore {
             teamData.set(activeUser.remote, (teamData.get(activeUser.remote) || 0) + 1);
         });
         return usersByTeamAndRemote;
+    }
+
+    public async getStoredSession(userId: string): Promise<ClientEncryptionSession|null> {
+        log.debug(`getStoredSession: ${userId}`);
+        const result: ClientSessionSchema|null = await this.postgresDb.oneOrNone(
+            "SELECT device_id, access_token FROM encryption_sessions WHERE user_id = ${userId}",
+            {userId}
+        );
+        if (!result) {
+            return null;
+        }
+        return {
+            userId,
+            accessToken: result.access_token,
+            deviceId: result.device_id,
+            syncToken: result.sync_token || null,
+        };
+    }
+
+    public async setStoredSession(session: ClientEncryptionSession) {
+        const params: ClientSessionSchema = {
+            user_id: session.userId,
+            access_token: session.accessToken,
+            device_id: session.deviceId,
+        };
+        if (session.syncToken) {
+            params.sync_token = session.syncToken;
+        }
+        const statement = PgDatastore.BuildUpsertStatement("encryption_sessions", ["user_id"], [params as unknown as Record<string, unknown>]);
+        await this.postgresDb.none(statement, params);
+    }
+
+    public async updateSyncToken(userId: string, token: string) {
+        await this.postgresDb.none("UPDATE encryption_sessions SET sync_token = ${token} WHERE user_id = ${userId}", {userId, token});
     }
 
     public async getRoomCount(): Promise<number> {

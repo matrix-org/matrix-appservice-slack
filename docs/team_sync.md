@@ -1,5 +1,5 @@
-Workspace Sync
-==============
+Team Sync
+=========
 
 The term Team is synonymously used for a Slack Workspace.
 

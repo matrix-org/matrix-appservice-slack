@@ -9,6 +9,7 @@ import { WebClient, Logger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
+import { createDM } from "./RoomCreation";
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -34,7 +35,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         return this.rtmUserClients.get(key);
     }
 
-    public async startUserClient(puppetEntry: PuppetEntry) {
+    public async startUserClient(puppetEntry: PuppetEntry): Promise<void> {
         const key = `${puppetEntry.teamId}:${puppetEntry.matrixId}`;
         if (this.rtmUserClients.has(key)) {
             log.debug(`${key} is already connected`);
@@ -64,7 +65,7 @@ export class SlackRTMHandler extends SlackEventHandler {
     }
 
     private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
-        const chanInfo = (await slackClient!.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
+        const chanInfo = (await slackClient.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.
         chanInfo.channel.is_private = chanInfo.channel.is_private || chanInfo.channel.is_im || chanInfo.channel.is_group;
         if (!chanInfo.channel.is_private) {
@@ -94,7 +95,17 @@ export class SlackRTMHandler extends SlackEventHandler {
         return true; // Bots can use RTM by default, yay \o/.
     }
 
-    public async disconnectAll() {
+    public async disconnectClient(teamId: string, userId: string) {
+        const key = `${teamId}:${userId}`;
+        const client = this.rtmUserClients.get(`${teamId}:${userId}`);
+        if (!client) {
+            return;
+        }
+        await client.disconnect();
+        this.rtmUserClients.delete(key);
+    }
+
+    public async disconnectAll(): Promise<void> {
         const promises: Promise<void>[] = [];
         for (const kv of this.rtmTeamClients.entries()) {
             promises.push((async () => {
@@ -117,10 +128,17 @@ export class SlackRTMHandler extends SlackEventHandler {
             })());
         }
 
+        this.rtmUserClients.clear();
+        this.rtmTeamClients.clear();
         await Promise.all(promises);
     }
 
-    public async startTeamClientIfNotStarted(expectedTeam: string) {
+    public async startTeamClientIfNotStarted(expectedTeam: string): Promise<void> {
+        const team = (await this.main.datastore.getTeam(expectedTeam));
+        if (!team) {
+            log.warn("startTeamClientIfNotStarted: could not find team");
+            return;
+        }
         if (this.rtmTeamClients.has(expectedTeam)) {
             log.debug(`${expectedTeam} is already connected`);
             try {
@@ -134,7 +152,6 @@ export class SlackRTMHandler extends SlackEventHandler {
             // Cannot use RTM, no-op.
             return;
         }
-        const team = (await this.main.datastore.getTeam(expectedTeam))!;
         const promise = this.startTeamClient(expectedTeam, team.bot_token);
         this.rtmTeamClients.set(expectedTeam.toUpperCase(), promise);
         await promise;
@@ -155,7 +172,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                         log.error("Cannot handle event, no active teamId!");
                         return;
                     }
-                    await this.handle(event, rtm.activeTeamId! , () => {}, false);
+                    await this.handle(event, rtm.activeTeamId , () => {}, false);
                 } catch (ex) {
                     log.error(`Failed to handle '${eventName}' event`);
                 }
@@ -176,7 +193,7 @@ export class SlackRTMHandler extends SlackEventHandler {
     private createRtmClient(token: string, logLabel: string): RTMClient {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
         const connLog = Logging.get(`RTM-${logLabel.substr(0, LOG_TEAM_LEN)}`);
-        const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm!.log_level || "silent");
+        const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm?.log_level || "silent");
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
@@ -227,49 +244,55 @@ export class SlackRTMHandler extends SlackEventHandler {
             }
         }
 
+        const team = (await this.main.datastore.getTeam(puppet.teamId));
+        if (!team) {
+            throw Error("Could not find team in datastore, cannot handle RTM event!");
+        }
 
         if (isIm) {
             const channelMembersRes = (await slackClient.conversations.members({ channel: chanInfo.channel.id })) as ConversationsMembersResponse;
             const ghosts = (await Promise.all(channelMembersRes.members.map(
-                // tslint:disable-next-line: no-any
                 async (id) =>
-                    id ? this.main.ghostStore.get(id, (event as any).team_domain, puppet.teamId) : null,
+                    id ? this.main.ghostStore.get(id, event.team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];
 
             const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
 
             log.info(`Creating new DM room for ${event.channel}`);
-            const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId)!;
+            const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId);
             const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
             // Create a new DM room.
-            const { room_id } = await ghost.intent.createRoom({
-                createAsClient: true,
-                options: {
-                    invite: [puppet.matrixId].concat(ghosts.map((g) => g.userId!)),
-                    preset: "private_chat",
-                    is_direct: true,
-                    name,
-                },
-            });
-            const team = (await this.main.datastore.getTeam(puppet.teamId))!;
+            await ghost.update({ user: ghost.slackId });
+            const roomId = await createDM(
+                ghost.intent,
+                [puppet.matrixId].concat(ghosts.map((g) => g.userId)),
+                name,
+                this.main.encryptRoom,
+            );
             room = new BridgedRoom(this.main, {
                 inbound_id: chanInfo.channel.id,
-                matrix_room_id: room_id,
+                matrix_room_id: roomId,
                 slack_team_id: puppet.teamId,
                 slack_channel_id: chanInfo.channel.id,
                 slack_channel_name: chanInfo.channel.name,
                 puppet_owner: puppet.matrixId,
                 is_private: chanInfo.channel.is_private,
-                slack_type: "unknown",
+                slack_type: chanInfo.channel.is_im ? "im" : "mpim",
             }, team, slackClient);
             room.updateUsingChannelInfo(chanInfo);
             await this.main.addBridgedRoom(room);
             await this.main.datastore.upsertRoom(room);
-            await Promise.all(otherGhosts.map(async(g) => g.intent.join(room_id)));
+            room.waitForJoin();
+
+            await Promise.all(otherGhosts.map(async(g) => g.intent.join(roomId)));
             return this.handleEvent(event, puppet.teamId);
         } else if (this.main.teamSyncer) {
             // A private channel may not have is_group set if it's an older channel.
-            await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            try {
+                await this.main.teamSyncer.onDiscoveredPrivateChannel(puppet.teamId, slackClient, chanInfo);
+            } catch (ex) {
+                log.warn(`Could not create room for ${event.channel}: ${ex}`);
+            }
             return this.handleEvent(event, puppet.teamId);
         }
         log.warn(`No room found for ${event.channel} and not sure how to create one`);

@@ -69,6 +69,7 @@ module.exports = {
         "@typescript-eslint/no-namespace": "error",
         "@typescript-eslint/no-parameter-properties": "off",
         "@typescript-eslint/no-unused-expressions": "error",
+        "@typescript-eslint/no-unused-vars": "error",
         "@typescript-eslint/no-use-before-define": "off",
         "@typescript-eslint/no-var-requires": "error",
         "@typescript-eslint/prefer-for-of": "error",
@@ -162,6 +163,8 @@ module.exports = {
         ],
         "use-isnan": "error",
         "valid-typeof": "off",
+        "@typescript-eslint/explicit-module-boundary-types": "off",
+        "max-classes-per-file": "off"
     },
     "overrides": [
         {
@@ -169,7 +172,9 @@ module.exports = {
                 "src/tests/**/*.ts"
             ],
             "rules": {
-                "@typescript-eslint/no-unused-expressions": "off"
+                "@typescript-eslint/no-non-null-assertion": "off",
+                "@typescript-eslint/no-unused-expressions": "off",
+                "@typescript-eslint/no-explicit-any": "off"
             }
         }
     ],

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, MatrixUser } from "matrix-appservice-bridge";
+import { Bridge, Logging } from "matrix-appservice-bridge";
 import { Request, Response} from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
@@ -28,7 +28,7 @@ interface DecoratedCommandFunc {
 }
 
 type Param = string | { param: string, required: boolean};
-type Verbs = "getbotid"|"authurl"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
+type Verbs = "getbotid"|"authurl"|"channelinfo"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
 // Decorator
 const command = (...params: Param[]) => (
@@ -38,9 +38,9 @@ const command = (...params: Param[]) => (
 );
 
 export class Provisioner {
-    constructor(private main: Main, private bridge: any) { }
+    constructor(private main: Main, private bridge: Bridge) { }
 
-    public addAppServicePath() {
+    public addAppServicePath(): void {
         this.bridge.addAppServicePath({
             handler: async (req: Request, res: Response) => {
                 const verb = req.params.verb;
@@ -52,7 +52,7 @@ export class Provisioner {
         });
     }
 
-    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response) {
+    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<any>> {
         const provisioningCommand = this[verb] as DecoratedCommandFunc;
         if (!provisioningCommand || !provisioningCommand.params) {
             return res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
@@ -202,14 +202,15 @@ export class Provisioner {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
             return;
         }
-        const results = await Promise.all(accounts.map(async (account) => {
-            const team = await this.main.datastore.getTeam(account.teamId);
-            return {team, slack_id: account.slackId};
-        })
+        const results = await Promise.all(
+            accounts.map(async (account) => {
+                const team = await this.main.datastore.getTeam(account.teamId);
+                return {team, slack_id: account.slackId};
+            })
         );
         const teams = results.map((account) => ({
-            id: account.team!.id,
-            name: account.team!.name,
+            id: account.team?.id,
+            name: account.team?.name,
             slack_id: account.slack_id,
         }));
         res.json({ teams });
@@ -279,6 +280,53 @@ export class Provisioner {
             status,
             team_id: room.SlackTeamId,
         });
+    }
+
+    @command("user_id", "channel_id", "team_id")
+    private async channelinfo(_, res, userId, channelId, teamId) {
+        if (typeof userId !== 'string' || !userId ||
+            typeof channelId !== 'string' || !channelId ||
+            typeof teamId !== 'string' || !teamId) {
+            return res.status(HTTP_CODES.CLIENT_ERROR).json({
+                message: 'user_id, channel_id, team_id and bot_token must be strings',
+            });
+        }
+
+        log.info(`${userId} requested the room info of ${channelId}`);
+
+        // Check if the user is in the team.
+        if (!(await this.main.matrixUserInSlackTeam(teamId, userId))) {
+            return Promise.reject({
+                code: HTTP_CODES.FORBIDDEN,
+                text: `${userId} is not in this team.`,
+            });
+        }
+
+        try {
+            const channelInfo = await this.main.getChannelInfo(channelId, teamId);
+
+            if (channelInfo === 'channel_not_found') {
+                return res.status(HTTP_CODES.NOT_FOUND).json({
+                    message: 'Slack channel not found',
+                });
+            } else if (channelInfo === 'channel_not_allowed') {
+                return res.status(HTTP_CODES.NOT_FOUND).json({
+                    message: 'Slack channel not not allowed to be bridged',
+                });
+            }
+
+            return res.json({
+                name: channelInfo.channel.name,
+                memberCount: channelInfo.channel.num_members,
+            });
+        } catch (error) {
+            log.error('Failed to get channel info.');
+            log.error(error);
+            return Promise.reject({
+                code: HTTP_CODES.SERVER_ERROR,
+                text: 'Failed to get channel info',
+            });
+        }
     }
 
     @command("matrix_room_id", "user_id")

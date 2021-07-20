@@ -24,6 +24,7 @@ import { WebClient } from "@slack/web-api";
 import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
 import { DenyReason } from "./AllowDenyList";
+import { TeamEntry } from "./datastore/Models";
 
 const log = Logging.get("TeamSyncer");
 
@@ -34,6 +35,8 @@ export interface ITeamSyncConfig {
         blacklist?: string[];
         alias_prefix?: string;
         allow_private?: boolean;
+        allow_public?: boolean;
+        hint_channel_admins?: boolean;
     };
     users?: {
         enabled: boolean;
@@ -57,7 +60,24 @@ export class TeamSyncer {
         if (!config.team_sync) {
             throw Error("team_sync is not defined in the config");
         }
+        // Apply defaults to configs
         this.teamConfigs = config.team_sync;
+        for (const teamConfig of Object.values(this.teamConfigs)) {
+            if (teamConfig.channels?.enabled) {
+                // Allow public by default
+                teamConfig.channels.allow_public = teamConfig.channels.allow_public === undefined ? true : teamConfig.channels.allow_public;
+                // Allow private by default
+                teamConfig.channels.allow_private = teamConfig.channels.allow_private === undefined ? true : teamConfig.channels.allow_private;
+                if (!teamConfig.channels.allow_public && !teamConfig.channels.allow_private) {
+                    throw Error('At least one of allow_public, allow_private must be true in the teamSync config');
+                }
+                // Send hint to channel admins
+                teamConfig.channels.hint_channel_admins =
+                  teamConfig.channels.hint_channel_admins === undefined
+                      ? true
+                      : teamConfig.channels.hint_channel_admins;
+            }
+        }
     }
 
     public async syncAllTeams(teamClients: { [id: string]: WebClient; }): Promise<void> {
@@ -65,15 +85,17 @@ export class TeamSyncer {
         const functionsForQueue: (() => Promise<void>)[] = [];
         for (const [teamId, client] of Object.entries(teamClients)) {
             if (!this.getTeamSyncConfig(teamId)) {
-                log.debug(`Not syncing ${teamId}, team is not configured to sync`);
+                log.info(`Not syncing ${teamId}, team is not configured to sync`);
                 continue;
             }
-            functionsForQueue.push(async () => {
-                log.info("Syncing team", teamId);
-                await this.syncItems(teamId, client, "user");
-                await this.syncItems(teamId, client, "channel");
-                await this.syncCustomEmoji(teamId, client);
-            });
+            const team = await this.main.datastore.getTeam(teamId);
+            if (!team || !team.domain) {
+                log.info(`Not syncing ${teamId}, no team configured in store`);
+                continue;
+            }
+            functionsForQueue.push(async () => this.syncUsers(team, client));
+            functionsForQueue.push(async () => this.syncChannels(teamId, client));
+            functionsForQueue.push(async () => this.syncCustomEmoji(teamId, client));
         }
         try {
             log.info("Waiting for all teams to sync");
@@ -85,30 +107,64 @@ export class TeamSyncer {
         }
     }
 
-    public async syncItems(teamId: string, client: WebClient, type: "user"|"channel") {
-        if (!this.getTeamSyncConfig(teamId, type)) {
-            log.warn(`Not syncing ${type}s for ${teamId}`);
+    public async syncUsers(team: TeamEntry, client: WebClient): Promise<void> {
+        const teamConfig = this.getTeamSyncConfig(team.id, "user");
+        if (!teamConfig) {
+            log.warn(`Not syncing userss for ${team.id}`);
             return;
         }
-        let itemList: any[] = [];
+        const itemList: ISlackUser[] = [];
         let cursor: string|undefined;
         for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
-            let res: ConversationsListResponse|UsersListResponse;
-            if (type === "channel") {
-                res = (await client.conversations.list({
-                    limit: 1000,
-                    exclude_archived: true,
-                    type: "public_channel",
-                    cursor,
-                })) as ConversationsListResponse;
-                itemList = itemList.concat(res.channels);
-            } else {
-                res = (await client.users.list({
-                    limit: 1000,
-                    cursor,
-                })) as UsersListResponse;
-                itemList = itemList.concat(res.members);
+            const res = (await client.users.list({
+                limit: 1000,
+                cursor,
+            })) as UsersListResponse;
+            itemList.push(...res.members);
+
+            cursor = res.response_metadata.next_cursor;
+            if (cursor !== "") {
+                // Get an evenly distributed number >= TEAM_SYNC_MIN_WAIT and < TEAM_SYNC_MAX_WAIT.
+                const ms = Math.random() * (TEAM_SYNC_MAX_WAIT - TEAM_SYNC_MIN_WAIT) + TEAM_SYNC_MIN_WAIT;
+                log.debug(`Waiting ${ms}ms before returning more rows`);
+                await new Promise((r) => setTimeout(
+                    r,
+                    ms,
+                ));
             }
+        }
+        log.info(`Found ${itemList.length} total users`);
+        const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
+        // .addAll waits for all promises to resolve.
+        await queue.addAll(itemList.map(item => this.syncUser.bind(this, team.id, team.domain, item)));
+    }
+
+    public async syncChannels(teamId: string, client: WebClient): Promise<void> {
+        const teamConfig = this.getTeamSyncConfig(teamId, "channel");
+        if (!teamConfig) {
+            log.warn(`Not syncing channels for ${teamId}`);
+            return;
+        }
+        const itemList: ConversationsInfo[] = [];
+        let cursor: string|undefined;
+        for (let i = 0; i < TEAM_SYNC_FAILSAFE && (cursor === undefined || cursor !== ""); i++) {
+            const types: string[] = [];
+            if (teamConfig.channels?.allow_private) {
+                types.push("private_channel");
+            }
+            if (teamConfig.channels?.allow_public) {
+                types.push("public_channel");
+            }
+            if (!types.length) {
+                throw Error('No types specified');
+            }
+            const res = await client.conversations.list({
+                limit: 1000,
+                exclude_archived: true,
+                types: types.join(","),
+                cursor,
+            }) as ConversationsListResponse;
+            itemList.push(...res.channels);
 
             cursor = res.response_metadata.next_cursor;
             if (cursor !== "") {
@@ -121,21 +177,10 @@ export class TeamSyncer {
                 ));
             }
         }
-        log.info(`Found ${itemList.length} total ${type}s`);
-        const team = await this.main.datastore.getTeam(teamId);
-        if (!team || !team.domain) {
-            throw Error("No team domain!");
-        }
-        // Create all functions that will create promises.
-        // With .bind(this, ...params) they won't immediately execute.
-        const syncFunctionPromises = itemList.map(item => (
-            (type === "channel")
-                ? this.syncChannel.bind(this, teamId, item)
-                : this.syncUser.bind(this, teamId, team.domain, item)
-        ));
+        log.info(`Found ${itemList.length} total channels`);
         const queue = new PQueue({ concurrency: TEAM_SYNC_ITEM_CONCURRENCY });
         // .addAll waits for all promises to resolve.
-        await queue.addAll(syncFunctionPromises);
+        await queue.addAll(itemList.map(item => this.syncChannel.bind(this, teamId, item)));
     }
 
     private getTeamSyncConfig(teamId: string, item?: "channel"|"user", itemId?: string, isPrivate = false) {
@@ -147,8 +192,10 @@ export class TeamSyncer {
             if (!teamConfig.channels?.enabled) {
                 return false;
             }
-            if (isPrivate && teamConfig.channels.allow_private === false) {
-                // Default to true.
+            if (isPrivate && !teamConfig.channels.allow_private) {
+                return false;
+            }
+            if (!isPrivate && !teamConfig.channels.allow_public) {
                 return false;
             }
         }
@@ -173,19 +220,21 @@ export class TeamSyncer {
         return teamConfig;
     }
 
-    public async onChannelAdded(teamId: string, channelId: string, name: string, creator: string) {
+    public async onChannelAdded(teamId: string, channelId: string, name: string, creator: string): Promise<void> {
         log.info(`${teamId} ${creator} created channel ${channelId} ${name}`);
         const client = await this.main.clientFactory.getTeamClient(teamId);
         const { channel } = (await client.conversations.info({ channel: channelId })) as ConversationsInfoResponse;
         await this.syncChannel(teamId, channel);
     }
 
-    public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse) {
+    public async onDiscoveredPrivateChannel(teamId: string, client: WebClient, chanInfo: ConversationsInfoResponse): Promise<void> {
         log.info(`Discovered private channel ${teamId} ${chanInfo.channel.id}`);
         const channelItem = chanInfo.channel;
         if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, true)) {
-            log.info(`Not syncing`);
-            return;
+            throw Error(`Not syncing due to team sync config`);
+        }
+        if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
+            throw Error(`Not syncing due to ADL list`);
         }
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
         if (existingChannel) {
@@ -193,15 +242,17 @@ export class TeamSyncer {
             return;
         }
         if (channelItem.is_im || channelItem.is_mpim || !channelItem.is_private) {
-            log.warn("Not creating channel: Is not a private channel");
-            return;
+            throw Error(`Not creating channel: Is not a private channel`);
+        }
+        const team = await this.main.datastore.getTeam(teamId);
+        if (!team) {
+            throw Error(`team could not be found for channel`);
         }
         log.info(`Attempting to dynamically bridge private ${channelItem.id} ${channelItem.name}`);
         // Create the room first.
         try {
             const members = await this.mapChannelMembershipToMatrixIds(teamId, client, channelItem.id);
             const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem, false, members);
-            const team = await this.main.datastore.getTeam(teamId);
             const inboundId = this.main.genInboundId();
             const room = new BridgedRoom(this.main, {
                 inbound_id: inboundId,
@@ -210,7 +261,7 @@ export class TeamSyncer {
                 slack_channel_id: channelItem.id,
                 is_private: true,
                 slack_type: "channel",
-            }, team!, client);
+            }, team, client);
             room.updateUsingChannelInfo(chanInfo);
             this.main.rooms.upsertRoom(room);
             await this.main.datastore.upsertRoom(room);
@@ -219,7 +270,7 @@ export class TeamSyncer {
         }
     }
 
-    public async syncUser(teamId: string, domain: string, item: ISlackUser) {
+    public async syncUser(teamId: string, domain: string, item: ISlackUser): Promise<void> {
         log.info(`Syncing user ${teamId} ${item.id}`);
         const existingGhost = await this.main.ghostStore.getExisting(this.main.ghostStore.getUserId(item.id, domain));
         if (item.deleted && !existingGhost) {
@@ -254,12 +305,14 @@ export class TeamSyncer {
     }
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
-        log.info(`Syncing channel ${teamId} ${channelItem.id}`);
-        if (!this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private)) {
+        const config = this.getTeamSyncConfig(teamId, "channel", channelItem.id, channelItem.is_private);
+        log.info(`Syncing channel ${teamId} ${channelItem.name} (${channelItem.id})`);
+        if (!config) {
+            log.warn("Channel is not allowed to be bridged by the sync config");
             return;
         }
         if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
-            log.warn("Channel is not allowed to be bridged");
+            log.warn("Channel is not allowed to be bridged by the allow / deny list");
             return;
         }
 
@@ -267,13 +320,13 @@ export class TeamSyncer {
         const existingChannel = this.main.rooms.getBySlackChannelId(channelItem.id);
         let roomId: string;
         if (!existingChannel) {
-            if (!channelItem.is_channel || channelItem.is_private) {
+            if (!channelItem.is_channel && !(config.channels?.allow_private && channelItem.is_private)) {
                 log.debug("Not creating room for channel: Is either private or not a channel");
                 return;
             }
 
             try {
-                roomId = await this.bridgeChannelToNewRoom(teamId, channelItem, client);
+                roomId = await this.bridgeChannelToNewRoom(teamId, channelItem, client, config);
             } catch (ex) {
                 log.error("Failed to provision new room dynamically:", ex);
                 throw ex;
@@ -343,7 +396,7 @@ export class TeamSyncer {
         return this.main.datastore.deleteCustomEmoji(teamId, name);
     }
 
-    public async onChannelDeleted(teamId: string, channelId: string) {
+    public async onChannelDeleted(teamId: string, channelId: string): Promise<void> {
         log.info(`${teamId} removed channel ${channelId}`);
         if (!this.getTeamSyncConfig(teamId, "channel", channelId)) {
             return;
@@ -377,10 +430,13 @@ export class TeamSyncer {
         }
     }
 
-    public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient) {
+    public async syncMembershipForRoom(roomId: string, channelId: string, teamId: string, client: WebClient): Promise<void> {
         const existingGhosts = await this.main.listGhostUsers(roomId);
         // We assume that we have this
-        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
+        const teamInfo = (await this.main.datastore.getTeam(teamId));
+        if (!teamInfo) {
+            throw Error("Could not find team");
+        }
         // Finally, sync membership for the channel.
         const members = await client.conversations.members({channel: channelId}) as ConversationsMembersResponse;
         // Ghosts will exist already: We joined them in the user sync.
@@ -411,14 +467,20 @@ export class TeamSyncer {
         return channelConfig.channels.alias_prefix;
     }
 
-    private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient) {
-        const teamInfo = (await this.main.datastore.getTeam(teamId))!;
+    private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient, config: ITeamSyncConfig) {
+        const teamInfo = (await this.main.datastore.getTeam(teamId));
+        if (!teamInfo) {
+            throw Error("Could not find team");
+        }
         log.info(`Attempting to dynamically bridge ${channelItem.id} ${channelItem.name}`);
         if (this.main.allowDenyList.allowSlackChannel(channelItem.id, channelItem.name) !== DenyReason.ALLOWED) {
             log.warn("Channel is not allowed to be bridged");
         }
 
         const {user} = (await client.users.info({ user: teamInfo.user_id })) as UsersInfoResponse;
+        if (!user) {
+            throw Error("Could not find user info");
+        }
         try {
             const creatorClient = await this.main.clientFactory.getClientForSlackUser(teamId, channelItem.creator);
             if (!creatorClient) {
@@ -430,20 +492,27 @@ export class TeamSyncer {
             });
         } catch (ex) {
             log.warn("Couldn't invite bot to channel", ex);
-            try {
-                await client.chat.postEphemeral({
-                    user: channelItem.creator,
-                    text: `Hint: To bridge to Matrix, run the \`/invite @${user!.name}\` command in this channel.`,
-                    channel: channelItem.id,
-                });
-            } catch (error) {
-                log.warn("Couldn't send a notice either");
-                log.debug(error);
+            if (config.channels?.hint_channel_admins) {
+                try {
+                    await client.chat.postEphemeral({
+                        user: channelItem.creator,
+                        text: `Hint: To bridge to Matrix, run the \`/invite @${user.name}\` command in this channel.`,
+                        channel: channelItem.id,
+                    });
+                } catch (error) {
+                    log.warn("Couldn't send a notice either");
+                    log.debug(error);
+                }
             }
         }
 
+        let members: string[] = [];
+        if (channelItem.is_private) {
+            members = await this.mapChannelMembershipToMatrixIds(teamId, client, channelItem.id);
+        }
+
         // Create the room.
-        const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem);
+        const roomId = await this.createRoomForChannel(teamId, channelItem.creator, channelItem, !channelItem.is_private, members);
         await this.main.actionLink({
             matrix_room_id: roomId,
             slack_channel_id: channelItem.id,
@@ -477,37 +546,48 @@ export class TeamSyncer {
         }
         inviteList = inviteList.filter((s) => s !== creatorUserId || s !== this.main.botUserId);
         inviteList.push(this.main.botUserId);
+        const extraContent: Record<string, unknown>[] = [];
+        if (this.main.encryptRoom && !isPublic) {
+            extraContent.push({
+                type: "m.room.encryption",
+                state_key: "",
+                content: {
+                    algorithm: "m.megolm.v1.aes-sha2",
+                }
+            });
+        }
+        extraContent.push({
+            content: {
+                users: plUsers,
+                users_default: 0,
+                events: {
+                    "m.room.name": 50,
+                    "m.room.power_levels": 100,
+                    "m.room.history_visibility": 100,
+                    "m.room.encryption": 100,
+                    "m.room.canonical_alias": 50,
+                    "m.room.avatar": 50,
+                },
+                events_default: 0,
+                state_default: 50,
+                ban: 50,
+                kick: 50,
+                redact: 50,
+                invite: 0,
+            },
+            state_key: "",
+            type: "m.room.power_levels",
+        });
         const {room_id} = await intent.createRoom({
             createAsClient: true,
             options: {
                 name: `#${channel.name}`,
                 topic,
                 visibility: isPublic ? "public" : "private",
-                room_alias: alias,
+                room_alias_name: alias,
                 preset: isPublic ? "public_chat" : "private_chat",
                 invite: inviteList,
-                initial_state: [{
-                    content: {
-                        users: plUsers,
-                        users_default: 0,
-                        events: {
-                            "m.room.name": 50,
-                            "m.room.power_levels": 100,
-                            "m.room.history_visibility": 100,
-                            "m.room.encryption": 100,
-                            "m.room.canonical_alias": 50,
-                            "m.room.avatar": 50,
-                        },
-                        events_default: 0,
-                        state_default: 50,
-                        ban: 50,
-                        kick: 50,
-                        redact: 50,
-                        invite: 0,
-                    },
-                    state_key: "",
-                    type: "m.room.power_levels",
-                }],
+                initial_state: extraContent,
             },
         });
         log.info("Created new room for channel:", room_id);
