@@ -1,0 +1,1 @@
+Switched from `quick-lru` to `@alloc/quick-lru` as we don't want to use ESM modules.
