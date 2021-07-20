@@ -372,12 +372,15 @@ export class AdminCommands {
         return new Promise((resolve, reject) => {
             try {
                 let matched = false;
-                this.yargs.parse(argv, {
+                const possiblePromise = this.yargs.parse(argv, {
                     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
                     completed: (err) => { err ? reject(err) : resolve(true); },
                     matched: () => { matched = true; },
                     respond,
                 }, (err) => {  if (err !== null) { reject(err); } });
+                if (possiblePromise instanceof Promise) {
+                    possiblePromise.catch((ex) => reject(ex));
+                }
                 if (!matched) {
                     log.debug("No match");
                     resolve(false);
