@@ -35,6 +35,7 @@ export interface ITeamSyncConfig {
         alias_prefix?: string;
         allow_private?: boolean;
         allow_public?: boolean;
+        hint_channel_admins?: boolean;
     };
     users?: {
         enabled: boolean;
@@ -69,6 +70,11 @@ export class TeamSyncer {
                 if (!teamConfig.channels.allow_public && !teamConfig.channels.allow_private) {
                     throw Error('At least one of allow_public, allow_private must be true in the teamSync config');
                 }
+                // Send hint to channel admins
+                teamConfig.channels.hint_channel_admins =
+                  teamConfig.channels.hint_channel_admins === undefined
+                      ? true
+                      : teamConfig.channels.hint_channel_admins;
             }
         }
     }
@@ -318,7 +324,7 @@ export class TeamSyncer {
             }
 
             try {
-                roomId = await this.bridgeChannelToNewRoom(teamId, channelItem, client);
+                roomId = await this.bridgeChannelToNewRoom(teamId, channelItem, client, config);
             } catch (ex) {
                 log.error("Failed to provision new room dynamically:", ex);
                 throw ex;
@@ -416,7 +422,7 @@ export class TeamSyncer {
         return channelConfig.channels.alias_prefix;
     }
 
-    private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient) {
+    private async bridgeChannelToNewRoom(teamId: string, channelItem: ConversationsInfo, client: WebClient, config: ITeamSyncConfig) {
         const teamInfo = (await this.main.datastore.getTeam(teamId));
         if (!teamInfo) {
             throw Error("Could not find team");
@@ -441,15 +447,17 @@ export class TeamSyncer {
             });
         } catch (ex) {
             log.warn("Couldn't invite bot to channel", ex);
-            try {
-                await client.chat.postEphemeral({
-                    user: channelItem.creator,
-                    text: `Hint: To bridge to Matrix, run the \`/invite @${user.name}\` command in this channel.`,
-                    channel: channelItem.id,
-                });
-            } catch (error) {
-                log.warn("Couldn't send a notice either");
-                log.debug(error);
+            if (config.channels?.hint_channel_admins) {
+                try {
+                    await client.chat.postEphemeral({
+                        user: channelItem.creator,
+                        text: `Hint: To bridge to Matrix, run the \`/invite @${user.name}\` command in this channel.`,
+                        channel: channelItem.id,
+                    });
+                } catch (error) {
+                    log.warn("Couldn't send a notice either");
+                    log.debug(error);
+                }
             }
         }
 

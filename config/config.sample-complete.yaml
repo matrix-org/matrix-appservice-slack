@@ -47,6 +47,7 @@ team_sync:
       blacklist: ['CVCCPEY9X', 'C0108F9K37X']
       whitelist: []
       alias_prefix: "slack_"
+      hint_channel_admins: true
     users:
       enabled: true
   all:

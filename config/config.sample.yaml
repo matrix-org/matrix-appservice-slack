@@ -130,6 +130,10 @@ slack_hook_port: 9898
   #     #
   #     #alias_prefix: "slack_"
   #
+  #     # Send a hint to channel admins how to invite matrix bridge if automatic join does not work
+  #     #
+  #     #hint_channel_admins: true
+  #
   #   # Should sync *all* team users to Matrix
   #   #
   #   users:
