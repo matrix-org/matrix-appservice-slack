@@ -62,6 +62,9 @@ export class SlackGhost {
         private datastore: Datastore,
         public readonly slackId: string,
         public readonly teamId: string|undefined,
+        /**
+         * The Matrix userId
+         */
         public readonly userId: string,
         private _intent?: Intent,
         private displayname?: string,

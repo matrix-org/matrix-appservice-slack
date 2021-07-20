@@ -24,6 +24,7 @@ import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
 import { DenyReason } from "./AllowDenyList";
 import { TeamEntry } from "./datastore/Models";
+import { SlackGhost } from "./SlackGhost";
 
 const log = Logging.get("TeamSyncer");
 
@@ -392,17 +393,29 @@ export class TeamSyncer {
         const ghosts = await Promise.all(members.members.map(async(slackUserId) => this.main.ghostStore.get(slackUserId, teamInfo.domain, teamId)));
 
         const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.userId)); // Skip users that are joined.
-        const leftUsers = existingGhosts.filter((userId) => !ghosts.find((g) => g.userId === userId ));
+        const leftUsers = existingGhosts.map((userId) => ghosts.find((g) => g.userId === userId )).filter(g => !!g) as SlackGhost[];
         log.info(`Joining ${joinedUsers.length} ghosts to ${roomId}`);
         log.info(`Leaving ${leftUsers.length} ghosts to ${roomId}`);
 
         const queue = new PQueue({concurrency: JOIN_CONCURRENCY});
 
         // Join users who aren't joined
-        joinedUsers.forEach(async(g) => queue.add(async() => g.intent.join(roomId)));
+        void queue.addAll(joinedUsers.map((ghost) => async () => {
+            try {
+                await ghost.intent.join(roomId);
+            } catch (ex) {
+                log.warn(`Failed to join ${ghost.userId} to ${roomId}`);
+            }
+        }));
 
         // Leave users who are joined
-        leftUsers.forEach(async(userId) => queue.add(async() => this.main.getIntent(userId).leave(roomId)));
+        void queue.addAll(leftUsers.map((ghost) => async () => {
+            try {
+                await ghost.intent.leave(roomId);
+            } catch (ex) {
+                log.warn(`Failed to leave ${ghost.userId} from ${roomId}`);
+            }
+        }));
 
         await queue.onIdle();
         log.debug(`Finished syncing membership to ${roomId}`);
