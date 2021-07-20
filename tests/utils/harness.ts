@@ -1,4 +1,4 @@
-import { AppServiceRegistration } from "matrix-appservice";
+import { AppServiceRegistration } from "matrix-appservice-bridge";
 import { Main } from "../../src/Main";
 
 export const constructHarness = (): { main: Main } => {
