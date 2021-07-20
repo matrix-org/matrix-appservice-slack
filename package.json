@@ -2,7 +2,9 @@
   "name": "matrix-appservice-slack",
   "version": "1.8.0",
   "description": "A Matrix <--> Slack bridge",
-  "engines" : { "node" : ">12" },
+  "engines": {
+    "node": ">=12,16<="
+  },
   "main": "app.js",
   "scripts": {
     "prepare": "npm run build",
