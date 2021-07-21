@@ -369,25 +369,11 @@ export class AdminCommands {
     public async parse(argv: string, respond: ResponseCallback): Promise<boolean> {
         // yargs has no way to tell us if a command matched, so we have this
         // slightly whacky function to manage it.
-        return new Promise((resolve, reject) => {
-            try {
-                let matched = false;
-                const possiblePromise = this.yargs.parse(argv, {
-                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-                    completed: (err) => { err ? reject(err) : resolve(true); },
-                    matched: () => { matched = true; },
-                    respond,
-                }, (err) => {  if (err !== null) { reject(err); } });
-                if (possiblePromise instanceof Promise) {
-                    possiblePromise.catch((ex) => reject(ex));
-                }
-                if (!matched) {
-                    log.debug("No match");
-                    resolve(false);
-                }
-            } catch (ex) {
-                reject(ex);
-            }
+        let matched = false;
+        await this.yargs.parseAsync(argv, {
+            matched: () => { matched = true; },
+            respond,
         });
+        return matched;
     }
 }
