@@ -751,7 +751,7 @@ export class BridgedRoom {
             return;
         }
         let response: { event_id: string };
-        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.matrixUserId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
+        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.matrixUserId}. Matrix room/event: ${this.MatrixRoomId}`;
         try {
             response = await ghost.sendReaction(
                 this.MatrixRoomId,
