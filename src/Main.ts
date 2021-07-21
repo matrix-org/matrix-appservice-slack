@@ -16,7 +16,8 @@ limitations under the License.
 
 import {
     Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
-    Logging, Intent, UserMembership, WeakEvent, PresenceEvent } from "matrix-appservice-bridge";
+    Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
+    AppService, AppServiceRegistration } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -38,11 +39,10 @@ import { PgDatastore } from "./datastore/postgres/PgDatastore";
 import { SlackClientFactory } from "./SlackClientFactory";
 import { Response } from "express";
 import { SlackRoomStore } from "./SlackRoomStore";
-import QuickLRU from "quick-lru";
+import QuickLRU from "@alloc/quick-lru";
 import PQueue from "p-queue";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
-import { AppService, AppServiceRegistration } from "matrix-appservice";
 import { SlackGhostStore } from "./SlackGhostStore";
 import { AllowDenyList, DenyReason } from "./AllowDenyList";
 
