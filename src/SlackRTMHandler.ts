@@ -265,7 +265,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             await ghost.update({ user: ghost.slackId });
             const roomId = await createDM(
                 ghost.intent,
-                [puppet.matrixId].concat(ghosts.map((g) => g.userId)),
+                [puppet.matrixId].concat(ghosts.map((g) => g.matrixUserId)),
                 name,
                 this.main.encryptRoom,
             );

@@ -398,30 +398,30 @@ export class TeamSyncer {
         // Ghosts will exist already: We joined them in the user sync.
         const ghosts = await Promise.all(members.members.map(async(slackUserId) => this.main.ghostStore.get(slackUserId, teamInfo.domain, teamId)));
 
-        const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.userId)); // Skip users that are joined.
-        const leftUsers = existingGhosts.map((userId) => ghosts.find((g) => g.userId === userId )).filter(g => !!g) as SlackGhost[];
+        const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.matrixUserId)); // Skip users that are joined.
+        const leftUsers = existingGhosts.map((userId) => ghosts.find((g) => g.matrixUserId === userId )).filter(g => !!g) as SlackGhost[];
         log.info(`Joining ${joinedUsers.length} ghosts to ${roomId}`);
         log.info(`Leaving ${leftUsers.length} ghosts to ${roomId}`);
 
         const queue = new PQueue({concurrency: JOIN_CONCURRENCY});
 
         // Join users who aren't joined
-        void queue.addAll(joinedUsers.map((ghost) => async () => {
+        queue.addAll(joinedUsers.map((ghost) => async () => {
             try {
                 await ghost.intent.join(roomId);
             } catch (ex) {
-                log.warn(`Failed to join ${ghost.userId} to ${roomId}`);
+                log.warn(`Failed to join ${ghost.matrixUserId} to ${roomId}`);
             }
-        }));
+        })).catch((ex) => log.error(`queue.addAll(joinedUsers) rejected with an error:`, ex));
 
         // Leave users who are joined
         void queue.addAll(leftUsers.map((ghost) => async () => {
             try {
                 await ghost.intent.leave(roomId);
             } catch (ex) {
-                log.warn(`Failed to leave ${ghost.userId} from ${roomId}`);
+                log.warn(`Failed to leave ${ghost.matrixUserId} from ${roomId}`);
             }
-        }));
+        })).catch((ex) => log.error(`queue.addAll(leftUsers) rejected with an error:`, ex));
 
         await queue.onIdle();
         log.debug(`Finished syncing membership to ${roomId}`);
@@ -494,7 +494,7 @@ export class TeamSyncer {
         let intent;
         let creatorUserId: string|undefined;
         try {
-            creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).userId;
+            creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).matrixUserId;
             intent = this.main.getIntent(creatorUserId);
         } catch (ex) {
             // Couldn't get the creator's mxid, using the bot.
