@@ -62,10 +62,7 @@ export class SlackGhost {
         private datastore: Datastore,
         public readonly slackId: string,
         public readonly teamId: string|undefined,
-        /**
-         * The Matrix userId
-         */
-        public readonly userId: string,
+        public readonly matrixUserId: string,
         private _intent?: Intent,
         private displayname?: string,
         private avatarHash?: string) {
@@ -90,7 +87,7 @@ export class SlackGhost {
         return {
             avatar_url: this.avatarHash!,
             display_name: this.displayName!,
-            id: this.userId,
+            id: this.matrixUserId,
             slack_id: this.slackId,
             team_id: this.teamId,
         };
