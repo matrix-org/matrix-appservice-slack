@@ -63,7 +63,7 @@ describe("SlackGhostStore", () => {
             team_domain: "fake-team",
             user_id: "foouser",
         }, "faketeam");
-        expect(user.userId).to.equal("@_slack_fake-team_FOOUSER:example.com");
+        expect(user.matrixUserId).to.equal("@_slack_fake-team_FOOUSER:example.com");
         expect(user.slackId).to.equal("FOOUSER");
         expect(user.teamId).to.equal("FAKETEAM");
         expect(user.displayName).to.be.undefined;
@@ -75,7 +75,7 @@ describe("SlackGhostStore", () => {
             team_domain: "fake-team",
             user_id: "foouser",
         });
-        expect(user.userId).to.equal("@_slack_fake-team_FOOUSER:example.com");
+        expect(user.matrixUserId).to.equal("@_slack_fake-team_FOOUSER:example.com");
         expect(user.slackId).to.equal("FOOUSER");
         expect(user.teamId).to.be.undefined;
         expect(user.displayName).to.be.undefined;
@@ -86,7 +86,7 @@ describe("SlackGhostStore", () => {
         const user = await store.getForSlackMessage({
             user_id: "foouser",
         }, "faketeam");
-        expect(user.userId).to.equal("@_slack_fake-team_FOOUSER:example.com");
+        expect(user.matrixUserId).to.equal("@_slack_fake-team_FOOUSER:example.com");
         expect(user.slackId).to.equal("FOOUSER");
         expect(user.teamId).to.equal("FAKETEAM");
         expect(user.displayName).to.be.undefined;

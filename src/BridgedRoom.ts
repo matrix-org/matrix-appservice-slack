@@ -625,7 +625,7 @@ export class BridgedRoom {
         if (!recipientPuppet && !senderPuppet) {
             log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
             // 1
-            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
+            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.matrixUserId);
             await recipientGhost.intent.join(this.matrixRoomId);
         } else if (recipientPuppet && mxid) {
             // 2 & 4
@@ -751,7 +751,7 @@ export class BridgedRoom {
             return;
         }
         let response: { event_id: string };
-        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
+        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.matrixUserId}. Matrix room/event: ${this.MatrixRoomId}`;
         try {
             response = await ghost.sendReaction(
                 this.MatrixRoomId,
