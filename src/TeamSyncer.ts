@@ -415,7 +415,7 @@ export class TeamSyncer {
         })).catch((ex) => log.error(`queue.addAll(joinedUsers) rejected with an error:`, ex));
 
         // Leave users who are joined
-        void queue.addAll(leftUsers.map((ghost) => async () => {
+        queue.addAll(leftUsers.map((ghost) => async () => {
             try {
                 await ghost.intent.leave(roomId);
             } catch (ex) {
