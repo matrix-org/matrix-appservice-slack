@@ -24,17 +24,7 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build image 'release'
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: ${{ env.PLATFORMS }}
-          push: true
-          tags: |
-            ${{ env.DOCKER_NAMESPACE }}/matrix-appservice-slack:release-${{ env.RELEASE_VERSION }}
-
-      - name: Build image 'stable'
+      - name: Build image
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -43,3 +33,4 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_NAMESPACE }}/matrix-appservice-slack:stable
+            ${{ env.DOCKER_NAMESPACE }}/matrix-appservice-slack:release-${{ env.RELEASE_VERSION }}
