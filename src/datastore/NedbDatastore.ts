@@ -21,7 +21,9 @@ import {
     RoomBridgeStore,
     UserBridgeStore,
     StoredEvent,
-    StoredEventDoc
+    StoredEventDoc,
+    UserActivity,
+    UserActivitySet
 } from "matrix-appservice-bridge";
 
 import {
@@ -61,6 +63,14 @@ export class NedbDatastore implements Datastore {
         private readonly roomStore: RoomBridgeStore,
         private readonly eventStore: EventBridgeStore,
         private readonly teamStore: NedbDb) {
+    }
+
+    storeUserActivity(matrixId: string, activity: UserActivity): Promise<void> {
+        throw new Error("Method not implemented.");
+    }
+
+    getUserActivity(): Promise<UserActivitySet> {
+        throw new Error("Method not implemented.");
     }
 
     public async upsertUser(user: SlackGhost): Promise<null> {

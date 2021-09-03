@@ -18,7 +18,7 @@ import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
-import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession } from "matrix-appservice-bridge";
+import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -49,7 +49,7 @@ interface ClientSessionSchema {
 }
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 12;
+    public static readonly LATEST_SCHEMA = 13;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -514,6 +514,22 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
 
     public async getRoomCount(): Promise<number> {
         return Number.parseInt((await this.postgresDb.one("SELECT COUNT(*) FROM rooms")).count, 10);
+    }
+
+    public async getUserActivity(): Promise<UserActivitySet> {
+        const rows = await this.postgresDb.manyOrNone('SELECT * FROM user_activity');
+        const users: {[mxid: string]: any} = {};
+        for (const row of rows) {
+            users[row['user_id']] = row['data'];
+        }
+        return { users };
+    }
+
+    public async storeUserActivity(userId: string, activity: UserActivity): Promise<void> {
+        await this.postgresDb.none("INSERT INTO user_activity VALUES(${id}, ${activity}) ON CONFLICT (user_id) DO UPDATE SET data = ${activity}", {
+            id: userId,
+            activity: JSON.stringify(activity),
+        });
     }
 
     private async updateSchemaVersion(version: number) {

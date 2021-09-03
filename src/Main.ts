@@ -17,7 +17,7 @@ limitations under the License.
 import {
     Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
-    AppService, AppServiceRegistration } from "matrix-appservice-bridge";
+    AppService, AppServiceRegistration, UserActivityState } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -105,7 +105,6 @@ export class Main {
     // So we can't create the StateLookup instance yet
     private stateStorage: StateLookup|null = null;
 
-    private slackHookHandler?: SlackHookHandler;
     private metrics?: {
         prometheus: PrometheusMetrics;
         metricActiveRooms: Gauge<string>;
@@ -118,9 +117,13 @@ export class Main {
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
     public readonly allowDenyList: AllowDenyList;
-    public readonly slackRtm?: SlackRTMHandler;
+
+    public slackRtm?: SlackRTMHandler;
+    private slackHookHandler?: SlackHookHandler;
 
     private provisioner: Provisioner;
+
+    private isBlocked = false;
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         this.adminCommands = new AdminCommands(this);
@@ -160,6 +163,9 @@ export class Main {
             log.warn("** NEDB IS END-OF-LIFE **");
             log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
                      `postgresql. Please see ${URL} for more information.`);
+            if (config.RMAU_limit) {
+                throw new Error("RMAU limits are unsupported in NeDB, cannot continue");
+            }
             bridgeStores = {
                 eventStore: path.join(dbdir, "event-store.db"),
                 roomStore: path.join(dbdir, "room-store.db"),
@@ -186,6 +192,10 @@ export class Main {
             controller: {
                 onEvent: async(request) => {
                     const ev = request.getData();
+                    if (this.isBlocked) {
+                        log.info(`Bridge is blocked, dropping Matrix event ${ev.event_id} (${ev.room_id})`);
+                        return;
+                    }
                     if (ev.state_key) {
                         await this.stateStorage?.onEvent({
                             ...ev,
@@ -199,6 +209,10 @@ export class Main {
                     });
                 },
                 onEphemeralEvent: async request => {
+                    if (this.isBlocked) {
+                        log.info('Bridge is blocked, dropping Matrix ephemeral event');
+                        return;
+                    }
                     const ev = request.getData();
                     try {
                         if (ev.type === "m.typing") {
@@ -218,6 +232,8 @@ export class Main {
 
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
+                getUserActivity: () => this.datastore.getUserActivity(),
+                onUserActivityChanged: this.onUserActivityChanged.bind(this),
             },
             roomUpgradeOpts: {
                 consumeEvent: true,
@@ -239,13 +255,12 @@ export class Main {
 
         this.provisioner = new Provisioner(this, this.bridge);
 
-        if (config.rtm && config.rtm.enable) {
-            log.info("Enabled RTM");
-            this.slackRtm = new SlackRTMHandler(this);
+        if (config.rtm?.enable) {
+            this.enableRtm();
         }
 
         if (config.slack_hook_port) {
-            this.slackHookHandler = new SlackHookHandler(this);
+            this.enableHookHandler();
         }
 
         if (config.enable_metrics) {
@@ -1093,6 +1108,9 @@ export class Main {
         }
         await puppetsWaiting;
         await teamSyncPromise;
+
+        this.checkLimits(this.bridge.getUserActivityTracker()!.countActiveUsers().allUsers);
+
         log.info("Bridge initialised");
         this.ready = true;
         return port;
@@ -1518,4 +1536,64 @@ export class Main {
     private onReadyProbe(_, res: Response) {
         res.status(this.ready ? 201 : 425).send("");
     }
+
+    private onUserActivityChanged(state: UserActivityState) {
+        for (const userId of state.changed) {
+            this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
+        }
+        this.checkLimits(state.activeUsers);
+    }
+
+    private checkLimits(rmau: number) {
+        log.debug(`Bridge now serving ${rmau} RMAU`);
+
+        const limit = this.config.RMAU_limit;
+        if (!limit) return;
+        if (rmau > limit) {
+            if (!this.isBlocked) {
+                this.blockBridge().then(() => {
+                    log.info(`Bridge has reached the user limit of ${limit} and is now blocked`);
+                });
+            }
+        } else {
+            if (this.isBlocked) {
+                this.unblockBridge().then(() => {
+                    log.info(`Bridge has has gone below the user limit of ${limit} and is now unblocked`);
+                });
+            }
+        }
+    }
+
+    private async blockBridge() {
+        this.isBlocked = true;
+        await this.disableHookHandler();
+        await this.disableRtm();
+    }
+
+    private async unblockBridge() {
+        this.enableHookHandler();
+        if (this.config.rtm?.enable)
+            this.enableRtm();
+        if (this.config.slack_hook_port)
+            this.enableHookHandler();
+    }
+
+    async disableHookHandler() {
+        await this.slackHookHandler?.close().then(() => log.info("Disabled hook handler"));
+    }
+
+    enableHookHandler() {
+        this.slackHookHandler = new SlackHookHandler(this);
+        log.info("Enabled hook handler");
+    }
+
+    async disableRtm() {
+        await this.slackRtm?.disconnectAll().then(() => log.info("Disabled RTM"));
+    }
+
+    enableRtm() {
+        this.slackRtm = new SlackRTMHandler(this);
+        log.info("Enabled RTM");
+    }
+
 }
