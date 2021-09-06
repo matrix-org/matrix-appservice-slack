@@ -65,11 +65,12 @@ export class NedbDatastore implements Datastore {
         private readonly teamStore: NedbDb) {
     }
 
-    storeUserActivity(matrixId: string, activity: UserActivity): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async storeUserActivity(_matrixId: string, _activity: UserActivity): Promise<void> {
         throw new Error("Method not implemented.");
     }
 
-    getUserActivity(): Promise<UserActivitySet> {
+    async getUserActivity(): Promise<UserActivitySet> {
         throw new Error("Method not implemented.");
     }
 

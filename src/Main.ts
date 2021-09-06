@@ -74,15 +74,17 @@ class SlackBridgeBlocker extends BridgeBlocker {
     async blockBridge() {
         await this.slackBridge.disableHookHandler();
         await this.slackBridge.disableRtm();
-        super.blockBridge();
+        await super.blockBridge();
     }
 
     async unblockBridge() {
-        if (this.slackBridge.config.rtm?.enable)
+        if (this.slackBridge.config.rtm?.enable) {
             this.slackBridge.enableRtm();
-        if (this.slackBridge.config.slack_hook_port)
+        }
+        if (this.slackBridge.config.slack_hook_port) {
             this.slackBridge.enableHookHandler();
-        super.unblockBridge();
+        }
+        await super.unblockBridge();
     }
 }
 
@@ -1133,7 +1135,7 @@ export class Main {
         this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
             UserActivityTrackerConfig.DEFAULT,
             await this.datastore.getUserActivity(),
-            (changes) => this.onUserActivityChanged(changes),
+            async (changes) => this.onUserActivityChanged(changes),
         );
         this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
 
@@ -1563,9 +1565,9 @@ export class Main {
         res.status(this.ready ? 201 : 425).send("");
     }
 
-    private onUserActivityChanged(state: UserActivityState) {
+    private async onUserActivityChanged(state: UserActivityState) {
         for (const userId of state.changed) {
-            this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
+            await this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
         }
         this.bridgeBlocker?.checkLimits(state.activeUsers);
     }

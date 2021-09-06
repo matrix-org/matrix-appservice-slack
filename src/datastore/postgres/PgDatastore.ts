@@ -520,7 +520,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         const rows = await this.postgresDb.manyOrNone('SELECT * FROM user_activity');
         const users: {[mxid: string]: any} = {};
         for (const row of rows) {
-            users[row['user_id']] = row['data'];
+            users[row.user_id] = row.data;
         }
         return { users };
     }
