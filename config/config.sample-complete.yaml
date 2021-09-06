@@ -8,6 +8,9 @@ homeserver:
 
 username_prefix: "slack_"
 
+
+RMAU_limit: 100
+
 db:
   engine: "postgres"
   connectionString: "postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge"
