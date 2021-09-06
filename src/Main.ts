@@ -15,9 +15,9 @@ limitations under the License.
 */
 
 import {
-    Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
+    Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
-    AppService, AppServiceRegistration, UserActivityState } from "matrix-appservice-bridge";
+    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker, UserActivityTrackerConfig } from "matrix-appservice-bridge";
 import { Gauge } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -66,8 +66,27 @@ interface MetricsLabels { [labelName: string]: string; }
 
 type TimerFunc = (labels?: Partial<Record<string, string | number>> | undefined) => void;
 
-export class Main {
+class SlackBridgeBlocker extends BridgeBlocker {
+    constructor(userLimit: number, private slackBridge: Main) {
+        super(userLimit);
+    }
 
+    async blockBridge() {
+        await this.slackBridge.disableHookHandler();
+        await this.slackBridge.disableRtm();
+        super.blockBridge();
+    }
+
+    async unblockBridge() {
+        if (this.slackBridge.config.rtm?.enable)
+            this.slackBridge.enableRtm();
+        if (this.slackBridge.config.slack_hook_port)
+            this.slackBridge.enableHookHandler();
+        super.unblockBridge();
+    }
+}
+
+export class Main {
     public get botIntent(): Intent {
         return this.bridge.getIntent();
     }
@@ -123,7 +142,7 @@ export class Main {
 
     private provisioner: Provisioner;
 
-    private isBlocked = false;
+    private bridgeBlocker?: BridgeBlocker;
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         this.adminCommands = new AdminCommands(this);
@@ -192,7 +211,7 @@ export class Main {
             controller: {
                 onEvent: async(request) => {
                     const ev = request.getData();
-                    if (this.isBlocked) {
+                    if (this.bridgeBlocker?.isBlocked) {
                         log.info(`Bridge is blocked, dropping Matrix event ${ev.event_id} (${ev.room_id})`);
                         return;
                     }
@@ -209,7 +228,7 @@ export class Main {
                     });
                 },
                 onEphemeralEvent: async request => {
-                    if (this.isBlocked) {
+                    if (this.bridgeBlocker?.isBlocked) {
                         log.info('Bridge is blocked, dropping Matrix ephemeral event');
                         return;
                     }
@@ -232,8 +251,6 @@ export class Main {
 
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
-                getUserActivity: () => this.datastore.getUserActivity(),
-                onUserActivityChanged: this.onUserActivityChanged.bind(this),
             },
             roomUpgradeOpts: {
                 consumeEvent: true,
@@ -261,6 +278,10 @@ export class Main {
 
         if (config.slack_hook_port) {
             this.enableHookHandler();
+        }
+
+        if (config.RMAU_limit) {
+            this.bridgeBlocker = new SlackBridgeBlocker(config.RMAU_limit, this);
         }
 
         if (config.enable_metrics) {
@@ -1109,7 +1130,12 @@ export class Main {
         await puppetsWaiting;
         await teamSyncPromise;
 
-        this.checkLimits(this.bridge.getUserActivityTracker()!.countActiveUsers().allUsers);
+        this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
+            UserActivityTrackerConfig.DEFAULT,
+            await this.datastore.getUserActivity(),
+            (changes) => this.onUserActivityChanged(changes),
+        );
+        this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
 
         log.info("Bridge initialised");
         this.ready = true;
@@ -1541,41 +1567,7 @@ export class Main {
         for (const userId of state.changed) {
             this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
         }
-        this.checkLimits(state.activeUsers);
-    }
-
-    private checkLimits(rmau: number) {
-        log.debug(`Bridge now serving ${rmau} RMAU`);
-
-        const limit = this.config.RMAU_limit;
-        if (!limit) return;
-        if (rmau > limit) {
-            if (!this.isBlocked) {
-                this.blockBridge().then(() => {
-                    log.info(`Bridge has reached the user limit of ${limit} and is now blocked`);
-                });
-            }
-        } else {
-            if (this.isBlocked) {
-                this.unblockBridge().then(() => {
-                    log.info(`Bridge has has gone below the user limit of ${limit} and is now unblocked`);
-                });
-            }
-        }
-    }
-
-    private async blockBridge() {
-        this.isBlocked = true;
-        await this.disableHookHandler();
-        await this.disableRtm();
-    }
-
-    private async unblockBridge() {
-        this.enableHookHandler();
-        if (this.config.rtm?.enable)
-            this.enableRtm();
-        if (this.config.slack_hook_port)
-            this.enableHookHandler();
+        this.bridgeBlocker?.checkLimits(state.activeUsers);
     }
 
     async disableHookHandler() {
