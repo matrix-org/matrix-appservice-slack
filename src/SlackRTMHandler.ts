@@ -218,6 +218,19 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.debug("Received Slack user event:", puppet.matrixId, event);
         let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         if (room) {
+            if (event.type === 'message' && room.IsPrivate) {
+                // We only want to act on trivial messages
+                // This can be asyncronous to the handling of the message.
+                this.main.botIntent.getStateEvent(room.MatrixRoomId, 'm.room.member', puppet.matrixId, true).then((state) => {
+                    if (!['invite', 'join'].includes(state?.membership)) {
+                        // Automatically invite the user the room.
+                        log.info(`User ${puppet.matrixId} is not in ${room.MatrixRoomId}/${room.SlackChannelId}, inviting`);
+                        return this.main.botIntent.invite(room.MatrixRoomId, puppet.matrixId);
+                    }
+                }).catch((ex) => {
+                    log.error(`Failed to automatically invite ${puppet.matrixId} to ${room.MatrixRoomId}`, ex);
+                });
+            }
             return this.handleEvent(event, puppet.teamId);
         }
 
