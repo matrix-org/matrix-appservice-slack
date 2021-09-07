@@ -217,8 +217,10 @@ export class SlackRTMHandler extends SlackEventHandler {
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
         log.debug("Received Slack user event:", puppet.matrixId, event);
         let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
         if (room) {
-            if (event.type === 'message' && room.IsPrivate) {
+            // We cannot check IMs, as the bridge bot is not in those rooms.
+            if (event.type === 'message' && room.IsPrivate && !isIm) {
                 // We only want to act on trivial messages
                 // This can be asyncronous to the handling of the message.
                 this.main.botIntent.getStateEvent(room.MatrixRoomId, 'm.room.member', puppet.matrixId, true).then((state) => {
@@ -238,8 +240,6 @@ export class SlackRTMHandler extends SlackEventHandler {
             log.debug("No `user` field on event, not creating a new room");
             return;
         }
-
-        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
 
         if (chanInfo.channel.is_im && chanInfo.channel.user) {
