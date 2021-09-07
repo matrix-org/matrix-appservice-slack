@@ -1,0 +1,1 @@
+The bridge now automatically invites users to private rooms if there is a message and they are not joined.
