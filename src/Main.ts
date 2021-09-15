@@ -131,6 +131,7 @@ export class Main {
         metricActiveRooms: Gauge<string>;
         metricActiveUsers: Gauge<string>;
         metricPuppets: Gauge<string>;
+        bridgeBlocked: Gauge<string>;
     };
     private metricsCollectorInterval?: NodeJS.Timeout;
 
@@ -402,11 +403,17 @@ export class Main {
             labels: ["team_id"],
             name: METRIC_PUPPETS,
         });
+        const bridgeBlocked = prometheus.addGauge({
+            name: "bridge_blocked",
+            help: "Is the bridge currently blocking messages",
+        });
+
         this.metrics = {
             prometheus,
             metricActiveUsers,
             metricActiveRooms,
             metricPuppets,
+            bridgeBlocked,
         };
         log.info(`Enabled prometheus metrics`);
     }
@@ -443,6 +450,7 @@ export class Main {
             this.metrics.metricActiveUsers.set({ team_id: teamId, remote: "true" }, teamData.get(true) || 0);
             this.metrics.metricActiveUsers.set({ team_id: teamId, remote: "false" }, teamData.get(false) || 0);
         }
+        this.metrics.bridgeBlocked.set(this.bridgeBlocker?.isBlocked ? 1 : 0);
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}): TimerFunc {
