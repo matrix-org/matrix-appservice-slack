@@ -19,6 +19,8 @@ import { Main } from "./Main";
 import { IConfig } from "./IConfig";
 import * as path from "path";
 
+const DEFAULT_PORT = 5858;
+
 // To avoid log spam - https://github.com/matrix-org/matrix-appservice-slack/issues/554
 process.setMaxListeners(0);
 
@@ -47,7 +49,7 @@ const cli = new Cli({
         }
         callback(reg);
     },
-    run: (cliPort: number, rawConfig: Record<string, undefined>|null, registration: any) => {
+    run: (cliPort: number|null, rawConfig: Record<string, undefined>|null, registration) => {
         const config = rawConfig as IConfig|null;
         if (!config) {
             throw Error('Config not ready');
@@ -55,8 +57,11 @@ const cli = new Cli({
         Logging.configure(config.logging || {});
         const log = Logging.get("app");
         // Format config
+        if (!registration) {
+            throw Error('registration must be defined');
+        }
         const main = new Main(config, registration);
-        main.run(cliPort).then((port) => {
+        main.run(cliPort || config.homeserver.appservice_port || DEFAULT_PORT).then((port) => {
             log.info("Matrix-side listening on port", port);
         }).catch((ex) => {
             log.error("Failed to start:", ex);

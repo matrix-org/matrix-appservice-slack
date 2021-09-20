@@ -526,7 +526,8 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             const { version } = await this.postgresDb.one("SELECT version FROM SCHEMA");
             return version;
         } catch (ex) {
-            if (ex.code === "42P01") { // undefined_table
+            const error = ex as {code?: string};
+            if (error.code === "42P01") { // undefined_table
                 log.warn("Schema table could not be found");
                 return 0;
             }

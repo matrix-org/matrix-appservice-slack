@@ -41,7 +41,7 @@ export class AdminCommand {
             await this.cb(argv);
             argv.completed(null);
         } catch (ex) {
-            argv.completed(ex);
+            argv.completed(ex as Error);
         }
     }
 

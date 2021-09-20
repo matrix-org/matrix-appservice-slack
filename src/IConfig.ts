@@ -38,6 +38,7 @@ export interface IConfig {
         media_url?: string;
         max_upload_size?: number;
         appservice_port?: number;
+        appservice_host?: string;
     };
 
     encryption?: {

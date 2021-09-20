@@ -141,7 +141,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                 await this.handleEvent(event, teamId);
             } catch (ex) {
                 log.warn("Didn't handle event");
-                err = ex;
+                err = ex as Error;
             }
 
             if (err === null) {
@@ -287,7 +287,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {
             const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
             if (originalEvent) {
-                const botClient = this.main.botIntent.getClient();
+                const botClient = this.main.botIntent.matrixClient;
                 return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
             }
             // If we don't have the event

@@ -35,8 +35,8 @@ export interface RoomEntry {
 
 export interface UserEntry {
     id: string;
-    display_name: string;
-    avatar_url: string;
+    display_name?: string;
+    avatar_url?: string;
     slack_id: string;
     team_id?: string;
 }

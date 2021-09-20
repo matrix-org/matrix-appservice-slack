@@ -785,15 +785,15 @@ export class BridgedRoom {
             user_id: string,
         },
     ): Promise<void> {
-        if (msg.user_id === this.team!.user_id) {
+        if (!this.team || msg.user_id === this.team.user_id) {
             return;
         }
         const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction );
         if (!originalEvent) {
             throw Error('unknown_reaction');
         }
-        const botClient = this.main.botIntent.getClient();
-        botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+        const botClient = this.main.botIntent.matrixClient;
+        await botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
         await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
     }
 
@@ -1125,7 +1125,7 @@ export class BridgedRoom {
             return null;
         }
         const intent = await this.getIntentForRoom(roomID);
-        return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
+        return intent.getEvent(roomID, replyToEvent.eventId);
     }
 
     /*
@@ -1179,7 +1179,7 @@ export class BridgedRoom {
         }
 
         const intent = await this.getIntentForRoom(message.room_id);
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+        const nextEvent = await intent.getEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }
