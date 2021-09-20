@@ -958,7 +958,11 @@ export class Main {
             const puppetEntries = await this.datastore.getPuppetedUsers();
             puppetsWaiting = Promise.all(puppetEntries.map(async (entry) => {
                 try {
-                    return this.slackRtm!.startUserClient(entry);
+                    if (this.slackRtm) {
+                        await this.slackRtm.startUserClient(entry);
+                    } else {
+                        log.warn(`RTM not configured, not starting client for ${entry.matrixId} (${entry.slackId})`);
+                    }
                 } catch (ex) {
                     log.warn(`Failed to start puppet client for ${entry.matrixId}:`, ex);
                 }
@@ -1340,12 +1344,16 @@ export class Main {
         if (puppeting) {
             // Store it here too for puppeting.
             await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
-            await this.slackRtm!.startUserClient({
-                teamId,
-                slackId,
-                matrixId: userId,
-                token: accessToken,
-            });
+            if (this.slackRtm) {
+                await this.slackRtm.startUserClient({
+                    teamId,
+                    slackId,
+                    matrixId: userId,
+                    token: accessToken,
+                });
+            } else {
+                log.warn(`RTM not configured, not starting client for ${userId} (${slackId})`);
+            }
         }
         log.info(`Set new access token for ${userId} (team: ${teamId}, puppeting: ${puppeting})`);
         if (botAccessToken) {
