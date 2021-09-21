@@ -72,12 +72,14 @@ class SlackBridgeBlocker extends BridgeBlocker {
     }
 
     async blockBridge() {
+        log.info("Blocking the bridge");
         await this.slackBridge.disableHookHandler();
         await this.slackBridge.disableRtm();
         await super.blockBridge();
     }
 
     async unblockBridge() {
+        log.info("Unblocking the bridge");
         if (this.slackBridge.config.rtm?.enable) {
             this.slackBridge.enableRtm();
         }
