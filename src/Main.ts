@@ -993,7 +993,10 @@ export class Main {
         });
 
         this.stateStorage = new StateLookup({
-            intent: this.botIntent,
+            // When https://github.com/matrix-org/matrix-appservice-bridge/pull/357 is released, change to:
+            // intent: this.botIntent,
+            // for now, use:
+            client: this.botIntent.client,
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
 
