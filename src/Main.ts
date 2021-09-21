@@ -45,9 +45,6 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { SlackGhostStore } from "./SlackGhostStore";
 import { AllowDenyList, DenyReason } from "./AllowDenyList";
-import { LogService, LogLevel } from "../../matrix-appservice-bridge/node_modules/matrix-bot-sdk/lib";
-
-LogService.setLevel(LogLevel.DEBUG);
 
 const log = Logging.get("Main");
 
