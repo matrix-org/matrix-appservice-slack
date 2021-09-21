@@ -1583,7 +1583,11 @@ export class Main {
     }
 
     async disableHookHandler() {
-        await this.slackHookHandler?.close().then(() => log.info("Disabled hook handler"));
+        if (this.slackHookHandler) {
+            await this.slackHookHandler.close();
+            this.slackHookHandler = undefined;
+            log.info("Disabled hook handler");
+        }
     }
 
     enableHookHandler() {
@@ -1592,7 +1596,11 @@ export class Main {
     }
 
     async disableRtm() {
-        await this.slackRtm?.disconnectAll().then(() => log.info("Disabled RTM"));
+        if (this.slackRtm) {
+            await this.slackRtm.disconnectAll();
+            this.slackRtm = undefined;
+            log.info("Disabled RTM");
+        }
     }
 
     enableRtm() {
