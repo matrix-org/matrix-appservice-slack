@@ -45,7 +45,7 @@
     "pg-promise": "^10.10.2",
     "@alloc/quick-lru": "^5.2.0",
     "randomstring": "^1.2.1",
-    "Slackdown": "github:Half-Shot/slackdown#efd8934a3d9c3bf0064c0b217c5cf6b62ee697e4",
+    "Slackdown": "git+https://Half-Shot@github.com/half-shot/slackdown.git",
     "uuid": "^8.3.2",
     "winston-daily-rotate-file": "^4.5.5",
     "winston": "^3.3.3",
