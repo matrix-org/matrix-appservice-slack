@@ -216,7 +216,9 @@ export class Main {
             controller: {
                 onEvent: async(request) => {
                     const ev = request.getData();
-                    if (this.bridgeBlocker?.isBlocked) {
+                    const isAdminRoomRelated = UserAdminRoom.IsAdminRoomInvite(ev, this.botUserId)
+                        || ev.room_id === this.config.matrix_admin_room;
+                    if (this.bridgeBlocker?.isBlocked && !isAdminRoomRelated) {
                         log.info(`Bridge is blocked, dropping Matrix event ${ev.event_id} (${ev.room_id})`);
                         return;
                     }
