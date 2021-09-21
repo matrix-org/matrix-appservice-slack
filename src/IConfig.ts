@@ -32,7 +32,7 @@ export interface IConfig {
 
     matrix_admin_room?: string;
 
-    RMAU_limit?: number;
+    rmau_limit?: number;
 
     homeserver: {
         url: string;

@@ -9,7 +9,7 @@ homeserver:
 username_prefix: "slack_"
 
 
-RMAU_limit: 100
+rmau_limit: 100
 
 db:
   engine: "postgres"

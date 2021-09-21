@@ -185,7 +185,7 @@ export class Main {
             log.warn("** NEDB IS END-OF-LIFE **");
             log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
                      `postgresql. Please see ${URL} for more information.`);
-            if (config.RMAU_limit) {
+            if (config.rmau_limit) {
                 throw new Error("RMAU limits are unsupported in NeDB, cannot continue");
             }
             bridgeStores = {
@@ -283,8 +283,8 @@ export class Main {
             this.enableHookHandler();
         }
 
-        if (config.RMAU_limit) {
-            this.bridgeBlocker = new SlackBridgeBlocker(config.RMAU_limit, this);
+        if (config.rmau_limit) {
+            this.bridgeBlocker = new SlackBridgeBlocker(config.rmau_limit, this);
         }
 
         if (config.enable_metrics) {
