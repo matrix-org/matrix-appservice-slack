@@ -248,6 +248,10 @@ export class Main {
             this.slackHookHandler = new SlackHookHandler(this);
         }
 
+        if (config.enable_metrics) {
+            this.initialiseMetrics();
+        }
+
         if (config.team_sync) {
             this.teamSyncer = new TeamSyncer(this);
         }
@@ -278,7 +282,7 @@ export class Main {
 
     public initialiseMetrics(): void {
         // Do not set up the handler here, we set it up after listening.
-        const prometheus = this.bridge.getPrometheusMetrics(true);
+        const prometheus = this.bridge.getPrometheusMetrics();
 
         this.bridge.registerBridgeGauges(() => {
             const now = Date.now() / 1000;
@@ -990,10 +994,7 @@ export class Main {
         });
 
         this.stateStorage = new StateLookup({
-            // When https://github.com/matrix-org/matrix-appservice-bridge/pull/357 is released, change to:
-            // intent: this.botIntent,
-            // for now, use:
-            client: this.botIntent.client,
+            intent: this.botIntent,
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
 
@@ -1080,8 +1081,6 @@ export class Main {
         const teamSyncPromise = this.teamSyncer ? this.teamSyncer.syncAllTeams(teamClients) : null;
 
         if (this.metrics) {
-            this.initialiseMetrics();
-
             // Regularly update the metrics for active rooms and users
             const ONE_HOUR = 60 * 60 * 1000;
             this.metricsCollectorInterval = setInterval(() => {
