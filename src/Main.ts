@@ -1144,12 +1144,14 @@ export class Main {
         await puppetsWaiting;
         await teamSyncPromise;
 
-        this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
-            UserActivityTrackerConfig.DEFAULT,
-            await this.datastore.getUserActivity(),
-            async (changes) => this.onUserActivityChanged(changes),
-        );
-        this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
+        if (!(this.datastore instanceof NedbDatastore)) {
+            this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
+                UserActivityTrackerConfig.DEFAULT,
+                await this.datastore.getUserActivity(),
+                async (changes) => this.onUserActivityChanged(changes),
+            );
+            this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
+        }
 
         log.info("Bridge initialised");
         this.ready = true;
