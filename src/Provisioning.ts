@@ -15,12 +15,22 @@ limitations under the License.
 */
 
 import { Bridge, Logging } from "matrix-appservice-bridge";
-import { Request, Response} from "express";
+import { Request, Response } from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
 import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
 
 const log = Logging.get("Provisioning");
+
+class ProvisioningError extends Error {
+    constructor(public readonly code: number, public readonly text: string) {
+        super();
+    }
+
+    get message() {
+        return `Provisioning error ${this.code}: ${this.text}`;
+    }
+}
 
 interface DecoratedCommandFunc {
     (req: Request, res: Response, ...params: string[]): void|Promise<void>;
@@ -42,17 +52,14 @@ export class Provisioner {
 
     public addAppServicePath(): void {
         this.bridge.addAppServicePath({
-            handler: async (req: Request, res: Response) => {
-                const verb = req.params.verb;
-                await this.handleProvisioningRequest(verb as Verbs, req, res);
-            },
+            handler: async (req: Request, res: Response) => this.handleProvisioningRequest(req.params.verb as Verbs, req, res),
             method: "POST",
             checkToken: true,
             path: "/_matrix/provision/:verb",
         });
     }
 
-    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<any>> {
+    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<Record<string, unknown>>> {
         const provisioningCommand = this[verb] as DecoratedCommandFunc;
         if (!provisioningCommand || !provisioningCommand.params) {
             return res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
@@ -66,7 +73,6 @@ export class Provisioner {
             if (!(paramName in body) && paramRequired) {
                 return res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
             }
-
             args.push(body[paramName]);
         }
 
@@ -74,7 +80,11 @@ export class Provisioner {
             return await provisioningCommand.call(this, ...args);
         } catch (err) {
             log.error("Provisioning command threw an error:", err);
-            res.status(err.code || HTTP_CODES.SERVER_ERROR).json({error: err.text || err.message || err});
+            if (err instanceof ProvisioningError) {
+                res.status(err.code).json({error: err.text});
+            } else {
+                res.status(HTTP_CODES.SERVER_ERROR).json({error: (err as Error).message});
+            }
         }
     }
 
@@ -221,22 +231,26 @@ export class Provisioner {
         log.debug(`${userId} requested their puppeted accounts`);
         const allPuppets = await this.main.datastore.getPuppetedUsers();
         const accts = allPuppets.filter((p) => p.matrixId === userId);
-        const accounts = await Promise.all(accts.map(async (acct: any) => {
-            delete acct.token;
+        const accounts = await Promise.all(accts.map(async acct => {
+            const publicAccount: Record<string, unknown> = {
+                matrixId: acct.matrixId,
+                slackId: acct.slackId,
+                teamId: acct.teamId,
+            };
             const client = await this.main.clientFactory.getClientForUser(acct.teamId, acct.matrixId);
             if (client) {
                 try {
                     const identity = (await client.auth.test()) as AuthTestResponse;
-                    acct.identity = {
+                    publicAccount.identity = {
                         team: identity.team,
                         name: identity.user,
                     };
-                    acct.isLast = allPuppets.filter((t) => t.teamId).length < 2;
+                    publicAccount.isLast = allPuppets.filter((t) => t.teamId).length < 2;
                 } catch (ex) {
                     return acct;
                 }
             }
-            return acct;
+            return publicAccount;
         }));
         res.json({ accounts });
     }
@@ -252,10 +266,10 @@ export class Provisioner {
         log.info(`Need to enquire if ${userId} is allowed get links for ${matrixRoomId}`);
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
-            throw {
-                code: HTTP_CODES.FORBIDDEN,
-                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
-            };
+            throw new ProvisioningError(
+                HTTP_CODES.FORBIDDEN,
+                `${userId} is not allowed to provision links in ${matrixRoomId}`
+            );
         }
 
         // Convert the room 'status' into a integration manager 'status'
@@ -296,10 +310,10 @@ export class Provisioner {
 
         // Check if the user is in the team.
         if (!(await this.main.matrixUserInSlackTeam(teamId, userId))) {
-            return Promise.reject({
-                code: HTTP_CODES.FORBIDDEN,
-                text: `${userId} is not in this team.`,
-            });
+            throw new ProvisioningError(
+                HTTP_CODES.FORBIDDEN,
+                `${userId} is not in this team.`,
+            );
         }
 
         try {
@@ -322,10 +336,10 @@ export class Provisioner {
         } catch (error) {
             log.error('Failed to get channel info.');
             log.error(error);
-            return Promise.reject({
-                code: HTTP_CODES.SERVER_ERROR,
-                text: 'Failed to get channel info',
-            });
+            throw new ProvisioningError(
+                HTTP_CODES.SERVER_ERROR,
+                'Failed to get channel info',
+            );
         }
     }
 
@@ -347,10 +361,10 @@ export class Provisioner {
 
         // Check if the user is in the team.
         if (opts.team_id && !(await this.main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
-            return Promise.reject({
-                code: HTTP_CODES.FORBIDDEN,
-                text: `${userId} is not in this team.`,
-            });
+            throw new ProvisioningError(
+                HTTP_CODES.FORBIDDEN,
+                `${userId} is not in this team.`,
+            );
         }
         if (!(await this.main.checkLinkPermission(matrixRoomId, userId))) {
             return Promise.reject({
@@ -360,10 +374,10 @@ export class Provisioner {
         }
 
         if (await this.reachedRoomLimit()) {
-            throw {
-                code: HTTP_CODES.FORBIDDEN,
-                text: `You have reached the maximum number of bridged rooms.`,
-            };
+            throw new ProvisioningError(
+                HTTP_CODES.FORBIDDEN,
+                `You have reached the maximum number of bridged rooms.`,
+            );
         }
 
         const room = await this.main.actionLink(opts);
@@ -394,10 +408,10 @@ export class Provisioner {
 
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
-            throw {
-                code: HTTP_CODES.FORBIDDEN,
-                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
-            };
+            throw new ProvisioningError(
+                HTTP_CODES.FORBIDDEN,
+                `${userId} is not allowed to provision links in ${matrixRoomId}`,
+            );
         }
         await this.main.actionUnlink({matrix_room_id: matrixRoomId});
         res.json({});

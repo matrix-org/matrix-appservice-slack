@@ -25,4 +25,4 @@ EXPOSE 9898
 EXPOSE 5858
 
 ENTRYPOINT [ "node", "lib/app.js", "-c", "/config/config.yaml" ]
-CMD [ "-p", "5858", "-f", "/config/slack-registration.yaml" ]
+CMD [ "-f", "/config/slack-registration.yaml" ]

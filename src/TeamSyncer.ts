@@ -343,7 +343,7 @@ export class TeamSyncer {
                 }
             } catch (ex) {
                 // This can happen if we don't have a puppet yet. Not to worry.
-                log.warn(`Could not ensure bot is in channel ${channelItem.id}: ${ex.message}`);
+                log.warn(`Could not ensure bot is in channel ${channelItem.id}`, ex);
             }
             await this.syncMembershipForRoom(roomId, channelItem.id, teamId, client);
         } catch (ex) {
@@ -374,7 +374,7 @@ export class TeamSyncer {
 
         // Hide deleted channels in the room directory.
         try {
-            await this.main.botIntent.getClient().setRoomDirectoryVisibility(room.MatrixRoomId, "private");
+            await this.main.botIntent.setRoomDirectoryVisibility(room.MatrixRoomId, "private");
         } catch (ex) {
             log.warn("Failed to hide room from the room directory:", ex);
         }
