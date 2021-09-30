@@ -1,1 +1,0 @@
-Sync channels and users of a Slack team independently, so that one failure does not cause the other to fail.

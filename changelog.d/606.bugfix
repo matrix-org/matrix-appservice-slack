@@ -1,1 +1,0 @@
-Fix a crash on startup caused by the homeserver rejecting a join/leave from a ghost when team sync is enabled.
