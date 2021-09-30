@@ -10,7 +10,8 @@ const log = Logging.get("UserAdminRoom");
 const COMMAND_HELP = {
     help: { desc: "Shows you this help text" },
     login: { desc: "Log into a Slack account" },
-    logout: { desc: "Log out of your Slack account"}
+    logout: { desc: "Log out of your Slack account"},
+    whoami: { desc: "Lists Slack accounts you are be logged in as"}
 };
 
 const onboardingTemplatePath = path.resolve(path.join(__dirname, "../.." , "templates/onboarding"));
