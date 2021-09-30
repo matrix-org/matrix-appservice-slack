@@ -29,6 +29,9 @@ homeserver:
 #
 username_prefix: "slack_"
 
+# Maximum number of monthly active users, beyond this the bridge is getting blocked
+# rmau_limit: 100
+
 # Settings for database connection
 # Optional. Defaults engine to "nedb".
 #
