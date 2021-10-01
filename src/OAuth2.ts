@@ -17,7 +17,7 @@ limitations under the License.
 import * as querystring from "querystring";
 import { v4 as uuid } from "uuid";
 import { Logging } from "matrix-appservice-bridge";
-import { Main } from "./Main";
+import { Main, METRIC_OAUTH_SESSIONS } from "./Main";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
 import { OAuthAccessResponse } from "./SlackResponses";
@@ -42,6 +42,8 @@ const REQUIRED_SCOPES = [
 const PUPPET_SCOPES = [ // See https://stackoverflow.com/a/28234443
     "client",
 ];
+
+const TOKEN_EXPIRE_MS = 5 * 60 * 1000; // 5 minutes
 
 export class OAuth2 {
     private readonly main: Main;
@@ -93,11 +95,13 @@ export class OAuth2 {
             redirect_uri: redirectUri,
         })) as OAuthAccessResponse;
         if (response.ok) {
+            this.main.incCounter(METRIC_OAUTH_SESSIONS, {result: "success", reason: "success"});
             return {
                 response,
                 access_scopes: response.scope.split(/,/),
             };
         }
+        this.main.incCounter(METRIC_OAUTH_SESSIONS, {result: "failed", reason: "api-failure"});
         log.error("oauth.access failed: ", response);
         throw Error(`OAuth2 process failed: '${response.error}'`);
     }
@@ -113,14 +117,18 @@ export class OAuth2 {
         // expects inbound roomIds to be 32 chars.
         const token = uuid().substr(0, INTERNAL_ID_LEN);
         this.userTokensWaiting.set(token, userId);
+        setTimeout(() => {
+            if (this.userTokensWaiting.delete(token)) {
+                log.info(`Token for ${userId} has expired`);
+                this.main.incCounter(METRIC_OAUTH_SESSIONS, {result: "failed", reason: "timeout"});
+            }
+        }, TOKEN_EXPIRE_MS);
         return token;
     }
 
-    public getUserIdForPreauthToken(token: string, pop = true): string|null {
-        const v =  this.userTokensWaiting.get(token);
-        if (v && pop) {
-            this.userTokensWaiting.delete(token);
-        }
+    public getUserIdForPreauthToken(token: string): string|null {
+        const v = this.userTokensWaiting.get(token);
+        this.userTokensWaiting.delete(token);
         return v || null;
     }
 
