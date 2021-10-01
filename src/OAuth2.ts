@@ -118,17 +118,17 @@ export class OAuth2 {
         const token = uuid().substr(0, INTERNAL_ID_LEN);
         this.userTokensWaiting.set(token, userId);
         setTimeout(() => {
-            this.main.incCounter(METRIC_OAUTH_SESSIONS, {result: "failed", reason: "timeout"});
-            this.userTokensWaiting.delete(token);
+            if (this.userTokensWaiting.delete(token)) {
+                log.info(`Token for ${userId} has expired`);
+                this.main.incCounter(METRIC_OAUTH_SESSIONS, {result: "failed", reason: "timeout"});
+            }
         }, TOKEN_EXPIRE_MS);
         return token;
     }
 
-    public getUserIdForPreauthToken(token: string, pop = true): string|null {
-        const v =  this.userTokensWaiting.get(token);
-        if (v && pop) {
-            this.userTokensWaiting.delete(token);
-        }
+    public getUserIdForPreauthToken(token: string): string|null {
+        const v = this.userTokensWaiting.get(token);
+        this.userTokensWaiting.delete(token);
         return v || null;
     }
 
