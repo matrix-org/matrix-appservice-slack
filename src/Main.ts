@@ -410,7 +410,7 @@ export class Main {
             name: METRIC_PUPPETS,
         });
         const bridgeBlocked = prometheus.addGauge({
-            name: "bridge_blocked",
+            name: "blocked",
             help: "Is the bridge currently blocking messages",
         });
         const oauthSessions = prometheus.addCounter({
