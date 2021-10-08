@@ -1153,8 +1153,17 @@ export class Main {
         await teamSyncPromise;
 
         if (!(this.datastore instanceof NedbDatastore)) {
+            const uatConfig = {
+                ...UserActivityTrackerConfig.DEFAULT,
+            };
+            if (this.config.user_activity?.min_user_active_days !== undefined) {
+                uatConfig.minUserActiveDays = this.config.user_activity.min_user_active_days;
+            }
+            if (this.config.user_activity?.inactive_after_days !== undefined) {
+                uatConfig.inactiveAfterDays = this.config.user_activity.inactive_after_days;
+            }
             this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
-                UserActivityTrackerConfig.DEFAULT,
+                uatConfig,
                 await this.datastore.getUserActivity(),
                 async (changes) => this.onUserActivityChanged(changes),
             );

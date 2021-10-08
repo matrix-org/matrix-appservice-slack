@@ -33,6 +33,10 @@ export interface IConfig {
     matrix_admin_room?: string;
 
     rmau_limit?: number;
+    user_activity?: {
+        min_user_active_days?: number;
+        inactive_after_days?: number;
+    };
 
     homeserver: {
         url: string;
