@@ -1157,10 +1157,10 @@ export class Main {
                 ...UserActivityTrackerConfig.DEFAULT,
             };
             if (this.config.user_activity?.min_user_active_days !== undefined) {
-                uatConfig.minUserActiveDays = this.config.user_activity!.min_user_active_days!;
+                uatConfig.minUserActiveDays = this.config.user_activity.min_user_active_days;
             }
             if (this.config.user_activity?.inactive_after_days !== undefined) {
-                uatConfig.inactiveAfterDays = this.config.user_activity!.inactive_after_days!;
+                uatConfig.inactiveAfterDays = this.config.user_activity.inactive_after_days;
             }
             this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
                 uatConfig,
