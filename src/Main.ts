@@ -1156,7 +1156,6 @@ export class Main {
             const uatConfig = {
                 ...UserActivityTrackerConfig.DEFAULT,
             };
-            log.warn('user_activity settings:', this.config.user_activity);
             if (this.config.user_activity?.min_user_active_days !== undefined) {
                 uatConfig.minUserActiveDays = this.config.user_activity!.min_user_active_days!;
             }
