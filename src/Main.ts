@@ -18,7 +18,7 @@ import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker, UserActivityTrackerConfig } from "matrix-appservice-bridge";
-import { Gauge } from "prom-client";
+import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
@@ -55,6 +55,7 @@ export const METRIC_ACTIVE_ROOMS = "active_rooms";
 export const METRIC_PUPPETS = "remote_puppets";
 export const METRIC_RECEIVED_MESSAGE = "received_messages";
 export const METRIC_SENT_MESSAGES = "sent_messages";
+export const METRIC_OAUTH_SESSIONS = "oauth_session_result";
 
 export interface ISlackTeam {
     id: string;
@@ -134,6 +135,7 @@ export class Main {
         metricActiveUsers: Gauge<string>;
         metricPuppets: Gauge<string>;
         bridgeBlocked: Gauge<string>;
+        oauthSessions: Counter<string>;
     };
     private metricsCollectorInterval?: NodeJS.Timeout;
 
@@ -162,7 +164,7 @@ export class Main {
                 client_secret: config.oauth2.client_secret,
                 main: this,
                 redirect_prefix: redirectPrefix,
-                template_file: config.oauth2.html_template || path.join(__dirname, ".." , "templates/oauth_result.html.njk") ,
+                template_file: config.oauth2.html_template || path.join(__dirname, ".." , "templates/oauth_result.html.njk"),
             });
         }
 
@@ -408,8 +410,13 @@ export class Main {
             name: METRIC_PUPPETS,
         });
         const bridgeBlocked = prometheus.addGauge({
-            name: "bridge_blocked",
+            name: "blocked",
             help: "Is the bridge currently blocking messages",
+        });
+        const oauthSessions = prometheus.addCounter({
+            name: METRIC_OAUTH_SESSIONS,
+            help: "Metric tracking the result of oauth sessions",
+            labels: ["result", "reason"],
         });
 
         this.metrics = {
@@ -418,6 +425,7 @@ export class Main {
             metricActiveRooms,
             metricPuppets,
             bridgeBlocked,
+            oauthSessions,
         };
         log.info(`Enabled prometheus metrics`);
     }
@@ -1145,8 +1153,17 @@ export class Main {
         await teamSyncPromise;
 
         if (!(this.datastore instanceof NedbDatastore)) {
+            const uatConfig = {
+                ...UserActivityTrackerConfig.DEFAULT,
+            };
+            if (this.config.user_activity?.min_user_active_days !== undefined) {
+                uatConfig.minUserActiveDays = this.config.user_activity.min_user_active_days;
+            }
+            if (this.config.user_activity?.inactive_after_days !== undefined) {
+                uatConfig.inactiveAfterDays = this.config.user_activity.inactive_after_days;
+            }
             this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
-                UserActivityTrackerConfig.DEFAULT,
+                uatConfig,
                 await this.datastore.getUserActivity(),
                 async (changes) => this.onUserActivityChanged(changes),
             );

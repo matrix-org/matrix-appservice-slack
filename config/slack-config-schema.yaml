@@ -27,6 +27,13 @@ properties:
         type: string
       crt_file:
         type: string
+  user_activity:
+    type: object
+    properties:
+      min_user_active_days:
+        type: number
+      inactive_after_days:
+        type: number
   rtm:
     type: object
     required: ["enable"]
