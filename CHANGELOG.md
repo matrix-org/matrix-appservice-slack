@@ -1,3 +1,13 @@
+ 1.9.0-rc2 (2021-10-08)
+=======================
+
+Features
+--------
+
+- Track the success/failure rate of oauth sessions with the `oauth_session_result` metric. ([\#621](https://github.com/matrix-org/matrix-appservice-slack/issues/621))
+- Make UserActivityTracker configurable ([\#623](https://github.com/matrix-org/matrix-appservice-slack/issues/623))
+
+
 1.9.0-rc1 (2021-09-30)
 =======================
 
