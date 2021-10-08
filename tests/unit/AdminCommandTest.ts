@@ -62,7 +62,6 @@ describe("AdminCommand", () => {
         );
         await command.handler({
             matched: () => {},
-            completed: () => {},
         } as any);
         expect(wasCalledTimes).to.equal(1);
     });
@@ -81,7 +80,6 @@ describe("AdminCommand", () => {
             },
         );
         await command.handler({
-            completed: () => {},
             matched: () => {},
             respond: respondMock,
         } as any);
