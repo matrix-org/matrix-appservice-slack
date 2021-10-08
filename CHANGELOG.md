@@ -1,4 +1,13 @@
- 1.9.0-rc2 (2021-10-08)
+ 1.9.0-rc3 (2021-10-08)
+=======================
+
+Bugfixes
+--------
+
+- Fix a bug where typing in an admin command in the bridge admin room would cause the bridge to immediately exit. ([\#624](https://github.com/matrix-org/matrix-appservice-slack/issues/624))
+
+
+1.9.0-rc2 (2021-10-08)
 =======================
 
 Features
