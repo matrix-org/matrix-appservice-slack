@@ -1,0 +1,1 @@
+Make UserActivityTracker configurable
