@@ -47,7 +47,7 @@ const TOKEN_EXPIRE_MS = 5 * 60 * 1000; // 5 minutes
 
 export class OAuth2 {
     private readonly main: Main;
-    private readonly userTokensWaiting: Map<string, string>;
+    private readonly userTokensWaiting: Map<string, {userId: string; expireAfter: number}>;
     private readonly clientId: string;
     private readonly clientSecret: string;
     private readonly redirectPrefix: string;
@@ -116,20 +116,17 @@ export class OAuth2 {
         // NOTE: We use 32 because we need to use it into SlackEventHandler which
         // expects inbound roomIds to be 32 chars.
         const token = uuid().substr(0, INTERNAL_ID_LEN);
-        this.userTokensWaiting.set(token, userId);
-        setTimeout(() => {
-            if (this.userTokensWaiting.delete(token)) {
-                log.info(`Token for ${userId} has expired`);
-                this.main.incCounter(METRIC_OAUTH_SESSIONS, {result: "failed", reason: "timeout"});
-            }
-        }, TOKEN_EXPIRE_MS);
+        this.userTokensWaiting.set(token, {userId, expireAfter: TOKEN_EXPIRE_MS + Date.now()});
         return token;
     }
 
     public getUserIdForPreauthToken(token: string): string|null {
         const v = this.userTokensWaiting.get(token);
         this.userTokensWaiting.delete(token);
-        return v || null;
+        if (v && v.expireAfter >= Date.now()) {
+            return v.userId;
+        }
+        return null;
     }
 
 

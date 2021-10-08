@@ -907,8 +907,6 @@ export class Main {
             return;
         }
 
-        log.info("Admin: " + cmd);
-
         const response: string[] = [];
         const respond = (responseMsg: string) => {
             if (!response) {
@@ -928,16 +926,16 @@ export class Main {
                 respond("Done");
             }
         } catch (ex) {
-            log.debug(`Command '${cmd}' failed to complete:`, ex);
-            respond("Command failed: " + ex);
+            const error = ex as {message: string; name?: "YError"};
+            log.warn(`Command '${cmd}' failed to complete:`, ex);
+            // YErrors are yargs errors when the user inputs the command wrong.
+            respond(`${error.name === "YError" ? error.message : "Command failed: See the logs for details."}`);
         }
 
         const message = response.join("\n");
 
         await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
             body: message,
-            format: "org.matrix.custom.html",
-            formatted_body: `<pre>${message}</pre>`,
             msgtype: "m.notice",
         });
     }
