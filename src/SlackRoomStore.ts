@@ -1,6 +1,6 @@
 import { BridgedRoom } from "./BridgedRoom";
 import { Logging } from "matrix-appservice-bridge";
-import QuickLRU = require("quick-lru");
+import QuickLRU from "@alloc/quick-lru";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { Main } from "./Main";
 

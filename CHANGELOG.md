@@ -1,4 +1,56 @@
- 1.8.0 (2021-04-22)
+1.9.0 (2021-10-11)
+=======================
+
+No significant changes.
+
+
+1.9.0-rc3 (2021-10-08)
+=======================
+
+Bugfixes
+--------
+
+- Fix a bug where typing in an admin command in the bridge admin room would cause the bridge to immediately exit. ([\#624](https://github.com/matrix-org/matrix-appservice-slack/issues/624))
+
+
+1.9.0-rc2 (2021-10-08)
+=======================
+
+Features
+--------
+
+- Track the success/failure rate of oauth sessions with the `oauth_session_result` metric. ([\#621](https://github.com/matrix-org/matrix-appservice-slack/issues/621))
+- Make UserActivityTracker configurable ([\#623](https://github.com/matrix-org/matrix-appservice-slack/issues/623))
+
+
+1.9.0-rc1 (2021-09-30)
+=======================
+
+Features
+--------
+
+- Make the team sync hint to channel admins configurable ([\#601](https://github.com/matrix-org/matrix-appservice-slack/issues/601))
+- Add optional bridge blocking upon exceeding a monthly active user limit ([\#612](https://github.com/matrix-org/matrix-appservice-slack/issues/612))
+- The bridge now automatically invites users to private rooms if there is a message and they are not joined. ([\#613](https://github.com/matrix-org/matrix-appservice-slack/issues/613))
+
+
+Bugfixes
+--------
+
+- Sync channels and users of a Slack team independently, so that one failure does not cause the other to fail. ([\#599](https://github.com/matrix-org/matrix-appservice-slack/issues/599))
+- Fix a crash on startup caused by the homeserver rejecting a join/leave from a ghost when team sync is enabled. ([\#606](https://github.com/matrix-org/matrix-appservice-slack/issues/606))
+- Add missing help text for `whoami` command. ([\#620](https://github.com/matrix-org/matrix-appservice-slack/issues/620))
+
+
+Internal Changes
+----------------
+
+- Switched out or pinned several packages that require ESM modules, as we don't want to use ESM modules. ([\#605](https://github.com/matrix-org/matrix-appservice-slack/issues/605))
+- Docker images are now automatically build and published via GitHub Actions, replacing DockerHub Autobuilds. ([\#610](https://github.com/matrix-org/matrix-appservice-slack/issues/610))
+- Update bridge to matrix-appservice-bridge 3.1.0 ([\#614](https://github.com/matrix-org/matrix-appservice-slack/issues/614))
+
+
+1.8.0 (2021-04-22)
 ===================
 
 No significant changes.

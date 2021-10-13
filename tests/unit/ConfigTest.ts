@@ -32,7 +32,7 @@ describe("Config", () => {
         const config = yaml.load(await fs.readFile(SAMPLE_CONFIG_PATH, "utf-8"))
         try {
             validator.validate(config);
-        } catch (ex) {
+        } catch (ex: any) {
             if (ex._validationErrors) {
                 throw new Error(`Failed to validate:\n` + ex._validationErrors.map((err) => `      '${err.field}' ${err.message}'`).join("\n"))
             }
@@ -44,7 +44,7 @@ describe("Config", () => {
         const config = yaml.load(await fs.readFile(SAMPLE_COMPLETE_CONFIG_PATH, "utf-8"))
         try {
             validator.validate(config);
-        } catch (ex) {
+        } catch (ex: any) {
             if (ex._validationErrors) {
                 throw new Error(`Failed to validate:\n` + ex._validationErrors.map((err) => `      '${err.field}' ${err.message}'`).join("\n"))
             }

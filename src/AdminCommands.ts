@@ -49,12 +49,13 @@ export class AdminCommands {
             .help(false); // We provide our own help, and version is not required.
 
         this.commands.forEach((cmd) => {
-            this.yargs = this.yargs.command(cmd.command, cmd.description, ((yg) => {
-                if (cmd.options) {
-                    return yg.options(cmd.options);
-                }
-            // TODO: Fix typing
-            }) as any, cmd.handler.bind(cmd));
+            this.yargs = this.yargs.command(
+                cmd.command,
+                cmd.description,
+                (yg: yargs.Argv) => void yg.options(cmd.options || {}),
+                cmd.handler.bind(cmd)
+            ).exitProcess(false)
+                .showHelpOnFail(false);
         });
     }
 
@@ -150,7 +151,7 @@ export class AdminCommands {
                 respond("  Inbound ID: " + bridgedRoom.InboundId);
                 respond("  Inbound URL: " + this.main.getInboundUrlForRoom(bridgedRoom));
                 respond("  Matrix room ID: " + bridgedRoom.MatrixRoomId);
-                respond("  Using RTM: " + this.main.teamIsUsingRtm(bridgedRoom.SlackTeamId!));
+                respond("  Using RTM: " + (bridgedRoom.SlackTeamId ? this.main.teamIsUsingRtm(bridgedRoom.SlackTeamId) : false).toString());
             },
             {
                 channel_id: {
@@ -175,8 +176,12 @@ export class AdminCommands {
                 team_id?: string,
             }) => {
                 try {
+                    if (!room) {
+                        respond("Room not provided");
+                        return;
+                    }
                     const r = await this.main.actionLink({
-                        matrix_room_id: room!,
+                        matrix_room_id: room,
                         slack_bot_token,
                         team_id,
                         slack_channel_id: channel_id,
@@ -227,11 +232,13 @@ export class AdminCommands {
                 respond: ResponseCallback,
                 room?: string,
             }) => {
+                if (!room) {
+                    respond("Room not provided");
+                    return;
+                }
                 try {
                     await this.main.actionUnlink({
-                        matrix_room_id: room!,
-                        // slack_channel_name: channel,
-                        // slack_channel_id: channel_id,
+                        matrix_room_id: room,
                     });
                     respond("Unlinked");
                 } catch (ex) {
@@ -273,11 +280,14 @@ export class AdminCommands {
                 respond: ResponseCallback,
                 room?: string,
             }) => {
-                const roomId: string = room!;
-                const userIds = await this.main.listGhostUsers(roomId);
-                respond(`Draining ${userIds.length} ghosts from ${roomId}`);
-                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(roomId)));
-                await this.main.botIntent.leave(roomId);
+                if (!room) {
+                    respond("Room not provided");
+                    return;
+                }
+                const userIds = await this.main.listGhostUsers(room);
+                respond(`Draining ${userIds.length} ghosts from ${room}`);
+                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(room)));
+                await this.main.botIntent.leave(room);
                 respond("Drained");
             },
             {
@@ -316,7 +326,11 @@ export class AdminCommands {
                     respond("Oauth is not configured on this bridge");
                     return;
                 }
-                const token = this.main.oauth2.getPreauthToken(userId!);
+                if (!userId) {
+                    respond("userId not provided");
+                    return;
+                }
+                const token = this.main.oauth2.getPreauthToken(userId);
                 const authUri = this.main.oauth2.makeAuthorizeURL(
                     token,
                     token,
@@ -369,22 +383,11 @@ export class AdminCommands {
     public async parse(argv: string, respond: ResponseCallback): Promise<boolean> {
         // yargs has no way to tell us if a command matched, so we have this
         // slightly whacky function to manage it.
-        return new Promise((resolve, reject) => {
-            try {
-                let matched = false;
-                this.yargs.parse(argv, {
-                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-                    completed: (err) => { err ? reject(err) : resolve(true); },
-                    matched: () => { matched = true; },
-                    respond,
-                }, (err) => {  if (err !== null) { reject(err); } });
-                if (!matched) {
-                    log.debug("No match");
-                    resolve(false);
-                }
-            } catch (ex) {
-                reject(ex);
-            }
+        let matched = false;
+        await this.yargs.parse(argv, {
+            matched: () => { matched = true; },
+            respond,
         });
+        return matched;
     }
 }

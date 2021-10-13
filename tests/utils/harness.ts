@@ -1,10 +1,11 @@
-import { AppServiceRegistration } from "matrix-appservice";
+import { AppServiceRegistration } from "matrix-appservice-bridge";
 import { Main } from "../../src/Main";
 
 export const constructHarness = (): { main: Main } => {
     const reg = new AppServiceRegistration("foobar");
     reg.setHomeserverToken(AppServiceRegistration.generateToken());
     reg.setAppServiceToken(AppServiceRegistration.generateToken());
+    reg.addRegexPattern("users", "@test_.+:foobar");
     reg.setSenderLocalpart("test_bot");
     reg.setId("foobar");
     const main = new Main({

@@ -1,3 +1,4 @@
+import { UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -182,4 +183,12 @@ export class FakeDatastore implements Datastore {
     public async getRoomCount(): Promise<number> {
         return 0;
     }
+
+    public async storeUserActivity(matrixId: string, activity: UserActivity) {
+    }
+
+    public async getUserActivity(): Promise<UserActivitySet> {
+        return { users: {} };
+    }
+
 }

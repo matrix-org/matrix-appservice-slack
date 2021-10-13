@@ -18,13 +18,19 @@ homeserver:
   #max_upload_size: 104857600
   
   # Optional. Used to specify the port of the appservice in the config, rather than the command line.
-  # If this is defined, it will **override** the port given in the process arguments.
+  # This will be overriden by any ports given in the process arguments.
   #
   #appservice_port: 5858
+
+  # Optional. Used to specify the host to listen on for the appservice.
+  # appservice_host: 0.0.0.0
 
 # The prefix to give Slack users on the Matrix server
 #
 username_prefix: "slack_"
+
+# Maximum number of monthly active users, beyond this the bridge is getting blocked
+# rmau_limit: 100
 
 # Settings for database connection
 # Optional. Defaults engine to "nedb".
@@ -129,6 +135,10 @@ slack_hook_port: 9898
   #     # Prefix for room aliases in Matrix
   #     #
   #     #alias_prefix: "slack_"
+  #
+  #     # Send a hint to channel admins how to invite matrix bridge if automatic join does not work
+  #     #
+  #     #hint_channel_admins: true
   #
   #   # Should sync *all* team users to Matrix
   #   #

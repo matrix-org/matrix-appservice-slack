@@ -10,7 +10,9 @@
     "esModuleInterop": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
-    "sourceMap": true
+    "sourceMap": true,
+    // Due to https://github.com/turt2live/matrix-bot-sdk/issues/155
+    "skipLibCheck": true,
   },
   "include": [
     "src/**/*"

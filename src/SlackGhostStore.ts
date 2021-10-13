@@ -2,7 +2,7 @@ import { SlackRoomStore } from "./SlackRoomStore";
 import { Datastore } from "./datastore/Models";
 import { SlackGhost } from "./SlackGhost";
 import { IConfig } from "./IConfig";
-import QuickLRU from "quick-lru";
+import QuickLRU from "@alloc/quick-lru";
 import { Logging, Bridge } from "matrix-appservice-bridge";
 
 const log = Logging.get("SlackGhostStore");

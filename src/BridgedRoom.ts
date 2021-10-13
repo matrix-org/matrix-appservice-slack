@@ -625,7 +625,7 @@ export class BridgedRoom {
         if (!recipientPuppet && !senderPuppet) {
             log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
             // 1
-            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
+            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.matrixUserId);
             await recipientGhost.intent.join(this.matrixRoomId);
         } else if (recipientPuppet && mxid) {
             // 2 & 4
@@ -751,7 +751,7 @@ export class BridgedRoom {
             return;
         }
         let response: { event_id: string };
-        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
+        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.matrixUserId}. Matrix room/event: ${this.MatrixRoomId}`;
         try {
             response = await ghost.sendReaction(
                 this.MatrixRoomId,
@@ -785,15 +785,15 @@ export class BridgedRoom {
             user_id: string,
         },
     ): Promise<void> {
-        if (msg.user_id === this.team!.user_id) {
+        if (!this.team || msg.user_id === this.team.user_id) {
             return;
         }
         const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction );
         if (!originalEvent) {
             throw Error('unknown_reaction');
         }
-        const botClient = this.main.botIntent.getClient();
-        botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+        const botClient = this.main.botIntent.matrixClient;
+        await botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
         await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
     }
 
@@ -1125,7 +1125,7 @@ export class BridgedRoom {
             return null;
         }
         const intent = await this.getIntentForRoom(roomID);
-        return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
+        return intent.getEvent(roomID, replyToEvent.eventId);
     }
 
     /*
@@ -1179,7 +1179,7 @@ export class BridgedRoom {
         }
 
         const intent = await this.getIntentForRoom(message.room_id);
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+        const nextEvent = await intent.getEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }
