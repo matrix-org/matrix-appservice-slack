@@ -1,0 +1,1 @@
+Make sure we use correct displaynames and avatars on Slack even if we lost track of room state updates
