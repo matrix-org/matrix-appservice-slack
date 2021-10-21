@@ -486,7 +486,7 @@ export class BridgedRoom {
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
-            username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
+            username: await user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
         };
         const text = body.text;
         if (!body.attachments && !text) {
@@ -505,7 +505,7 @@ export class BridgedRoom {
             }
         }
 
-        const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
+        const avatarUrl = await user.getAvatarUrlForRoom(message.room_id);
 
         if (avatarUrl && avatarUrl.indexOf("mxc://") === 0) {
             body.icon_url = this.main.getUrlForMxc(avatarUrl);

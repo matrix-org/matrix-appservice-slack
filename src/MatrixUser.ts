@@ -1,3 +1,4 @@
+import QuickLRU from "@alloc/quick-lru";
 import { StateLookupEvent } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
@@ -17,15 +18,25 @@ limitations under the License.
 
 import { Main } from "./Main";
 
+interface IUserProfile {
+    avatar_url?: string;
+    displayname?: string;
+}
+
 /**
  * A Matrix event `m.room.member` indicating a user's presence in a room.
  */
 interface IMatrixMemberEvent {
-    content?: {
-        avatar_url?: string;
-        displayname?: string;
-    };
+    content?: IUserProfile;
 }
+
+const CACHED_PROFILE_MAX_AGE = 15 * 60 * 1000; // 15 minutes
+const CACHED_PROFILE_MAX_SIZE = 10_000; // 15 minutes
+
+const ROOM_PROFILE_CACHE = new QuickLRU<string, {
+    profile: IUserProfile,
+    ts: number,
+}>({ maxSize: CACHED_PROFILE_MAX_SIZE });
 
 /*
  * Represents a user we have seen from Matrix; i.e. a real Matrix user.
@@ -43,16 +54,13 @@ export class MatrixUser {
      * taking into account disambiguation with other users in the same room.
      * @param roomId The roomId to calculate the user's displayname for.
      */
-    public getDisplaynameForRoom(roomId: string): string {
-        const myMemberEvent = (this.main.getStoredEvent(
-            roomId, "m.room.member", this.userId,
-        ) as StateLookupEvent) as IMatrixMemberEvent;
-
-        if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.displayname) {
+    public async getDisplaynameForRoom(roomId: string): Promise<string> {
+        const profile = await this.getProfileForRoom(roomId);
+        if (!profile?.displayname) {
             return this.userId;
         }
 
-        const displayname = myMemberEvent.content.displayname;
+        const displayname = profile.displayname;
 
         // Is this name used more than once in this room?
         const memberEvents = this.main.getStoredEvent(roomId, "m.room.member") as StateLookupEvent[];
@@ -64,15 +72,31 @@ export class MatrixUser {
         return (matches.length > 1) ? `${displayname} (${this.userId})` : displayname;
     }
 
-    public getAvatarUrlForRoom(roomId: string): string|null {
+    public async getAvatarUrlForRoom(roomId: string): Promise<string|undefined> {
+        const profile = await this.getProfileForRoom(roomId);
+        return profile?.avatar_url;
+    }
+
+    private async getProfileForRoom(roomId: string): Promise<IUserProfile|undefined> {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
+        let profile: IUserProfile|undefined = undefined; //myMemberEvent?.content;
 
-        if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.avatar_url) {
-            return null;
+        if (!profile) {
+            const cacheKey = `${roomId}:${this.userId}`;
+            const cached = ROOM_PROFILE_CACHE.get(cacheKey);
+            if (cached && cached.ts + CACHED_PROFILE_MAX_AGE > Date.now()) {
+                profile = cached.profile;
+            } else {
+                profile = await this.main.botIntent.matrixClient.getUserProfile(this.userId);
+                if (profile) {
+                    ROOM_PROFILE_CACHE.set(cacheKey, { profile, ts: Date.now() });
+                }
+            }
         }
-        return myMemberEvent.content.avatar_url;
+
+        return profile;
     }
 
     public get aTime(): number|null {
