@@ -17,6 +17,7 @@ limitations under the License.
 import { MatrixUser } from "../../src/MatrixUser";
 import { Main } from "../../src/Main";
 import { expect } from "chai";
+import QuickLRU from "@alloc/quick-lru";
 
 /**
  * Given an array of users, this function mocks `Main.getStoredEvent()` by
@@ -64,42 +65,64 @@ describe("MatrixUser", () => {
     });
 
     describe("getDisplayName", () => {
-        it("returns the user_id when no displayName is given", () => {
+        it("returns the user_id when no displayName is given", async () => {
             const getStoredEvent = getStoredEventGenerator([]);
-            const user = new MatrixUser({ getStoredEvent } as Main, { user_id: "@alice:localhost" });
-            expect(user.getDisplaynameForRoom("")).to.equal("@alice:localhost");
+            const getUserProfile = async (userId) => undefined;
+            const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" });
+            expect(await user.getDisplaynameForRoom("")).to.equal("@alice:localhost");
         });
-        it("returns the displayName if one is given", () => {
+        it("returns the profile displayName if state not available", async () => {
+            const getStoredEvent = getStoredEventGenerator([]);
+            const getUserProfile = async (userId) => Promise.resolve({ displayname: "Alice" });
+            const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" });
+            expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
+        });
+        it("doesn't lookup the profile multiple times in short succession", async () => {
+            const getStoredEvent = getStoredEventGenerator([]);
+            let calls = 0;
+            const getUserProfile = async (userId) => {
+                calls++;
+                return Promise.resolve({ displayname: "Alice" })
+            };
+            const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" }, new QuickLRU({ maxSize: 1 }));
+            expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
+            expect(calls).to.equal(1);
+            expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
+            expect(calls).to.equal(1);
+        });
+        it("returns the displayName if one is given", async () => {
             const getStoredEvent = getStoredEventGenerator([
                 { id: "@alice:localhost", displayName: "Alice" },
                 { displayName: "Hatmaker" },
             ]);
             const user = new MatrixUser({ getStoredEvent } as Main, { user_id: "@alice:localhost" });
-            expect(user.getDisplaynameForRoom("")).to.equal("Alice");
+            expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
         });
-        it("returns 'displayName (userId)' if the display name isn't unique", () => {
+        it("returns 'displayName (userId)' if the display name isn't unique", async () => {
             const getStoredEvent = getStoredEventGenerator([
                 { displayName: "Alice" },
                 { id: "@alice:localhost", displayName: "Alice" },
             ]);
             const user = new MatrixUser({ getStoredEvent } as Main, { user_id: "@alice:localhost" });
-            expect(user.getDisplaynameForRoom("")).to.equal("Alice (@alice:localhost)");
+            expect(await user.getDisplaynameForRoom("")).to.equal("Alice (@alice:localhost)");
         });
     });
 
     describe("getAvatarUrlForRoom", () => {
-        it("returns undefined when no avatar is given", () => {
+        it("returns undefined when no avatar is given", async () => {
             const getStoredEvent = getStoredEventGenerator([]);
-            const user = new MatrixUser({ getStoredEvent } as Main, { user_id: "@alice:localhost" });
-            expect(user.getAvatarUrlForRoom("")).to.be.null;
+            const getUserProfile = async (userId) => undefined;
+            const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" });
+            expect(await user.getAvatarUrlForRoom("")).to.be.undefined;
         });
-        it("returns the avatar_url if one is given", () => {
+        it("returns the avatar_url if one is given", async () => {
             const getStoredEvent = getStoredEventGenerator([
                 { id: "@alice:localhost", avatarUrl: "https://localhost/alice.png" },
                 { id: "@hatmaker:localhost" },
             ]);
-            const user = new MatrixUser({ getStoredEvent } as Main, { user_id: "@alice:localhost" });
-            expect(user.getAvatarUrlForRoom("")).to.equal("https://localhost/alice.png");
+            const getUserProfile = async (userId) => undefined;
+            const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" });
+            expect(await user.getAvatarUrlForRoom("")).to.equal("https://localhost/alice.png");
         });
     });
 });

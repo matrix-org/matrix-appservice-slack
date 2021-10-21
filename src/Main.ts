@@ -18,7 +18,7 @@ import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
-    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
+    UserActivityTrackerConfig, MembershipQueue, UserProfile } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -542,6 +542,10 @@ export class Main {
 
     public getStoredEvent(roomId: string, eventType: string, stateKey?: string): StateLookupEvent|StateLookupEvent[]|null|undefined {
         return this.stateStorage?.getState(roomId, eventType, stateKey);
+    }
+
+    public async getUserProfile(userId: string): Promise<UserProfile|undefined> {
+        return this.botIntent.matrixClient.getUserProfile(userId);
     }
 
     public async getState(roomId: string, eventType: string): Promise<any> {

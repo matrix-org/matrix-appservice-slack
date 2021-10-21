@@ -1,5 +1,5 @@
 import QuickLRU from "@alloc/quick-lru";
-import { StateLookupEvent } from "matrix-appservice-bridge";
+import { StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
@@ -18,23 +18,18 @@ limitations under the License.
 
 import { Main } from "./Main";
 
-interface IUserProfile {
-    avatar_url?: string;
-    displayname?: string;
-}
-
 /**
  * A Matrix event `m.room.member` indicating a user's presence in a room.
  */
 interface IMatrixMemberEvent {
-    content?: IUserProfile;
+    content?: UserProfile;
 }
 
 const CACHED_PROFILE_MAX_AGE = 15 * 60 * 1000; // 15 minutes
 const CACHED_PROFILE_MAX_SIZE = 10_000;
 
 const ROOM_PROFILE_CACHE = new QuickLRU<string, {
-    profile: IUserProfile,
+    profile: UserProfile,
     ts: number,
 }>({ maxSize: CACHED_PROFILE_MAX_SIZE });
 
@@ -44,7 +39,11 @@ const ROOM_PROFILE_CACHE = new QuickLRU<string, {
 export class MatrixUser {
     public readonly userId: string;
     private atime: number|null;
-    constructor(private main: Main, opts: {user_id: string}) {
+    constructor(
+        private main: Main,
+        opts: {user_id: string},
+        private profileCache = ROOM_PROFILE_CACHE,
+    ) {
         this.userId = opts.user_id;
         this.atime = null;
     }
@@ -77,21 +76,21 @@ export class MatrixUser {
         return profile?.avatar_url;
     }
 
-    private async getProfileForRoom(roomId: string): Promise<IUserProfile|undefined> {
+    private async getProfileForRoom(roomId: string): Promise<UserProfile|undefined> {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
-        let profile: IUserProfile|undefined = myMemberEvent?.content;
+        let profile: UserProfile|undefined = myMemberEvent?.content;
 
         if (!profile) {
             const cacheKey = `${roomId}:${this.userId}`;
-            const cached = ROOM_PROFILE_CACHE.get(cacheKey);
+            const cached = this.profileCache.get(cacheKey);
             if (cached && cached.ts + CACHED_PROFILE_MAX_AGE > Date.now()) {
                 profile = cached.profile;
             } else {
-                profile = await this.main.botIntent.matrixClient.getUserProfile(this.userId);
+                profile = await this.main.getUserProfile(this.userId);
                 if (profile) {
-                    ROOM_PROFILE_CACHE.set(cacheKey, { profile, ts: Date.now() });
+                    this.profileCache.set(cacheKey, { profile, ts: Date.now() });
                 }
             }
         }
