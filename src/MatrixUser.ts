@@ -31,7 +31,7 @@ interface IMatrixMemberEvent {
 }
 
 const CACHED_PROFILE_MAX_AGE = 15 * 60 * 1000; // 15 minutes
-const CACHED_PROFILE_MAX_SIZE = 10_000; // 15 minutes
+const CACHED_PROFILE_MAX_SIZE = 10_000;
 
 const ROOM_PROFILE_CACHE = new QuickLRU<string, {
     profile: IUserProfile,
