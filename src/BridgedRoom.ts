@@ -486,7 +486,7 @@ export class BridgedRoom {
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
-            username: await user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
+            username: (await user.getDisplaynameForRoom(message.room_id)) || matrixToSlackResult.username,
         };
         const text = body.text;
         if (!body.attachments && !text) {
