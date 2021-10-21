@@ -81,7 +81,7 @@ export class MatrixUser {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
-        let profile: IUserProfile|undefined = undefined; //myMemberEvent?.content;
+        let profile: IUserProfile|undefined = myMemberEvent?.content;
 
         if (!profile) {
             const cacheKey = `${roomId}:${this.userId}`;
