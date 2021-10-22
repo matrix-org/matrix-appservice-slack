@@ -180,13 +180,8 @@ export class SlackGhost {
             }
         }
 
-        if (!displayName || this.displayName === displayName) {
-            return; // Nothing to do.
-        }
-
-        log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
-
-        await this._intent.setDisplayName(displayName);
+        log.debug(`Ensuring displayname ${displayName} for ${this.slackId}`);
+        await this._intent.ensureProfile(displayName);
         this.displayname = displayName;
         await this.datastore.upsertUser(this);
     }
