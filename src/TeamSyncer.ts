@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, MembershipQueue } from "matrix-appservice-bridge";
+import { Logging } from "matrix-appservice-bridge";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo,

@@ -17,7 +17,8 @@ limitations under the License.
 import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
-    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker, UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
+    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
+    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
