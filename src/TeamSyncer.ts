@@ -294,7 +294,7 @@ export class TeamSyncer {
         const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
-            slackGhost.intent.leave(r.MatrixRoomId).catch(() => {
+            this.main.membershipQueue.leave(r.MatrixRoomId, slackGhost.matrixUserId, { getId: () => slackGhost.matrixUserId }).catch(() => {
                 i--;
                 // Failing to leave a room is fairly normal.
             }),
@@ -408,7 +408,7 @@ export class TeamSyncer {
         // Join users who aren't joined
         queue.addAll(joinedUsers.map((ghost) => async () => {
             try {
-                await ghost.intent.join(roomId);
+                await this.main.membershipQueue.join(roomId, ghost.matrixUserId, { getId: () => ghost.matrixUserId });
             } catch (ex) {
                 log.warn(`Failed to join ${ghost.matrixUserId} to ${roomId}`);
             }
@@ -417,7 +417,7 @@ export class TeamSyncer {
         // Leave users who are joined
         queue.addAll(leftUsers.map((ghost) => async () => {
             try {
-                await ghost.intent.leave(roomId);
+                await this.main.membershipQueue.leave(roomId, ghost.matrixUserId, { getId: () => ghost.matrixUserId });
             } catch (ex) {
                 log.warn(`Failed to leave ${ghost.matrixUserId} from ${roomId}`);
             }

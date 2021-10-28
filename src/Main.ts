@@ -17,7 +17,8 @@ limitations under the License.
 import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
-    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker, UserActivityTrackerConfig } from "matrix-appservice-bridge";
+    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
+    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -151,6 +152,8 @@ export class Main {
 
     private bridgeBlocker?: BridgeBlocker;
 
+    public readonly membershipQueue: MembershipQueue;
+
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         this.adminCommands = new AdminCommands(this);
 
@@ -278,6 +281,7 @@ export class Main {
                 store: this.datastore as PgDatastore,
             } : undefined,
         });
+        this.membershipQueue = new MembershipQueue(this.bridge, { });
 
         this.provisioner = new Provisioner(this, this.bridge);
 
