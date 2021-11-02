@@ -71,7 +71,7 @@ export class MatrixUser {
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
 
-        return myMemberEvent?.content || await this.main.getUserProfile(this.userId);
+        return myMemberEvent?.content || await this.main.botIntent.getProfileInfo(this.userId);
     }
 
     public get aTime(): number|null {
