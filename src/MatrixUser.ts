@@ -1,4 +1,4 @@
-import { StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
+import { Logging, StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
@@ -16,6 +16,8 @@ limitations under the License.
 */
 
 import { Main } from "./Main";
+
+const log = Logging.get("MatrixUser");
 
 /**
  * A Matrix event `m.room.member` indicating a user's presence in a room.
@@ -71,7 +73,11 @@ export class MatrixUser {
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
 
-        return myMemberEvent?.content || await this.main.botIntent.getProfileInfo(this.userId);
+        return myMemberEvent?.content
+            || this.main.botIntent.getProfileInfo(this.userId).catch((err) => {
+                log.error(`Failed to load user ${this.userId} profile for ${roomId}:`, err);
+                return undefined;
+            });
     }
 
     public get aTime(): number|null {

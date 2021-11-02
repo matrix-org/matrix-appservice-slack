@@ -76,6 +76,12 @@ describe("MatrixUser", () => {
             const user = new MatrixUser(mockMain(getStoredEvent), { user_id: "@alice:localhost" });
             expect(await user.getDisplaynameForRoom("")).to.equal("@alice:localhost");
         });
+        it("returns the user_id when profile cannot be obtained", async () => {
+            const getStoredEvent = getStoredEventGenerator([]);
+            const getProfileInfo = async () => Promise.reject('no');
+            const user = new MatrixUser(mockMain(getStoredEvent, getProfileInfo), { user_id: "@alice:localhost" });
+            expect(await user.getDisplaynameForRoom("")).to.equal("@alice:localhost");
+        });
         it("returns the profile displayName if state not available", async () => {
             const getStoredEvent = getStoredEventGenerator([]);
             const getProfileInfo = async (userId) => Promise.resolve({ displayname: "Alice" });
@@ -104,6 +110,12 @@ describe("MatrixUser", () => {
         it("returns undefined when no avatar is given", async () => {
             const getStoredEvent = getStoredEventGenerator([]);
             const user = new MatrixUser(mockMain(getStoredEvent), { user_id: "@alice:localhost" });
+            expect(await user.getAvatarUrlForRoom("")).to.be.undefined;
+        });
+        it("returns undefined when profile cannot be obtained", async () => {
+            const getStoredEvent = getStoredEventGenerator([]);
+            const getProfileInfo = async () => Promise.reject('no');
+            const user = new MatrixUser(mockMain(getStoredEvent, getProfileInfo), { user_id: "@alice:localhost" });
             expect(await user.getAvatarUrlForRoom("")).to.be.undefined;
         });
         it("returns the avatar_url if one is given", async () => {
