@@ -1,1 +1,1 @@
-Make sure we use correct displaynames and avatars on Slack even if we lost track of room state updates
+Improve reliability of Matrix users being bridged with correct displayname and avatar
