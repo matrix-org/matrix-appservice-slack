@@ -1,4 +1,3 @@
-import QuickLRU from "@alloc/quick-lru";
 import { StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
@@ -25,14 +24,6 @@ interface IMatrixMemberEvent {
     content?: UserProfile;
 }
 
-const CACHED_PROFILE_MAX_AGE = 15 * 60 * 1000; // 15 minutes
-const CACHED_PROFILE_MAX_SIZE = 10_000;
-
-const ROOM_PROFILE_CACHE = new QuickLRU<string, {
-    profile: UserProfile,
-    ts: number,
-}>({ maxSize: CACHED_PROFILE_MAX_SIZE });
-
 /*
  * Represents a user we have seen from Matrix; i.e. a real Matrix user.
  */
@@ -42,7 +33,6 @@ export class MatrixUser {
     constructor(
         private main: Main,
         opts: {user_id: string},
-        private profileCache = ROOM_PROFILE_CACHE,
     ) {
         this.userId = opts.user_id;
         this.atime = null;
@@ -80,22 +70,8 @@ export class MatrixUser {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
-        let profile: UserProfile|undefined = myMemberEvent?.content;
 
-        if (!profile) {
-            const cacheKey = `${roomId}:${this.userId}`;
-            const cached = this.profileCache.get(cacheKey);
-            if (cached && cached.ts + CACHED_PROFILE_MAX_AGE > Date.now()) {
-                profile = cached.profile;
-            } else {
-                profile = await this.main.getUserProfile(this.userId);
-                if (profile) {
-                    this.profileCache.set(cacheKey, { profile, ts: Date.now() });
-                }
-            }
-        }
-
-        return profile;
+        return myMemberEvent?.content || await this.main.getUserProfile(this.userId);
     }
 
     public get aTime(): number|null {

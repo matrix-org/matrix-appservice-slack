@@ -545,7 +545,7 @@ export class Main {
     }
 
     public async getUserProfile(userId: string): Promise<UserProfile|undefined> {
-        return this.botIntent.matrixClient.getUserProfile(userId);
+        return this.botIntent.getProfileInfo(userId);
     }
 
     public async getState(roomId: string, eventType: string): Promise<any> {

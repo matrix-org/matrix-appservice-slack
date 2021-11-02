@@ -17,7 +17,6 @@ limitations under the License.
 import { MatrixUser } from "../../src/MatrixUser";
 import { Main } from "../../src/Main";
 import { expect } from "chai";
-import QuickLRU from "@alloc/quick-lru";
 
 /**
  * Given an array of users, this function mocks `Main.getStoredEvent()` by
@@ -76,19 +75,6 @@ describe("MatrixUser", () => {
             const getUserProfile = async (userId) => Promise.resolve({ displayname: "Alice" });
             const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" });
             expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
-        });
-        it("doesn't lookup the profile multiple times in short succession", async () => {
-            const getStoredEvent = getStoredEventGenerator([]);
-            let calls = 0;
-            const getUserProfile = async (userId) => {
-                calls++;
-                return Promise.resolve({ displayname: "Alice" })
-            };
-            const user = new MatrixUser({ getStoredEvent, getUserProfile } as Main, { user_id: "@alice:localhost" }, new QuickLRU({ maxSize: 1 }));
-            expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
-            expect(calls).to.equal(1);
-            expect(await user.getDisplaynameForRoom("")).to.equal("Alice");
-            expect(calls).to.equal(1);
         });
         it("returns the displayName if one is given", async () => {
             const getStoredEvent = getStoredEventGenerator([
