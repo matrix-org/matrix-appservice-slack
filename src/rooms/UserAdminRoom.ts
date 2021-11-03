@@ -1,5 +1,5 @@
 import { Main } from "../Main";
-import { Logging } from "matrix-appservice-bridge";
+import { BotCommand, BotCommandHandler, CommandArguments, Logging } from "matrix-appservice-bridge";
 import { UsersInfoResponse } from "../SlackResponses";
 import { createDM } from "../RoomCreation";
 import { promises as fs } from "fs";
@@ -7,16 +7,11 @@ import * as path from "path";
 
 const log = Logging.get("UserAdminRoom");
 
-const COMMAND_HELP = {
-    help: { desc: "Shows you this help text" },
-    login: { desc: "Log into a Slack account" },
-    logout: { desc: "Log out of your Slack account"},
-    whoami: { desc: "Lists Slack accounts you are be logged in as"},
-};
-
 const onboardingTemplatePath = path.resolve(path.join(__dirname, "../.." , "templates/onboarding"));
 
 export class UserAdminRoom {
+    handler: BotCommandHandler<this, null>;
+
     public static IsAdminRoomInvite(event: {content?: Record<string, unknown>, state_key?: string}, botId: string): boolean {
         return (event.content?.membership === "invite" &&
                 event.state_key === botId &&
@@ -40,40 +35,19 @@ export class UserAdminRoom {
     }
 
     constructor(private roomId: string, private userId: string, private main: Main) {
-
+        this.handler = new BotCommandHandler(this);
     }
 
     public async handleEvent(ev: {type: string, content: {msgtype: string, body: string}}): Promise<unknown> {
         if (ev.type !== "m.room.message" || ev.content.msgtype !== "m.text" || !ev.content.body) {
             return;
         }
-        const args: string[] = ev.content.body.split(" ");
-        const command = args[0].toLowerCase();
-        log.info(`${this.userId} sent admin message ${args[0].substr(32)}`);
-        if (command === "help") {
-            return this.handleHelp();
-        }
-        if (command === "login") {
-            return this.handleLogin();
-        }
-        if (command === "logout") {
-            return this.handleLogout(args[1]);
-        }
-        if (command === "whoami") {
-            return this.handleWhoAmI();
-        }
-        return this.sendNotice(
-            "Command not understood",
-        );
+        const input = ev.content.body;
+        log.info(`${this.userId} sent admin message ${input.split(' ')[0].substr(32)}`);
+        (await this.handler.handleCommand(input, null)) || this.sendNotice("Command not understood");
     }
 
-    public async handleHelp(): Promise<unknown> {
-        return this.sendNotice(
-            Object.keys(COMMAND_HELP).map((cmd) => `${cmd} - ${COMMAND_HELP[cmd].desc}`).join("\n"),
-            "<ul>" + Object.keys(COMMAND_HELP).map((cmd) => `<li><code>${cmd}</code> - ${COMMAND_HELP[cmd].desc}</li>`).join("") + "</ul>",
-        );
-    }
-
+    @BotCommand({ name: 'login', help: 'Log into a Slack account' })
     public async handleLogin(): Promise<void> {
         if (!this.main.oauth2 || !this.main.config.puppeting?.enabled) {
             await this.sendNotice("This bridge is not configured to allow logging into Slack accounts.");
@@ -91,7 +65,9 @@ export class UserAdminRoom {
         );
     }
 
-    public async handleLogout(accountId?: string) {
+    @BotCommand({ name: 'logout', help: 'Log out of your Slack account', optionalArgs: ['account-id'] })
+    public async handleLogout(data: CommandArguments<never>) {
+        let accountId = data.args[1];
         const puppets = await this.main.datastore.getPuppetsByMatrixId(this.userId);
         if (puppets.length === 0) {
             return this.sendNotice("You are not logged into any accounts.");
@@ -119,6 +95,7 @@ export class UserAdminRoom {
         return this.sendNotice(`Could not log out of your account: ${result.msg}`);
     }
 
+    @BotCommand({ name: 'whoami', help: 'Lists Slack accounts you are be logged in as' })
     public async handleWhoAmI(): Promise<unknown> {
         const puppets = await this.main.datastore.getPuppetsByMatrixId(this.userId);
         if (puppets.length === 0) {
@@ -147,6 +124,11 @@ export class UserAdminRoom {
         }
         formattedBody += "</ul>";
         return this.sendNotice(body, formattedBody);
+    }
+
+    @BotCommand({ name: 'help', help: 'Shows you this help text' })
+    public async handleHelp() {
+        return this.sendNotice(this.handler.helpMessage.body, this.handler.helpMessage.formatted_body);
     }
 
     public async sendOnboardingMessage() {
