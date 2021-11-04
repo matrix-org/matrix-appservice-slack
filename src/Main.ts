@@ -18,7 +18,7 @@ import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
-    UserActivityTrackerConfig, MembershipQueue, BotCommandHandler
+    UserActivityTrackerConfig, MembershipQueue, BotCommandHandler, BotCommandError
 } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
@@ -905,44 +905,34 @@ export class Main {
             throw Error("Received an invalid Matrix admin message. event.content.body was not a string.");
         }
 
-        const cmd = ev.content.body;
-
         // Ignore "# comment" lines as chatter between humans sharing the console
-        if (cmd.match(/^\s*#/))  {
+        if (ev.content.body.match(/^\s*#/))  {
             return;
         }
 
-        const response: string[] = [];
-        const respond = (responseMsg: string) => {
-            if (!response) {
-                log.info(`Command response too late: ${responseMsg}`);
-                return;
-            }
-            response.push(responseMsg);
-        };
-
         try {
             // This will return true or false if the command matched.
-            const matched = await this.adminCommands.parse(cmd, respond);
+            const matched = await this.adminCommands.handle(ev);
             if (!matched) {
-                log.debug(`Unrecognised command "${cmd}"`);
-                respond(`Unrecognised command "${cmd}"`);
-            } else if (response.length === 0) {
-                respond("Done");
+                await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
+                    body: "Command not found.",
+                    msgtype: "m.notice",
+                });
             }
         } catch (ex) {
-            const error = ex as {message: string; name?: "YError"};
-            log.warn(`Command '${cmd}' failed to complete:`, ex);
-            // YErrors are yargs errors when the user inputs the command wrong.
-            respond(`${error.name === "YError" ? error.message : "Command failed: See the logs for details."}`);
+            log.warn(`Command failed to complete:`, ex);
+            if (ex instanceof BotCommandError) {
+                await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
+                    body: ex.humanText,
+                    msgtype: "m.notice",
+                });
+            } else {
+                await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
+                    body: "Command failed: See the logs for details",
+                    msgtype: "m.notice",
+                });
+            }
         }
-
-        const message = response.join("\n");
-
-        await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
-            body: message,
-            msgtype: "m.notice",
-        });
     }
 
     /**
