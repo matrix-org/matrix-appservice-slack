@@ -1,4 +1,4 @@
-import { StateLookupEvent } from "matrix-appservice-bridge";
+import { Logging, StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
@@ -17,14 +17,13 @@ limitations under the License.
 
 import { Main } from "./Main";
 
+const log = Logging.get("MatrixUser");
+
 /**
  * A Matrix event `m.room.member` indicating a user's presence in a room.
  */
 interface IMatrixMemberEvent {
-    content?: {
-        avatar_url?: string;
-        displayname?: string;
-    };
+    content?: UserProfile;
 }
 
 /*
@@ -33,7 +32,10 @@ interface IMatrixMemberEvent {
 export class MatrixUser {
     public readonly userId: string;
     private atime: number|null;
-    constructor(private main: Main, opts: {user_id: string}) {
+    constructor(
+        private main: Main,
+        opts: {user_id: string},
+    ) {
         this.userId = opts.user_id;
         this.atime = null;
     }
@@ -43,16 +45,13 @@ export class MatrixUser {
      * taking into account disambiguation with other users in the same room.
      * @param roomId The roomId to calculate the user's displayname for.
      */
-    public getDisplaynameForRoom(roomId: string): string {
-        const myMemberEvent = (this.main.getStoredEvent(
-            roomId, "m.room.member", this.userId,
-        ) as StateLookupEvent) as IMatrixMemberEvent;
-
-        if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.displayname) {
+    public async getDisplaynameForRoom(roomId: string): Promise<string> {
+        const profile = await this.getProfileForRoom(roomId);
+        if (!profile?.displayname) {
             return this.userId;
         }
 
-        const displayname = myMemberEvent.content.displayname;
+        const displayname = profile.displayname;
 
         // Is this name used more than once in this room?
         const memberEvents = this.main.getStoredEvent(roomId, "m.room.member") as StateLookupEvent[];
@@ -64,15 +63,21 @@ export class MatrixUser {
         return (matches.length > 1) ? `${displayname} (${this.userId})` : displayname;
     }
 
-    public getAvatarUrlForRoom(roomId: string): string|null {
+    public async getAvatarUrlForRoom(roomId: string): Promise<string|undefined> {
+        const profile = await this.getProfileForRoom(roomId);
+        return profile?.avatar_url;
+    }
+
+    private async getProfileForRoom(roomId: string): Promise<UserProfile|undefined> {
         const myMemberEvent = (this.main.getStoredEvent(
             roomId, "m.room.member", this.userId,
         ) as StateLookupEvent) as IMatrixMemberEvent;
 
-        if (!myMemberEvent || !myMemberEvent.content || !myMemberEvent.content.avatar_url) {
-            return null;
-        }
-        return myMemberEvent.content.avatar_url;
+        return myMemberEvent?.content
+            || this.main.botIntent.getProfileInfo(this.userId).catch((err) => {
+                log.error(`Failed to load user ${this.userId} profile for ${roomId}:`, err);
+                return undefined;
+            });
     }
 
     public get aTime(): number|null {
