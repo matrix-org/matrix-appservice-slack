@@ -1,4 +1,4 @@
-FROM node:14-alpine AS BUILD
+FROM node:16-alpine AS BUILD
 
 # git is needed to install Half-Shot/slackdown
 RUN apk add git
@@ -9,7 +9,7 @@ RUN npm install
 COPY . /src
 RUN npm run build
 
-FROM node:14-alpine
+FROM node:16-alpine
 
 VOLUME /data/ /config/
 
