@@ -47,8 +47,6 @@
     "randomstring": "^1.2.1",
     "Slackdown": "git+https://Half-Shot@github.com/half-shot/slackdown.git",
     "uuid": "^8.3.2",
-    "winston-daily-rotate-file": "^4.5.5",
-    "winston": "^3.3.3",
     "yargs": "^17.2.1"
   },
   "devDependencies": {
