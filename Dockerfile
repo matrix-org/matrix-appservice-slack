@@ -5,7 +5,7 @@ RUN apk add git
 WORKDIR /src
 
 COPY package.json package-lock.json /src/
-RUN npm install --ignore-scripts
+RUN npm ci --ignore-scripts
 COPY . /src
 RUN npm run build
 
@@ -15,7 +15,7 @@ VOLUME /data/ /config/
 
 WORKDIR /usr/src/app
 COPY package.json package-lock.json /usr/src/app/
-RUN apk add git && npm install --only=production --ignore-scripts
+RUN apk add git && npm ci --only=production --ignore-scripts
 
 COPY --from=BUILD /src/config /usr/src/app/config
 COPY --from=BUILD /src/templates /usr/src/app/templates
