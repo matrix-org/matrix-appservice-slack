@@ -1,3 +1,21 @@
+ 1.10.0-rc1 (2021-11-23)
+========================
+
+Bugfixes
+--------
+
+- Improve reliability of Matrix users being bridged with correct displayname and avatar ([\#628](https://github.com/matrix-org/matrix-appservice-slack/issues/628))
+- Fix an issue where Slack users sometimes have stale displaynames ([\#631](https://github.com/matrix-org/matrix-appservice-slack/issues/631))
+
+
+Internal Changes
+----------------
+
+- Use the MembershipQueue for handling joins and leaves in the TeamSyncer. ([\#633](https://github.com/matrix-org/matrix-appservice-slack/issues/633))
+- Docker images now use Node 16 ([\#639](https://github.com/matrix-org/matrix-appservice-slack/issues/639))
+- Update dependencies, remove unused winston dependencies. ([\#640](https://github.com/matrix-org/matrix-appservice-slack/issues/640))
+
+
 1.9.0 (2021-10-11)
 =======================
 
