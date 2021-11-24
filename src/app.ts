@@ -14,10 +14,45 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import { registerInterceptor } from "@bumble/axios-cached-dns-resolve";
+import { setRequestFn } from "matrix-bot-sdk";
+
 import { Logging, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { IConfig } from "./IConfig";
 import * as path from "path";
+import axios, { Method } from "axios";
+interface RequestParams {
+    uri: string,
+    method: Method,
+    qs: Record<string, string>,
+    // If this is undefined, then a string will be returned. If it's null, a Buffer will be returned.
+    encoding: undefined|null,
+    useQuerystring: boolean,
+    qsStringifyOptions: {
+        options: {arrayFormat: 'repeat'},
+    },
+    timeout: number,
+    headers: Record<string, string>,
+    body: unknown,
+}
+
+const axiosClient = axios.create({});
+registerInterceptor(axiosClient);
+
+setRequestFn((params: RequestParams, cb: (err, response, resBody) => void) => {
+    axiosClient.request({
+        url: params.uri,
+        data: params.body,
+        params: params.qs,
+        responseType: params.encoding === undefined ? "text" : "arraybuffer",
+        method: params.method,
+        timeout: params.timeout,
+        headers: params.headers,
+    })
+        .then(result => cb(null, result, result.data))
+        .catch(err => cb(err, null, null));
+});
 
 const DEFAULT_PORT = 5858;
 

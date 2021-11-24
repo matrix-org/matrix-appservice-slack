@@ -2,6 +2,9 @@ import { Datastore, TeamEntry } from "./datastore/Models";
 import { WebClient, WebClientOptions, LogLevel, Logger, WebAPIPlatformError } from "@slack/web-api";
 import { Logging } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
+import { AxiosInstance } from "axios";
+import { registerInterceptor } from "@bumble/axios-cached-dns-resolve";
+
 
 const webLog = Logging.get("slack-api");
 const log = Logging.get("SlackClientFactory");
@@ -40,7 +43,7 @@ export class SlackClientFactory {
 
     public async createClient(token: string): Promise<WebClient> {
         const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
-        return new WebClient(token, {
+        const client = new WebClient(token, {
             logger: {
                 getLevel: () => LogLevel.DEBUG,
                 setLevel: () => {}, // We don't care about these.
@@ -62,6 +65,10 @@ export class SlackClientFactory {
             logLevel: LogLevel.DEBUG,
             ...opts,
         });
+        // XXX: Gut wrenching to cache DNS
+        const axios = (client as any).axios as AxiosInstance;
+        registerInterceptor(axios.interceptors.request);
+        return client;
     }
 
     /**
