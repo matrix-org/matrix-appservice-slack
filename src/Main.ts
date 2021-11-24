@@ -49,7 +49,7 @@ import { AllowDenyList, DenyReason } from "./AllowDenyList";
 
 const log = Logging.get("Main");
 
-const STARTUP_TEAM_INIT_CONCURRENCY = 10;
+const STARTUP_TEAM_INIT_CONCURRENCY = 2;
 const STARTUP_RETRY_TIME_MS = 5000;
 export const METRIC_ACTIVE_USERS = "active_users";
 export const METRIC_ACTIVE_ROOMS = "active_rooms";
