@@ -10,6 +10,7 @@ import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
 import { createDM } from "./RoomCreation";
+import { SlackClientFactory } from "./SlackClientFactory";
 
 const log = Logging.get("SlackRTMHandler");
 
@@ -206,6 +207,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
             } as Logger,
         });
+        SlackClientFactory.bindDNSCacheToClient(rtm);
 
         rtm.on("error", (error) => {
             // We must handle this lest the process be killed.

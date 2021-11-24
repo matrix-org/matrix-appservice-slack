@@ -4,6 +4,7 @@ import { Logging } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 import { AxiosInstance } from "axios";
 import { registerInterceptor } from "@bumble/axios-cached-dns-resolve";
+import { RTMClient } from "@slack/rtm-api";
 
 
 const webLog = Logging.get("slack-api");
@@ -65,9 +66,7 @@ export class SlackClientFactory {
             logLevel: LogLevel.DEBUG,
             ...opts,
         });
-        // XXX: Gut wrenching to cache DNS
-        const axios = (client as any).axios as AxiosInstance;
-        registerInterceptor(axios.interceptors.request);
+        SlackClientFactory.bindDNSCacheToClient(client);
         return client;
     }
 
@@ -216,6 +215,7 @@ export class SlackClientFactory {
             log.warn("Failed to auth puppeted client for user:", ex);
             return null;
         }
+        SlackClientFactory.bindDNSCacheToClient(client);
         this.puppets.set(key, {id, client});
         return {id, client};
     }
@@ -272,5 +272,18 @@ export class SlackClientFactory {
 
     public async dropTeamClient(teamId: string): Promise<void> {
         this.teamClients.delete(teamId);
+    }
+
+    public static bindDNSCacheToClient(webClient: WebClient|RTMClient) {
+        // XXX: Gut wrenching to cache DNS
+        let axios: AxiosInstance;
+        if (webClient instanceof WebClient) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            axios = (webClient as any).axios;
+        } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            axios = (webClient as any).webClient.axios;
+        }
+        registerInterceptor(axios.interceptors.request);
     }
 }
