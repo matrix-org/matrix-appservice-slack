@@ -1,4 +1,4 @@
-FROM node:16 AS BUILD
+FROM node:16-bullseye-slim AS BUILD
 
 # git is needed to install Half-Shot/slackdown
 RUN apt update && apt install git
@@ -9,7 +9,7 @@ RUN npm ci --ignore-scripts
 COPY . /src
 RUN npm run build
 
-FROM node:16
+FROM node:16-bullseye-slim
 
 VOLUME /data/ /config/
 
