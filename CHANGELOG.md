@@ -1,4 +1,13 @@
- 1.10.0-rc1 (2021-11-23)
+ 1.10.0-rc2 (2021-12-06)
+========================
+
+Internal Changes
+----------------
+
+- Switch to using Debian as a base for Docker images. ([\#645](https://github.com/matrix-org/matrix-appservice-slack/issues/645))
+
+
+1.10.0-rc1 (2021-11-23)
 ========================
 
 Bugfixes
