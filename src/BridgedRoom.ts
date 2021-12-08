@@ -1024,7 +1024,7 @@ export class BridgedRoom {
                 let replyEvent = await this.getReplyEvent(
                     this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
                 );
-                replyEvent = this.stripMatrixReplyFallback(replyEvent);
+                replyEvent = await this.stripMatrixReplyFallback(replyEvent);
                 if (replyEvent) {
                     const bodyFallback = ghost.getFallbackText(replyEvent);
                     const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
@@ -1133,11 +1133,15 @@ export class BridgedRoom {
         https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
     */
     private async stripMatrixReplyFallback(event: any): Promise<any> {
-        let realHtml = event.content.formatted_body;
-        let realText = event.content.body;
+        if (!event.content?.body) {
+            return event;
+        }
 
-        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
-            const formattedBody = event.content.formatted_body;
+        let realHtml = event.content?.formatted_body;
+        let realText = event.content?.body;
+
+        if (event.content?.format === "org.matrix.custom.html" && realHtml) {
+            const formattedBody = realHtml;
             if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
                 const parts = formattedBody.split("</mx-reply>");
                 realHtml = parts[1];
