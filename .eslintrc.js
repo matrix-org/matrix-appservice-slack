@@ -164,7 +164,8 @@ module.exports = {
         "use-isnan": "error",
         "valid-typeof": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",
-        "max-classes-per-file": "off"
+        "max-classes-per-file": "off",
+        "@typescript-eslint/no-misused-promises": "error"
     },
     "overrides": [
         {
