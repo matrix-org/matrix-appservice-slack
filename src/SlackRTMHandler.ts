@@ -51,7 +51,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
             const  chainPromise: Promise<void> = this.messageQueueBySlackId.get(messageQueueKey) || Promise.resolve();
             // This is used to ensure that we do not race messages for a single channel.
-            const messagePromise = chainPromise.finally(async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e).catch((ex) => {
+            const messagePromise = chainPromise.then(async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e).catch((ex) => {
                 log.error(`Error handling 'message' event for ${puppetEntry.matrixId} / ${puppetEntry.slackId}`, ex);
             }));
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);

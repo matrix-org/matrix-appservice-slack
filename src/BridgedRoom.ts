@@ -159,7 +159,7 @@ export class BridgedRoom {
     public MatrixRoomActive: boolean;
     private recentSlackMessages: string[] = [];
 
-    private slackSendLock: Promise<void> = Promise.resolve();
+    private slackSendLock: Promise<unknown> = Promise.resolve();
 
     private waitingForJoin?: Promise<void>;
     private waitingForJoinResolve?: () => void;
@@ -702,12 +702,15 @@ export class BridgedRoom {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
             await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
-            this.slackSendLock = this.slackSendLock.finally(async () => {
+            this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
                 if (!this.recentSlackMessages.includes(message.ts)) {
-                    return this.handleSlackMessage(message, ghost);
+                    // We sent this, ignore
+                    return;
                 }
-                // We sent this, ignore
+                return this.handleSlackMessage(message, ghost).catch((ex) => {
+                    log.warn(`Failed to handle slack message ${message.ts} for ${this.MatrixRoomId} ${this.slackChannelId}`, ex);
+                });
             });
             await this.slackSendLock;
         } catch (err) {
