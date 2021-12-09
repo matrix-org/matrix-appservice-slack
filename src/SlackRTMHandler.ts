@@ -47,15 +47,14 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (!slackClient) {
             return; // We need to be able to determine what a channel looks like.
         }
-        rtm.on("message", async (e) => {
+        rtm.on("message", (e) => {
             const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
+            const  chainPromise: Promise<void> = this.messageQueueBySlackId.get(messageQueueKey) || Promise.resolve();
             // This is used to ensure that we do not race messages for a single channel.
-            if (this.messageQueueBySlackId.has(messageQueueKey)) {
-                await this.messageQueueBySlackId.get(messageQueueKey);
-            }
-            const messagePromise = this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e);
+            const messagePromise = chainPromise.finally(async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e).catch((ex) => {
+                log.error(`Error handling 'message' event for ${puppetEntry.matrixId} / ${puppetEntry.slackId}`, ex);
+            }));
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
-            await messagePromise;
         });
         this.rtmUserClients.set(key, rtm);
         const { team } = await rtm.start();
@@ -166,16 +165,14 @@ export class SlackRTMHandler extends SlackEventHandler {
         // For each event that SlackEventHandler supports, register
         // a listener.
         SlackEventHandler.SUPPORTED_EVENTS.forEach((eventName) => {
-            rtm.on(eventName, async (event) => {
-                try {
-                    if (!rtm.activeTeamId) {
-                        log.error("Cannot handle event, no active teamId!");
-                        return;
-                    }
-                    await this.handle(event, rtm.activeTeamId , () => {}, false);
-                } catch (ex) {
-                    log.error(`Failed to handle '${eventName}' event`);
+            rtm.on(eventName, (event) => {
+                if (!rtm.activeTeamId) {
+                    log.error(`Cannot handle event, no active teamId! (for expected team ${expectedTeam})`);
+                    return;
                 }
+                this.handle(event, rtm.activeTeamId , () => {}, false).catch((ex) => {
+                    log.error(`Failed to handle '${eventName}' event for ${rtm.activeTeamId}`, ex);
+                });
             });
         });
 
