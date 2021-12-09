@@ -1,0 +1,1 @@
+Fix a regression in Node 16+ environments where the bridge may occasionally crash when a message wasn't handled successfully.

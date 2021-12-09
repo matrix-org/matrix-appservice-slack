@@ -68,14 +68,14 @@ const cli = new Cli({
             process.exit(1);
         });
 
-        process.on("SIGTERM", async () => {
+        process.on("SIGTERM", () => {
             log.info("Got SIGTERM");
-            try {
-                await main.killBridge();
-            } catch (ex) {
-                log.warn("Failed to kill bridge, exiting anyway");
-            }
-            process.exit(1);
+            main.killBridge().then(() => {
+                process.exit(0);
+            }).catch((ex) => {
+                log.warn("Failed to kill bridge, exiting anyway", ex);
+                process.exit(2);
+            });
         });
     },
 });

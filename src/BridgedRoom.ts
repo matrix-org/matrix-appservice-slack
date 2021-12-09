@@ -159,7 +159,7 @@ export class BridgedRoom {
     public MatrixRoomActive: boolean;
     private recentSlackMessages: string[] = [];
 
-    private slackSendLock: Promise<void> = Promise.resolve();
+    private slackSendLock: Promise<unknown> = Promise.resolve();
 
     private waitingForJoin?: Promise<void>;
     private waitingForJoinResolve?: () => void;
@@ -702,12 +702,15 @@ export class BridgedRoom {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
             await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
-            this.slackSendLock = this.slackSendLock.finally(async () => {
+            this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
                 if (!this.recentSlackMessages.includes(message.ts)) {
-                    return this.handleSlackMessage(message, ghost);
+                    // We sent this, ignore
+                    return;
                 }
-                // We sent this, ignore
+                return this.handleSlackMessage(message, ghost).catch((ex) => {
+                    log.warn(`Failed to handle slack message ${message.ts} for ${this.MatrixRoomId} ${this.slackChannelId}`, ex);
+                });
             });
             await this.slackSendLock;
         } catch (err) {
@@ -1024,7 +1027,7 @@ export class BridgedRoom {
                 let replyEvent = await this.getReplyEvent(
                     this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
                 );
-                replyEvent = this.stripMatrixReplyFallback(replyEvent);
+                replyEvent = await this.stripMatrixReplyFallback(replyEvent);
                 if (replyEvent) {
                     const bodyFallback = ghost.getFallbackText(replyEvent);
                     const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
@@ -1133,11 +1136,15 @@ export class BridgedRoom {
         https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
     */
     private async stripMatrixReplyFallback(event: any): Promise<any> {
-        let realHtml = event.content.formatted_body;
-        let realText = event.content.body;
+        if (!event.content?.body) {
+            return event;
+        }
 
-        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
-            const formattedBody = event.content.formatted_body;
+        let realHtml = event.content.formatted_body;
+        let realText = event.content.body || "";
+
+        if (event.content.format === "org.matrix.custom.html" && realHtml) {
+            const formattedBody = realHtml;
             if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
                 const parts = formattedBody.split("</mx-reply>");
                 realHtml = parts[1];
@@ -1146,8 +1153,7 @@ export class BridgedRoom {
         }
 
         let processedFallback = false;
-        const body = event.content.body || "";
-        for (const line of body.split("\n")) {
+        for (const line of realText.split("\n")) {
             if (line.startsWith("> ") && !processedFallback) {
                 continue;
             } else if (!processedFallback) {
