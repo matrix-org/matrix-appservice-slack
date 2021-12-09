@@ -70,10 +70,11 @@ const cli = new Cli({
 
         process.on("SIGTERM", () => {
             log.info("Got SIGTERM");
-            main.killBridge().catch((ex) => {
-                log.warn("Failed to kill bridge, exiting anyway", ex);
-            }).finally(() => {
+            main.killBridge().then(() => {
                 process.exit(0);
+            }).catch((ex) => {
+                log.warn("Failed to kill bridge, exiting anyway", ex);
+                process.exit(2);
             });
         });
     },
