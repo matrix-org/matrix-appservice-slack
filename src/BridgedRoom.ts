@@ -704,7 +704,7 @@ export class BridgedRoom {
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
             this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
-                if (!this.recentSlackMessages.includes(message.ts)) {
+                if (this.recentSlackMessages.includes(message.ts)) {
                     // We sent this, ignore
                     return;
                 }
