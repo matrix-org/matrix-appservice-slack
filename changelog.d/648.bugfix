@@ -1,1 +1,1 @@
-Fix inverted check causing Slack messages to not be relayed to Matrix.
+Fix inverted check causing Slack messages to not be relayed to Matrix. Thanks to @ewilderj
