@@ -55,6 +55,7 @@ const TEAM_SYNC_FAILSAFE = 10;
  */
 export class TeamSyncer {
     private teamConfigs: {[teamId: string]: ITeamSyncConfig} = {};
+    private deletedUserQueue = new PQueue({ concurrency: TEAM_SYNC_DELETED_USER_CONCURRENCY });
     constructor(private main: Main) {
         const config = main.config;
         if (!config.team_sync) {
@@ -287,9 +288,6 @@ export class TeamSyncer {
         // Element does it by sending an empty string.
         // https://github.com/matrix-org/matrix-doc/issues/1674
         await slackGhost.intent.setAvatarUrl("");
-        // XXX: We *should* fetch the rooms the user is actually in rather
-        // than just removing it from every room. However, this is quicker to
-        // implement.
         const joinedRooms = await slackGhost.intent.matrixClient.getJoinedRooms();
         const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.includes(r.MatrixRoomId));
         log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length}`);
