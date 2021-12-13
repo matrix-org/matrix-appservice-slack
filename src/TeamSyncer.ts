@@ -290,8 +290,9 @@ export class TeamSyncer {
         // XXX: We *should* fetch the rooms the user is actually in rather
         // than just removing it from every room. However, this is quicker to
         // implement.
-        log.info("Leaving from all rooms");
-        const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
+        const joinedRooms = await slackGhost.intent.matrixClient.getJoinedRooms();
+        const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.includes(r.MatrixRoomId));
+        log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length}`);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
             this.main.membershipQueue.leave(r.MatrixRoomId, slackGhost.matrixUserId, { getId: () => slackGhost.matrixUserId }).catch(() => {
