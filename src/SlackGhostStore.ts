@@ -94,7 +94,7 @@ export class SlackGhostStore {
 
         let ghost: SlackGhost;
         if (entry) {
-            log.debug("Getting existing ghost for", userId);
+            log.debug("Got ghost entry from datastore", userId);
             ghost = SlackGhost.fromEntry(this.datastore, entry, intent);
         } else {
             log.debug("Creating new ghost for", userId);

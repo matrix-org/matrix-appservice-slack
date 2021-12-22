@@ -1,3 +1,51 @@
+1.10.0 (2021-12-22)
+=======================
+
+No significant changes.
+
+
+1.10.0-rc3 (2021-12-13)
+========================
+
+Bugfixes
+--------
+
+- Fix inverted check causing Slack messages to not be relayed to Matrix. Thanks to @ewilderj ([\#648](https://github.com/matrix-org/matrix-appservice-slack/issues/648))
+
+
+Internal Changes
+----------------
+
+- Fix a regression in Node 16+ environments where the bridge may occasionally crash when a message wasn't handled successfully. ([\#646](https://github.com/matrix-org/matrix-appservice-slack/issues/646))
+
+
+1.10.0-rc2 (2021-12-06)
+========================
+
+Internal Changes
+----------------
+
+- Switch to using Debian as a base for Docker images. ([\#645](https://github.com/matrix-org/matrix-appservice-slack/issues/645))
+
+
+1.10.0-rc1 (2021-11-23)
+========================
+
+Bugfixes
+--------
+
+- Improve reliability of Matrix users being bridged with correct displayname and avatar ([\#628](https://github.com/matrix-org/matrix-appservice-slack/issues/628))
+- Fix an issue where Slack users sometimes have stale displaynames ([\#631](https://github.com/matrix-org/matrix-appservice-slack/issues/631))
+
+
+Internal Changes
+----------------
+
+- Use the MembershipQueue for handling joins and leaves in the TeamSyncer. ([\#633](https://github.com/matrix-org/matrix-appservice-slack/issues/633))
+- Docker images now use Node 16 ([\#639](https://github.com/matrix-org/matrix-appservice-slack/issues/639))
+- Update dependencies, remove unused winston dependencies. ([\#640](https://github.com/matrix-org/matrix-appservice-slack/issues/640))
+
+
 1.9.0 (2021-10-11)
 =======================
 

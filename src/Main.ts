@@ -17,7 +17,8 @@ limitations under the License.
 import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
-    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker, UserActivityTrackerConfig } from "matrix-appservice-bridge";
+    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
+    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -151,6 +152,8 @@ export class Main {
 
     private bridgeBlocker?: BridgeBlocker;
 
+    public readonly membershipQueue: MembershipQueue;
+
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         this.adminCommands = new AdminCommands(this);
 
@@ -278,6 +281,7 @@ export class Main {
                 store: this.datastore as PgDatastore,
             } : undefined,
         });
+        this.membershipQueue = new MembershipQueue(this.bridge, { });
 
         this.provisioner = new Provisioner(this, this.bridge);
 
@@ -827,7 +831,7 @@ export class Main {
         }
 
         const teamId = slackGhost.teamId;
-        const rtmClient = this.slackRtm && this.slackRtm.getUserClient(teamId, sender);
+        const rtmClient = this.slackRtm && await this.slackRtm.getUserClient(teamId, sender);
         const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
         if (!rtmClient || !slackClient) {
             await intent.sendEvent(roomId, "m.room.message", {
@@ -869,6 +873,9 @@ export class Main {
         }
         const puppetIdent = (await slackClient.auth.test()) as AuthTestResponse;
         const team = await this.datastore.getTeam(teamId);
+        if (!team) {
+            throw Error(`Expected team ${teamId} for DM to be in datastore`);
+        }
         // The convo may be open, but we do not have a channel for it. Create the channel.
         const room = new BridgedRoom(this, {
             inbound_id: openResponse.channel.id,
@@ -879,7 +886,7 @@ export class Main {
             puppet_owner: sender,
             is_private: true,
             slack_type: "im",
-        }, team! , slackClient);
+        }, team , slackClient);
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
         await this.datastore.upsertRoom(room);
@@ -1163,9 +1170,13 @@ export class Main {
             this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
                 uatConfig,
                 await this.datastore.getUserActivity(),
-                async (changes) => this.onUserActivityChanged(changes),
+                (changes) => {
+                    this.onUserActivityChanged(changes).catch((ex) => {
+                        log.warn(`Failed to run onUserActivityChanged`, ex);
+                    });
+                },
             );
-            this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
+            await this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
         }
 
         log.info("Bridge initialised");
@@ -1180,12 +1191,15 @@ export class Main {
             log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
         }
         const teamId = entry.remote.slack_team_id;
-        const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
+        const teamEntry = teamId && await this.datastore.getTeam(teamId) || undefined;
         let slackClient: WebClient|null = null;
         try {
             if (entry.remote.puppet_owner) {
+                if (!entry.remote.slack_team_id) {
+                    throw Error(`Expected ${entry.remote.slack_team_id} to be defined`);
+                }
                 // Puppeted room (like a DM)
-                slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
+                slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id, entry.remote.puppet_owner);
             } else if (teamId && teamClients[teamId]) {
                 slackClient = teamClients[teamId];
             }
@@ -1598,7 +1612,7 @@ export class Main {
         for (const userId of state.changed) {
             await this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
         }
-        this.bridgeBlocker?.checkLimits(state.activeUsers);
+        await this.bridgeBlocker?.checkLimits(state.activeUsers);
     }
 
     async disableHookHandler() {
