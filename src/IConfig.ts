@@ -117,5 +117,14 @@ export interface IConfig {
         enabled: boolean;
         onboard_users?: boolean;
         direct_messages?: AllowDenyConfig;
+    },
+
+    widgets?: {
+        enabled: true
+        bindAddress: string;
+        port: number;
+        autoCreateWidget: boolean;
+        publicUrl: string;
+        openIdOverride: {[serverName: string]: string}
     }
 }

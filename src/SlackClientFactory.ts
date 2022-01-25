@@ -28,7 +28,7 @@ interface StoredClient {
 
 export class SlackClientFactory {
     private teamClients: Map<string, StoredClient> = new Map();
-    private puppets: Map<string, {client: WebClient, id: string}> = new Map();
+    private puppets: Map<string, {client: WebClient, id: string, teamId: string}> = new Map();
     constructor(
         private datastore: Datastore,
         private config: RequiredConfigOptions = {},
@@ -209,7 +209,8 @@ export class SlackClientFactory {
             log.warn("Failed to auth puppeted client for user:", ex);
             return null;
         }
-        this.puppets.set(key, {id, client});
+        // Oppertunistically fill team info in
+        this.puppets.set(key, {id, client, teamId});
         return {id, client};
     }
 
@@ -226,19 +227,28 @@ export class SlackClientFactory {
         return res !== null ? res.client : null;
     }
 
-    public async getClientsForUser(matrixUser: string): Promise<WebClient[]> {
-        const clients: WebClient[] = [];
+    public async getClientsForUser(matrixUser: string): Promise<{
+        client: WebClient;
+        id: string;
+        teamId: string;
+    }[]> {
+        const clients: {
+            client: WebClient;
+            id: string;
+            teamId: string;
+        }[] = [];
         // This is not particularly great for performance, but I'm not in the
         // mood for yet-another-refactor.
         for (const [teamIdUserId, client] of this.puppets.entries()) {
             // This is safe, teams don't contain a @.
             // Users may only start with one.
             if (teamIdUserId.endsWith(matrixUser)) {
-                clients.push(client.client);
+                clients.push(client);
             }
         }
         return clients;
     }
+
 
     public async createTeamClient(token: string): Promise<{
         slackClient: WebClient,

@@ -18,7 +18,7 @@ import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
-    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
+    UserActivityTrackerConfig, MembershipQueue, ProvisioningApi, MemoryProvisioningStore, ApiError, ErrCode } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -31,9 +31,9 @@ import { MatrixUser } from "./MatrixUser";
 import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
 import { Provisioner } from "./Provisioning";
-import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
+import { INTERNAL_ID_LEN, ISlackUser } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
-import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
+import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse, UsersListResponse } from "./SlackResponses";
 import { Datastore, RoomEntry, SlackAccount, TeamEntry } from "./datastore/Models";
 import { NedbDatastore } from "./datastore/NedbDatastore";
 import { PgDatastore } from "./datastore/postgres/PgDatastore";
@@ -149,6 +149,9 @@ export class Main {
     private slackHookHandler?: SlackHookHandler;
 
     private provisioner: Provisioner;
+    private newProvisioner?: ProvisioningApi;
+    // TeamId -> userset
+    private userListCache = new QuickLRU<string, {next_cursor?: string, users: ISlackUser[]}>({ maxSize: 32, maxAge: 60 * 60 * 1000});
 
     private bridgeBlocker?: BridgeBlocker;
 
@@ -280,6 +283,84 @@ export class Main {
                 homeserverUrl: config.encryption.pantalaimon_url,
                 store: this.datastore as PgDatastore,
             } : undefined,
+        });
+        this.newProvisioner = config.widgets?.enabled && new ProvisioningApi(
+            new MemoryProvisioningStore(),
+            {
+                widgetTokenPrefix: "slackbr-wgt-",
+                widgetFrontendLocation: "public",
+                openIdOverride: config.widgets.openIdOverride,
+            }
+        );
+        this.newProvisioner?.addRoute('post', '/v1/searchUsers', async (req, res) => {
+            if (typeof req.body.query !== "string") {
+                throw new ApiError('No search query', ErrCode.BadValue);
+            }
+
+            const query = (req.body.query as string).trim().toLowerCase();
+            if (query.length < 3) {
+                throw new ApiError('Query must be at least 3 characters long', ErrCode.BadValue);
+            }
+
+            // Since we don't know which team, just search all of them
+            const clients = await this.clientFactory.getClientsForUser(req.userId);
+            if (!clients.length) {
+                throw new ApiError('You are not logged into Slack', ErrCode.ForbiddenUser);
+            }
+
+            const filterFunc = (u: ISlackUser) =>
+                u.name.toLowerCase().includes(query) ||
+                u.profile?.display_name?.toLowerCase().includes(query) ||
+                u.profile?.real_name?.toLowerCase().includes(query) || false;
+
+            const allResults: {user: ISlackUser, teamId: string}[] = [ ];
+            for (const {client, teamId} of clients) {
+                // Slack doesn't provide a user search API, so instead we have to play this one tactically.
+                let cache = this.userListCache.get(teamId);
+                log.debug(`UserSearch for ${teamId} (query: '${query}'). Cache is ${cache ? 'existant' : 'non-existant'}`);
+                if (cache) {
+                    // Check all our results so far.
+                    const preCacheResults = cache.users.filter(filterFunc);
+                    allResults.push(...preCacheResults.map(user => ({user, teamId})));
+                    if (preCacheResults.length) {
+                        // We have results in this set.
+                        log.debug(`We have results in the existing cache`);
+                        break;
+                    }
+                    if (!cache.next_cursor) {
+                        // We're at the end of the set.
+                        log.debug(`Cache for ${teamId} is complete`);
+                        continue;
+                    }
+                } else {
+                    cache = { users: [] };
+                }
+                do {
+                    const userResult = (await client.users.list({
+                        user: query.trim(),
+                        cursor: cache.next_cursor,
+                    }) as UsersListResponse);
+                    cache.next_cursor = userResult.response_metadata.next_cursor;
+                    cache.users.push(...userResult.members);
+                    this.userListCache.set(teamId, cache);
+                    const filteredResults = cache.users.filter(filterFunc);
+                    if (filteredResults.length) {
+                        // If we got results, exit early!
+                        allResults.push(...filteredResults.map(user => ({user, teamId})));
+                        break;
+                    }
+                } while (cache.next_cursor);
+            }
+            const returnResults: {userId: string, displayName?: string, rawAvatarUrl?: string}[] = [];
+            for (const {user, teamId} of allResults) {
+                const ghost = await this.ghostStore.get(user.id, undefined, teamId);
+                returnResults.push({
+                    userId: ghost.matrixUserId,
+                    displayName: ghost.displayName || user.profile?.display_name || user.profile?.real_name,
+                    rawAvatarUrl: user.profile?.image_72,
+                });
+            }
+            res.send({users: returnResults});
         });
         this.membershipQueue = new MembershipQueue(this.bridge, { });
 
@@ -697,6 +778,13 @@ export class Main {
                 formatted_body: "Welcome to your Slack bridge admin room. Please say <code>help</code> for commands.",
                 format: "org.matrix.custom.html",
             });
+            if (this.config.widgets?.autoCreateWidget) {
+                await this.botIntent.ensureWidgetInRoom(ev.room_id, "bridge_control", {
+                    waitForIframeLoad: true,
+                    name: 'Bridge Control',
+                    url: `${this.config.widgets.publicUrl}/#/?roomId=$matrix_room_id&widgetId=$matrix_widget_id`,
+                });
+            }
             endTimer({outcome: "success"});
             return;
         }
@@ -1048,6 +1136,9 @@ export class Main {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
         }
         await this.bridge.listen(port, this.config.homeserver.appservice_host, undefined, this.appservice);
+        if (this.config.widgets?.enabled) {
+            this.newProvisioner?.start(this.config.widgets.port, this.config.widgets?.bindAddress);
+        }
 
         this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
@@ -1566,6 +1657,9 @@ export class Main {
             log.info("Closing RTM connections");
             await this.slackRtm.disconnectAll();
         }
+        if (this.newProvisioner) {
+            await this.newProvisioner.close();
+        }
         log.info("Closing appservice");
         await this.appservice.close();
         log.info("Bridge killed");
@@ -1595,7 +1689,7 @@ export class Main {
         log.debug(`Presence for ${ev.sender}`, ev);
         const presence = ev.content.presence === "online" ? "auto" : "away";
         const clients = await this.clientFactory.getClientsForUser(ev.sender);
-        for (const client of clients) {
+        for (const {client} of clients) {
             log.debug(`Set presece of user on Slack to ${presence}`);
             await client.users.setPresence({
                 presence,

@@ -38,10 +38,12 @@ export class SlackGhostStore {
         }
 
         const team = await this.datastore.getTeam(teamId!);
+
+        const team = await this.datastore.getTeam(teamId);
         if (team) {
             return team.domain;
         } else {
-            throw Error("Cannot determine team, no team found for ID.");
+            throw Error(`Cannot determine team, no team found for ${teamId}.`);
         }
     }
 
@@ -89,8 +91,7 @@ export class SlackGhostStore {
 
         const intent = this.bridge.getIntent(userId);
         const entry = await this.datastore.getUser(userId);
-        // TODO: Expose this
-        await (intent as unknown as any).ensureRegistered();
+        await intent.ensureRegistered();
 
         let ghost: SlackGhost;
         if (entry) {
