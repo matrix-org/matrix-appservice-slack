@@ -4,8 +4,12 @@ homeserver:
   media_url: "http://my.server.here"
   max_upload_size: 104857600
   appservice_port: 5858
+  appservice_host: 0.0.0.0
 
 username_prefix: "slack_"
+
+
+rmau_limit: 100
 
 db:
   engine: "postgres"

@@ -62,7 +62,7 @@ export class SlackGhost {
         private datastore: Datastore,
         public readonly slackId: string,
         public readonly teamId: string|undefined,
-        public readonly userId: string,
+        public readonly matrixUserId: string,
         private _intent?: Intent,
         private displayname?: string,
         private avatarHash?: string) {
@@ -85,9 +85,9 @@ export class SlackGhost {
 
     public toEntry(): UserEntry {
         return {
-            avatar_url: this.avatarHash!,
-            display_name: this.displayName!,
-            id: this.userId,
+            avatar_url: this.avatarHash,
+            display_name: this.displayName,
+            id: this.matrixUserId,
             slack_id: this.slackId,
             team_id: this.teamId,
         };
@@ -141,7 +141,7 @@ export class SlackGhost {
 
         const avatarRes = await this.lookupAvatarUrl(slackUser);
         if (avatarRes && avatarRes.hash && this.avatarHash !== avatarRes.hash) {
-            const response = await axios.get<ArrayBuffer>(avatarRes.url, {
+            const response = await axios.get<Buffer>(avatarRes.url, {
                 responseType: "arraybuffer",
             });
 
@@ -180,13 +180,8 @@ export class SlackGhost {
             }
         }
 
-        if (!displayName || this.displayName === displayName) {
-            return; // Nothing to do.
-        }
-
-        log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
-
-        await this._intent.setDisplayName(displayName);
+        log.debug(`Ensuring displayname ${displayName} for ${this.slackId}`);
+        await this._intent.ensureProfile(displayName);
         this.displayname = displayName;
         await this.datastore.upsertUser(this);
     }
@@ -294,7 +289,7 @@ export class SlackGhost {
 
         const title = hash || match[1];
 
-        const response = await axios.get<ArrayBuffer>(avatarUrl, {
+        const response = await axios.get<Buffer>(avatarUrl, {
             responseType: "arraybuffer",
         });
 
@@ -441,7 +436,7 @@ export class SlackGhost {
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
         : Promise<string> {
         try {
-            const response = await axios.get<ArrayBuffer>(uri, {
+            const response = await axios.get<Buffer>(uri, {
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
@@ -457,15 +452,13 @@ export class SlackGhost {
         }
     }
 
-    public async uploadContent(file: {mimetype: string, title: string}, buffer: ArrayBuffer): Promise<string> {
+    public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
-        const contentUri = await this._intent.getClient().uploadContent(buffer, {
+        const contentUri = await this._intent.uploadContent(buffer, {
             name: file.title,
             type: file.mimetype,
-            rawResponse: false,
-            onlyContentUri: true,
         });
         log.debug("Media uploaded to " + contentUri);
         return contentUri;

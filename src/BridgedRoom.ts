@@ -159,7 +159,7 @@ export class BridgedRoom {
     public MatrixRoomActive: boolean;
     private recentSlackMessages: string[] = [];
 
-    private slackSendLock: Promise<void> = Promise.resolve();
+    private slackSendLock: Promise<unknown> = Promise.resolve();
 
     private waitingForJoin?: Promise<void>;
     private waitingForJoinResolve?: () => void;
@@ -486,7 +486,7 @@ export class BridgedRoom {
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
-            username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
+            username: (await user.getDisplaynameForRoom(message.room_id)) || matrixToSlackResult.username,
         };
         const text = body.text;
         if (!body.attachments && !text) {
@@ -505,7 +505,7 @@ export class BridgedRoom {
             }
         }
 
-        const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
+        const avatarUrl = await user.getAvatarUrlForRoom(message.room_id);
 
         if (avatarUrl && avatarUrl.indexOf("mxc://") === 0) {
             body.icon_url = this.main.getUrlForMxc(avatarUrl);
@@ -625,7 +625,7 @@ export class BridgedRoom {
         if (!recipientPuppet && !senderPuppet) {
             log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
             // 1
-            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
+            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.matrixUserId);
             await recipientGhost.intent.join(this.matrixRoomId);
         } else if (recipientPuppet && mxid) {
             // 2 & 4
@@ -702,12 +702,15 @@ export class BridgedRoom {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
             await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
-            this.slackSendLock = this.slackSendLock.finally(async () => {
+            this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
-                if (!this.recentSlackMessages.includes(message.ts)) {
-                    return this.handleSlackMessage(message, ghost);
+                if (this.recentSlackMessages.includes(message.ts)) {
+                    // We sent this, ignore
+                    return;
                 }
-                // We sent this, ignore
+                return this.handleSlackMessage(message, ghost).catch((ex) => {
+                    log.warn(`Failed to handle slack message ${message.ts} for ${this.MatrixRoomId} ${this.slackChannelId}`, ex);
+                });
             });
             await this.slackSendLock;
         } catch (err) {
@@ -751,7 +754,7 @@ export class BridgedRoom {
             return;
         }
         let response: { event_id: string };
-        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
+        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.matrixUserId}. Matrix room/event: ${this.MatrixRoomId}`;
         try {
             response = await ghost.sendReaction(
                 this.MatrixRoomId,
@@ -785,15 +788,15 @@ export class BridgedRoom {
             user_id: string,
         },
     ): Promise<void> {
-        if (msg.user_id === this.team!.user_id) {
+        if (!this.team || msg.user_id === this.team.user_id) {
             return;
         }
         const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction );
         if (!originalEvent) {
             throw Error('unknown_reaction');
         }
-        const botClient = this.main.botIntent.getClient();
-        botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+        const botClient = this.main.botIntent.matrixClient;
+        await botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
         await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
     }
 
@@ -1024,7 +1027,7 @@ export class BridgedRoom {
                 let replyEvent = await this.getReplyEvent(
                     this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
                 );
-                replyEvent = this.stripMatrixReplyFallback(replyEvent);
+                replyEvent = await this.stripMatrixReplyFallback(replyEvent);
                 if (replyEvent) {
                     const bodyFallback = ghost.getFallbackText(replyEvent);
                     const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
@@ -1125,7 +1128,7 @@ export class BridgedRoom {
             return null;
         }
         const intent = await this.getIntentForRoom(roomID);
-        return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
+        return intent.getEvent(roomID, replyToEvent.eventId);
     }
 
     /*
@@ -1133,11 +1136,15 @@ export class BridgedRoom {
         https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
     */
     private async stripMatrixReplyFallback(event: any): Promise<any> {
-        let realHtml = event.content.formatted_body;
-        let realText = event.content.body;
+        if (!event.content?.body) {
+            return event;
+        }
 
-        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
-            const formattedBody = event.content.formatted_body;
+        let realHtml = event.content.formatted_body;
+        let realText = event.content.body || "";
+
+        if (event.content.format === "org.matrix.custom.html" && realHtml) {
+            const formattedBody = realHtml;
             if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
                 const parts = formattedBody.split("</mx-reply>");
                 realHtml = parts[1];
@@ -1146,8 +1153,7 @@ export class BridgedRoom {
         }
 
         let processedFallback = false;
-        const body = event.content.body || "";
-        for (const line of body.split("\n")) {
+        for (const line of realText.split("\n")) {
             if (line.startsWith("> ") && !processedFallback) {
                 continue;
             } else if (!processedFallback) {
@@ -1179,7 +1185,7 @@ export class BridgedRoom {
         }
 
         const intent = await this.getIntentForRoom(message.room_id);
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+        const nextEvent = await intent.getEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }

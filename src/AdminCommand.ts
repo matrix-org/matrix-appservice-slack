@@ -19,7 +19,6 @@ import { Options } from "yargs";
 export type ResponseCallback = (response: string) => void;
 interface IHandlerArgs {
     matched: () =>  void;
-    completed: (err: Error|null) =>  void;
     respond: ResponseCallback;
     // yargs annoyingly puts the string parameters in with the more complex types
     // above. To save lots of if|else|other types, unknown is being used here.
@@ -39,9 +38,7 @@ export class AdminCommand {
         argv.matched();
         try {
             await this.cb(argv);
-            argv.completed(null);
         } catch (ex) {
-            argv.completed(ex);
         }
     }
 

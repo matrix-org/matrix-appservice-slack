@@ -25,6 +25,7 @@ import PQueue from "p-queue";
 import { ISlackUser } from "./BaseSlackHandler";
 import { DenyReason } from "./AllowDenyList";
 import { TeamEntry } from "./datastore/Models";
+import { SlackGhost } from "./SlackGhost";
 
 const log = Logging.get("TeamSyncer");
 
@@ -295,7 +296,7 @@ export class TeamSyncer {
         const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
-            slackGhost.intent.leave(r.MatrixRoomId).catch(() => {
+            this.main.membershipQueue.leave(r.MatrixRoomId, slackGhost.matrixUserId, { getId: () => slackGhost.matrixUserId }).catch(() => {
                 i--;
                 // Failing to leave a room is fairly normal.
             }),
@@ -344,7 +345,7 @@ export class TeamSyncer {
                 }
             } catch (ex) {
                 // This can happen if we don't have a puppet yet. Not to worry.
-                log.warn(`Could not ensure bot is in channel ${channelItem.id}: ${ex.message}`);
+                log.warn(`Could not ensure bot is in channel ${channelItem.id}`, ex);
             }
             await this.syncMembershipForRoom(roomId, channelItem.id, teamId, client);
         } catch (ex) {
@@ -418,7 +419,7 @@ export class TeamSyncer {
 
         // Hide deleted channels in the room directory.
         try {
-            await this.main.botIntent.getClient().setRoomDirectoryVisibility(room.MatrixRoomId, "private");
+            await this.main.botIntent.setRoomDirectoryVisibility(room.MatrixRoomId, "private");
         } catch (ex) {
             log.warn("Failed to hide room from the room directory:", ex);
         }
@@ -442,18 +443,30 @@ export class TeamSyncer {
         // Ghosts will exist already: We joined them in the user sync.
         const ghosts = await Promise.all(members.members.map(async(slackUserId) => this.main.ghostStore.get(slackUserId, teamInfo.domain, teamId)));
 
-        const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.userId)); // Skip users that are joined.
-        const leftUsers = existingGhosts.filter((userId) => !ghosts.find((g) => g.userId === userId ));
+        const joinedUsers = ghosts.filter((g) => !existingGhosts.includes(g.matrixUserId)); // Skip users that are joined.
+        const leftUsers = existingGhosts.map((userId) => ghosts.find((g) => g.matrixUserId === userId )).filter(g => !!g) as SlackGhost[];
         log.info(`Joining ${joinedUsers.length} ghosts to ${roomId}`);
         log.info(`Leaving ${leftUsers.length} ghosts to ${roomId}`);
 
         const queue = new PQueue({concurrency: JOIN_CONCURRENCY});
 
         // Join users who aren't joined
-        joinedUsers.forEach(async(g) => queue.add(async() => g.intent.join(roomId)));
+        queue.addAll(joinedUsers.map((ghost) => async () => {
+            try {
+                await this.main.membershipQueue.join(roomId, ghost.matrixUserId, { getId: () => ghost.matrixUserId });
+            } catch (ex) {
+                log.warn(`Failed to join ${ghost.matrixUserId} to ${roomId}`);
+            }
+        })).catch((ex) => log.error(`queue.addAll(joinedUsers) rejected with an error:`, ex));
 
         // Leave users who are joined
-        leftUsers.forEach(async(userId) => queue.add(async() => this.main.getIntent(userId).leave(roomId)));
+        queue.addAll(leftUsers.map((ghost) => async () => {
+            try {
+                await this.main.membershipQueue.leave(roomId, ghost.matrixUserId, { getId: () => ghost.matrixUserId });
+            } catch (ex) {
+                log.warn(`Failed to leave ${ghost.matrixUserId} from ${roomId}`);
+            }
+        })).catch((ex) => log.error(`queue.addAll(leftUsers) rejected with an error:`, ex));
 
         await queue.onIdle();
         log.debug(`Finished syncing membership to ${roomId}`);
@@ -526,7 +539,7 @@ export class TeamSyncer {
         let intent;
         let creatorUserId: string|undefined;
         try {
-            creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).userId;
+            creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).matrixUserId;
             intent = this.main.getIntent(creatorUserId);
         } catch (ex) {
             // Couldn't get the creator's mxid, using the bot.

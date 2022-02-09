@@ -47,15 +47,14 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (!slackClient) {
             return; // We need to be able to determine what a channel looks like.
         }
-        rtm.on("message", async (e) => {
+        rtm.on("message", (e) => {
             const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
+            const  chainPromise: Promise<void> = this.messageQueueBySlackId.get(messageQueueKey) || Promise.resolve();
             // This is used to ensure that we do not race messages for a single channel.
-            if (this.messageQueueBySlackId.has(messageQueueKey)) {
-                await this.messageQueueBySlackId.get(messageQueueKey);
-            }
-            const messagePromise = this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e);
+            const messagePromise = chainPromise.then(async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e).catch((ex) => {
+                log.error(`Error handling 'message' event for ${puppetEntry.matrixId} / ${puppetEntry.slackId}`, ex);
+            }));
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
-            await messagePromise;
         });
         this.rtmUserClients.set(key, rtm);
         const { team } = await rtm.start();
@@ -166,16 +165,14 @@ export class SlackRTMHandler extends SlackEventHandler {
         // For each event that SlackEventHandler supports, register
         // a listener.
         SlackEventHandler.SUPPORTED_EVENTS.forEach((eventName) => {
-            rtm.on(eventName, async (event) => {
-                try {
-                    if (!rtm.activeTeamId) {
-                        log.error("Cannot handle event, no active teamId!");
-                        return;
-                    }
-                    await this.handle(event, rtm.activeTeamId , () => {}, false);
-                } catch (ex) {
-                    log.error(`Failed to handle '${eventName}' event`);
+            rtm.on(eventName, (event) => {
+                if (!rtm.activeTeamId) {
+                    log.error(`Cannot handle event, no active teamId! (for expected team ${expectedTeam})`);
+                    return;
                 }
+                this.handle(event, rtm.activeTeamId , () => {}, false).catch((ex) => {
+                    log.error(`Failed to handle '${eventName}' event for ${rtm.activeTeamId}`, ex);
+                });
             });
         });
 
@@ -217,7 +214,22 @@ export class SlackRTMHandler extends SlackEventHandler {
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
         log.debug("Received Slack user event:", puppet.matrixId, event);
         let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
         if (room) {
+            // We cannot check IMs, as the bridge bot is not in those rooms.
+            if (event.type === 'message' && room.IsPrivate && !isIm) {
+                // We only want to act on trivial messages
+                // This can be asyncronous to the handling of the message.
+                this.main.botIntent.getStateEvent(room.MatrixRoomId, 'm.room.member', puppet.matrixId, true).then((state) => {
+                    if (!['invite', 'join'].includes(state?.membership)) {
+                        // Automatically invite the user the room.
+                        log.info(`User ${puppet.matrixId} is not in ${room.MatrixRoomId}/${room.SlackChannelId}, inviting`);
+                        return this.main.botIntent.invite(room.MatrixRoomId, puppet.matrixId);
+                    }
+                }).catch((ex) => {
+                    log.error(`Failed to automatically invite ${puppet.matrixId} to ${room.MatrixRoomId}`, ex);
+                });
+            }
             return this.handleEvent(event, puppet.teamId);
         }
 
@@ -225,8 +237,6 @@ export class SlackRTMHandler extends SlackEventHandler {
             log.debug("No `user` field on event, not creating a new room");
             return;
         }
-
-        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
 
         if (chanInfo.channel.is_im && chanInfo.channel.user) {
@@ -265,7 +275,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             await ghost.update({ user: ghost.slackId });
             const roomId = await createDM(
                 ghost.intent,
-                [puppet.matrixId].concat(ghosts.map((g) => g.userId)),
+                [puppet.matrixId].concat(ghosts.map((g) => g.matrixUserId)),
                 name,
                 this.main.encryptRoom,
             );

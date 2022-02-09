@@ -60,7 +60,7 @@ describe("SlackClientFactory", () => {
         try {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
-        } catch (ex) {
+        } catch (ex: any) {
             expect(ex.message).to.equal("No team found in store for faketeam");
         }
     });
@@ -75,7 +75,7 @@ describe("SlackClientFactory", () => {
         try {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
-        } catch (ex) {
+        } catch (ex: any) {
             expect(ex.message).to.equal("Team faketeam is not usable: Team previously failed to auth and is disabled");
         }
     });
@@ -90,7 +90,7 @@ describe("SlackClientFactory", () => {
         try {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
-        } catch (ex) {
+        } catch (ex: any) {
             expect(ex.message).to.equal("Team faketeam is not usable: Team is archived");
         }
     });
@@ -105,7 +105,7 @@ describe("SlackClientFactory", () => {
         try {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
-        } catch (ex) {
+        } catch (ex: any) {
             expect(ex.message).to.equal("Team faketeam is not usable: No token stored");
         }
     });
@@ -121,7 +121,7 @@ describe("SlackClientFactory", () => {
         try {
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
-        } catch (ex) {
+        } catch (ex: any) {
             expect(ex.message).to.equal("Could not create team client");
             expect(ds.teams[0].status).to.equal("bad_auth");
         }
@@ -142,7 +142,7 @@ describe("SlackClientFactory", () => {
             await new Promise((res) => setTimeout(res, 2));
             await factory.getTeamClient("faketeam");
             throw Error("Call didn't throw as expected");
-        } catch (ex) {
+        } catch (ex: any) {
             expect(ex.message).to.equal("Could not create team client");
             expect(ds.teams[0].status).to.equal("bad_auth");
         }

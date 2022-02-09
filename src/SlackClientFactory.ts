@@ -1,5 +1,5 @@
 import { Datastore, TeamEntry } from "./datastore/Models";
-import { WebClient, WebClientOptions, LogLevel, Logger } from "@slack/web-api";
+import { WebClient, WebClientOptions, LogLevel, Logger, WebAPIPlatformError } from "@slack/web-api";
 import { Logging } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 
@@ -257,7 +257,8 @@ export class SlackClientFactory {
             }
             return { slackClient, team: teamInfo.team, auth, user };
         } catch (ex) {
-            log.error("Could not create team client: " + (ex.data?.error || ex));
+            const error = ex as WebAPIPlatformError;
+            log.error("Could not create team client: " + (error.data?.error || ex));
             throw Error("Could not create team client");
         }
     }

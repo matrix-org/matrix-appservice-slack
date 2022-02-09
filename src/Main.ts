@@ -15,10 +15,11 @@ limitations under the License.
 */
 
 import {
-    Bridge, PrometheusMetrics, StateLookup,  StateLookupEvent,
+    Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
-    AppService, AppServiceRegistration } from "matrix-appservice-bridge";
-import { Gauge } from "prom-client";
+    AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
+    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
+import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
 import { WebClient } from "@slack/web-api";
@@ -55,6 +56,7 @@ export const METRIC_ACTIVE_ROOMS = "active_rooms";
 export const METRIC_PUPPETS = "remote_puppets";
 export const METRIC_RECEIVED_MESSAGE = "received_messages";
 export const METRIC_SENT_MESSAGES = "sent_messages";
+export const METRIC_OAUTH_SESSIONS = "oauth_session_result";
 
 export interface ISlackTeam {
     id: string;
@@ -66,8 +68,31 @@ interface MetricsLabels { [labelName: string]: string; }
 
 type TimerFunc = (labels?: Partial<Record<string, string | number>> | undefined) => void;
 
-export class Main {
+class SlackBridgeBlocker extends BridgeBlocker {
+    constructor(userLimit: number, private slackBridge: Main) {
+        super(userLimit);
+    }
 
+    async blockBridge() {
+        log.info("Blocking the bridge");
+        await this.slackBridge.disableHookHandler();
+        await this.slackBridge.disableRtm();
+        await super.blockBridge();
+    }
+
+    async unblockBridge() {
+        log.info("Unblocking the bridge");
+        if (this.slackBridge.config.rtm?.enable) {
+            this.slackBridge.enableRtm();
+        }
+        if (this.slackBridge.config.slack_hook_port) {
+            this.slackBridge.enableHookHandler();
+        }
+        await super.unblockBridge();
+    }
+}
+
+export class Main {
     public get botIntent(): Intent {
         return this.bridge.getIntent();
     }
@@ -105,12 +130,13 @@ export class Main {
     // So we can't create the StateLookup instance yet
     private stateStorage: StateLookup|null = null;
 
-    private slackHookHandler?: SlackHookHandler;
     private metrics?: {
         prometheus: PrometheusMetrics;
         metricActiveRooms: Gauge<string>;
         metricActiveUsers: Gauge<string>;
         metricPuppets: Gauge<string>;
+        bridgeBlocked: Gauge<string>;
+        oauthSessions: Counter<string>;
     };
     private metricsCollectorInterval?: NodeJS.Timeout;
 
@@ -118,9 +144,15 @@ export class Main {
     private clientfactory!: SlackClientFactory;
     public readonly teamSyncer?: TeamSyncer;
     public readonly allowDenyList: AllowDenyList;
-    public readonly slackRtm?: SlackRTMHandler;
+
+    public slackRtm?: SlackRTMHandler;
+    private slackHookHandler?: SlackHookHandler;
 
     private provisioner: Provisioner;
+
+    private bridgeBlocker?: BridgeBlocker;
+
+    public readonly membershipQueue: MembershipQueue;
 
     constructor(public readonly config: IConfig, registration: AppServiceRegistration) {
         this.adminCommands = new AdminCommands(this);
@@ -135,7 +167,7 @@ export class Main {
                 client_secret: config.oauth2.client_secret,
                 main: this,
                 redirect_prefix: redirectPrefix,
-                template_file: config.oauth2.html_template || path.join(__dirname, ".." , "templates/oauth_result.html.njk") ,
+                template_file: config.oauth2.html_template || path.join(__dirname, ".." , "templates/oauth_result.html.njk"),
             });
         }
 
@@ -160,6 +192,9 @@ export class Main {
             log.warn("** NEDB IS END-OF-LIFE **");
             log.warn("Starting with version 1.0, the nedb datastore is being discontinued in favour of " +
                      `postgresql. Please see ${URL} for more information.`);
+            if (config.rmau_limit) {
+                throw new Error("RMAU limits are unsupported in NeDB, cannot continue");
+            }
             bridgeStores = {
                 eventStore: path.join(dbdir, "event-store.db"),
                 roomStore: path.join(dbdir, "room-store.db"),
@@ -186,6 +221,12 @@ export class Main {
             controller: {
                 onEvent: async(request) => {
                     const ev = request.getData();
+                    const isAdminRoomRelated = UserAdminRoom.IsAdminRoomInvite(ev, this.botUserId)
+                        || ev.room_id === this.config.matrix_admin_room;
+                    if (this.bridgeBlocker?.isBlocked && !isAdminRoomRelated) {
+                        log.info(`Bridge is blocked, dropping Matrix event ${ev.event_id} (${ev.room_id})`);
+                        return;
+                    }
                     if (ev.state_key) {
                         await this.stateStorage?.onEvent({
                             ...ev,
@@ -199,6 +240,10 @@ export class Main {
                     });
                 },
                 onEphemeralEvent: async request => {
+                    if (this.bridgeBlocker?.isBlocked) {
+                        log.info('Bridge is blocked, dropping Matrix ephemeral event');
+                        return;
+                    }
                     const ev = request.getData();
                     try {
                         if (ev.type === "m.typing") {
@@ -236,17 +281,20 @@ export class Main {
                 store: this.datastore as PgDatastore,
             } : undefined,
         });
+        this.membershipQueue = new MembershipQueue(this.bridge, { });
 
         this.provisioner = new Provisioner(this, this.bridge);
 
-
-        if (config.rtm && config.rtm.enable) {
-            log.info("Enabled RTM");
-            this.slackRtm = new SlackRTMHandler(this);
+        if (config.rtm?.enable) {
+            this.enableRtm();
         }
 
         if (config.slack_hook_port) {
-            this.slackHookHandler = new SlackHookHandler(this);
+            this.enableHookHandler();
+        }
+
+        if (config.rmau_limit) {
+            this.bridgeBlocker = new SlackBridgeBlocker(config.rmau_limit, this);
         }
 
         if (config.enable_metrics) {
@@ -269,7 +317,7 @@ export class Main {
 
         this.appservice = new AppService({
             homeserverToken,
-            httpMaxSizeBytes: 0, // This field is optional.
+            httpMaxSizeBytes: 0,
         });
     }
 
@@ -282,6 +330,7 @@ export class Main {
     }
 
     public initialiseMetrics(): void {
+        // Do not set up the handler here, we set it up after listening.
         const prometheus = this.bridge.getPrometheusMetrics();
 
         this.bridge.registerBridgeGauges(() => {
@@ -291,15 +340,21 @@ export class Main {
             const matrixRoomsByAge = new PrometheusMetrics.AgeCounters();
 
             this.rooms.all.forEach((room) => {
-                remoteRoomsByAge.bump(now - room.RemoteATime!);
-                matrixRoomsByAge.bump(now - room.MatrixATime!);
+                if (room.RemoteATime) {
+                    remoteRoomsByAge.bump(now - room.RemoteATime);
+                }
+                if (room.MatrixATime) {
+                    matrixRoomsByAge.bump(now - room.MatrixATime);
+                }
             });
 
             const countAges = (users: QuickLRU<string, MatrixUser|SlackGhost>) => {
                 const counts = new PrometheusMetrics.AgeCounters();
-                const snapshot = [...users.values()].filter((u) => u !== undefined && u.aTime! > 0);
+                const snapshot = [...users.values()].filter((u) => u !== undefined && u.aTime && u.aTime > 0);
                 for (const user of snapshot) {
-                    counts.bump(now - user.aTime!);
+                    if (user.aTime) {
+                        counts.bump(now - user.aTime);
+                    }
                 }
                 return counts;
             };
@@ -358,12 +413,25 @@ export class Main {
             labels: ["team_id"],
             name: METRIC_PUPPETS,
         });
+        const bridgeBlocked = prometheus.addGauge({
+            name: "blocked",
+            help: "Is the bridge currently blocking messages",
+        });
+        const oauthSessions = prometheus.addCounter({
+            name: METRIC_OAUTH_SESSIONS,
+            help: "Metric tracking the result of oauth sessions",
+            labels: ["result", "reason"],
+        });
+
         this.metrics = {
             prometheus,
             metricActiveUsers,
             metricActiveRooms,
             metricPuppets,
+            bridgeBlocked,
+            oauthSessions,
         };
+        log.info(`Enabled prometheus metrics`);
     }
 
     public incCounter(name: string, labels: MetricsLabels = {}): void {
@@ -398,6 +466,7 @@ export class Main {
             this.metrics.metricActiveUsers.set({ team_id: teamId, remote: "true" }, teamData.get(true) || 0);
             this.metrics.metricActiveUsers.set({ team_id: teamId, remote: "false" }, teamData.get(false) || 0);
         }
+        this.metrics.bridgeBlocked.set(this.bridgeBlocker?.isBlocked ? 1 : 0);
     }
 
     public startTimer(name: string, labels: MetricsLabels = {}): TimerFunc {
@@ -483,7 +552,7 @@ export class Main {
             return cachedEvent[0].content;
         }
 
-        return this.botIntent.client.getStateEvent(roomId, eventType);
+        return this.botIntent.getStateEvent(roomId, eventType, undefined, true);
     }
 
     public async listAllUsers(roomId: string): Promise<string[]> {
@@ -762,7 +831,7 @@ export class Main {
         }
 
         const teamId = slackGhost.teamId;
-        const rtmClient = this.slackRtm!.getUserClient(teamId, sender);
+        const rtmClient = this.slackRtm && await this.slackRtm.getUserClient(teamId, sender);
         const slackClient = await this.clientFactory.getClientForUser(teamId, sender);
         if (!rtmClient || !slackClient) {
             await intent.sendEvent(roomId, "m.room.message", {
@@ -804,6 +873,9 @@ export class Main {
         }
         const puppetIdent = (await slackClient.auth.test()) as AuthTestResponse;
         const team = await this.datastore.getTeam(teamId);
+        if (!team) {
+            throw Error(`Expected team ${teamId} for DM to be in datastore`);
+        }
         // The convo may be open, but we do not have a channel for it. Create the channel.
         const room = new BridgedRoom(this, {
             inbound_id: openResponse.channel.id,
@@ -814,7 +886,7 @@ export class Main {
             puppet_owner: sender,
             is_private: true,
             slack_type: "im",
-        }, team! , slackClient);
+        }, team , slackClient);
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
         await this.datastore.upsertRoom(room);
@@ -842,8 +914,6 @@ export class Main {
             return;
         }
 
-        log.info("Admin: " + cmd);
-
         const response: string[] = [];
         const respond = (responseMsg: string) => {
             if (!response) {
@@ -863,16 +933,16 @@ export class Main {
                 respond("Done");
             }
         } catch (ex) {
-            log.debug(`Command '${cmd}' failed to complete:`, ex);
-            respond("Command failed: " + ex);
+            const error = ex as {message: string; name?: "YError"};
+            log.warn(`Command '${cmd}' failed to complete:`, ex);
+            // YErrors are yargs errors when the user inputs the command wrong.
+            respond(`${error.name === "YError" ? error.message : "Command failed: See the logs for details."}`);
         }
 
         const message = response.join("\n");
 
         await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
             body: message,
-            format: "org.matrix.custom.html",
-            formatted_body: `<pre>${message}</pre>`,
             msgtype: "m.notice",
         });
     }
@@ -884,12 +954,12 @@ export class Main {
         log.info("Ensuring the bridge bot is registered");
         const intent = this.botIntent;
         await intent.ensureRegistered(true);
-        const profile = await intent.getProfileInfo(this.botUserId, null as any);
-        if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile?.displayname) {
-            await intent.setDisplayName(this.config.bot_profile?.displayname);
+        const profile = await intent.getProfileInfo(this.botUserId);
+        if (this.config.bot_profile?.displayname && profile.displayname !== this.config.bot_profile.displayname) {
+            await intent.setDisplayName(this.config.bot_profile.displayname);
         }
-        if (this.config.bot_profile?.avatar_url && profile.avatar_url !== this.config.bot_profile?.avatar_url) {
-            await intent.setAvatarUrl(this.config.bot_profile?.avatar_url);
+        if (this.config.bot_profile?.avatar_url && profile.avatar_url !== this.config.bot_profile.avatar_url) {
+            await intent.setAvatarUrl(this.config.bot_profile.avatar_url);
         }
     }
 
@@ -898,7 +968,9 @@ export class Main {
      * @param cliPort A port to listen to provided by the user via a CLI option.
      * @returns The port the appservice listens to.
      */
-    public async run(cliPort: number): Promise<number> {
+    public async run(port: number): Promise<number> {
+        await this.bridge.initalise();
+
         log.info("Loading databases");
         if (this.oauth2) {
             await this.oauth2.compileTemplates();
@@ -958,7 +1030,11 @@ export class Main {
             const puppetEntries = await this.datastore.getPuppetedUsers();
             puppetsWaiting = Promise.all(puppetEntries.map(async (entry) => {
                 try {
-                    return this.slackRtm!.startUserClient(entry);
+                    if (this.slackRtm) {
+                        await this.slackRtm.startUserClient(entry);
+                    } else {
+                        log.warn(`RTM not configured, not starting client for ${entry.matrixId} (${entry.slackId})`);
+                    }
                 } catch (ex) {
                     log.warn(`Failed to start puppet client for ${entry.matrixId}:`, ex);
                 }
@@ -966,10 +1042,12 @@ export class Main {
         }
 
         if (this.slackHookHandler) {
-            await this.slackHookHandler.startAndListen(this.config.slack_hook_port!, this.config.tls);
+            if (!this.config.slack_hook_port) {
+                throw Error('config option slack_hook_port must be defined');
+            }
+            await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
         }
-        const port = this.config.homeserver.appservice_port || cliPort;
-        await this.bridge.run(port, this.config, this.appservice);
+        await this.bridge.listen(port, this.config.homeserver.appservice_host, undefined, this.appservice);
 
         this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
@@ -979,7 +1057,7 @@ export class Main {
         });
 
         this.stateStorage = new StateLookup({
-            client: this.bridge.getIntent().client,
+            intent: this.botIntent,
             eventTypes: ["m.room.member", "m.room.power_levels"],
         });
 
@@ -989,7 +1067,8 @@ export class Main {
             try {
                 joinedRooms = await this.bridge.getBot().getJoinedRooms() as string[];
             } catch (ex) {
-                if (ex.errcode === 'M_UNKNOWN_TOKEN') {
+                const error = ex as {errcode?: string};
+                if (error.errcode === 'M_UNKNOWN_TOKEN') {
                     log.error(
                         "The homeserver doesn't recognise this bridge, have you configured the homeserver with the appservice registration file?"
                     );
@@ -1065,8 +1144,6 @@ export class Main {
         const teamSyncPromise = this.teamSyncer ? this.teamSyncer.syncAllTeams(teamClients) : null;
 
         if (this.metrics) {
-            this.metrics.prometheus.addAppServicePath(this.bridge);
-
             // Regularly update the metrics for active rooms and users
             const ONE_HOUR = 60 * 60 * 1000;
             this.metricsCollectorInterval = setInterval(() => {
@@ -1079,6 +1156,29 @@ export class Main {
         }
         await puppetsWaiting;
         await teamSyncPromise;
+
+        if (!(this.datastore instanceof NedbDatastore)) {
+            const uatConfig = {
+                ...UserActivityTrackerConfig.DEFAULT,
+            };
+            if (this.config.user_activity?.min_user_active_days !== undefined) {
+                uatConfig.minUserActiveDays = this.config.user_activity.min_user_active_days;
+            }
+            if (this.config.user_activity?.inactive_after_days !== undefined) {
+                uatConfig.inactiveAfterDays = this.config.user_activity.inactive_after_days;
+            }
+            this.bridge.opts.controller.userActivityTracker = new UserActivityTracker(
+                uatConfig,
+                await this.datastore.getUserActivity(),
+                (changes) => {
+                    this.onUserActivityChanged(changes).catch((ex) => {
+                        log.warn(`Failed to run onUserActivityChanged`, ex);
+                    });
+                },
+            );
+            await this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
+        }
+
         log.info("Bridge initialised");
         this.ready = true;
         return port;
@@ -1091,12 +1191,15 @@ export class Main {
             log.warn(`${entry.matrix_id} marked as inactive, bot is not joined to room`);
         }
         const teamId = entry.remote.slack_team_id;
-        const teamEntry = teamId ? await this.datastore.getTeam(teamId) || undefined : undefined;
+        const teamEntry = teamId && await this.datastore.getTeam(teamId) || undefined;
         let slackClient: WebClient|null = null;
         try {
             if (entry.remote.puppet_owner) {
+                if (!entry.remote.slack_team_id) {
+                    throw Error(`Expected ${entry.remote.slack_team_id} to be defined`);
+                }
                 // Puppeted room (like a DM)
-                slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id!, entry.remote.puppet_owner);
+                slackClient = await this.clientFactory.getClientForUser(entry.remote.slack_team_id, entry.remote.puppet_owner);
             } else if (teamId && teamClients[teamId]) {
                 slackClient = teamClients[teamId];
             }
@@ -1114,6 +1217,7 @@ export class Main {
             try {
                 await this.stateStorage?.trackRoom(entry.matrix_id);
             } catch (ex) {
+                log.debug(`Could not track room state for ${entry.matrix_id}`, ex);
                 this.stateStorage?.untrackRoom(entry.matrix_id);
                 room.MatrixRoomActive = false;
             }
@@ -1340,12 +1444,16 @@ export class Main {
         if (puppeting) {
             // Store it here too for puppeting.
             await this.datastore.setPuppetToken(teamId, slackId, userId, accessToken);
-            await this.slackRtm!.startUserClient({
-                teamId,
-                slackId,
-                matrixId: userId,
-                token: accessToken,
-            });
+            if (this.slackRtm) {
+                await this.slackRtm.startUserClient({
+                    teamId,
+                    slackId,
+                    matrixId: userId,
+                    token: accessToken,
+                });
+            } else {
+                log.warn(`RTM not configured, not starting client for ${userId} (${slackId})`);
+            }
         }
         log.info(`Set new access token for ${userId} (team: ${teamId}, puppeting: ${puppeting})`);
         if (botAccessToken) {
@@ -1499,4 +1607,38 @@ export class Main {
     private onReadyProbe(_, res: Response) {
         res.status(this.ready ? 201 : 425).send("");
     }
+
+    private async onUserActivityChanged(state: UserActivityState) {
+        for (const userId of state.changed) {
+            await this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
+        }
+        await this.bridgeBlocker?.checkLimits(state.activeUsers);
+    }
+
+    async disableHookHandler() {
+        if (this.slackHookHandler) {
+            await this.slackHookHandler.close();
+            this.slackHookHandler = undefined;
+            log.info("Disabled hook handler");
+        }
+    }
+
+    enableHookHandler() {
+        this.slackHookHandler = new SlackHookHandler(this);
+        log.info("Enabled hook handler");
+    }
+
+    async disableRtm() {
+        if (this.slackRtm) {
+            await this.slackRtm.disconnectAll();
+            this.slackRtm = undefined;
+            log.info("Disabled RTM");
+        }
+    }
+
+    enableRtm() {
+        this.slackRtm = new SlackRTMHandler(this);
+        log.info("Enabled RTM");
+    }
+
 }

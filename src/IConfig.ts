@@ -32,12 +32,19 @@ export interface IConfig {
 
     matrix_admin_room?: string;
 
+    rmau_limit?: number;
+    user_activity?: {
+        min_user_active_days?: number;
+        inactive_after_days?: number;
+    };
+
     homeserver: {
         url: string;
         server_name: string;
         media_url?: string;
         max_upload_size?: number;
         appservice_port?: number;
+        appservice_host?: string;
     };
 
     encryption?: {
