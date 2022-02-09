@@ -49,7 +49,7 @@ interface ClientSessionSchema {
 }
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 13;
+    public static readonly LATEST_SCHEMA = 14;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -124,6 +124,35 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
     public async deleteAccount(userId: string, slackId: string): Promise<null> {
         log.info(`deleteAccount: ${userId} ${slackId}`);
         return this.postgresDb.none("DELETE FROM linked_accounts WHERE slack_id = ${slackId} AND user_id = ${userId}", { userId, slackId });
+    }
+
+    public async upsertCustomEmoji(teamId: string, name: string, mxc: string): Promise<null> {
+        log.debug(`upsertCustomEmoji: ${teamId} ${name} ${mxc}`);
+        return this.postgresDb.none(
+            "INSERT INTO custom_emoji(slack_team_id, name, mxc) " +
+            "VALUES(${teamId}, ${name}, ${mxc})" +
+            "ON CONFLICT ON CONSTRAINT custom_emoji_slack_idx DO UPDATE SET mxc = ${mxc}",
+            {
+                teamId,
+                name,
+                mxc,
+            },
+        );
+    }
+
+    public async getCustomEmojiMxc(teamId: string, name: string): Promise<string|null> {
+        // TODO Resolve aliases
+        return this.postgresDb.oneOrNone<any>(
+            "SELECT mxc FROM custom_emoji WHERE team_id = ${teamId} AND name = ${name}",
+            { teamId, name },
+            response => response && response.mxc,
+        );
+    }
+
+    public async deleteCustomEmoji(teamId: string, name: string): Promise<null> {
+        log.debug(`deleteCustomEmoji: ${teamId} ${name}`);
+        // TODO Delete aliases
+        return this.postgresDb.none("DELETE FROM custom_emoji WHERE slack_team_id = ${teamId} AND name = ${name}", { teamId, name });
     }
 
     public async upsertEvent(
@@ -312,7 +341,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         return this.postgresDb.none(statement, props);
     }
 
-    private static teamEntryForRow(doc: any) {
+    private static teamEntryForRow(doc: Record<string, unknown>): TeamEntry {
         return {
             id: doc.id,
             name: doc.name,

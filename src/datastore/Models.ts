@@ -109,6 +109,11 @@ export interface Datastore {
     deleteRoom(id: string): Promise<null>;
     getAllRooms(): Promise<RoomEntry[]>;
 
+    // Custom emoji
+    upsertCustomEmoji(teamId: string, name: string, mxc: string): Promise<null>;
+    getCustomEmojiMxc(teamId: string, name: string): Promise<string|null>;
+    deleteCustomEmoji(teamId: string, name: string): Promise<null>;
+
     // Events
     upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<null>;
     upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;

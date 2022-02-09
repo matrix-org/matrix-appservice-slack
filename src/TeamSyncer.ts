@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import axios from "axios";
 import { Logging } from "matrix-appservice-bridge";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
@@ -95,6 +96,7 @@ export class TeamSyncer {
             }
             functionsForQueue.push(async () => this.syncUsers(team, client));
             functionsForQueue.push(async () => this.syncChannels(teamId, client));
+            functionsForQueue.push(async () => this.syncCustomEmoji(teamId, client));
         }
         try {
             log.info("Waiting for all teams to sync");
@@ -350,6 +352,49 @@ export class TeamSyncer {
             log.error("Failed to sync membership to room:", ex);
             return;
         }
+    }
+
+    public async syncCustomEmoji(teamId: string, client: WebClient): Promise<void> {
+        // if (!this.getTeamSyncConfig(teamId, 'customEmoji')) {
+        //     log.warn(`Not syncing custom emoji for ${teamId}`);
+        //     return;
+        // }
+        log.info(`Syncing custom emoji ${teamId}`);
+
+        const response = await client.emoji.list();
+        if (response.ok !== true) {
+            throw Error("Slack replied to emoji.list but said the response wasn't ok.");
+        }
+        if (typeof response.emoji !== "object" || !response.emoji) {
+            throw Error("Slack replied to emoji.list but the list was not not an object.");
+        }
+        for (const [name, url] of Object.values(response.emoji)) {
+            await this.addCustomEmoji(teamId, name, url, client.token!);
+        }
+    }
+
+    public async addCustomEmoji(teamId: string, name: string, url: string, accessToken: string): Promise<string> {
+        const imageResponse = await axios.get<ArrayBuffer>(url, {
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+            },
+            responseType: "arraybuffer",
+        });
+        if (imageResponse.status !== 200) {
+            throw Error('Failed to get file');
+        }
+        const mxc = await this.main.botIntent.getClient().uploadContent(imageResponse.data, {
+            name,
+            type: imageResponse.headers['content-type'],
+            rawResponse: false,
+            onlyContentUri: true,
+        });
+        await this.main.datastore.upsertCustomEmoji(teamId, name, mxc);
+        return mxc;
+    }
+
+    public async removeCustomEmoji(teamId: string, name: string): Promise<null> {
+        return this.main.datastore.deleteCustomEmoji(teamId, name);
     }
 
     public async onChannelDeleted(teamId: string, channelId: string): Promise<void> {
