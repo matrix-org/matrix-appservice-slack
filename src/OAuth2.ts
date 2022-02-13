@@ -35,7 +35,7 @@ const REQUIRED_SCOPES = [
     "channels:read",
     "files:write:user",
     "chat:write:bot",
-    "users:read",
+    "reactions:write",
     "bot",
 ];
 
