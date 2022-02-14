@@ -70,7 +70,7 @@ ever stuck, you can post a question in the
   1. For `homeserver.appservice_port`, specify the above $MATRIX_PORT if you would like to override
 
 1. Generate the appservice registration file. This will be used by the
-   Matrix homeserver. Here, you must specify the direct link (the field url) the
+   Matrix homeserver. Here, you must specify the direct link (the url field) the
    **Matrix Homserver** can use to access the bridge, including the Matrix
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
