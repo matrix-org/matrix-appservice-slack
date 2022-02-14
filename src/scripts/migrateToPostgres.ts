@@ -155,7 +155,7 @@ export const migrateFromNedb = async(nedb: NedbDatastore, targetDs: Datastore): 
         if (!user.slack_id || !user.team_id) {
             const localpart = user.id.split(":")[0];
             // XXX: we are making an assumption here that the prefix ends with _
-            const parts = localpart.substr(USER_PREFIX.length + 1).split("_"); // Remove any prefix.
+            const parts = localpart.substring(USER_PREFIX.length + 1).split("_"); // Remove any prefix.
             // If we encounter more parts than expected, the domain may be underscored
             while (parts.length > 2) {
                 parts[0] = `${parts.shift()}_${parts[0]}`;
