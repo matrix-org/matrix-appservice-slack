@@ -67,7 +67,7 @@ ever stuck, you can post a question in the
   1. For `matrix_admin_room`, enter the internal room ID of the administration control
      room (Example: !abcdefg12345hijk:coolserver.com).
   
-  1. For `homeserver.appservice_port`, specify the above $MATRIX_PORT if you would like to override
+  1. For `homeserver.appservice_port`, specify the above $MATRIX_PORT if you overwrote the default.
 
 1. Generate the appservice registration file. This will be used by the
    Matrix homeserver. Here, you must specify the direct link (the url field) the
