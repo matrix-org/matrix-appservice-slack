@@ -34,7 +34,7 @@
     "@slack/logger": "^2.0.0",
     "@slack/rtm-api": "^5.0.5",
     "@slack/web-api": "^5.15.0",
-    "axios": "^0.24.0",
+    "axios": "^0.26.0",
     "escape-string-regexp": "^4.0.0",
     "matrix-appservice-bridge": "^3.2.0",
     "minimist": "^1.2.5",
