@@ -51,7 +51,7 @@ ever stuck, you can post a question in the
 1. Create a new Matrix room to act as the administration control room. Note its
    internal room ID (Example: !abcdefg12345hijk:coolserver.com).
 
-1. Decide on a spare local TCP port number to use. The default is 5858.  It will listen for messages
+1. Decide on a spare local TCP port number to use. The default is 5858. It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
    firewalls appropriately. This port will be notated as `$MATRIX_PORT` in
    the remaining instructions.
