@@ -1,0 +1,1 @@
+Add check to verify if the homeserver <-> bridge connection is working on startup.

@@ -24,9 +24,12 @@ export const constructHarness = (): { main: Main } => {
             enable: true,
         },
     }, reg);
-    (main as any).bridge.getBot = () => ({
+    const anyMain = main as any;
+    anyMain.bridge.getBot = () => ({
         getJoinedRooms: async() => Promise.resolve([]),
         getUserId: () => "@bot:foobar",
     });
+    // Always return 500ms when checking the bridge connectivity.
+    anyMain.bridge.pingAppserviceRoute = async () => 500;
     return { main };
 };
