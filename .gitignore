@@ -35,3 +35,6 @@ node_modules
 # typescript
 lib
 tsconfig.tsbuildinfo
+
+# web build
+/public
