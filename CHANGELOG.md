@@ -1,4 +1,34 @@
- 1.10.0-rc1 (2021-11-23)
+1.10.0 (2021-12-22)
+=======================
+
+No significant changes.
+
+
+1.10.0-rc3 (2021-12-13)
+========================
+
+Bugfixes
+--------
+
+- Fix inverted check causing Slack messages to not be relayed to Matrix. Thanks to @ewilderj ([\#648](https://github.com/matrix-org/matrix-appservice-slack/issues/648))
+
+
+Internal Changes
+----------------
+
+- Fix a regression in Node 16+ environments where the bridge may occasionally crash when a message wasn't handled successfully. ([\#646](https://github.com/matrix-org/matrix-appservice-slack/issues/646))
+
+
+1.10.0-rc2 (2021-12-06)
+========================
+
+Internal Changes
+----------------
+
+- Switch to using Debian as a base for Docker images. ([\#645](https://github.com/matrix-org/matrix-appservice-slack/issues/645))
+
+
+1.10.0-rc1 (2021-11-23)
 ========================
 
 Bugfixes
