@@ -49,7 +49,7 @@ export class UserAdminRoom {
         }
         const args: string[] = ev.content.body.split(" ");
         const command = args[0].toLowerCase();
-        log.info(`${this.userId} sent admin message ${args[0].substring(32)}`);
+        log.info(`${this.userId} sent admin message ${args[0].slice(32)}`);
         if (command === "help") {
             return this.handleHelp();
         }

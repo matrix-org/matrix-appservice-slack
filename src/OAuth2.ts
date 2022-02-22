@@ -115,7 +115,7 @@ export class OAuth2 {
     public getPreauthToken(userId: string): string {
         // NOTE: We use 32 because we need to use it into SlackEventHandler which
         // expects inbound roomIds to be 32 chars.
-        const token = uuid().substring(0, INTERNAL_ID_LEN);
+        const token = uuid().slice(0, INTERNAL_ID_LEN);
         this.userTokensWaiting.set(token, {userId, expireAfter: TOKEN_EXPIRE_MS + Date.now()});
         return token;
     }

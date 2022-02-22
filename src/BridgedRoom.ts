@@ -289,7 +289,7 @@ export class BridgedRoom {
             emojiKeyName = relatesTo.key;
             // Strip the colons
             if (emojiKeyName.startsWith(":") && emojiKeyName.endsWith(":")) {
-                emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
+                emojiKeyName = emojiKeyName.slice(1, emojiKeyName.length - 1);
             }
         }
         const clientForRequest = await this.getClientForRequest(message.sender);
@@ -974,7 +974,7 @@ export class BridgedRoom {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
             if (replyMEvent) {
                 replyMEvent = await this.stripMatrixReplyFallback(replyMEvent);
-                return await ghost.sendWithReply(
+                return await ghost.sendInThread(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
             } else {
