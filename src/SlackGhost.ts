@@ -312,6 +312,28 @@ export class SlackGhost {
         return Slackdown.parse(body);
     }
 
+    public async sendInThread(roomId: string, text: string, slackRoomId: string,
+        slackEventTs: string, replyEvent: IMatrixReplyEvent): Promise<void> {
+        const fallbackHtml = this.getFallbackHtml(roomId, replyEvent);
+        const fallbackText = this.getFallbackText(replyEvent);
+
+        const content = {
+            "m.relates_to": {
+                "rel_type": "io.element.thread",
+                // TODO This must be the event id of the first message
+                "event_id": replyEvent.event_id,
+                "m.in_reply_to": {
+                    event_id: replyEvent.event_id,
+                },
+            },
+            "msgtype": "m.text", // for those who just want to send the reply as-is
+            "body": `${fallbackText}\n\n${this.prepareBody(text)}`,
+            "format": "org.matrix.custom.html",
+            "formatted_body": fallbackHtml + this.prepareFormattedBody(text),
+        };
+        await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
+    }
+
     public async sendText(
         roomId: string,
         text: string,

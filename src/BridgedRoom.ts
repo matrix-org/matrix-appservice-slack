@@ -974,7 +974,7 @@ export class BridgedRoom {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
             if (replyMEvent) {
                 replyMEvent = await this.stripMatrixReplyFallback(replyMEvent);
-                return await ghost.sendWithReply(
+                return await ghost.sendInThread(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
             } else {
