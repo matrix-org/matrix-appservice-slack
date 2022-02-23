@@ -481,7 +481,7 @@ export class Main {
         } else if (this.config.homeserver.media_url) {
             baseUrl = this.config.homeserver.media_url;
         }
-        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
+        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.slice("mxc://".length)}`;
     }
 
     public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
