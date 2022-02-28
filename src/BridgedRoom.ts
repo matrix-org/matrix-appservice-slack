@@ -1177,9 +1177,16 @@ export class BridgedRoom {
         // Extract the referenced event
         if (!message.content) { return message.event_id; }
         if (!message.content["m.relates_to"]) { return message.event_id; }
-        if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
-        const parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
-        if (!parentEventId) { return message.event_id; }
+        let parentEventId;
+        if (message.content["m.relates_to"].rel_type === "io.element.thread") {
+            // Parent of a thread
+            parentEventId = message.content["m.relates_to"].event_id;
+        } else {
+            // Next parent of a rely
+            if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
+            parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
+        }
+        if (!parentEventId || typeof parentEventId !== "string") { return message.event_id; }
         if (depth > MAX_DEPTH) {
             return parentEventId; // We have hit our depth limit, use this one.
         }
