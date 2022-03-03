@@ -33,6 +33,10 @@ interface IMatrixReplyEvent {
     content: {
         body: string;
         formatted_body?: string;
+        "m.relates_to"?: {
+            rel_type?: string,
+            event_id?: string,
+        }
     };
 }
 
@@ -320,8 +324,9 @@ export class SlackGhost {
         const content = {
             "m.relates_to": {
                 "rel_type": "io.element.thread",
-                // TODO This must be the event id of the first message
-                "event_id": replyEvent.event_id,
+                // If the reply event is part of a thread, continue the thread.
+                // Otherwise, attach a thread to the reply event.
+                "event_id": replyEvent.content["m.relates_to"]?.event_id ?? replyEvent.event_id,
                 "m.in_reply_to": {
                     event_id: replyEvent.event_id,
                 },
