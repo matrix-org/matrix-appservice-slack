@@ -1623,7 +1623,7 @@ export class Main {
             internalRoom = await this.datastore.getUserAdminRoom("-internal-");
             if (!internalRoom) {
                 internalRoom = (await this.bridge.getIntent().createRoom({ options: {}})).room_id;
-                await this.datastore.setUserAdminRoom(internalRoom, "-internal-");
+                await this.datastore.setUserAdminRoom("-internal-", internalRoom);
             }
             const time = await this.bridge.pingAppserviceRoute(internalRoom);
             log.info(`Successfully pinged the bridge. Round trip took ${time}ms`);
