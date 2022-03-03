@@ -1,0 +1,1 @@
+Don't allow NULL in SQL columns of events, matching the expectation of the models.
