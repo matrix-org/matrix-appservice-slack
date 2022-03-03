@@ -289,7 +289,7 @@ export class BridgedRoom {
             emojiKeyName = relatesTo.key;
             // Strip the colons
             if (emojiKeyName.startsWith(":") && emojiKeyName.endsWith(":")) {
-                emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
+                emojiKeyName = emojiKeyName.slice(1, emojiKeyName.length - 1);
             }
         }
         const clientForRequest = await this.getClientForRequest(message.sender);

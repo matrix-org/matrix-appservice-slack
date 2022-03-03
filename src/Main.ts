@@ -481,7 +481,7 @@ export class Main {
         } else if (this.config.homeserver.media_url) {
             baseUrl = this.config.homeserver.media_url;
         }
-        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
+        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.slice("mxc://".length)}`;
     }
 
     public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
@@ -1623,7 +1623,7 @@ export class Main {
             internalRoom = await this.datastore.getUserAdminRoom("-internal-");
             if (!internalRoom) {
                 internalRoom = (await this.bridge.getIntent().createRoom({ options: {}})).room_id;
-                await this.datastore.setUserAdminRoom(internalRoom, "-internal-");
+                await this.datastore.setUserAdminRoom("-internal-", internalRoom);
             }
             const time = await this.bridge.pingAppserviceRoute(internalRoom);
             log.info(`Successfully pinged the bridge. Round trip took ${time}ms`);
