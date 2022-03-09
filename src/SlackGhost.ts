@@ -33,6 +33,10 @@ interface IMatrixReplyEvent {
     content: {
         body: string;
         formatted_body?: string;
+        "m.relates_to"?: {
+            rel_type?: string,
+            event_id?: string,
+        }
     };
 }
 
@@ -310,6 +314,26 @@ export class SlackGhost {
 
     public prepareFormattedBody(body: string): string {
         return Slackdown.parse(body);
+    }
+
+    public async sendInThread(roomId: string, text: string, slackRoomId: string,
+        slackEventTs: string, replyEvent: IMatrixReplyEvent): Promise<void> {
+        const content = {
+            "m.relates_to": {
+                "rel_type": "io.element.thread",
+                // If the reply event is part of a thread, continue the thread.
+                // Otherwise, attach a thread to the reply event.
+                "event_id": replyEvent.content["m.relates_to"]?.event_id ?? replyEvent.event_id,
+                "m.in_reply_to": {
+                    event_id: replyEvent.event_id,
+                },
+            },
+            "msgtype": "m.text", // for those who just want to send the reply as-is
+            "body": this.prepareBody(text),
+            "format": "org.matrix.custom.html",
+            "formatted_body": this.prepareFormattedBody(text),
+        };
+        await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
     }
 
     public async sendText(
