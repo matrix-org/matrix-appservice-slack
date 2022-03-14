@@ -320,7 +320,7 @@ export class SlackGhost {
         slackEventTs: string, replyEvent: IMatrixReplyEvent): Promise<void> {
         const content = {
             "m.relates_to": {
-                "rel_type": "io.element.thread",
+                "rel_type": "m.thread",
                 // If the reply event is part of a thread, continue the thread.
                 // Otherwise, attach a thread to the reply event.
                 "event_id": replyEvent.content["m.relates_to"]?.event_id ?? replyEvent.event_id,
