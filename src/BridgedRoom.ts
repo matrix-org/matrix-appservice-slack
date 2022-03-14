@@ -1178,7 +1178,7 @@ export class BridgedRoom {
         if (!message.content) { return message.event_id; }
         if (!message.content["m.relates_to"]) { return message.event_id; }
         let parentEventId;
-        if (message.content["m.relates_to"].rel_type === "io.element.thread") {
+        if (["m.thread", "io.element.thread"].includes(message.content["m.relates_to"].rel_type)) {
             // Parent of a thread
             parentEventId = message.content["m.relates_to"].event_id;
         } else {
