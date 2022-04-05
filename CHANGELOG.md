@@ -1,3 +1,32 @@
+1.11.0 (2022-04-05)
+=======================
+
+No significant changes.
+
+
+1.11.0-rc1 (2022-03-21)
+=======================
+
+Features
+--------
+
+- Support bridging Slack message threads with new m.thread relations (MSC3440) ([\#634](https://github.com/matrix-org/matrix-appservice-slack/issues/634), [\#673](https://github.com/matrix-org/matrix-appservice-slack/issues/673))
+- Add check to verify if the homeserver <-> bridge connection is working on startup. ([\#666](https://github.com/matrix-org/matrix-appservice-slack/issues/666))
+
+
+Bugfixes
+--------
+
+- Fix: Don't create an internal ping room on every restart ([\#669](https://github.com/matrix-org/matrix-appservice-slack/issues/669))
+
+
+Internal Changes
+----------------
+
+- Upgrade dependency axios to 0.26.0 to close a possible vulnerability ([\#664](https://github.com/matrix-org/matrix-appservice-slack/issues/664))
+- Remove uses of the deprecated JavaScript function substr() ([\#665](https://github.com/matrix-org/matrix-appservice-slack/issues/665))
+
+
 1.10.0 (2021-12-22)
 =======================
 
