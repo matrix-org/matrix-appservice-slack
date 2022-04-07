@@ -189,7 +189,7 @@ export class SlackRTMHandler extends SlackEventHandler {
 
     private createRtmClient(token: string, logLabel: string): RTMClient {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
-        const connLog = Logging.get(`RTM-${logLabel.substr(0, LOG_TEAM_LEN)}`);
+        const connLog = Logging.get(`RTM-${logLabel.slice(0, LOG_TEAM_LEN)}`);
         const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm?.log_level || "silent");
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.

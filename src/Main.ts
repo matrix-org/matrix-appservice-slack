@@ -562,7 +562,7 @@ export class Main {
         } else if (this.config.homeserver.media_url) {
             baseUrl = this.config.homeserver.media_url;
         }
-        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.substring("mxc://".length)}`;
+        return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.slice("mxc://".length)}`;
     }
 
     public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
@@ -1147,6 +1147,8 @@ export class Main {
             checkToken: false,
         });
 
+        await this.pingBridge();
+
         this.stateStorage = new StateLookup({
             intent: this.botIntent,
             eventTypes: ["m.room.member", "m.room.power_levels"],
@@ -1709,6 +1711,22 @@ export class Main {
         await this.bridgeBlocker?.checkLimits(state.activeUsers);
     }
 
+    private async pingBridge() {
+        let internalRoom: string|null;
+        try {
+            internalRoom = await this.datastore.getUserAdminRoom("-internal-");
+            if (!internalRoom) {
+                internalRoom = (await this.bridge.getIntent().createRoom({ options: {}})).room_id;
+                await this.datastore.setUserAdminRoom("-internal-", internalRoom);
+            }
+            const time = await this.bridge.pingAppserviceRoute(internalRoom);
+            log.info(`Successfully pinged the bridge. Round trip took ${time}ms`);
+        }
+        catch (ex) {
+            log.error("Homeserver cannot reach the bridge. You probably need to adjust your configuration.", ex);
+        }
+    }
+
     async disableHookHandler() {
         if (this.slackHookHandler) {
             await this.slackHookHandler.close();
@@ -1717,7 +1735,7 @@ export class Main {
         }
     }
 
-    enableHookHandler() {
+    public enableHookHandler() {
         this.slackHookHandler = new SlackHookHandler(this);
         log.info("Enabled hook handler");
     }
@@ -1730,7 +1748,7 @@ export class Main {
         }
     }
 
-    enableRtm() {
+    public enableRtm() {
         this.slackRtm = new SlackRTMHandler(this);
         log.info("Enabled RTM");
     }

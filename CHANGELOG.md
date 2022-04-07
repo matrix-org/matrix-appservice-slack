@@ -1,4 +1,63 @@
- 1.10.0-rc1 (2021-11-23)
+1.11.0 (2022-04-05)
+=======================
+
+No significant changes.
+
+
+1.11.0-rc1 (2022-03-21)
+=======================
+
+Features
+--------
+
+- Support bridging Slack message threads with new m.thread relations (MSC3440) ([\#634](https://github.com/matrix-org/matrix-appservice-slack/issues/634), [\#673](https://github.com/matrix-org/matrix-appservice-slack/issues/673))
+- Add check to verify if the homeserver <-> bridge connection is working on startup. ([\#666](https://github.com/matrix-org/matrix-appservice-slack/issues/666))
+
+
+Bugfixes
+--------
+
+- Fix: Don't create an internal ping room on every restart ([\#669](https://github.com/matrix-org/matrix-appservice-slack/issues/669))
+
+
+Internal Changes
+----------------
+
+- Upgrade dependency axios to 0.26.0 to close a possible vulnerability ([\#664](https://github.com/matrix-org/matrix-appservice-slack/issues/664))
+- Remove uses of the deprecated JavaScript function substr() ([\#665](https://github.com/matrix-org/matrix-appservice-slack/issues/665))
+
+
+1.10.0 (2021-12-22)
+=======================
+
+No significant changes.
+
+
+1.10.0-rc3 (2021-12-13)
+========================
+
+Bugfixes
+--------
+
+- Fix inverted check causing Slack messages to not be relayed to Matrix. Thanks to @ewilderj ([\#648](https://github.com/matrix-org/matrix-appservice-slack/issues/648))
+
+
+Internal Changes
+----------------
+
+- Fix a regression in Node 16+ environments where the bridge may occasionally crash when a message wasn't handled successfully. ([\#646](https://github.com/matrix-org/matrix-appservice-slack/issues/646))
+
+
+1.10.0-rc2 (2021-12-06)
+========================
+
+Internal Changes
+----------------
+
+- Switch to using Debian as a base for Docker images. ([\#645](https://github.com/matrix-org/matrix-appservice-slack/issues/645))
+
+
+1.10.0-rc1 (2021-11-23)
 ========================
 
 Bugfixes

@@ -1,6 +1,6 @@
 {
   "name": "matrix-appservice-slack",
-  "version": "1.10.0-rc1",
+  "version": "1.11.0",
   "description": "A Matrix <--> Slack bridge",
   "engines": {
     "node": ">=12 16<="
@@ -38,7 +38,7 @@
     "@slack/rtm-api": "^5.0.5",
     "@slack/web-api": "^5.15.0",
     "Slackdown": "git+https://Half-Shot@github.com/half-shot/slackdown.git",
-    "axios": "^0.24.0",
+    "axios": "^0.26.0",
     "escape-string-regexp": "^4.0.0",
     "matrix-appservice-bridge": "^3.2.0",
     "matrix-widget-api": "^0.1.0-beta.17",
