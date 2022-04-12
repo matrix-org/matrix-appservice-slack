@@ -289,7 +289,7 @@ export class TeamSyncer {
         await slackGhost.intent.setAvatarUrl("");
         const joinedRooms = await slackGhost.intent.matrixClient.getJoinedRooms();
         const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.includes(r.MatrixRoomId));
-        log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length}`);
+        log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length} rooms`);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
             this.main.membershipQueue.leave(r.MatrixRoomId, slackGhost.matrixUserId, { getId: () => slackGhost.matrixUserId }).catch(() => {
