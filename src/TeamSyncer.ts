@@ -287,8 +287,8 @@ export class TeamSyncer {
         // Element does it by sending an empty string.
         // https://github.com/matrix-org/matrix-doc/issues/1674
         await slackGhost.intent.setAvatarUrl("");
-        const joinedRooms = await slackGhost.intent.matrixClient.getJoinedRooms();
-        const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.includes(r.MatrixRoomId));
+        const joinedRooms = new Set(await slackGhost.intent.matrixClient.getJoinedRooms());
+        const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.has(r.MatrixRoomId));
         log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length} rooms`);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
