@@ -58,6 +58,8 @@ The Real Time Messaging (RTM) API is the newer and recommended way to use the br
       ```
       link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
       ```
+      
+If messages get sent from Matrix to Slack, but not from Slack to Matrix, make sure that `rtm.enabled` is set to `true` in the `config.yaml` file.
 
 ## Webhooks
 
