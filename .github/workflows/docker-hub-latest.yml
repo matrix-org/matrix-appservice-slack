@@ -7,7 +7,9 @@ on:
 
 env:
   DOCKER_NAMESPACE: matrixdotorg
-  PLATFORMS: linux/amd64,linux/arm64
+  # Explicity not building arm64 images to reduce build times
+  PLATFORMS: linux/amd64
+  PLATFORMS_DEVELOP: linux/arm64,linux/amd64
   # Only push if this is develop, otherwise we just want to build
   PUSH: ${{ github.ref == 'refs/heads/develop' }}
 
@@ -17,12 +19,6 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v2
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1      
   
       - name: Log in to Docker Hub
         uses: docker/login-action@v1
@@ -30,12 +26,30 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1      
+
       - name: Build image
         uses: docker/build-push-action@v2
+        if: ${{ env.PUSH == false }}
         with:
           context: .
           file: ./Dockerfile
           platforms: ${{ env.PLATFORMS }}
+          push: ${{ env.PUSH }}
+          tags: |
+            ${{ env.DOCKER_NAMESPACE }}/matrix-appservice-slack:latest
+
+      - name: Build and push image 
+        uses: docker/build-push-action@v2
+        if: ${{ env.PUSH }}
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS_DEVELOP }}
           push: ${{ env.PUSH }}
           tags: |
             ${{ env.DOCKER_NAMESPACE }}/matrix-appservice-slack:latest
