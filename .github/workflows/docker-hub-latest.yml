@@ -36,7 +36,7 @@ jobs:
 
       - name: Build image
         uses: docker/build-push-action@v2
-        if: ${{ env.PUSH == false }}
+        if: env.PUSH == false
         with:
           context: .
           file: ./Dockerfile
@@ -47,7 +47,7 @@ jobs:
 
       - name: Build and push image 
         uses: docker/build-push-action@v2
-        if: ${{ env.PUSH == true }}
+        if: env.PUSH == true
         with:
           context: .
           file: ./Dockerfile
