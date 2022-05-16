@@ -8,7 +8,7 @@ on:
 
 env:
   DOCKER_NAMESPACE: matrixdotorg
-  PLATFORMS: linux/amd64
+  PLATFORMS: linux/arm64,linux/amd64
 
 jobs:
   docker-release:
