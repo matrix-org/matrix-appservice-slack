@@ -45,7 +45,7 @@ Migrating from an existing NeDB installation
 From a checkout of the code base you can run:
 
 ```sh
-npm run build
+yarn run build
 node lib/scripts/migrateToPostgres.js "connectionString" "dbDir" "slackPrefix"
 ```
 

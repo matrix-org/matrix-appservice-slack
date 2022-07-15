@@ -7,10 +7,10 @@
   },
   "main": "app.js",
   "scripts": {
-    "prepare": "npm run build",
+    "prepare": "yarn run build",
     "start": "node ./lib/app.js",
     "build": "tsc --build",
-    "test": "npm run test:unit && npm run test:integration",
+    "test": "yarn run test:unit && yarn run test:integration",
     "test:unit": "mocha --reporter list --ui bdd --require ts-node/register --recursive tests/unit/*.ts",
     "test:integration": "mocha --exit --reporter list --ui bdd --require ts-node/register --recursive tests/integration/*.ts",
     "test:postgres": "SLACKBRIDGE_TEST_ENABLEPG=yes mocha --reporter list --ui bdd --require ts-node/register --recursive tests/integration/PgDatastoreTest.ts",
