@@ -219,7 +219,7 @@ export class Main {
 
         this.bridge = new Bridge({
             controller: {
-                onEvent: async(request) => {
+                onEvent: (request) => {
                     const ev = request.getData();
                     const isAdminRoomRelated = UserAdminRoom.IsAdminRoomInvite(ev, this.botUserId)
                         || ev.room_id === this.config.matrix_admin_room;
@@ -228,9 +228,11 @@ export class Main {
                         return;
                     }
                     if (ev.state_key) {
-                        await this.stateStorage?.onEvent({
+                        this.stateStorage?.onEvent({
                             ...ev,
                             state_key: ev.state_key as string,
+                        }).catch((ex) => {
+                            log.error(`Failed to store event in stateStorage ${ev.event_id} (${ev.room_id})`, ex);
                         });
                     }
                     this.onMatrixEvent(ev).then(() => {
@@ -239,27 +241,29 @@ export class Main {
                         log.error(`Failed to handle ${ev.event_id} (${ev.room_id})`, ex);
                     });
                 },
-                onEphemeralEvent: async request => {
+                onEphemeralEvent: request => {
                     if (this.bridgeBlocker?.isBlocked) {
                         log.info('Bridge is blocked, dropping Matrix ephemeral event');
                         return;
                     }
                     const ev = request.getData();
-                    try {
-                        if (ev.type === "m.typing") {
-                            const room = this.rooms.getByMatrixRoomId(ev.room_id);
-                            if (room) {
-                                await room.onMatrixTyping(ev.content.user_ids);
-                            }
-                            log.debug(`Handled typing event for ${ev.room_id}`);
-                        } else if (ev.type === "m.presence") {
-                            await this.onMatrixPresence(ev);
-                            log.debug(`Handled presence for ${ev.sender} (${ev.content.presence})`);
+                    if (ev.type === "m.typing") {
+                        const room = this.rooms.getByMatrixRoomId(ev.room_id);
+                        if (room) {
+                            room.onMatrixTyping(ev.content.user_ids).then(() => {
+                                log.debug(`Handled typing event for ${ev.room_id}`);
+                            }).catch((ex) => {
+                                log.error(`Failed handle typing event for room ${room.MatrixRoomId}`, ex);
+                            });
                         }
-                        // Slack has no concept of receipts, we can't bridge those.
-                    } catch (ex) {
-                        log.error(`Failed to handle ephemeral event`, ex);
+                    } else if (ev.type === "m.presence") {
+                        this.onMatrixPresence(ev).then(() => {
+                            log.debug(`Handled presence for ${ev.sender} (${ev.content.presence})`);
+                        }).catch((ex) => {
+                            log.error(`Failed handle presence for ${ev.sender}`, ex);
+                        });
                     }
+                    // Slack has no concept of receipts, we can't bridge those.
 
                 },
                 onUserQuery: () => ({}), // auto-provision users with no additional data
