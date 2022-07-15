@@ -1053,7 +1053,6 @@ export class Main {
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
             path: "/ready",
-            checkToken: false,
         });
 
         await this.pingBridge();

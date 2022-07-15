@@ -54,7 +54,6 @@ export class Provisioner {
         this.bridge.addAppServicePath({
             handler: async (req: Request, res: Response) => this.handleProvisioningRequest(req.params.verb as Verbs, req, res),
             method: "POST",
-            checkToken: true,
             path: "/_matrix/provision/:verb",
         });
     }
