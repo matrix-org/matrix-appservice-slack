@@ -33,7 +33,7 @@ jobs:
       with:
         node-version: "${{ matrix.node_version }}"
     - run: yarn --ignore-scripts --pure-lockfile
-    - run: yarn test:integration#
+    - run: yarn test:integration
 
   integration-postgres:
    runs-on: ubuntu-latest
