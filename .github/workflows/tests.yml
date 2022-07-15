@@ -50,7 +50,7 @@ jobs:
     - name: Set up PostgreSQL 11
       run: |
         docker run -d -p 5432:5432 \
-          -e POSTGRES_PASSWORD=postgres \
+          -e POSTGRES_PASSWORD=pass \
           -e POSTGRES_INITDB_ARGS="--lc-collate C --lc-ctype C --encoding UTF8" \
           postgres:11
     - run: yarn test:postgres
