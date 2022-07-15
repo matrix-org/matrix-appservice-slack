@@ -1,7 +1,7 @@
 # matrix-appservice-slack
 
 [![Docker Automated build](https://img.shields.io/docker/cloud/build/matrixdotorg/matrix-appservice-slack.svg)](https://hub.docker.com/r/matrixdotorg/matrix-appservice-slack)
-[![#slack:half-shot.uk](https://img.shields.io/matrix/slack:half-shot.uk.svg?server_fqdn=matrix.half-shot.uk&label=%23slack:half-shot.uk&logo=matrix)](https://matrix.to/#/#slack:half-shot.uk)
+[![#slack:half-shot.uk](https://img.shields.io/matrix/slack:half-shot.uk.svg?server_fqdn=chaotic.half-shot.uk&label=%23slack:half-shot.uk&logo=matrix)](https://matrix.to/#/#slack:half-shot.uk)
 [![Build status](https://badge.buildkite.com/ebc25cba3c68c0e44db887be63fa28c4e337e115241c52cb74.svg)](https://buildkite.com/matrix-dot-org/matrix-appservice-slack)
 [![Documentation Status](https://readthedocs.org/projects/matrix-appservice-slack/badge/?version=latest)](https://matrix-appservice-slack.readthedocs.io/en/latest/?badge=latest)
 
@@ -30,6 +30,3 @@ for instructions on how to set up the bridge.
 This bridge is a community project and welcomes issues and PRs from anyone who
 has the time to spare. If you want to work on the bridge, please see
 [CONTRIBUTING.md](https://github.com/matrix-org/matrix-appservice-slack/blob/develop/CONTRIBUTING.md).
-Please come visit us in the 
-[support room](https://matrix.to/#/#matrix_appservice_slack:cadair.com/) if you
-have any questions.
