@@ -4,7 +4,7 @@ FROM node:16-bullseye-slim AS BUILD
 RUN apt update && apt install -y git
 WORKDIR /src
 
-COPY package.json package-lock.json /src/
+COPY package.json /src/
 RUN yarn --pure-lockfile
 COPY . /src
 RUN npm run build
