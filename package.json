@@ -36,7 +36,7 @@
     "@slack/web-api": "^5.15.0",
     "axios": "^0.26.0",
     "escape-string-regexp": "^4.0.0",
-    "matrix-appservice-bridge": "^4.0.1",
+    "matrix-appservice-bridge": "^4.0.2",
     "minimist": "^1.2.6",
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",
