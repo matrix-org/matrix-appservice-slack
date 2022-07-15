@@ -36,7 +36,7 @@
     "@slack/web-api": "^5.15.0",
     "axios": "^0.26.0",
     "escape-string-regexp": "^4.0.0",
-    "matrix-appservice-bridge": "^3.2.0",
+    "matrix-appservice-bridge": "^4.0.1",
     "minimist": "^1.2.6",
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",
@@ -47,7 +47,7 @@
     "randomstring": "^1.2.1",
     "Slackdown": "git+https://Half-Shot@github.com/half-shot/slackdown.git",
     "uuid": "^8.3.2",
-    "yargs": "^17.2.1"
+    "yargs": "17.2.1"
   },
   "devDependencies": {
     "@types/chai": "^4.2.21",
@@ -59,8 +59,7 @@
     "@types/nunjucks": "^3.1.5",
     "@types/randomstring": "^1.1.7",
     "@types/uuid": "^8.3.1",
-    "@types/yargs-parser": "^20.2.1",
-    "@types/yargs": "^17.0.3",
+    "@types/yargs": "17.0.3",
     "@typescript-eslint/eslint-plugin": "^5.6.0",
     "@typescript-eslint/parser": "^5.6.0",
     "chai": "^4.3.4",
