@@ -52,7 +52,9 @@ export class Provisioner {
 
     public addAppServicePath(): void {
         this.bridge.addAppServicePath({
-            handler: async (req: Request, res: Response) => this.handleProvisioningRequest(req.params.verb as Verbs, req, res),
+            handler: (req: Request, res: Response) => void this.handleProvisioningRequest(req.params.verb as Verbs, req, res).catch(ex => {
+                log.error(`Threw error trying to handle`, req.path, ex);
+            }),
             method: "POST",
             path: "/_matrix/provision/:verb",
         });
