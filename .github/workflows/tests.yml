@@ -18,7 +18,7 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: "${{ matrix.node_version }}"
-    - run: yarn --ignore-scripts --pure-lockfile
+    - run: yarn --pure-lockfile
     - run: yarn test:unit
 
   integration:
@@ -32,7 +32,7 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: "${{ matrix.node_version }}"
-    - run: yarn --ignore-scripts --pure-lockfile
+    - run: yarn --pure-lockfile
     - run: yarn test:integration
 
   integration-postgres:
@@ -46,7 +46,7 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: "${{ matrix.node_version }}"
-    - run: yarn --ignore-scripts --pure-lockfile
+    - run: yarn --pure-lockfile
     - name: Set up PostgreSQL 11
       run: |
         docker run -d -p 5432:5432 \
