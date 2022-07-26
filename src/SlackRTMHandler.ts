@@ -47,13 +47,15 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (!slackClient) {
             return; // We need to be able to determine what a channel looks like.
         }
-        rtm.on("message", (e) => {
-            const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
+        rtm.on("message", (messageEvent) => {
+            const messageQueueKey = `${puppetEntry.teamId}:${messageEvent.channel}`;
             const  chainPromise: Promise<void> = this.messageQueueBySlackId.get(messageQueueKey) || Promise.resolve();
             // This is used to ensure that we do not race messages for a single channel.
-            const messagePromise = chainPromise.then(async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e).catch((ex) => {
-                log.error(`Error handling 'message' event for ${puppetEntry.matrixId} / ${puppetEntry.slackId}`, ex);
-            }));
+            const messagePromise = chainPromise.then(
+                async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, messageEvent).catch((ex) => {
+                    log.error(`Error handling 'message' event for ${puppetEntry.matrixId} / ${puppetEntry.slackId}`, ex);
+                })
+            );
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
         });
         this.rtmUserClients.set(key, rtm);
@@ -63,8 +65,8 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.debug(`Started RTM client for user ${key}`, team);
     }
 
-    private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
-        const chanInfo = (await slackClient.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
+    private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, messageEvent: ISlackMessageEvent) {
+        const chanInfo = (await slackClient.conversations.info({channel: messageEvent.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.
         chanInfo.channel.is_private = chanInfo.channel.is_private || chanInfo.channel.is_im || chanInfo.channel.is_group;
         if (!chanInfo.channel.is_private) {
@@ -72,11 +74,18 @@ export class SlackRTMHandler extends SlackEventHandler {
             return;
         }
         // Sneaky hack to set the domain on messages.
-        e.team_id = teamInfo.id;
-        e.team_domain = teamInfo.domain;
-        e.user_id = e.user;
+        messageEvent.team_id = teamInfo.id;
+        if (!messageEvent.team_id) {
+            messageEvent.team_id = teamInfo.id;
+        }
+        if (!messageEvent.team_domain) {
+            messageEvent.team_domain = teamInfo.domain;
+        }
+        if (messageEvent.user && !messageEvent.user_id) {
+            messageEvent.user_id = messageEvent.user;
+        }
 
-        return this.handleUserMessage(chanInfo, e, slackClient, puppetEntry);
+        return this.handleUserMessage(chanInfo, messageEvent, slackClient, puppetEntry);
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
