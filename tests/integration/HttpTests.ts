@@ -29,7 +29,7 @@ describe("HttpTests", () => {
 
     it("will respond 200 to a health check", async () => {
         await harness.main.run(57000);
-        const res = await axios.get("http://localhost:57000/health");
+        const res = await axios.get("http://127.0.0.1:57000/health");
         expect(res.status).to.equal(200);
         expect(res.data).to.equal("OK");
     });
