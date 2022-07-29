@@ -15,10 +15,10 @@ limitations under the License.
 */
 
 import {
-    Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,  StateLookupEvent,
+    Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,
     Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
-    UserActivityTrackerConfig, MembershipQueue } from "matrix-appservice-bridge";
+    UserActivityTrackerConfig, MembershipQueue, PowerLevelContent, StateLookupEvent } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
 import * as randomstring from "randomstring";
@@ -488,7 +488,7 @@ export class Main {
         return `${baseUrl}/_matrix/media/r0/download/${mxcUrl.slice("mxc://".length)}`;
     }
 
-    public async getTeamDomainForMessage(message: Record<string, unknown>, teamId?: string): Promise<string|undefined> {
+    public async getTeamDomainForMessage(message: {team_domain?: string, team_id?: string}, teamId?: string): Promise<string|undefined> {
         if (typeof message.team_domain === 'string') {
             return message.team_domain;
         }
@@ -548,8 +548,8 @@ export class Main {
         return this.stateStorage?.getState(roomId, eventType, stateKey);
     }
 
-    public async getState(roomId: string, eventType: string): Promise<any> {
-        const cachedEvent = this.getStoredEvent(roomId, eventType);
+    public async getState(roomId: string, eventType: string): Promise<unknown> {
+        const cachedEvent = this.getStoredEvent(roomId, eventType, "");
         if (cachedEvent && Array.isArray(cachedEvent) && cachedEvent.length) {
             // StateLookup returns entire state events. client.getStateEvent returns
             //   *just the content*
@@ -1052,12 +1052,12 @@ export class Main {
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
         }
         await this.bridge.listen(port, this.config.homeserver.appservice_host, undefined, this.appservice);
-
         this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
             path: "/ready",
         });
+
 
         await this.pingBridge();
 
@@ -1278,7 +1278,7 @@ export class Main {
         let slackClient: WebClient|undefined;
         let room: BridgedRoom;
         let teamEntry: TeamEntry|null = null;
-        let teamId: string = opts.team_id!;
+        let teamId: string|undefined = opts.team_id;
 
         const matrixRoomId = opts.matrix_room_id;
         const existingChannel = opts.slack_channel_id ? this.rooms.getBySlackChannelId(opts.slack_channel_id) : null;
@@ -1392,8 +1392,8 @@ export class Main {
             await this.datastore.upsertRoom(room);
         }
 
-        if (this.slackRtm && !room.SlackWebhookUri) {
-            await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId!);
+        if (this.slackRtm && !room.SlackWebhookUri && room.SlackTeamId) {
+            await this.slackRtm.startTeamClientIfNotStarted(room.SlackTeamId);
         }
 
 
@@ -1425,19 +1425,22 @@ export class Main {
     }
 
     public async checkLinkPermission(matrixRoomId: string, userId: string): Promise<boolean> {
+        const USERS_DEFAULT = 0;
         const STATE_DEFAULT = 50;
         // We decide to allow a user to link or unlink, if they have a powerlevel
         //   sufficient to affect the 'm.room.power_levels' state; i.e. the
         //   "operator" heuristic.
-        const powerLevels = await this.getState(matrixRoomId, "m.room.power_levels");
-        const userLevel =
-            (powerLevels.users && userId in powerLevels.users) ? powerLevels.users[userId] :
-                powerLevels.users_default;
+        const powerLevels = await this.getState(matrixRoomId, "m.room.power_levels") as PowerLevelContent;
+        let userLevel = (powerLevels?.users?.[userId] ?? powerLevels?.users_default ?? USERS_DEFAULT) as number;
+        let requiresLevel = (powerLevels?.events?.["m.room.power_levels"] ?? powerLevels?.state_default ?? STATE_DEFAULT) as number;
 
-        const requiresLevel =
-            (powerLevels.events && "m.room.power_levels" in powerLevels.events) ?
-                powerLevels.events["m.room.power_levels"] :
-                ("state_default" in powerLevels) ? powerLevels.powerLevels : STATE_DEFAULT;
+        // Guard against non-number values in PLs
+        if (typeof userLevel !== "number") {
+            userLevel = USERS_DEFAULT;
+        }
+        if (typeof requiresLevel !== "number") {
+            requiresLevel = STATE_DEFAULT;
+        }
 
         return userLevel >= requiresLevel;
     }
