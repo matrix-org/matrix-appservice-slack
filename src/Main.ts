@@ -1051,12 +1051,12 @@ export class Main {
             }
             await this.slackHookHandler.startAndListen(this.config.slack_hook_port, this.config.tls);
         }
+        await this.bridge.listen(port, this.config.homeserver.appservice_host, undefined, this.appservice);
         this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
             path: "/ready",
         });
-        await this.bridge.listen(port, this.config.homeserver.appservice_host, undefined, this.appservice);
 
 
         await this.pingBridge();
