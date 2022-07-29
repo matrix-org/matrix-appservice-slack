@@ -1,3 +1,42 @@
+2.0.0-rc1 (2022-07-29)
+======================
+
+This release requires **Node.16** or greater.
+
+Features
+--------
+
+- New releases will now include Docker images built on the `linux/amd64` platform in addition to x86_64. ([\#656](https://github.com/matrix-org/matrix-appservice-slack/issues/656))
+
+
+Bugfixes
+--------
+
+- Improve performance of removing deleted Slack users from rooms. ([\#649](https://github.com/matrix-org/matrix-appservice-slack/issues/649))
+
+
+Improved Documentation
+----------------------
+
+- Use the matrix-appservice-bridge contributing guide. ([\#686](https://github.com/matrix-org/matrix-appservice-slack/issues/686))
+
+
+Deprecations and Removals
+-------------------------
+
+- The bridge now requires Node.JS 16 or greater. ([\#690](https://github.com/matrix-org/matrix-appservice-slack/issues/690))
+
+
+Internal Changes
+----------------
+
+- Don't allow NULL in SQL columns of events, matching the expectation of the models. ([\#670](https://github.com/matrix-org/matrix-appservice-slack/issues/670))
+- Fix towncrier script for summarising the newsfiles ([\#677](https://github.com/matrix-org/matrix-appservice-slack/issues/677))
+- Switch from `npm` to `yarn` for dependency management. ([\#685](https://github.com/matrix-org/matrix-appservice-slack/issues/685))
+- Move CI to GitHub Actions. ([\#688](https://github.com/matrix-org/matrix-appservice-slack/issues/688))
+- Add new CI workflow to check for signoffs. ([\#693](https://github.com/matrix-org/matrix-appservice-slack/issues/693))
+
+
 1.11.0 (2022-04-05)
 =======================
 
