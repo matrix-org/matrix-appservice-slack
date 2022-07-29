@@ -3,7 +3,7 @@
   "version": "1.11.0",
   "description": "A Matrix <--> Slack bridge",
   "engines": {
-    "node": ">=16 18<="
+    "node": ">=16 <=18"
   },
   "main": "app.js",
   "scripts": {

@@ -54,7 +54,7 @@ export class AdminCommands {
                 cmd.description,
                 cmd.options ?? {},
                 // Our intergration with yargs is quite broken and messy, so
-                // to avoid further pain this just assunes that the handler/yargs
+                // to avoid further pain this just assumes that the handler/yargs
                 // calling is safe.
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 async (argv) => cmd.handler(argv as any),

@@ -14,7 +14,7 @@ VOLUME /data/ /config/
 
 WORKDIR /usr/src/app
 COPY package.json /usr/src/app/
-RUN apt update && apt install git -y && yarn --production --pure-lockfile --ignore-scripts && yarn cache clean
+RUN apt update && apt install git -y && yarn --production --pure-lockfile && yarn cache clean
 
 COPY --from=BUILD /src/config /usr/src/app/config
 COPY --from=BUILD /src/templates /usr/src/app/templates

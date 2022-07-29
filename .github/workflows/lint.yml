@@ -15,5 +15,5 @@ jobs:
       uses: actions/setup-node@v3
       with:
         node-version: 16
-    - run: yarn --ignore-scripts --pure-lockfile
+    - run: yarn --ignore-scripts --pure-lockfile --strict-semver
     - run: yarn lint
