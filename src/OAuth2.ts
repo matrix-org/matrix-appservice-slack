@@ -29,14 +29,14 @@ const log = Logging.get("OAuth2");
 
 // The full set of OAuth2 scopes we currently require for all functionality
 const REQUIRED_SCOPES = [
-    "team:read",
-    "users:read",
+    "bot",
     "channels:history",
     "channels:read",
-    "files:write:user",
     "chat:write:bot",
+    "files:write:user",
+    "reactions:write",
+    "team:read",
     "users:read",
-    "bot",
 ];
 
 const PUPPET_SCOPES = [ // See https://stackoverflow.com/a/28234443
