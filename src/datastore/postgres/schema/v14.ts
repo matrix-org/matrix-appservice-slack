@@ -4,11 +4,11 @@ export const runSchema = async(db: IDatabase<unknown>) => {
     await db.none(`
         DELETE FROM events
             WHERE
-                roomid = NULL OR
-                eventid = NULL OR
-                slackchannel = NULL OR
-                slackts = NULL OR
-                extras = NULL;
+                roomid IS NULL OR
+                eventid IS NULL OR
+                slackchannel IS NULL OR
+                slackts IS NULL OR
+                extras IS NULL;
         ALTER TABLE events
             ALTER COLUMN roomid SET NOT NULL,
             ALTER COLUMN eventid SET NOT NULL,
