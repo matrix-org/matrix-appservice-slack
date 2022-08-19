@@ -982,12 +982,17 @@ export class Main {
 
         await UserAdminRoom.compileTemplates();
 
-        const dbEngine = this.config.db ? this.config.db.engine.toLowerCase() : "nedb";
-        if (dbEngine === "postgres") {
+        if (this.datastore instanceof PgDatastore) {
             // We create this in the constructor because we need it for encryption
             // support.
-            await (this.datastore as PgDatastore).ensureSchema();
-        } else if (dbEngine === "nedb") {
+            const userMessages = await this.datastore.ensureSchema();
+            for (const message of userMessages) {
+                const roomId = await this.datastore.getUserAdminRoom(message.matrixId);
+                log.info(`Sending one-time notice from schema to ${message.matrixId} (${roomId})`);
+                await this.botIntent.sendText(roomId, message.message);
+            }
+
+        } else if (this.datastore instanceof NedbDatastore) {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
             // eslint-disable-next-line @typescript-eslint/no-var-requires
