@@ -49,7 +49,7 @@ interface ClientSessionSchema {
 }
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 14;
+    public static readonly LATEST_SCHEMA = 15;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
