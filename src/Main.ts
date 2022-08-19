@@ -991,8 +991,7 @@ export class Main {
                 log.info(`Sending one-time notice from schema to ${message.matrixId} (${roomId})`);
                 await this.botIntent.sendText(roomId, message.message);
             }
-
-        } else if (this.datastore instanceof NedbDatastore) {
+        } else if (!this.config.db || this.config.db.engine === "nedb") {
             await this.bridge.loadDatabases();
             log.info("Loading teams.db");
             // eslint-disable-next-line @typescript-eslint/no-var-requires
