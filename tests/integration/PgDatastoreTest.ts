@@ -135,8 +135,10 @@ describeFnl("PgDatastore", () => {
         });
         it("should not allow two puppets on the same team for the same user", async () => {
             await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_1", "@myuser:id", "MY_TOKEN");
+            // Allow a different matrix user to have someone on the same team.
+            await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_2", "@diff_user:id", "DIFF_TOKEN");
             try {
-                await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_2", "@myuser:id", "DIFF_TOKEN");
+                await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_2", "@myuser:id", "DIFF_TOKEN_2");
             } catch (ex) {
                 return;
             }
