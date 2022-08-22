@@ -1,0 +1,1 @@
+Fix PostgreSQL schema 14 not applying cleanly if `events` containing NULL columns.
