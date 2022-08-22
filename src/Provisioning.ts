@@ -55,6 +55,7 @@ export class Provisioner {
             handler: (req: Request, res: Response) => void this.handleProvisioningRequest(req.params.verb as Verbs, req, res).catch(ex => {
                 log.error(`Threw error trying to handle`, req.path, ex);
             }),
+            authenticate: true,
             method: "POST",
             path: "/_matrix/provision/:verb",
         });

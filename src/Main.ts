@@ -1055,6 +1055,7 @@ export class Main {
         this.bridge.addAppServicePath({
             handler: this.onReadyProbe.bind(this.bridge),
             method: "GET",
+            authenticate: false,
             path: "/ready",
         });
 
