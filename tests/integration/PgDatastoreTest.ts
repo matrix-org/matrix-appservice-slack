@@ -146,6 +146,7 @@ describeFnl("PgDatastore", () => {
             try {
                 await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_2", "@myuser:id", "DIFF_TOKEN_2");
             } catch (ex) {
+                expect((ex as Error).message).to.equal('duplicate key value violates unique constraint "puppets_slackuser_key"');
                 return;
             }
             throw Error('Expected to fail');
