@@ -16,9 +16,9 @@ export const runSchema = async(db: IDatabase<unknown>): Promise<{userMessages: S
     })));
     // Delete any cases where this has happened
     await db.none(`
-        DELETE FROM puppets outer USING (
+        DELETE FROM puppets puppetsOuter USING (
             SELECT matrixuser, slackteam FROM puppets GROUP BY slackteam, matrixuser HAVING COUNT(*) > 1
-        ) inner WHERE outer.matrixuser = inner.matrixuser AND outer.slackteam = inner.slackteam;
+        ) puppetsInner WHERE puppetsOuter.matrixuser = puppetsInner.matrixuser AND puppetsOuter.slackteam = puppetsInner.slackteam;
         ALTER TABLE puppets ADD CONSTRAINT puppets_slackteam_matrixuser_unique UNIQUE(slackteam, matrixuser);`);
     return {
         userMessages: cases.map(u => ({
