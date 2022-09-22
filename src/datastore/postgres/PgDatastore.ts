@@ -53,7 +53,7 @@ export interface SchemaRunUserMessage {
     message: string
 }
 
-type SchemaRunFn = (db: IDatabase<unknown>) => Promise<void|{userMessages: SchemaRunUserMessage}>;
+type SchemaRunFn = (db: IDatabase<unknown>) => Promise<void|{userMessages: SchemaRunUserMessage[]}>;
 
 export class PgDatastore implements Datastore, ClientEncryptionStore {
     public static readonly LATEST_SCHEMA = 15;
@@ -263,7 +263,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             try {
                 const result = await runSchema(this.postgresDb);
                 if (result?.userMessages) {
-                    userMessages.push(result?.userMessages);
+                    userMessages.push(...result.userMessages);
                 }
                 currentVersion++;
                 await this.updateSchemaVersion(currentVersion);

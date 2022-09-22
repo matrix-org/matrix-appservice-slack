@@ -987,7 +987,11 @@ export class Main {
             // support.
             const userMessages = await this.datastore.ensureSchema();
             for (const message of userMessages) {
-                const roomId = await this.datastore.getUserAdminRoom(message.matrixId);
+                let roomId = await this.datastore.getUserAdminRoom(message.matrixId);
+                if (!roomId) {
+                    // Unexpected, they somehow set up a puppet without creating an admin room.
+                    roomId = (await UserAdminRoom.inviteAndCreateAdminRoom(message.matrixId, this)).roomId;
+                }
                 log.info(`Sending one-time notice from schema to ${message.matrixId} (${roomId})`);
                 await this.botIntent.sendText(roomId, message.message);
             }
