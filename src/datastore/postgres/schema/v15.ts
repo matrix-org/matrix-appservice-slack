@@ -25,8 +25,7 @@ export const runSchema = async(db: IDatabase<unknown>): Promise<{userMessages: S
             matrixId: u.matrixId,
             message: `Hello. Your Matrix account was puppeted to two or more Slack accounts from the same team${u.teamName}, which` +
             ` is not valid. As a precaution, the bridge has unlinked all Slack accounts where two or more were present from the same team.` +
-            ` You can use the \`whoami\` command to find out if any accounts are still linked. To relink your accounts, simply run \`login\`.
-            `
+            ` You can use the \`whoami\` command to find out if any accounts are still linked. To relink your accounts, simply run \`login\`.`
         })),
     };
 };

@@ -256,6 +256,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
     public async ensureSchema(): Promise<SchemaRunUserMessage[]> {
         const userMessages: SchemaRunUserMessage[] = [];
         let currentVersion = await this.getSchemaVersion();
+        log.info(`Current schema version is v${currentVersion}`);
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
             log.info(`Updating schema to v${currentVersion + 1}`);
             // eslint-disable-next-line @typescript-eslint/no-var-requires
