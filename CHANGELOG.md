@@ -1,3 +1,19 @@
+2.0.0 (2022-10-05)
+==================
+
+Note, as with `2.0.0-rc1`, release requires **Node.16** or greater.
+
+Bugfixes
+--------
+
+- Add missing `reactions:write` scope to oauth scopes. ([\#696](https://github.com/matrix-org/matrix-appservice-slack/issues/696))
+- Fix PostgreSQL schema 14 not applying cleanly if `events` containing NULL columns. ([\#701](https://github.com/matrix-org/matrix-appservice-slack/issues/701))
+- Fix `/metrics` and `/ready` paths requiring authentication. ([\#704](https://github.com/matrix-org/matrix-appservice-slack/issues/704))
+- Disallowed the accidental behaviour of puppeting two or more Slack accounts from the same team to the same Matrix user. This would cause all puppeting for the
+  user to stop working. The bridge will now **automatically delete** any puppeted connections which violate this rule. You will be notified via the bridge when
+  this happens, so you can relink your accounts. ([\#705](https://github.com/matrix-org/matrix-appservice-slack/issues/705))
+
+
 2.0.0-rc1 (2022-07-29)
 ======================
 

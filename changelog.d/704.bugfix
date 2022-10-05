@@ -1,1 +1,0 @@
-Fix `/metrics` and `/ready` paths requiring authentication.
