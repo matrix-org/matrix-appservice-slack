@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Matrix.org Foundation C.I.C.
+Copyright 2019,2022 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -128,6 +128,28 @@ describeFnl("PgDatastore", () => {
             };
             await ds.upsertReaction(entry);
             await ds.upsertReaction(entry);
+        });
+    });
+
+    describe("puppets", () => {
+        afterEach(async () => {
+            await ds.postgresDb.none("DELETE FROM puppets");
+        });
+        it("should allow two puppets on different teams for the same user", async () => {
+            await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_1", "@myuser:id", "MY_TOKEN");
+            await ds.setPuppetToken("MY_TEAM_2", "MY_SLACK_USER_2", "@myuser:id", "DIFF_TOKEN");
+        });
+        it("should not allow two puppets on the same team for the same user", async () => {
+            await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_1", "@myuser:id", "MY_TOKEN");
+            // Allow a different matrix user to have someone on the same team.
+            await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_2", "@diff_user:id", "DIFF_TOKEN");
+            try {
+                await ds.setPuppetToken("MY_TEAM_1", "MY_SLACK_USER_2", "@myuser:id", "DIFF_TOKEN_2");
+            } catch (ex) {
+                expect((ex as Error).message).to.equal('duplicate key value violates unique constraint "puppets_slackuser_key"');
+                return;
+            }
+            throw Error('Expected to fail');
         });
     });
 

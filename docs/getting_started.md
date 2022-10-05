@@ -13,9 +13,8 @@ work for older releases and other homeservers, but configuration may vary.
 
 ```sh
 $ git clone https://github.com/matrix-org/matrix-appservice-slack.git
-$ cd Matrix-appservice-slack
-$ npm install
-$ npm run build
+$ cd matrix-appservice-slack
+$ yarn # Will automatically build the package
 ```
 
 ### With Docker
@@ -73,7 +72,7 @@ ever stuck, you can post a question in the
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
    
-    `$ npm start -- -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
+    `$ yarn start -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
 ```sh
@@ -83,7 +82,7 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
 
 1. Start the actual application service:
 
-    `$ npm start -- -c config/config.yaml -p $MATRIX_PORT`
+    `$ yarn start -c config/config.yaml -p $MATRIX_PORT`
    or with docker:
    
     `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`

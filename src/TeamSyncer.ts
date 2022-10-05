@@ -287,11 +287,9 @@ export class TeamSyncer {
         // Element does it by sending an empty string.
         // https://github.com/matrix-org/matrix-doc/issues/1674
         await slackGhost.intent.setAvatarUrl("");
-        // XXX: We *should* fetch the rooms the user is actually in rather
-        // than just removing it from every room. However, this is quicker to
-        // implement.
-        log.info("Leaving from all rooms");
-        const teamRooms = this.main.rooms.getBySlackTeamId(teamId);
+        const joinedRooms = new Set(await slackGhost.intent.matrixClient.getJoinedRooms());
+        const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.has(r.MatrixRoomId));
+        log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length} rooms`);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
             this.main.membershipQueue.leave(r.MatrixRoomId, slackGhost.matrixUserId, { getId: () => slackGhost.matrixUserId }).catch(() => {

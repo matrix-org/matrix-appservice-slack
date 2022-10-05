@@ -42,13 +42,13 @@ export class SlackTestApi {
         let body = "";
         req.on("data", (chunk) => body += chunk);
         req.on("end", () => {
-            const query = qs.decode(body);
+            const token = req.headers.authorization?.substring('Bearer '.length);
             if (req.method === "POST" && req.url === "/team.info") {
-                this.onTeamInfo(query, res);
+                this.onTeamInfo(token, res);
             } else if (req.method === "POST" && req.url === "/auth.test") {
-                this.onAuthTest(query, res);
+                this.onAuthTest(token, res);
             } else if (req.method === "POST" && req.url === "/users.info") {
-                this.onUsersInfo(query, res);
+                this.onUsersInfo(token, res);
             } else {
                 res.writeHead(404);
                 res.write("Nada");
@@ -57,10 +57,10 @@ export class SlackTestApi {
         });
     }
 
-    private onAuthTest(query: qs.ParsedUrlQuery, res: ServerResponse) {
+    private onAuthTest(token: string|undefined, res: ServerResponse) {
         // Slack usually uses 200s for everything.
         res.writeHead(200, "OK", {"Content-Type": "application/json"});
-        if (this.allowAuthFor.has(query.token as string)) {
+        if (token && this.allowAuthFor.has(token)) {
             res.write(JSON.stringify({
                 ok: true,
                 url: "https://subarachnoid.slack.com/",
@@ -77,10 +77,10 @@ export class SlackTestApi {
         }
     }
 
-    private onTeamInfo(query: qs.ParsedUrlQuery, res: ServerResponse) {
+    private onTeamInfo(token: string|undefined, res: ServerResponse) {
         // Slack usually uses 200s for everything.
         res.writeHead(200, "OK", {"Content-Type": "application/json"});
-        if (this.allowAuthFor.has(query.token as string)) {
+        if (token && this.allowAuthFor.has(token)) {
             res.write(JSON.stringify({
                 ok: true,
                 team: {
@@ -96,10 +96,10 @@ export class SlackTestApi {
         }
     }
 
-    private onUsersInfo(query: qs.ParsedUrlQuery, res: ServerResponse) {
+    private onUsersInfo(token: string|undefined, res: ServerResponse) {
         // Slack usually uses 200s for everything.
         res.writeHead(200, "OK", {"Content-Type": "application/json"});
-        if (this.allowAuthFor.has(query.token as string)) {
+        if (token && this.allowAuthFor.has(token)) {
             res.write(JSON.stringify({
                 ok: true,
                 user: {

@@ -12,7 +12,7 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}/lib/app.js",
-            "preLaunchTask": "npm: build",
+            "preLaunchTask": "yarn: build",
             "args": ["-c", "config/config.yaml", "-p", "5858"],
             "outFiles": [
                 "${workspaceFolder}/**/*.js"

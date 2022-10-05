@@ -48,8 +48,15 @@ interface ClientSessionSchema {
     sync_token?: string;
 }
 
+export interface SchemaRunUserMessage {
+    matrixId: string,
+    message: string
+}
+
+type SchemaRunFn = (db: IDatabase<unknown>) => Promise<void|{userMessages: SchemaRunUserMessage[]}>;
+
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 13;
+    public static readonly LATEST_SCHEMA = 15;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -246,14 +253,18 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         );
     }
 
-    public async ensureSchema(): Promise<void> {
+    public async ensureSchema(): Promise<SchemaRunUserMessage[]> {
+        const userMessages: SchemaRunUserMessage[] = [];
         let currentVersion = await this.getSchemaVersion();
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
             log.info(`Updating schema to v${currentVersion + 1}`);
             // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const runSchema = require(`./schema/v${currentVersion + 1}`).runSchema;
+            const runSchema: SchemaRunFn = require(`./schema/v${currentVersion + 1}`).runSchema;
             try {
-                await runSchema(this.postgresDb);
+                const result = await runSchema(this.postgresDb);
+                if (result?.userMessages) {
+                    userMessages.push(...result.userMessages);
+                }
                 currentVersion++;
                 await this.updateSchemaVersion(currentVersion);
             } catch (ex) {
@@ -262,6 +273,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             }
         }
         log.info(`Database schema is at version v${currentVersion}`);
+        return userMessages;
     }
 
     public async upsertRoom(room: BridgedRoom): Promise<null> {

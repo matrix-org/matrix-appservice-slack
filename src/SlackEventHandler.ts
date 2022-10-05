@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackMessage, ISlackUser } from "./BaseSlackHandler";
+import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackUser } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { Logging } from "matrix-appservice-bridge";
@@ -42,7 +42,11 @@ interface ISlackEventTeamDomainChange extends ISlackEvent {
  */
 interface ISlackEventReaction extends ISlackEvent {
     event_ts: string;
-    item: ISlackMessage;
+    item: {
+        channel: string;
+        text?: string;
+        ts: string;
+    };
     reaction: string;
     user: string;
 }
@@ -218,7 +222,7 @@ export class SlackEventHandler extends BaseSlackHandler {
      * Attempts to make the message as native-matrix feeling as it can.
      * @param ISlackEventParamsMessage The slack message event to handle.
      */
-    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string): Promise<any> {
+    protected async handleMessageEvent(event: ISlackMessageEvent, teamId: string): Promise<void> {
         const room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
         const team = await this.main.datastore.getTeam(teamId);
         if (!room) { throw Error("unknown_channel"); }
@@ -281,14 +285,15 @@ export class SlackEventHandler extends BaseSlackHandler {
                 if (msg.message.bot_id === team.bot_id) {
                     return;
                 } else {
-                    msg.user_id = msg.bot_id!;
+                    msg.user_id = msg.message.bot_id;
                 }
             }
         } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {
             const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
             if (originalEvent) {
                 const botClient = this.main.botIntent.matrixClient;
-                return botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+                await botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+                return;
             }
             // If we don't have the event
             throw Error("unknown_message");

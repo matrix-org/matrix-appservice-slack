@@ -71,7 +71,7 @@ describe("Provisioning", () => {
             expect(match).is.not.null;
             expect(match![1]).to.equal(match![3]);
             expect(match![2]).to.equal(
-                "team%3Aread%2Cusers%3Aread%2Cchannels%3Ahistory%2Cchannels%3Aread%2Cfiles%3Awrite%3Auser%2Cchat%3Awrite%3Abot%2Cusers%3Aread%2Cbot",
+                "bot%2Cchannels%3Ahistory%2Cchannels%3Aread%2Cchat%3Awrite%3Abot%2Cfiles%3Awrite%3Auser%2Creactions%3Awrite%2Cteam%3Aread%2Cusers%3Aread",
             );
         });
         it ("should handle command with puppeting parameter set to false", async () => {
@@ -90,7 +90,7 @@ describe("Provisioning", () => {
             expect(match).is.not.null;
             expect(match![1]).to.equal(match![3]);
             expect(match![2]).to.equal(
-                "team%3Aread%2Cusers%3Aread%2Cchannels%3Ahistory%2Cchannels%3Aread%2Cfiles%3Awrite%3Auser%2Cchat%3Awrite%3Abot%2Cusers%3Aread%2Cbot",
+                "bot%2Cchannels%3Ahistory%2Cchannels%3Aread%2Cchat%3Awrite%3Abot%2Cfiles%3Awrite%3Auser%2Creactions%3Awrite%2Cteam%3Aread%2Cusers%3Aread",
             );
         });
         it ("should handle command with puppeting parameter set to true", async () => {

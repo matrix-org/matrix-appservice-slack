@@ -39,7 +39,7 @@ export class UserAdminRoom {
         return adminRoom;
     }
 
-    constructor(private roomId: string, private userId: string, private main: Main) {
+    constructor(public readonly roomId: string, private userId: string, private main: Main) {
 
     }
 
