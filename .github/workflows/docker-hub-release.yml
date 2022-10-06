@@ -5,8 +5,6 @@ name: "Docker Hub - Release"
 on:
   release:
     types: [published]
-  push:
-    tags: [2.0.0-testing-release-fix]
 
 env:
   DOCKER_NAMESPACE: matrixdotorg
