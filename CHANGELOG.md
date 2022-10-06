@@ -1,3 +1,9 @@
+2.0.1 (2022-10-06)
+==================
+
+This release fixes a bug in our build system that prevented Docker images from being built. Users not using Docker on `2.0.0`
+are not required to upgrade.
+
 2.0.0 (2022-10-05)
 ==================
 
