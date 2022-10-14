@@ -324,6 +324,8 @@ export class SlackGhost {
                 // If the reply event is part of a thread, continue the thread.
                 // Otherwise, attach a thread to the reply event.
                 "event_id": replyEvent.content["m.relates_to"]?.event_id ?? replyEvent.event_id,
+                // Say that our reply is a thread fallback so clients that support threads can ignore it
+                "is_falling_back": true,
                 "m.in_reply_to": {
                     event_id: replyEvent.event_id,
                 },
