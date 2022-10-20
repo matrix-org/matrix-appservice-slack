@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
+import { Logger, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { IConfig } from "./IConfig";
 import * as path from "path";
@@ -54,8 +54,8 @@ const cli = new Cli({
         if (!config) {
             throw Error('Config not ready');
         }
-        Logging.configure(config.logging || {});
-        const log = Logging.get("app");
+        Logger.configure(config.logging || {});
+        const log = new Logger("app");
         // Format config
         if (!registration) {
             throw Error('registration must be defined');

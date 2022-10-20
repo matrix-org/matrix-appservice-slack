@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, Intent } from "matrix-appservice-bridge";
+import { Logger, Intent } from "matrix-appservice-bridge";
 import * as Slackdown from "Slackdown";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
@@ -22,7 +22,7 @@ import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 import { UserEntry, Datastore } from "./datastore/Models";
 import axios from "axios";
 
-const log = Logging.get("SlackGhost");
+const log = new Logger("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes

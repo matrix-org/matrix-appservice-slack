@@ -18,7 +18,7 @@ import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
-import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
+import { Logger, MatrixUser, ClientEncryptionStore, ClientEncryptionSession, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -39,7 +39,7 @@ const pgp: IMain = pgInit({
     // Initialization Options
 });
 
-const log = Logging.get("PgDatastore");
+const log = new Logger("PgDatastore");
 
 interface ClientSessionSchema {
     user_id: string;

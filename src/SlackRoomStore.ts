@@ -1,10 +1,10 @@
 import { BridgedRoom } from "./BridgedRoom";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import QuickLRU from "@alloc/quick-lru";
 import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { Main } from "./Main";
 
-const log = Logging.get("SlackRoomStore");
+const log = new Logger("SlackRoomStore");
 
 export class SlackRoomStore {
     private rooms: Set<BridgedRoom> = new Set();

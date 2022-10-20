@@ -306,6 +306,13 @@
   resolved "https://registry.yarnpkg.com/@types/p-queue/-/p-queue-2.3.2.tgz#16bc5fece69ef85efaf2bce8b13f3ebe39c5a1c8"
   integrity sha512-eKAv5Ql6k78dh3ULCsSBxX6bFNuGjTmof5Q/T6PiECDq0Yf8IIn46jCyp3RJvCi8owaEmm3DZH1PEImjBMd/vQ==
 
+"@types/pkginfo@^0.4.0":
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/@types/pkginfo/-/pkginfo-0.4.0.tgz#00143b97e98aa7c9391943266d2e4aebd8f44c35"
+  integrity sha512-4DGKkOlWkMuVDZQvytWzzWWAjyqDmlLKRYE4lzeA8t0s7fK0aF25uPbX9eBVermUjLJdeLHu9k1WmNiAssqCcg==
+  dependencies:
+    "@types/node" "*"
+
 "@types/qs@*":
   version "6.9.7"
   resolved "https://registry.yarnpkg.com/@types/qs/-/qs-6.9.7.tgz#63bb7d067db107cc1e457c303bc25d511febf6cb"
@@ -1975,12 +1982,13 @@ make-error@^1.1.1:
   resolved "https://registry.yarnpkg.com/make-error/-/make-error-1.3.6.tgz#2eb2e37ea9b67c4891f684a1394799af484cf7a2"
   integrity sha512-s8UhlNe7vPKomQhC1qFelMokr/Sc3AgNbso3n74mVPA5LTZwkB9NlXf4XPamLxJE8h0gh73rM94xvwRT2CVInw==
 
-matrix-appservice-bridge@^5.1.0:
-  version "5.1.0"
-  resolved "https://registry.yarnpkg.com/matrix-appservice-bridge/-/matrix-appservice-bridge-5.1.0.tgz#85a8b1c95a43279a95621caed3043746aeb21c05"
-  integrity sha512-RZq/wwWqtPClTxqDSJ9FQCOw7fCflp8Xw4/qLb+XheA3wnuqfz8WfEX8DfTeA7npYzttd+3OiweY57rOlf5QcA==
+matrix-appservice-bridge@^6.0.0:
+  version "6.0.0"
+  resolved "https://registry.yarnpkg.com/matrix-appservice-bridge/-/matrix-appservice-bridge-6.0.0.tgz#ef091aceac8e24f7fd4c4e57676b2e028692d8de"
+  integrity sha512-fUQhTw9xGZk2uwrTejpdmYjmm2Myp1VTKWfdLtHs3M5YHOwPTh9rA9UmWQcS5DOKFiqD4r1kiNl6jgu0/I5vTg==
   dependencies:
     "@alloc/quick-lru" "^5.2.0"
+    "@types/pkginfo" "^0.4.0"
     axios "^0.27.2"
     chalk "^4.1.0"
     express "^4.18.1"
@@ -1990,10 +1998,11 @@ matrix-appservice-bridge@^5.1.0:
     is-my-json-valid "^2.20.5"
     js-yaml "^4.0.0"
     matrix-appservice "^1.1.0"
-    matrix-bot-sdk "^0.6.1"
+    matrix-bot-sdk "^0.6.2"
     nedb "^1.8.0"
     nopt "^5.0.0"
     p-queue "^6.6.2"
+    pkginfo "^0.4.1"
     prom-client "^14.0.0"
     uuid "^8.3.2"
     winston "^3.3.3"
@@ -2010,10 +2019,10 @@ matrix-appservice@^1.1.0:
     js-yaml "^4.1.0"
     morgan "^1.10.0"
 
-matrix-bot-sdk@^0.6.1:
-  version "0.6.1"
-  resolved "https://registry.yarnpkg.com/matrix-bot-sdk/-/matrix-bot-sdk-0.6.1.tgz#29c5d92fd6bc2eb0f6be2540ed133d8ffadaed93"
-  integrity sha512-xbSQUpbuQq9Oj5f5GeprKndJZqdB9N9majg+VwIEcBGBscpWCskX32kTaoNhTHAE92XlM+qnwFME45TYElf4tA==
+matrix-bot-sdk@^0.6.2:
+  version "0.6.2"
+  resolved "https://registry.yarnpkg.com/matrix-bot-sdk/-/matrix-bot-sdk-0.6.2.tgz#c9334b39f62a9742d74e46312def566429dfef26"
+  integrity sha512-+kXlXkQBQgWC6oUwYEosJlXjceaj7jQUnPlALFhGeAabgVm8tmuvFNVKqClwvrrjj+0Gzsmt+rcJHmkvqymFXA==
   dependencies:
     "@matrix-org/matrix-sdk-crypto-nodejs" "^0.1.0-beta.1"
     "@types/express" "^4.17.13"
@@ -2509,6 +2518,11 @@ pify@^3.0.0:
   version "3.0.0"
   resolved "https://registry.yarnpkg.com/pify/-/pify-3.0.0.tgz#e5a4acd2c101fdf3d9a4d07f0dbc4db49dd28176"
   integrity sha512-C3FsVNH1udSEX48gGX1xfvwTWfsYWj5U+8/uK15BGzIGrKoUpghX8hWZwa/OFnakBiiVNmBvemTJR5mcy7iPcg==
+
+pkginfo@^0.4.1:
+  version "0.4.1"
+  resolved "https://registry.yarnpkg.com/pkginfo/-/pkginfo-0.4.1.tgz#b5418ef0439de5425fc4995042dced14fb2a84ff"
+  integrity sha512-8xCNE/aT/EXKenuMDZ+xTVwkT8gsoHN2z/Q29l80u0ppGEXVvsKRzNMbtKhg8LS8k1tJLAHHylf6p4VFmP6XUQ==
 
 postcss@^8.3.11:
   version "8.4.14"

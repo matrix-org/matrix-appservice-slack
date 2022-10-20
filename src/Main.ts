@@ -16,7 +16,7 @@ limitations under the License.
 
 import {
     Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,
-    Logging, Intent, UserMembership, WeakEvent, PresenceEvent,
+    Logger, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
     UserActivityTrackerConfig, MembershipQueue, PowerLevelContent, StateLookupEvent } from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
@@ -47,7 +47,7 @@ import { TeamSyncer } from "./TeamSyncer";
 import { SlackGhostStore } from "./SlackGhostStore";
 import { AllowDenyList, DenyReason } from "./AllowDenyList";
 
-const log = Logging.get("Main");
+const log = new Logger("Main");
 
 const STARTUP_TEAM_INIT_CONCURRENCY = 10;
 const STARTUP_RETRY_TIME_MS = 5000;

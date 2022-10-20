@@ -1,17 +1,17 @@
 import { RTMClient, LogLevel } from "@slack/rtm-api";
 import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { PuppetEntry } from "./datastore/Models";
 import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo, UsersInfoResponse } from "./SlackResponses";
 import { ISlackMessageEvent } from "./BaseSlackHandler";
-import { WebClient, Logger } from "@slack/web-api";
+import { WebClient, Logger as SlackLogger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
 import { createDM } from "./RoomCreation";
 
-const log = Logging.get("SlackRTMHandler");
+const log = new Logger("SlackRTMHandler");
 
 const LOG_TEAM_LEN = 12;
 /**
@@ -198,7 +198,7 @@ export class SlackRTMHandler extends SlackEventHandler {
 
     private createRtmClient(token: string, logLabel: string): RTMClient {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
-        const connLog = Logging.get(`RTM-${logLabel.slice(0, LOG_TEAM_LEN)}`);
+        const connLog = new Logger(`RTM-${logLabel.slice(0, LOG_TEAM_LEN)}`);
         const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm?.log_level || "silent");
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
@@ -210,7 +210,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 warn: logLevel <= 1 ? connLog.warn.bind(connLog) : () => {},
                 info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
                 error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
-            } as Logger,
+            } as SlackLogger,
         });
 
         rtm.on("error", (error) => {

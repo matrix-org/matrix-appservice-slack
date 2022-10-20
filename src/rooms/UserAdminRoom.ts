@@ -1,11 +1,11 @@
 import { Main } from "../Main";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { UsersInfoResponse } from "../SlackResponses";
 import { createDM } from "../RoomCreation";
 import { promises as fs } from "fs";
 import * as path from "path";
 
-const log = Logging.get("UserAdminRoom");
+const log = new Logger("UserAdminRoom");
 
 const COMMAND_HELP = {
     help: { desc: "Shows you this help text" },

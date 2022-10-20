@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import axios from "axios";
-import { Logging, Intent } from "matrix-appservice-bridge";
+import { Logger, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
@@ -26,7 +26,7 @@ import { ChatUpdateResponse,
     ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse, FilesSharedPublicURLResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
-const log = Logging.get("BridgedRoom");
+const log = new Logger("BridgedRoom");
 
 type SlackChannelTypes = "mpim"|"im"|"channel"|"group"|"unknown";
 

@@ -16,7 +16,7 @@ limitations under the License.
 
 import * as querystring from "querystring";
 import { v4 as uuid } from "uuid";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { Main, METRIC_OAUTH_SESSIONS } from "./Main";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
@@ -25,7 +25,7 @@ import { Template, compile } from "nunjucks";
 import { promises as fs } from "fs";
 import * as path from "path";
 
-const log = Logging.get("OAuth2");
+const log = new Logger("OAuth2");
 
 // The full set of OAuth2 scopes we currently require for all functionality
 const REQUIRED_SCOPES = [
