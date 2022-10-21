@@ -19,7 +19,7 @@ import { createServer as httpCreate, RequestListener,
     Server, IncomingMessage, ServerResponse } from "http";
 import { createServer as httpsCreate } from "https";
 import * as qs from "querystring";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { BaseSlackHandler, HTTP_CODES, ISlackEvent, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
@@ -27,7 +27,7 @@ import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
-const log = Logging.get("SlackHookHandler");
+const log = new Logger("SlackHookHandler");
 
 const PRESERVE_KEYS = [
     "team_domain", "team_id",

@@ -19,7 +19,7 @@ limitations under the License.
  * to a postgres one.
  */
 
-import { Logging, MatrixUser, UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
+import { Logger, MatrixUser, UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
 import NeDB from "nedb";
 import * as path from "path";
 import { promisify } from "util";
@@ -30,8 +30,8 @@ import { SlackGhost } from "../SlackGhost";
 import { Datastore } from "../datastore/Models";
 import { SlackClientFactory } from "../SlackClientFactory";
 
-Logging.configure({ console: "info" });
-const log = Logging.get("script");
+Logger.configure({ console: "info" });
+const log = new Logger("script");
 
 const POSTGRES_URL = process.argv[2];
 const NEDB_DIRECTORY = process.argv[3] || "";

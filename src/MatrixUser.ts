@@ -1,4 +1,4 @@
-import { Logging, StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
+import { Logger, StateLookupEvent, UserProfile } from "matrix-appservice-bridge";
 /*
 Copyright 2019 The Matrix.org Foundation C.I.C.
 
@@ -17,7 +17,7 @@ limitations under the License.
 
 import { Main } from "./Main";
 
-const log = Logging.get("MatrixUser");
+const log = new Logger("MatrixUser");
 
 /**
  * A Matrix event `m.room.member` indicating a user's presence in a room.

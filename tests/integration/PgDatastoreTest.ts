@@ -13,12 +13,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import pgInit from "pg-promise";
 import { PgDatastore } from "../../src/datastore/postgres/PgDatastore";
 import { expect } from "chai";
 import { doDatastoreTests } from "./SharedDatastoreTests";
-const log = Logging.get("PgDatastoreTest");
+const log = new Logger("PgDatastoreTest");
 
 const enableTest = process.env.SLACKBRIDGE_TEST_ENABLEPG === "yes";
 const describeFnl = enableTest ? describe : describe.skip;
@@ -32,7 +32,7 @@ describeFnl("PgDatastore", () => {
     let superDb: pgInit.IDatabase<any>;
     let ds: PgDatastore;
     before(async () => {
-        Logging.configure({console: "info"});
+        Logger.configure({console: "info"});
         superDb = pgp(POSTGRES_URL + "/postgres");
         ds = new PgDatastore(POSTGRES_URL_DB);
         try {
@@ -154,6 +154,6 @@ describeFnl("PgDatastore", () => {
     });
 
     after(async () => {
-        Logging.configure({console: "off"});
+        Logger.configure({console: "off"});
     });
 });

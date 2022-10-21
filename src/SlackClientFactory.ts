@@ -1,10 +1,10 @@
 import { Datastore, TeamEntry } from "./datastore/Models";
-import { WebClient, WebClientOptions, LogLevel, Logger, WebAPIPlatformError } from "@slack/web-api";
-import { Logging } from "matrix-appservice-bridge";
+import { WebClient, WebClientOptions, LogLevel, Logger as SlackLogger, WebAPIPlatformError } from "@slack/web-api";
+import { Logger } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
 
-const webLog = Logging.get("slack-api");
-const log = Logging.get("SlackClientFactory");
+const webLog = new Logger("slack-api");
+const log = new Logger("SlackClientFactory");
 
 /**
  * How long should we wait before checking if a token is still valid.
@@ -58,7 +58,7 @@ export class SlackClientFactory {
                 warn: webLog.warn.bind(webLog),
                 info: webLog.info.bind(webLog),
                 error: webLog.error.bind(webLog),
-            } as Logger,
+            } as SlackLogger,
             logLevel: LogLevel.DEBUG,
             ...opts,
         });

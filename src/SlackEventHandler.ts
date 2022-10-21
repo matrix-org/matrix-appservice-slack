@@ -17,8 +17,8 @@ limitations under the License.
 import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackUser } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
-import { Logging } from "matrix-appservice-bridge";
-const log = Logging.get("SlackEventHandler");
+import { Logger } from "matrix-appservice-bridge";
+const log = new Logger("SlackEventHandler");
 
 /**
  * https://api.slack.com/events/channel_rename

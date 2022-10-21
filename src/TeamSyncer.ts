@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo,
@@ -26,7 +26,7 @@ import { DenyReason } from "./AllowDenyList";
 import { TeamEntry } from "./datastore/Models";
 import { SlackGhost } from "./SlackGhost";
 
-const log = Logging.get("TeamSyncer");
+const log = new Logger("TeamSyncer");
 
 export interface ITeamSyncConfig {
     channels?: {

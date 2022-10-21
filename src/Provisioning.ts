@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Bridge, Logging } from "matrix-appservice-bridge";
+import { Bridge, Logger } from "matrix-appservice-bridge";
 import { Request, Response } from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
 import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
 
-const log = Logging.get("Provisioning");
+const log = new Logger("Provisioning");
 
 class ProvisioningError extends Error {
     constructor(public readonly code: number, public readonly text: string) {

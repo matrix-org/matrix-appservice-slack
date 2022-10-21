@@ -3,9 +3,9 @@ import { Datastore } from "./datastore/Models";
 import { SlackGhost } from "./SlackGhost";
 import { IConfig } from "./IConfig";
 import QuickLRU from "@alloc/quick-lru";
-import { Logging, Bridge } from "matrix-appservice-bridge";
+import { Logger, Bridge } from "matrix-appservice-bridge";
 
-const log = Logging.get("SlackGhostStore");
+const log = new Logger("SlackGhostStore");
 
 /**
  * Class that supports the creation of slack ghosts.

@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
 import escapeStringRegexp from "escape-string-regexp";
 
-const log = Logging.get("substitutions");
+const log = new Logger("substitutions");
 
 const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file", "m.image"];
 const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\/a>/g;
