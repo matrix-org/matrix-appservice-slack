@@ -144,7 +144,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             try {
                 await this.handleEvent(event, teamId);
             } catch (ex) {
-                log.warn("Didn't handle event");
                 err = ex as Error;
             }
 
@@ -169,6 +168,7 @@ export class SlackEventHandler extends BaseSlackHandler {
                 endTimer({outcome: "dropped"});
                 return;
             } else if (err.message === "unknown_event" || err.message === "ignored") {
+                log.debug(`Didn't handle event: ${err.message}`);
                 // where ignored means we deliberately don't care about an event.
                 endTimer({outcome: "dropped"});
             } else {
