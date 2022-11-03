@@ -1,0 +1,1 @@
+Fix crash in `whoami` command when the team name of a Slack account is unavailable.

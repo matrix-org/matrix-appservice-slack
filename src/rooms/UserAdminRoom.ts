@@ -143,7 +143,7 @@ export class UserAdminRoom {
                 continue;
             }
             body += `You are logged in as ${user.name} (${team?.name || puppet.teamId})\n`;
-            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team!.name || puppet.teamId}) </li>`;
+            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team?.name || puppet.teamId}) </li>`;
         }
         formattedBody += "</ul>";
         return this.sendNotice(body, formattedBody);
