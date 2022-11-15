@@ -927,20 +927,10 @@ export class Main {
             response.push(responseMsg);
         };
 
-        try {
-            // This will return true or false if the command matched.
-            const matched = await this.adminCommands.parse(cmd, respond);
-            if (!matched) {
-                log.debug(`Unrecognised command "${cmd}"`);
-                respond(`Unrecognised command "${cmd}"`);
-            } else if (response.length === 0) {
-                respond("Done");
-            }
-        } catch (ex) {
-            const error = ex as {message: string; name?: "YError"};
-            log.warn(`Command '${cmd}' failed to complete:`, ex);
-            // YErrors are yargs errors when the user inputs the command wrong.
-            respond(`${error.name === "YError" ? error.message : "Command failed: See the logs for details."}`);
+        const waiter = this.adminCommands.parse(cmd, respond, ev.sender);
+        await waiter;
+        if (response.length === 0) {
+            respond("Done");
         }
 
         const message = response.join("\n");

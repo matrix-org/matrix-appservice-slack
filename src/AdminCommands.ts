@@ -16,7 +16,7 @@ limitations under the License.
 
 import { Logger } from "matrix-appservice-bridge";
 import * as yargs from "yargs";
-import { AdminCommand, ResponseCallback } from "./AdminCommand";
+import { AdminCommand, IHandlerArgs, ResponseCallback } from "./AdminCommand";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 
@@ -31,8 +31,10 @@ const RoomIdCommandOption = {
 export class AdminCommands {
     private yargs: yargs.Argv;
     private commands: AdminCommand[];
+    private latestCommandWaiterForSender: Map<string, Promise<void>> = new Map();
     constructor(private main: Main) {
         this.commands = [
+            this.onUnmatched,
             this.list,
             this.show,
             this.link,
@@ -47,19 +49,26 @@ export class AdminCommands {
         this.yargs = yargs.parserConfiguration({})
             .version(false)
             .help(false); // We provide our own help, and version is not required.
+        // NOTE: setting exitProcess() is unnecessary when parse() is provided a callback.
 
         this.commands.forEach((cmd) => {
-            this.yargs = this.yargs.command(
+            this.yargs.command<IHandlerArgs>(
                 cmd.command,
                 cmd.description,
-                cmd.options ?? {},
-                // Our intergration with yargs is quite broken and messy, so
-                // to avoid further pain this just assumes that the handler/yargs
-                // calling is safe.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                async (argv) => cmd.handler(argv as any),
-            ).exitProcess(false)
-                .showHelpOnFail(false);
+                () => cmd.options ?? {},
+                // NOTE: yargs documentation advises against command() returning a Promise
+                // when parse() will be called multiple times, so instead resolve any
+                // asynchronous operations of the callbacks elsewhere.
+                (argv) => void cmd.handler(argv),
+            );
+        });
+    }
+
+    public get onUnmatched(): AdminCommand {
+        return new AdminCommand("*", "", (args) => {
+            const cmd = args._[0];
+            log.debug(`Unrecognised command "${cmd}"`);
+            args.respond(`Unrecognised command "${cmd}"`);
         });
     }
 
@@ -365,15 +374,19 @@ export class AdminCommands {
             }) => {
                 if (command) {
                     const cmd = this.commands.find((adminCommand) => (adminCommand.command.split(' ')[0] === command));
-                    if (!cmd) {
+                    const help = cmd?.detailedHelp();
+                    if (!help) {
                         respond("Command not found. No help can be provided.");
-                        return;
+                    } else {
+                        help.forEach((s) => respond(s));
                     }
-                    cmd.detailedHelp().forEach((s) => respond(s));
                     return;
                 }
                 this.commands.forEach((cmd) => {
-                    respond(cmd.simpleHelp());
+                    const help = cmd.simpleHelp();
+                    if (help) {
+                        respond(help);
+                    }
                 });
             },
             {
@@ -384,14 +397,28 @@ export class AdminCommands {
         );
     }
 
-    public async parse(argv: string, respond: ResponseCallback): Promise<boolean> {
-        // yargs has no way to tell us if a command matched, so we have this
-        // slightly whacky function to manage it.
-        let matched = false;
-        await this.yargs.parse(argv, {
-            matched: () => { matched = true; },
-            respond,
+    /**
+     * Queue a command to be parsed & executed.
+     * NOTE: Callers should await not on a call of this function, but on its return value.
+     * Doing so ensures that commands will be queued in the order in which they're issued.
+     */
+    public async parse(argv: string, respond: ResponseCallback, sender: string): Promise<void> {
+        const currCommandWaiter = new Promise<void>(resolve => {
+            const prevCommandWaiter = this.latestCommandWaiterForSender.get(sender) ?? Promise.resolve();
+            void prevCommandWaiter.then(() => {
+                this.yargs.parseSync(argv, {
+                    respond,
+                }, (error) => {
+                    if (error) {
+                        // NOTE: Throwing here makes yargs.argv get "stuck" on an error object, so just handle the error now
+                        log.warn(`Command '${argv}' failed to complete:`, {message: error.message, name: error.name});
+                        // YErrors are yargs errors when the user inputs the command wrong.
+                        respond(`${error.name === "YError" ? error.message : "Command failed: See the logs for details."}`);
+                    }
+                });
+            }).finally(resolve);
         });
-        return matched;
+        this.latestCommandWaiterForSender.set(sender, currCommandWaiter);
+        return currCommandWaiter;
     }
 }
