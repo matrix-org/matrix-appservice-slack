@@ -918,7 +918,7 @@ export class Main {
             return;
         }
 
-        const response: string[] = [];
+        let response: string[] | null = [];
         const respond = (responseMsg: string) => {
             if (!response) {
                 log.info(`Command response too late: ${responseMsg}`);
@@ -928,12 +928,19 @@ export class Main {
         };
 
         const waiter = this.adminCommands.parse(cmd, respond, ev.sender);
-        await waiter;
-        if (response.length === 0) {
-            respond("Done");
+        try {
+            await waiter;
+            if (response.length === 0) {
+                respond("Done");
+            }
+        } catch (ex) {
+            log.warn(`Command '${cmd}' failed to complete:`, ex);
+            // YErrors are yargs errors when the user inputs the command wrong.
+            respond(`${ex instanceof Error && ex.name === "YError" ? ex.message : "Command failed: See the logs for details."}`);
         }
 
         const message = response.join("\n");
+        response = null;
 
         await this.botIntent.sendEvent(ev.room_id, "m.room.message", {
             body: message,

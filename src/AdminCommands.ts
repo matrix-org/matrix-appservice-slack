@@ -48,6 +48,7 @@ export class AdminCommands {
 
         this.yargs = yargs.parserConfiguration({})
             .version(false)
+            .showHelpOnFail(false)
             .help(false); // We provide our own help, and version is not required.
         // NOTE: setting exitProcess() is unnecessary when parse() is provided a callback.
 
@@ -403,20 +404,19 @@ export class AdminCommands {
      * Doing so ensures that commands will be queued in the order in which they're issued.
      */
     public async parse(argv: string, respond: ResponseCallback, sender: string): Promise<void> {
-        const currCommandWaiter = new Promise<void>(resolve => {
+        const currCommandWaiter = new Promise<void>((resolve, reject) => {
             const prevCommandWaiter = this.latestCommandWaiterForSender.get(sender) ?? Promise.resolve();
-            void prevCommandWaiter.then(() => {
+            void prevCommandWaiter.finally(() => {
                 this.yargs.parseSync(argv, {
                     respond,
+                    resolve,
                 }, (error) => {
                     if (error) {
-                        // NOTE: Throwing here makes yargs.argv get "stuck" on an error object, so just handle the error now
-                        log.warn(`Command '${argv}' failed to complete:`, {message: error.message, name: error.name});
-                        // YErrors are yargs errors when the user inputs the command wrong.
-                        respond(`${error.name === "YError" ? error.message : "Command failed: See the logs for details."}`);
+                        // NOTE: Throwing here makes yargs.argv get stuck on an error object, so reject instead
+                        reject(error);
                     }
                 });
-            }).finally(resolve);
+            }).catch(reject); // NOTE: This catch is here in case something unexpected throws
         });
         this.latestCommandWaiterForSender.set(sender, currCommandWaiter);
         return currCommandWaiter;

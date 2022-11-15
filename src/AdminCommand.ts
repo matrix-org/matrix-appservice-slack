@@ -19,6 +19,7 @@ import { Arguments, Options } from "yargs";
 export type ResponseCallback = (response: string) => void;
 export interface IHandlerArgs {
     respond: ResponseCallback;
+    resolve: () => void;
 }
 type CommandCallback = (args: Arguments<IHandlerArgs>) => void|Promise<void>;
 
@@ -26,8 +27,12 @@ export class AdminCommand {
     constructor(
         public readonly command: string,
         public readonly description: string,
-        public readonly handler: CommandCallback,
+        private readonly cb: CommandCallback,
         public readonly options: {[key: string]: Options}|null = null) {
+    }
+
+    public handler(argv: Arguments<IHandlerArgs>): void {
+        void Promise.resolve(this.cb(argv)).finally(argv.resolve);
     }
 
     /**
