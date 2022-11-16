@@ -14,17 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Options } from "yargs";
+import { Arguments, Options } from "yargs";
 
 export type ResponseCallback = (response: string) => void;
-interface IHandlerArgs {
-    matched: () =>  void;
+export interface IHandlerArgs {
     respond: ResponseCallback;
-    // yargs annoyingly puts the string parameters in with the more complex types
-    // above. To save lots of if|else|other types, unknown is being used here.
-    [key: string]: unknown;
+    resolve: () => void;
 }
-type CommandCallback = (args: IHandlerArgs) => void|Promise<void>;
+type CommandCallback = (args: Arguments<IHandlerArgs>) => void|Promise<void>;
 
 export class AdminCommand {
     constructor(
@@ -34,19 +31,18 @@ export class AdminCommand {
         public readonly options: {[key: string]: Options}|null = null) {
     }
 
-    public async handler(argv: IHandlerArgs): Promise<void> {
-        argv.matched();
-        try {
-            await this.cb(argv);
-        } catch (ex) {
-        }
+    public handler(argv: Arguments<IHandlerArgs>): void {
+        void Promise.resolve(this.cb(argv)).finally(argv.resolve);
     }
 
     /**
      * Returns a one-liner of how to use the command.
      * @returns A short description of the command
      */
-    public simpleHelp(): string {
+    public simpleHelp(): string|null {
+        if (!this.description) {
+            return null;
+        }
         const opts = this.options || {};
         const commandString = Object.keys(opts).sort((a, b) => {
             const x = opts[a].demandOption;
@@ -75,7 +71,10 @@ export class AdminCommand {
      * Returns a detailed description of the command and its options.
      * @returns An array of strings. Display each string in a separate line for the user.
      */
-    public detailedHelp(): string[] {
+    public detailedHelp(): string[]|null {
+        if (!this.description) {
+            return null;
+        }
         const response: string[] = [];
         response.push(`${this.command} - ${this.description}`);
         const opts = this.options || {};

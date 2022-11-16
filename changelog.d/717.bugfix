@@ -1,0 +1,1 @@
+Prevent admin commands from being unusable after an invalid command is issued.
