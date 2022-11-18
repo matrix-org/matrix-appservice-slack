@@ -85,7 +85,7 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
     `$ yarn start -c config/config.yaml -p $MATRIX_PORT`
    or with docker:
    
-    `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
+    `$ docker run -d -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
 
 1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
