@@ -15,8 +15,12 @@ limitations under the License.
 */
 
 import { Intent } from "matrix-appservice-bridge";
+import { MatrixProfileInfo } from "matrix-bot-sdk";
 
-export const createDM = async (senderIntent: Intent, recipients: string|string[], name?: string, encrypted = false): Promise<string> => {
+// TODO: Keep room name/avatar synced with changes to DM user's profile info
+export const createDM = async (
+    senderIntent: Intent, recipients: string|string[], profile?: MatrixProfileInfo, encrypted = false
+): Promise<string> => {
     if (!Array.isArray(recipients)) {
         recipients = [recipients];
     }
@@ -32,13 +36,24 @@ export const createDM = async (senderIntent: Intent, recipients: string|string[]
             }
         );
     }
+    if (profile?.avatar_url) {
+        extraContent.push(
+            {
+                type: "m.room.avatar",
+                state_key: "",
+                content: {
+                    url: profile.avatar_url,
+                }
+            }
+        );
+    }
     const { room_id } = await senderIntent.createRoom({
         createAsClient: true,
         options: {
             invite: recipients,
             preset: "private_chat",
             is_direct: true,
-            name,
+            name: profile?.displayname,
             initial_state: extraContent,
         },
     });

@@ -275,17 +275,20 @@ export class SlackRTMHandler extends SlackEventHandler {
                     id ? this.main.ghostStore.get(id, event.team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];
 
-            const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
+            const ghostIdx = ghosts.findIndex((g) => g.slackId !== puppet.slackId);
+            const ghost = ghosts[ghostIdx];
+            const otherGhosts = ghosts.slice(0, ghostIdx).concat(ghosts.slice(ghostIdx+1));
+            if (otherGhosts.length !== 1) {
+                log.warn(`Expected only 1 other ghost in a Slack IM, but found ${otherGhosts.length}`);
+            }
 
             log.info(`Creating new DM room for ${event.channel}`);
-            const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId);
-            const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
             // Create a new DM room.
             await ghost.update({ user: ghost.slackId });
             const roomId = await createDM(
                 ghost.intent,
                 [puppet.matrixId].concat(ghosts.map((g) => g.matrixUserId)),
-                name,
+                await this.determineRoomMetadata(chanInfo.channel, ghost, slackClient),
                 this.main.encryptRoom,
             );
             room = new BridgedRoom(this.main, {
@@ -318,14 +321,11 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.info("Failing channel info:", chanInfo.channel);
     }
 
-    private async determineRoomName(chan: ConversationsInfo, otherGhosts: SlackGhost[],
-        puppet: PuppetEntry, client: WebClient): Promise<string|undefined> {
+    private async determineRoomMetadata(chan: ConversationsInfo, ghost: SlackGhost, client: WebClient) {
         if (chan.is_mpim) {
             return undefined; // allow the client to decide.
         }
-        if (otherGhosts.length) {
-            return await otherGhosts[0].getDisplayname(client);
-        }
-        // No other ghosts, leave it undefined.
+        await ghost.update({ user_id: ghost.matrixUserId }, client);
+        return await ghost.intent.getProfileInfo(ghost.matrixUserId);
     }
 }

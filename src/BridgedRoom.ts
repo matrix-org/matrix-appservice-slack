@@ -646,7 +646,11 @@ export class BridgedRoom {
             log.debug("No client");
             return;
         }
-        await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
+        if (this.SlackType !== "im") {
+            await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
+        } else {
+            await this.main.actionUnlink({ matrix_room_id: this.MatrixRoomId });
+        }
     }
 
     public async onMatrixJoin(userId: string): Promise<void> {

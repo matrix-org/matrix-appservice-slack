@@ -260,7 +260,7 @@ export class SlackGhost {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
-        let avatarUrl;
+        let avatarUrl: string|undefined;
         let hash: string|undefined;
         if (message.bot_id && message.user_id) {
             // In the case of operations on bots, we will have both a bot_id and a user_id.
@@ -280,7 +280,7 @@ export class SlackGhost {
             return;
         }
 
-        if (this.avatarHash === hash) {
+        if (!avatarUrl || this.avatarHash === hash) {
             return;
         }
 

@@ -540,6 +540,61 @@ export class Main {
         }
     }
 
+    private async fixDMMetadata(room: BridgedRoom) {
+        if (room.SlackType !== "im" || !room.SlackTeamId) {
+            return;
+        }
+        const matrixRecipients: string[] = [];
+        const slackRecipients: SlackGhost[] = [];
+        const slackGhosts: SlackGhost[] = [];
+        const userIds = await this.listGhostUsers(room.MatrixRoomId);
+        for (const userId of userIds) {
+            const slackGhost = await this.ghosts.getExisting(userId);
+            if (!slackGhost) {
+                log.warn(`Could not find Slack ghost for ${userId} in DM ${room.MatrixRoomId}`);
+                continue;
+            }
+            slackGhosts.push(slackGhost);
+            const puppetMatrixUser = await this.datastore.getPuppetMatrixUserBySlackId(room.SlackTeamId, slackGhost.slackId);
+            if (puppetMatrixUser) {
+                matrixRecipients.push(puppetMatrixUser);
+            } else {
+                slackRecipients.push(slackGhost);
+            }
+        }
+        if (matrixRecipients.length !== 1) {
+            log.warn(
+                `Cannot update metadata of DM ${room.MatrixRoomId} with ${!matrixRecipients.length ? "no" : "multiple"} potential Matrix recipients`,
+                matrixRecipients.join(","));
+        } else if (slackRecipients.length !== 1) {
+            log.warn(
+                `Cannot update metadata of DM ${room.MatrixRoomId} with ${!slackRecipients.length ? "no" : "multiple"} potential Slack recipients`,
+                slackRecipients.join(","));
+        } else {
+            const matrixRecipient = matrixRecipients[0];
+            const slackRecipient = slackRecipients[0];
+            const slackClient = (await room.getClientForRequest(matrixRecipient))?.client;
+            if (slackClient) {
+                await slackRecipient.update({ user_id: slackRecipient.matrixUserId }, slackClient);
+            }
+            for (const slackGhost of slackGhosts) {
+                try {
+                    const intent = this.getIntent(slackGhost.matrixUserId);
+                    const profileInfo = await intent.getProfileInfo(slackRecipient.matrixUserId);
+                    if (profileInfo.displayname) {
+                        await intent.setRoomName(room.MatrixRoomId, profileInfo.displayname);
+                    }
+                    if (profileInfo.avatar_url) {
+                        await intent.setRoomAvatar(room.MatrixRoomId, profileInfo.avatar_url);
+                    }
+                    break;
+                } catch (ex) {
+                    log.warn(ex);
+                }
+            }
+        }
+    }
+
     public getInboundUrlForRoom(room: BridgedRoom): string {
         return this.config.inbound_uri_prefix + room.InboundId;
     }
@@ -573,10 +628,9 @@ export class Main {
     public async drainAndLeaveMatrixRoom(roomId: string): Promise<void> {
         const userIds = await this.listGhostUsers(roomId);
         log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
-        await Promise.all(userIds.map(async(userId) =>
-            this.getIntent(userId).leave(roomId),
-        ));
-        await this.botIntent.leave(roomId);
+        const intents = userIds.map(userId => this.getIntent(userId));
+        intents.push(this.botIntent);
+        await Promise.allSettled(intents.map(async (intent) => intent.leave(roomId)));
     }
 
     public async listRoomsFor(): Promise<string[]> {
@@ -867,12 +921,17 @@ export class Main {
             // Check to see if we have a room for this channel already.
             const existing = this.rooms.getBySlackChannelId(openResponse.channel.id);
             if (existing) {
-                await this.datastore.deleteRoom(existing.InboundId);
                 await intent.sendEvent(roomId, "m.room.message", {
                     body: "You already have a conversation open with this person, leaving that room and reattaching here.",
                     msgtype: "m.notice",
                 });
-                await intent.leave(existing.MatrixRoomId);
+                try {
+                    await intent.setRoomName(existing.MatrixRoomId, "");
+                    await intent.setRoomAvatar(existing.MatrixRoomId, "");
+                } catch (ex) {
+                    log.error("Failed to clear name of now-empty DM", ex);
+                }
+                await this.actionUnlink({ matrix_room_id: existing.MatrixRoomId });
             }
         }
         const puppetIdent = (await slackClient.auth.test()) as AuthTestResponse;
@@ -1222,6 +1281,11 @@ export class Main {
         }
         const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
         await this.addBridgedRoom(room);
+        try {
+            await this.fixDMMetadata(room);
+        } catch (ex) {
+            log.warn(ex);
+        }
         room.MatrixRoomActive = activeRoom;
         if (!room.IsPrivate && activeRoom) {
             // Only public rooms can be tracked.
