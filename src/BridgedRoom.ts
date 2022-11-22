@@ -641,15 +641,16 @@ export class BridgedRoom {
 
     public async onMatrixLeave(userId: string): Promise<void> {
         log.info(`Leaving ${userId} from ${this.SlackChannelId}`);
-        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
+        const slackTeamId = this.SlackTeamId!;
+        const puppetedClient = await this.main.clientFactory.getClientForUser(slackTeamId, userId);
         if (!puppetedClient) {
             log.debug("No client");
             return;
         }
-        if (this.SlackType !== "im") {
-            await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
-        } else {
+        if (this.SlackType === "im") {
             await this.main.actionUnlink({ matrix_room_id: this.MatrixRoomId });
+        } else {
+            await puppetedClient.conversations.leave({ channel: slackTeamId });
         }
     }
 

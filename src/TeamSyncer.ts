@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logger } from "matrix-appservice-bridge";
+import { Intent, Logger } from "matrix-appservice-bridge";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo,
@@ -489,7 +489,7 @@ export class TeamSyncer {
 
     private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo,
         isPublic = true, inviteList: string[] = []): Promise<string> {
-        let intent;
+        let intent: Intent;
         let creatorUserId: string|undefined;
         try {
             creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).matrixUserId;

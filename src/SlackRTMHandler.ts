@@ -275,10 +275,14 @@ export class SlackRTMHandler extends SlackEventHandler {
                     id ? this.main.ghostStore.get(id, event.team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];
 
-            const ghostIdx = ghosts.findIndex((g) => g.slackId !== puppet.slackId);
-            const ghost = ghosts[ghostIdx];
-            const otherGhosts = ghosts.slice(0, ghostIdx).concat(ghosts.slice(ghostIdx+1));
-            if (otherGhosts.length !== 1) {
+            const puppetedGhost = ghosts.find(g => g.slackId === puppet.slackId);
+            const otherGhosts = ghosts.filter(g => g !== puppetedGhost);
+            const ghost = !otherGhosts.length ? puppetedGhost : otherGhosts[0];
+            if (!ghost) {
+                log.warn(`Could not find Slack receipient of IM ${chanInfo.channel}`);
+                return;
+            }
+            if (otherGhosts.length > 1) {
                 log.warn(`Expected only 1 other ghost in a Slack IM, but found ${otherGhosts.length}`);
             }
 
