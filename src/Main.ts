@@ -540,57 +540,57 @@ export class Main {
         }
     }
 
-    private async fixDMMetadata(room: BridgedRoom) {
+    public async fixDMMetadata(room: BridgedRoom, targetSlackRecipient: SlackGhost) {
         if (room.SlackType !== "im" || !room.SlackTeamId) {
             return;
         }
-        const matrixRecipients: string[] = [];
-        const slackRecipients: SlackGhost[] = [];
-        const slackGhosts: SlackGhost[] = [];
-        const userIds = await this.listGhostUsers(room.MatrixRoomId);
-        for (const userId of userIds) {
+        const puppetedSlackGhosts: SlackGhost[] = [];
+        const otherSlackGhosts: SlackGhost[] = [];
+        for (const userId of await this.listGhostUsers(room.MatrixRoomId)) {
             const slackGhost = await this.ghosts.getExisting(userId);
             if (!slackGhost) {
                 log.warn(`Could not find Slack ghost for ${userId} in DM ${room.MatrixRoomId}`);
                 continue;
             }
-            slackGhosts.push(slackGhost);
             const puppetMatrixUser = await this.datastore.getPuppetMatrixUserBySlackId(room.SlackTeamId, slackGhost.slackId);
             if (puppetMatrixUser) {
-                matrixRecipients.push(puppetMatrixUser);
+                puppetedSlackGhosts.push(slackGhost);
             } else {
-                slackRecipients.push(slackGhost);
+                otherSlackGhosts.push(slackGhost);
             }
         }
-        if (matrixRecipients.length !== 1) {
+
+        const allSlackGhosts = otherSlackGhosts.concat(puppetedSlackGhosts);
+        if (otherSlackGhosts.length !== 1 && puppetedSlackGhosts.length !== 1) {
             log.warn(
-                `Cannot update metadata of DM ${room.MatrixRoomId} with ${!matrixRecipients.length ? "no" : "multiple"} potential Matrix recipients`,
-                matrixRecipients.join(","));
-        } else if (slackRecipients.length !== 1) {
-            log.warn(
-                `Cannot update metadata of DM ${room.MatrixRoomId} with ${!slackRecipients.length ? "no" : "multiple"} potential Slack recipients`,
-                slackRecipients.join(","));
-        } else {
-            const matrixRecipient = matrixRecipients[0];
-            const slackRecipient = slackRecipients[0];
-            const slackClient = (await room.getClientForRequest(matrixRecipient))?.client;
-            if (slackClient) {
-                await slackRecipient.update({ user_id: slackRecipient.matrixUserId }, slackClient);
-            }
-            for (const slackGhost of slackGhosts) {
-                try {
-                    const intent = this.getIntent(slackGhost.matrixUserId);
-                    const profileInfo = await intent.getProfileInfo(slackRecipient.matrixUserId);
-                    if (profileInfo.displayname) {
-                        await intent.setRoomName(room.MatrixRoomId, profileInfo.displayname);
-                    }
-                    if (profileInfo.avatar_url) {
-                        await intent.setRoomAvatar(room.MatrixRoomId, profileInfo.avatar_url);
-                    }
-                    break;
-                } catch (ex) {
-                    log.warn(ex);
+                `Cannot update metadata of DM ${room.MatrixRoomId} ` +
+                `with ${!allSlackGhosts.length ? "no" : "multiple"} potential Slack recipients`,
+                allSlackGhosts.map(r => r.matrixUserId).join(","));
+            return;
+        }
+
+        const slackRecipient = otherSlackGhosts.length ? otherSlackGhosts[0] : puppetedSlackGhosts[0];
+        if (slackRecipient.slackId !== targetSlackRecipient.slackId) {
+            log.debug(
+                `Not updating metadata of DM ${room.MatrixRoomId} ` +
+                `not owned by Slack user ${targetSlackRecipient.slackId}`);
+            return;
+        }
+
+        const profileInfo = await targetSlackRecipient.intent.getProfileInfo(targetSlackRecipient.matrixUserId);
+        for (const slackGhost of allSlackGhosts) {
+            try {
+                const intent = this.getIntent(slackGhost.matrixUserId);
+                if (profileInfo.displayname) {
+                    await intent.setRoomName(room.MatrixRoomId, profileInfo.displayname);
                 }
+                if (profileInfo.avatar_url) {
+                    await intent.setRoomAvatar(room.MatrixRoomId, profileInfo.avatar_url);
+                }
+                break;
+            } catch (ex) {
+                // TODO Use MatrixError and break if error is due to something other than power levels
+                log.warn(ex);
             }
         }
     }
@@ -1281,11 +1281,6 @@ export class Main {
         }
         const room = BridgedRoom.fromEntry(this, entry, teamEntry, slackClient || undefined);
         await this.addBridgedRoom(room);
-        try {
-            await this.fixDMMetadata(room);
-        } catch (ex) {
-            log.warn(ex);
-        }
         room.MatrixRoomActive = activeRoom;
         if (!room.IsPrivate && activeRoom) {
             // Only public rooms can be tracked.

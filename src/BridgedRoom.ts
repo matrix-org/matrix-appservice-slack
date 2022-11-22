@@ -705,8 +705,11 @@ export class BridgedRoom {
         }
         try {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
-            await ghost.update(message, this.SlackClient);
+            const ghostChanged = await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
+            if (ghostChanged) {
+                await this.main.fixDMMetadata(this, ghost);
+            }
             this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
                 if (this.recentSlackMessages.includes(message.ts)) {
@@ -751,7 +754,9 @@ export class BridgedRoom {
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
-        await ghost.update(message, this.SlackClient);
+        if (await ghost.update(message, this.SlackClient)) {
+            await this.main.fixDMMetadata(this, ghost);
+        }
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 

@@ -17,7 +17,6 @@ limitations under the License.
 import { Intent } from "matrix-appservice-bridge";
 import { MatrixProfileInfo } from "matrix-bot-sdk";
 
-// TODO: Keep room name/avatar synced with changes to DM user's profile info
 export const createDM = async (
     senderIntent: Intent, recipients: string|string[], profile?: MatrixProfileInfo, encrypted = false
 ): Promise<string> => {
