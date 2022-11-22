@@ -953,7 +953,19 @@ export class Main {
         room.updateUsingChannelInfo(openResponse);
         await this.addBridgedRoom(room);
         await this.datastore.upsertRoom(room);
-        await slackGhost.intent.join(roomId);
+        await intent.join(roomId);
+
+        const profileInfo = await intent.getProfileInfo(slackGhost.matrixUserId);
+        try {
+            if (profileInfo.displayname) {
+                await intent.setRoomName(room.MatrixRoomId, profileInfo.displayname);
+            }
+            if (profileInfo.avatar_url) {
+                await intent.setRoomAvatar(room.MatrixRoomId, profileInfo.avatar_url);
+            }
+        } catch (ex) {
+            log.warn("Unable to set metadata of newly-joined DM", ex);
+        }
     }
 
     public async onMatrixAdminMessage(ev: {
