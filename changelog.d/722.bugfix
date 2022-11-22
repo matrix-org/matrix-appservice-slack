@@ -1,0 +1,1 @@
+Ensure messages you send in a DM from Slack will appear in Matrix, even if the ghost of your Slack account was not initially present in the Matrix DM room.

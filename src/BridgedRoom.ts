@@ -954,6 +954,17 @@ export class BridgedRoom {
         // Dedupe across RTM/Event streams
         this.addRecentSlackMessage(message.ts);
 
+        if (this.SlackType === "im") {
+            const intent = await this.getIntentForRoom();
+            if (intent.userId !== ghost.intent.userId &&
+                !(await intent.matrixClient.getRoomMembers(this.matrixRoomId, undefined, ["invite", "join"]))
+                    .map(m => m.membershipFor).includes(ghost.intent.userId))
+            {
+                await intent.invite(this.matrixRoomId, ghost.matrixUserId);
+                await ghost.intent.join(this.matrixRoomId);
+            }
+        }
+
         ghost.bumpATime();
         this.slackATime = Date.now() / 1000;
 
@@ -1197,7 +1208,7 @@ export class BridgedRoom {
         return this.findParentReply(nextEvent, depth++);
     }
 
-    private async getIntentForRoom(roomID: string) {
+    public async getIntentForRoom(roomID?: string) {
         if (this.intent) {
             return this.intent;
         }
@@ -1205,7 +1216,7 @@ export class BridgedRoom {
         if (!this.IsPrivate) {
             this.intent = this.main.botIntent; // Non-private channels should have the bot inside.
         }
-        const firstGhost = (await this.main.listGhostUsers(roomID))[0];
+        const firstGhost = (await this.main.listGhostUsers(roomID ?? this.matrixRoomId))[0];
         this.intent =  this.main.getIntent(firstGhost);
         return this.intent;
     }
