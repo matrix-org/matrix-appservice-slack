@@ -292,7 +292,7 @@ export class SlackRTMHandler extends SlackEventHandler {
             const roomId = await createDM(
                 ghost.intent,
                 [puppet.matrixId].concat(ghosts.map((g) => g.matrixUserId)),
-                await this.determineRoomMetadata(chanInfo.channel, ghost, slackClient),
+                await this.determineRoomMetadata(chanInfo.channel, ghost),
                 this.main.encryptRoom,
             );
             room = new BridgedRoom(this.main, {
@@ -325,11 +325,10 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.info("Failing channel info:", chanInfo.channel);
     }
 
-    private async determineRoomMetadata(chan: ConversationsInfo, ghost: SlackGhost, client: WebClient) {
+    private async determineRoomMetadata(chan: ConversationsInfo, ghost: SlackGhost) {
         if (chan.is_mpim) {
             return undefined; // allow the client to decide.
         }
-        await ghost.update({ user_id: ghost.matrixUserId }, client);
         return await ghost.intent.getProfileInfo(ghost.matrixUserId);
     }
 }
