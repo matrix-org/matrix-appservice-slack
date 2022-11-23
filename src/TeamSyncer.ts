@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logger } from "matrix-appservice-bridge";
+import { Intent, Logger } from "matrix-appservice-bridge";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main } from "./Main";
 import { ConversationsInfoResponse, UsersInfoResponse, ConversationsListResponse, ConversationsInfo,
@@ -279,6 +279,9 @@ export class TeamSyncer {
         const slackGhost = existingGhost || await this.main.ghostStore.get(item.id, domain, teamId);
         if (item.deleted !== true) {
             await slackGhost.updateFromISlackUser(item);
+            await Promise.allSettled(
+                (await this.getTeamRoomsForSlackGhost(slackGhost, teamId))
+                    .map(async(r) => this.main.fixDMMetadata(r, slackGhost)));
             return;
         }
         log.warn(`User ${item.id} has been deleted`);
@@ -287,8 +290,7 @@ export class TeamSyncer {
         // Element does it by sending an empty string.
         // https://github.com/matrix-org/matrix-doc/issues/1674
         await slackGhost.intent.setAvatarUrl("");
-        const joinedRooms = new Set(await slackGhost.intent.matrixClient.getJoinedRooms());
-        const teamRooms = this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.has(r.MatrixRoomId));
+        const teamRooms = await this.getTeamRoomsForSlackGhost(slackGhost, teamId);
         log.info(`Leaving ${slackGhost.matrixUserId} from ${teamRooms.length} rooms`);
         let i = teamRooms.length;
         await Promise.all(teamRooms.map(async(r) =>
@@ -299,6 +301,11 @@ export class TeamSyncer {
         ));
         log.info(`Left ${i} rooms`);
         return;
+    }
+
+    private async getTeamRoomsForSlackGhost(slackGhost: SlackGhost, teamId: string) {
+        const joinedRooms = new Set(await slackGhost.intent.matrixClient.getJoinedRooms());
+        return this.main.rooms.getBySlackTeamId(teamId).filter(r => joinedRooms.has(r.MatrixRoomId));
     }
 
     private async syncChannel(teamId: string, channelItem: ConversationsInfo) {
@@ -489,7 +496,7 @@ export class TeamSyncer {
 
     private async createRoomForChannel(teamId: string, creator: string, channel: ConversationsInfo,
         isPublic = true, inviteList: string[] = []): Promise<string> {
-        let intent;
+        let intent: Intent;
         let creatorUserId: string|undefined;
         try {
             creatorUserId = (await this.main.ghostStore.get(creator, undefined, teamId)).matrixUserId;

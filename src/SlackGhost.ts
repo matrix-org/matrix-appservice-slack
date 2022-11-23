@@ -97,29 +97,31 @@ export class SlackGhost {
         };
     }
 
-    public async update(message: {user_id?: string, user?: string}, client?: WebClient): Promise<void> {
+    public async update(message: {user_id?: string, user?: string}, client?: WebClient): Promise<boolean> {
         const user = (message.user_id || message.user);
         if (this.updateInProgress) {
             log.debug(`Not updating ${user}: Update in progress.`);
-            return;
+            return false;
         }
         log.info(`Updating user information for ${user}`);
+        let changed = false;
         const updateStartTime = Date.now();
         this.updateInProgress = true;
         try {
-            await this.updateDisplayname(message, client);
+            changed = await this.updateDisplayname(message, client);
         } catch (ex) {
             log.error("Failed to update ghost displayname:", ex);
         }
         try {
             if (client) {
-                await this.updateAvatar(message, client);
+                changed = await this.updateAvatar(message, client) || changed;
             }
         } catch (ex) {
             log.error("Failed to update ghost avatar:", ex);
         }
         log.debug(`Completed update for ${user} in ${Date.now() - updateStartTime}ms`);
         this.updateInProgress = false;
+        return changed;
     }
 
     public async getDisplayname(client: WebClient): Promise<string|undefined> {
@@ -166,7 +168,7 @@ export class SlackGhost {
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-        client?: WebClient): Promise<void> {
+        client?: WebClient): Promise<boolean> {
         let displayName = message.username || message.user_name;
         if (!this._intent) {
             throw Error('No intent associated with ghost');
@@ -176,7 +178,7 @@ export class SlackGhost {
             if (message.bot_id && message.user_id) {
                 // In the case of operations on bots, we will have both a bot_id and a user_id.
                 // Ignore updating the displayname in this case.
-                return;
+                return false;
             } else if (message.bot_id) {
                 displayName = await this.getBotName(message.bot_id, client);
             } else if (message.user_id) {
@@ -184,10 +186,12 @@ export class SlackGhost {
             }
         }
 
+        const changed = this.displayname !== displayName;
         log.debug(`Ensuring displayname ${displayName} for ${this.slackId}`);
         await this._intent.ensureProfile(displayName);
         this.displayname = displayName;
         await this.datastore.upsertUser(this);
+        return changed;
     }
 
     public async lookupAvatarUrl(clientOrUser: WebClient|ISlackUser): Promise<{url: string, hash?: string}|undefined> {
@@ -256,37 +260,37 @@ export class SlackGhost {
         return response.user;
     }
 
-    private async updateAvatar(message: {bot_id?: string, user_id?: string}, client: WebClient): Promise<void> {
+    private async updateAvatar(message: {bot_id?: string, user_id?: string}, client: WebClient): Promise<boolean> {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
-        let avatarUrl;
+        let avatarUrl: string|undefined;
         let hash: string|undefined;
         if (message.bot_id && message.user_id) {
             // In the case of operations on bots, we will have both a bot_id and a user_id.
             // Ignore updating the displayname in this case.
-            return;
+            return false;
         } else if (message.bot_id) {
             avatarUrl = await this.getBotAvatarUrl(message.bot_id, client);
             hash = avatarUrl;
         } else if (message.user_id) {
             const res = await this.lookupAvatarUrl(client);
             if (!res) {
-                return;
+                return false;
             }
             hash = res.hash;
             avatarUrl = res.url;
         } else {
-            return;
+            return false;
         }
 
-        if (this.avatarHash === hash) {
-            return;
+        if (!avatarUrl || this.avatarHash === hash) {
+            return false;
         }
 
         const match = hash || avatarUrl.match(/\/([^/]+)$/);
         if (!match || !match[1]) {
-            return;
+            return false;
         }
 
         log.debug(`Updating avatar ${this.avatarHash} > ${hash}`);
@@ -304,6 +308,7 @@ export class SlackGhost {
         await this._intent.setAvatarUrl(contentUri);
         this.avatarHash = hash;
         await this.datastore.upsertUser(this);
+        return true;
     }
 
     public prepareBody(body: string): string {

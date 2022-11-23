@@ -641,12 +641,17 @@ export class BridgedRoom {
 
     public async onMatrixLeave(userId: string): Promise<void> {
         log.info(`Leaving ${userId} from ${this.SlackChannelId}`);
-        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
+        const slackTeamId = this.SlackTeamId!;
+        const puppetedClient = await this.main.clientFactory.getClientForUser(slackTeamId, userId);
         if (!puppetedClient) {
             log.debug("No client");
             return;
         }
-        await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
+        if (this.SlackType === "im") {
+            await this.main.actionUnlink({ matrix_room_id: this.MatrixRoomId });
+        } else {
+            await puppetedClient.conversations.leave({ channel: slackTeamId });
+        }
     }
 
     public async onMatrixJoin(userId: string): Promise<void> {
@@ -700,8 +705,11 @@ export class BridgedRoom {
         }
         try {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
-            await ghost.update(message, this.SlackClient);
+            const ghostChanged = await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
+            if (ghostChanged) {
+                await this.main.fixDMMetadata(this, ghost);
+            }
             this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
                 if (this.recentSlackMessages.includes(message.ts)) {
@@ -746,7 +754,9 @@ export class BridgedRoom {
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
-        await ghost.update(message, this.SlackClient);
+        if (await ghost.update(message, this.SlackClient)) {
+            await this.main.fixDMMetadata(this, ghost);
+        }
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 
