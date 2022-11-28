@@ -1,3 +1,24 @@
+2.0.2-rc1 (2022-11-28)
+======================
+
+Bugfixes
+--------
+
+- Correctly set "is_falling_back" flag in thread events so that events in threads are not also displayed as replies. ([\#709](https://github.com/matrix-org/matrix-appservice-slack/issues/709))
+- Fix crash in `whoami` command when the team name of a Slack account is unavailable. ([\#714](https://github.com/matrix-org/matrix-appservice-slack/issues/714))
+- Prevent admin commands from being unusable after an invalid command is issued. ([\#717](https://github.com/matrix-org/matrix-appservice-slack/issues/717))
+- Improve the calculation of DM names & avatars. ([\#721](https://github.com/matrix-org/matrix-appservice-slack/issues/721))
+- Ensure messages you send in a DM from Slack will appear in Matrix, even if the ghost of your Slack account was not initially present in the Matrix DM room. ([\#722](https://github.com/matrix-org/matrix-appservice-slack/issues/722))
+
+
+Internal Changes
+----------------
+
+- Update matrix-appservice-bridge to 6.0.0. ([\#710](https://github.com/matrix-org/matrix-appservice-slack/issues/710))
+- Remove annoying noisy `Didn't handle event` log line. ([\#712](https://github.com/matrix-org/matrix-appservice-slack/issues/712))
+- Remove IDE-related files from version control. ([\#715](https://github.com/matrix-org/matrix-appservice-slack/issues/715))
+
+
 2.0.1 (2022-10-06)
 ==================
 
