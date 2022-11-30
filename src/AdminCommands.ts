@@ -407,10 +407,12 @@ export class AdminCommands {
         const currCommandWaiter = new Promise<void>((resolve, reject) => {
             const prevCommandWaiter = this.latestCommandWaiterForSender.get(sender) ?? Promise.resolve();
             void prevCommandWaiter.finally(() => {
-                this.yargs.parseSync(argv, {
+                const context: IHandlerArgs = {
                     respond,
                     resolve,
-                }, (error) => {
+                    reject,
+                };
+                this.yargs.parseSync(argv, context, (error) => {
                     if (error) {
                         // NOTE: Throwing here makes yargs.argv get stuck on an error object, so reject instead
                         reject(error);

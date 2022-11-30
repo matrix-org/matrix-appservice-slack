@@ -20,6 +20,7 @@ export type ResponseCallback = (response: string) => void;
 export interface IHandlerArgs {
     respond: ResponseCallback;
     resolve: () => void;
+    reject: (error: any) => void;
 }
 type CommandCallback = (args: Arguments<IHandlerArgs>) => void|Promise<void>;
 
@@ -32,7 +33,7 @@ export class AdminCommand {
     }
 
     public handler(argv: Arguments<IHandlerArgs>): void {
-        void Promise.resolve(this.cb(argv)).finally(argv.resolve);
+        void Promise.resolve(this.cb(argv)).then(argv.resolve, argv.reject);
     }
 
     /**
