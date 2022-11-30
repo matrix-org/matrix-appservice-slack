@@ -91,7 +91,7 @@ ever stuck, you can post a question in the
    or with docker:
    
    ```ssh
-   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
+   $ docker run -d -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
    ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
