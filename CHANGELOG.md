@@ -1,3 +1,19 @@
+2.0.2-rc2 (2022-11-30)
+======================
+
+Bugfixes
+--------
+
+- Safely handle errors from admin commands. ([\#725](https://github.com/matrix-org/matrix-appservice-slack/issues/725))
+
+
+Internal Changes
+----------------
+
+- Docs: Consistently call the registration file slack-registration.yaml. ([\#551](https://github.com/matrix-org/matrix-appservice-slack/issues/551))
+- Docs: Clarify default port, fix indents and reduce abbreviations. ([\#727](https://github.com/matrix-org/matrix-appservice-slack/issues/727))
+
+
 2.0.2-rc1 (2022-11-28)
 ======================
 
