@@ -23,7 +23,7 @@ $ yarn # Will automatically build the package
 $ docker pull matrixdotorg/matrix-appservice-slack:latest
 ```
 
-## How it Works:
+## How it works
 
 The bridge listens to events using the Slack RTM API over websockets, and to
 Matrix events on a port that the homeserver sends events to. This tutorial will
@@ -85,10 +85,14 @@ ever stuck, you can post a question in the
 
 1. Start the actual application service:
 
-    `$ yarn start -c config/config.yaml -p $MATRIX_PORT`
+   ```sh
+   $ yarn start -c config/config.yaml -p $MATRIX_PORT
+   ```
    or with docker:
    
-    `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
+   ```ssh
+   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
+   ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
