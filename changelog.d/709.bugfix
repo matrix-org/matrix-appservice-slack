@@ -1,1 +1,0 @@
-Correctly set "is_falling_back" flag in thread events so that events in threads are not also displayed as replies.
