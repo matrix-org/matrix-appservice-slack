@@ -88,7 +88,7 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
    or with docker:
    
    ```ssh
-   $ docker run --detach --volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
+   $ docker run -volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
    ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
