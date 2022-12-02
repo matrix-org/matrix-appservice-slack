@@ -99,7 +99,7 @@ ever stuck, you can post a question in the
    `homeserver.yaml`):
    
    ```yaml
-   app_service_config_files:
+    app_service_config_files:
       - ...
       - "/path/to/slack-registration.yaml"
    ```
