@@ -78,10 +78,10 @@ ever stuck, you can post a question in the
     `$ yarn start -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
-```sh
-$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
-```
+   ```sh
+   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+      -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
+   ```
 
 1. Start the actual application service:
 
@@ -98,11 +98,11 @@ $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \
    homeserver. Add the registration file to your homeserver config (default
    `homeserver.yaml`):
    
-```yaml
-app_service_config_files:
-    - ...
-    - "/path/to/slack-registration.yaml"
-```
+   ```yaml
+   app_service_config_files:
+      - ...
+      - "/path/to/slack-registration.yaml"
+   ```
 
    Don't forget - it has to be a YAML list of strings, not just a single string.
 
