@@ -16,7 +16,6 @@ Bugfixes
 Internal Changes
 ----------------
 
-- Docs: Consistently call the registration file slack-registration.yaml. ([\#551](https://github.com/matrix-org/matrix-appservice-slack/issues/551))
 - Docs: Docker container uses port 5858 unless explicitly modified in config.yaml ([\#718](https://github.com/matrix-org/matrix-appservice-slack/issues/718)). Contributed by @mkarg
 - Docs: Fixed numbering by fixing indentation ([\#719](https://github.com/matrix-org/matrix-appservice-slack/issues/719)). Contributed by @mkarg
 - Docs: Run bridge as daemon ([\#720](https://github.com/matrix-org/matrix-appservice-slack/issues/720)). Contributed by @mkarg
