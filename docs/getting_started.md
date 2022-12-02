@@ -53,7 +53,7 @@ ever stuck, you can post a question in the
 1. Decide on a spare local TCP port number to use. It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
    firewalls appropriately. This port will be notated as `$MATRIX_PORT` in
-   the remaining instructions. By default, this is 5858.
+   the remaining instructions.
 
 1. Create a `config/config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml`. You should copy and
@@ -65,9 +65,6 @@ ever stuck, you can post a question in the
   
   1. For `matrix_admin_room`, enter the internal room ID of the administration control
      room (Example: !abcdefg12345hijk:coolserver.com).
-
-  1. When using bridge in Docker container: For `appservice_port`, enter the value of
-     `$MATRIX_PORT`, unless it is `5858`, which is the default.
 
 1. Generate the appservice registration file. This will be used by the
    Matrix homeserver. Here, you must specify the direct link the
