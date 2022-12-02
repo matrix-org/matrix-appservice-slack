@@ -79,7 +79,7 @@ ever stuck, you can post a question in the
    or with docker:
    
    ```sh
-   $ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+   $ docker run --volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
       -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
    ```
 
@@ -91,7 +91,7 @@ ever stuck, you can post a question in the
    or with docker:
    
    ```ssh
-   $ docker run -volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
+   $ docker run --volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
    ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
@@ -113,9 +113,9 @@ ever stuck, you can post a question in the
    respond to commands. The bot's user ID is formed from the `sender_localpart`
    field of the registration file, and the homeserver's domain name. For example:
 
-    ```
-    /invite @slackbot:my.server.here
-    ```
+   ```
+   /invite @slackbot:my.server.here
+   ```
 
 NOTE: At the time of writing, Element does not recognize the Slack bot. This is
 okay. The bot *is there*. If Element asks if you're sure you want to invite
