@@ -75,10 +75,10 @@ ever stuck, you can post a question in the
     `$ yarn start -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
-   ```sh
-   $ docker run --volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-      -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
-   ```
+```sh
+$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
+```
 
 1. Start the actual application service:
 
@@ -95,11 +95,11 @@ ever stuck, you can post a question in the
    homeserver. Add the registration file to your homeserver config (default
    `homeserver.yaml`):
    
-   ```yaml
-    app_service_config_files:
-      - ...
-      - "/path/to/slack-registration.yaml"
-   ```
+```yaml
+app_service_config_files:
+    - ...
+    - "/path/to/slack-registration.yaml"
+```
 
    Don't forget - it has to be a YAML list of strings, not just a single string.
 
@@ -110,9 +110,9 @@ ever stuck, you can post a question in the
    respond to commands. The bot's user ID is formed from the `sender_localpart`
    field of the registration file, and the homeserver's domain name. For example:
 
-   ```
-   /invite @slackbot:my.server.here
-   ```
+    ```
+    /invite @slackbot:my.server.here
+    ```
 
 NOTE: At the time of writing, Element does not recognize the Slack bot. This is
 okay. The bot *is there*. If Element asks if you're sure you want to invite
