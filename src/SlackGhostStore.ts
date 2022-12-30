@@ -23,7 +23,7 @@ export class SlackGhostStore {
     }
 
     /**
-     * Get the domain of a message by getting it from it's keys, or by resolving the teamId.
+     * Get the domain of a message by getting it from its keys, or by resolving the teamId.
      * @param message The slack message, containing a team_domain.
      * @param teamId Optionally pass the teamId, if known.
      */
