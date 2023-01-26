@@ -1040,7 +1040,7 @@ export class Main {
      * @returns The port the appservice listens to.
      */
     public async run(port: number): Promise<number> {
-        await this.bridge.initalise();
+        await this.bridge.initialise();
 
         log.info("Loading databases");
         if (this.oauth2) {
@@ -1694,7 +1694,10 @@ export class Main {
 
     private async onUserActivityChanged(state: UserActivityState) {
         for (const userId of state.changed) {
-            await this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
+            const activity = state.dataSet.get(userId);
+            if (activity) {
+                await this.datastore.storeUserActivity(userId, activity);
+            }
         }
         await this.bridgeBlocker?.checkLimits(state.activeUsers);
     }

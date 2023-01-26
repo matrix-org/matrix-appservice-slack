@@ -530,11 +530,11 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
 
     public async getUserActivity(): Promise<UserActivitySet> {
         const rows = await this.postgresDb.manyOrNone('SELECT * FROM user_activity');
-        const users: {[mxid: string]: any} = {};
+        const activity = new Map<string, UserActivity>();
         for (const row of rows) {
-            users[row.user_id] = row.data;
+            activity.set(row.user_id, row.data);
         }
-        return { users };
+        return activity;
     }
 
     public async storeUserActivity(userId: string, activity: UserActivity): Promise<void> {
