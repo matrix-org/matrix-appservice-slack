@@ -15,7 +15,7 @@ limitations under the License.
 */
 import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
-import { MatrixUser, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
+import { MatrixUser, ProvisioningStore, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import { MatrixUser as BridgeMatrixUser } from "../MatrixUser";
 
 export interface RoomEntry {
@@ -91,7 +91,7 @@ export interface SlackAccount {
 
 export type RoomType = "user" | "channel";
 
-export interface Datastore {
+export interface Datastore extends ProvisioningStore {
     // Users
     upsertUser(user: SlackGhost): Promise<null>;
     getUser(id: string): Promise<UserEntry|null>;
