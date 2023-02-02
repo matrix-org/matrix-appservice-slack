@@ -22,6 +22,32 @@ import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
 
 const log = new Logger("Provisioning");
 
+export interface ProvisionerConfig {
+    enabled: boolean;
+    http?: {
+        port: number;
+        host?: string;
+    };
+    secret?: string,
+    ratelimit?: boolean,
+    open_id_disallowed_ip_ranges?: string[];
+    open_id_overrides?: Record<string, string>;
+    require_public_room?: boolean;
+    allow_private_channels?: boolean;
+    limits?: {
+        team_count?: number;
+        room_count?: number;
+    };
+    channel_adl?: {
+        allow: string[];
+        deny: string[];
+    },
+}
+
+interface StrictProvisionerConfig extends ProvisionerConfig {
+    secret: string;
+}
+
 class ProvisioningError extends Error {
     constructor(public readonly code: number, public readonly text: string) {
         super();

@@ -123,6 +123,14 @@ properties:
     properties:
       enabled:
         type: boolean
+      secret:
+        type: string
+      ratelimit:
+        type: boolean
+      open_id_disallowed_ip_ranges:
+        type: array
+        items:
+          type: string
       require_public_room:
         type: boolean
       allow_private_channels:
