@@ -287,8 +287,6 @@ export class Main {
         });
         this.membershipQueue = new MembershipQueue(this.bridge, { });
 
-        this.provisioner = new Provisioner(this, this.bridge);
-
         if (config.rtm?.enable) {
             this.enableRtm();
         }
@@ -323,6 +321,16 @@ export class Main {
             homeserverToken,
             httpMaxSizeBytes: 0,
         });
+
+        this.provisioner = new Provisioner(
+            this,
+            this.appservice,
+            {
+                // Default to HS token if no secret is configured
+                secret: homeserverToken,
+                ...(config.provisioning ?? { enabled: true }),
+            },
+        );
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
@@ -1171,13 +1179,6 @@ export class Main {
             log.warn("The bot is not in the admin room. You should invite the bot in order to control the bridge.");
         }
 
-        const provisioningEnabled = this.config.provisioning?.enabled;
-
-        // Previously, this was always true.
-        if (provisioningEnabled === undefined ? true : provisioningEnabled) {
-            this.provisioner.addAppServicePath();
-        }
-
         log.info("Fetching teams");
         const teams = await this.datastore.getAllTeams();
         log.info(`Loaded ${teams.length} teams`);
@@ -1303,6 +1304,8 @@ export class Main {
                 room.MatrixRoomActive = false;
             }
         }
+
+        await this.provisioner.start();
     }
 
     public async getChannelInfo(

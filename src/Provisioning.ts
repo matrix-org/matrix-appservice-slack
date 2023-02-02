@@ -14,11 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Bridge, Logger } from "matrix-appservice-bridge";
+import { ApiError, AppService, ErrCode, Logger, ProvisioningApi, ProvisioningRequest } from "matrix-appservice-bridge";
 import { Request, Response } from "express";
 import { Main } from "./Main";
 import { HTTP_CODES } from "./BaseSlackHandler";
 import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
+import { NedbDatastore } from "./datastore/NedbDatastore";
 
 const log = new Logger("Provisioning");
 
@@ -64,7 +65,6 @@ interface DecoratedCommandFunc {
 }
 
 type Param = string | { param: string, required: boolean};
-type Verbs = "getbotid"|"authurl"|"channelinfo"|"channels"|"getlink"|"link"|"logout"|"removeaccount"|"teams"|"accounts"|"unlink";
 
 // Decorator
 const command = (...params: Param[]) => (
@@ -73,47 +73,87 @@ const command = (...params: Param[]) => (
     }
 );
 
-export class Provisioner {
-    constructor(private main: Main, private bridge: Bridge) { }
+export class Provisioner extends ProvisioningApi {
+    constructor(
+        readonly main: Main,
+        readonly appService: AppService,
+        readonly config: StrictProvisionerConfig,
+    ) {
+        super(
+            main.datastore,
+            {
+                provisioningToken: config.secret,
+                apiPrefix: "/_matrix/provision",
+                ratelimit: config.ratelimit,
+                disallowedIpRanges: config.open_id_disallowed_ip_ranges,
+                openIdOverride: config.open_id_overrides
+                    ? Object.fromEntries(Object.entries(config.open_id_overrides)
+                        .map(([id, url]) => [id, new URL(url)])
+                    )
+                    : undefined,
+                widgetTokenPrefix: "slackbr-wdt-",
+                widgetFrontendLocation: "public",
+                // Use the bridge express application unless a config was specified for provisioning
+                expressApp: config.http ? undefined : appService.expressApp,
+            },
+        );
 
-    public addAppServicePath(): void {
-        this.bridge.addAppServicePath({
-            handler: (req: Request, res: Response) => void this.handleProvisioningRequest(req.params.verb as Verbs, req, res).catch(ex => {
-                log.error(`Threw error trying to handle`, req.path, ex);
-            }),
-            authenticate: true,
-            method: "POST",
-            path: "/_matrix/provision/:verb",
-        });
+        if (!config.enabled) {
+            log.info("Provisioning disabled, endpoints will respond with an error code");
+            // Disable all provision endpoints, responding with an error instead
+            this.baseRoute.use((req, res, next) => next(new ApiError("Provisioning not enabled", ErrCode.DisabledFeature)));
+            return;
+        }
+
+        if (this.store instanceof NedbDatastore) {
+            log.warn(
+                "Provisioner is incompatible with NeDB store. Widget requests will not be handled."
+            );
+        }
+
+        const wrapHandler = (handler: DecoratedCommandFunc) => {
+            return async(req: ProvisioningRequest, res: Response) => {
+                const body = req.body;
+                const args: [Request, Response, ...string[]] = [req.expressReq, res];
+                for (const param of handler.params) {
+                    const paramName = typeof(param) === "string" ? param : param.param;
+                    const paramRequired = typeof(param) === "string" ? true : param.required;
+                    if (!(paramName in body) && paramRequired) {
+                        res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
+                    }
+                    args.push(body[paramName]);
+                }
+
+                try {
+                    await handler.call(this, ...args);
+                } catch (err) {
+                    log.error("Provisioning command threw an error:", err);
+                    if (err instanceof ProvisioningError) {
+                        res.status(err.code).json({error: err.text});
+                    } else {
+                        res.status(HTTP_CODES.SERVER_ERROR).json({error: (err as Error).message});
+                    }
+                }
+            };
+        };
+
+        this.addRoute("post", "/getbotid", wrapHandler(this.getbotid as DecoratedCommandFunc), "getbotid");
+        this.addRoute("post", "/authurl", wrapHandler(this.authurl as DecoratedCommandFunc), "authurl");
+        this.addRoute("post", "/channelinfo", wrapHandler(this.channelinfo as DecoratedCommandFunc), "channelinfo");
+        this.addRoute("post", "/channels", wrapHandler(this.channels as DecoratedCommandFunc), "channels");
+        this.addRoute("post", "/getlink", wrapHandler(this.getlink as DecoratedCommandFunc), "getlink");
+        this.addRoute("post", "/link", wrapHandler(this.link as DecoratedCommandFunc), "link");
+        this.addRoute("post", "/logout", wrapHandler(this.logout as DecoratedCommandFunc), "link");
+        this.addRoute("post", "/teams", wrapHandler(this.teams as DecoratedCommandFunc), "teams");
+        this.addRoute("post", "/accounts", wrapHandler(this.accounts as DecoratedCommandFunc), "accounts");
+        this.addRoute("post", "/unlink", wrapHandler(this.unlink as DecoratedCommandFunc), "unlink");
     }
 
-    public async handleProvisioningRequest(verb: Verbs, req: Request, res: Response): Promise<void|Response<Record<string, unknown>>> {
-        const provisioningCommand = this[verb] as DecoratedCommandFunc;
-        if (!provisioningCommand || !provisioningCommand.params) {
-            return res.status(HTTP_CODES.NOT_FOUND).json({error: "Unrecognised provisioning command " + verb});
+    public async start(): Promise<void> {
+        if (this.config.http) {
+            await super.start(this.config.http.port, this.config.http.host);
         }
-
-        const body = req.body;
-        const args: [Request, Response, ...string[]] = [req, res];
-        for (const param of provisioningCommand.params) {
-            const paramName = typeof(param) === "string" ? param : param.param;
-            const paramRequired = typeof(param) === "string" ? true : param.required;
-            if (!(paramName in body) && paramRequired) {
-                return res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
-            }
-            args.push(body[paramName]);
-        }
-
-        try {
-            return await provisioningCommand.call(this, ...args);
-        } catch (err) {
-            log.error("Provisioning command threw an error:", err);
-            if (err instanceof ProvisioningError) {
-                res.status(err.code).json({error: err.text});
-            } else {
-                res.status(HTTP_CODES.SERVER_ERROR).json({error: (err as Error).message});
-            }
-        }
+        log.info("Provisioning API ready");
     }
 
     private async reachedRoomLimit() {
