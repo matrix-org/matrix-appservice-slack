@@ -16,7 +16,7 @@ limitations under the License.
 
 // This should follow the format in slack-config-schema.yaml
 
-import { ProvisionerConfig } from "./Provisioning";
+import { ProvisionerConfig } from "./provisioning/Provisioner";
 
 type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";

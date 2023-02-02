@@ -16,10 +16,10 @@ limitations under the License.
 
 import { ApiError, AppService, ErrCode, Logger, ProvisioningApi, ProvisioningRequest } from "matrix-appservice-bridge";
 import { Request, Response } from "express";
-import { Main } from "./Main";
-import { HTTP_CODES } from "./BaseSlackHandler";
-import { ConversationsListResponse, AuthTestResponse } from "./SlackResponses";
-import { NedbDatastore } from "./datastore/NedbDatastore";
+import { Main } from "../Main";
+import { HTTP_CODES } from "../BaseSlackHandler";
+import { ConversationsListResponse, AuthTestResponse } from "../SlackResponses";
+import { NedbDatastore } from "../datastore/NedbDatastore";
 
 const log = new Logger("Provisioning");
 

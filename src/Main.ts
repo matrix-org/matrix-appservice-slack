@@ -30,7 +30,7 @@ import { SlackGhost } from "./SlackGhost";
 import { MatrixUser } from "./MatrixUser";
 import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
-import { Provisioner } from "./Provisioning";
+import { Provisioner } from "./provisioning/Provisioner";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
