@@ -1,6 +1,8 @@
-import Ajv, { JSONSchemaType } from "ajv";
+import { Response } from "express";
+import Ajv, {JSONSchemaType, ValidateFunction} from "ajv";
+import { ApiError, ErrCode, IApiError } from "matrix-appservice-bridge";
 
-export const ajv = new Ajv({
+const ajv = new Ajv({
     allErrors: true,
     coerceTypes: true,
 });
@@ -96,3 +98,58 @@ const unlinkBodySchema: JSONSchemaType<UnlinkBody> = {
     required: ["matrix_room_id"],
 };
 export const isValidUnlinkBody = ajv.compile(unlinkBodySchema);
+
+export class ValidationError extends ApiError {
+    constructor(validator: ValidateFunction) {
+        super(
+            "Malformed request",
+            ErrCode.BadValue,
+            undefined,
+            {
+                errors: ajv.errorsText(validator.errors),
+            },
+        );
+    }
+}
+
+export enum SlackErrCode {
+    UnknownAccount = "SLACK_UNKNOWN_ACCOUNT",
+    UnknownTeam = "SLACK_UNKNOWN_TEAM",
+    UnknownChannel = "SLACK_UNKNOWN_CHANNEL",
+    NotEnoughPower = "SLACK_NOT_ENOUGH_POWER",
+    BridgeAtLimit = "SLACK_BRIDGE_AT_LIMIT",
+}
+
+const ErrCodeToStatusCode: Record<SlackErrCode, number> = {
+    [SlackErrCode.UnknownAccount]: 404,
+    [SlackErrCode.UnknownTeam]: 404,
+    [SlackErrCode.UnknownChannel]: 404,
+    [SlackErrCode.NotEnoughPower]: 403,
+    [SlackErrCode.BridgeAtLimit]: 500
+};
+
+export class SlackProvisioningError extends Error implements IApiError {
+    constructor(
+        public readonly error: string,
+        public readonly errcode: SlackErrCode,
+        public readonly statusCode = -1,
+        public readonly additionalContent: Record<string, unknown> = {},
+    ) {
+        super(`API error ${errcode}: ${error}`);
+        if (statusCode === -1) {
+            this.statusCode = ErrCodeToStatusCode[errcode];
+        }
+    }
+
+    get jsonBody(): { errcode: string, error: string } {
+        return {
+            errcode: this.errcode,
+            error: this.error,
+            ...this.additionalContent,
+        };
+    }
+
+    public apply(response: Response): void {
+        response.status(this.statusCode).send(this.jsonBody);
+    }
+}

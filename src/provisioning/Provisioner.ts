@@ -16,14 +16,12 @@ limitations under the License.
 
 import { NextFunction, Response } from "express";
 import { ApiError, AppService, ErrCode, Logger, ProvisioningApi, ProvisioningRequest } from "matrix-appservice-bridge";
-import { ValidateFunction } from "ajv";
 
 import { Main } from "../Main";
 import { HTTP_CODES } from "../BaseSlackHandler";
-import { AuthTestResponse, ConversationsListResponse } from "../SlackResponses";
+import { AuthTestResponse, ConversationsInfoResponse, ConversationsListResponse } from "../SlackResponses";
 import { NedbDatastore } from "../datastore/NedbDatastore";
 import {
-    ajv,
     isValidGetAuthUrlBody,
     isValidGetChannelInfoBody,
     isValidGetLinkBody,
@@ -31,6 +29,9 @@ import {
     isValidListChannelsBody,
     isValidLogoutBody,
     isValidUnlinkBody,
+    SlackErrCode,
+    SlackProvisioningError,
+    ValidationError
 } from "./Schema";
 
 const log = new Logger("Provisioning");
@@ -59,19 +60,6 @@ export interface ProvisionerConfig {
 
 interface StrictProvisionerConfig extends ProvisionerConfig {
     secret: string;
-}
-
-class ValidationError extends ApiError {
-    constructor(validator: ValidateFunction) {
-        super(
-            "Malformed request",
-            ErrCode.BadValue,
-            undefined,
-            {
-                errors: ajv.errorsText(validator.errors),
-            },
-        );
-    }
 }
 
 const assertUserId = (req: ProvisioningRequest): string => {
@@ -132,14 +120,13 @@ export class Provisioner extends ProvisioningApi {
                     if (res.headersSent) {
                         return;
                     }
-                    if (e instanceof ValidationError || e instanceof ApiError) {
-                        // FIXME: Should do ApiError.apply but it breaks tests due to using .send instead of .json
-                        res.status(e.statusCode).json(e.jsonBody);
+                    if (e instanceof SlackProvisioningError || e instanceof ApiError) {
+                        e.apply(res);
                     } else {
-                        req.log.error('Unknown error', e);
+                        req.log.error("Unknown error:", e);
                         // Send a generic error
                         const err = new ApiError("An internal error occurred");
-                        res.status(err.statusCode).json(err.jsonBody);
+                        err.apply(res);
                     }
                 }
             };
@@ -163,7 +150,7 @@ export class Provisioner extends ProvisioningApi {
         log.info("Provisioning API ready");
     }
 
-    private async reachedRoomLimit() {
+    private async reachedRoomLimit(): Promise<boolean> {
         if (!this.main.config.provisioning?.limits?.room_count) {
             // No limit applied
             return false;
@@ -172,7 +159,7 @@ export class Provisioner extends ProvisioningApi {
         return (currentCount >= this.main.config.provisioning?.limits?.room_count);
     }
 
-    private async determineSlackIdForRequest(matrixUserId, teamId): Promise<string | undefined> {
+    private async determineSlackIdForRequest(matrixUserId: string, teamId: string): Promise<string | undefined> {
         for (const account of await this.main.datastore.getAccountsForMatrixUser(matrixUserId)) {
             if (account.teamId === teamId) {
                 return account.slackId;
@@ -208,9 +195,10 @@ export class Provisioner extends ProvisioningApi {
         }
 
         if (!this.main.oauth2) {
-            return res.status(HTTP_CODES.CLIENT_ERROR).json({
-                error: "OAuth2 not configured on this bridge",
-            });
+            throw new ApiError(
+                "OAuth2 is not configured on this bridge",
+                ErrCode.UnsupportedOperation,
+            );
         }
         const token = this.main.oauth2.getPreauthToken(userId);
         const authUri = this.main.oauth2.makeAuthorizeURL(
@@ -223,7 +211,7 @@ export class Provisioner extends ProvisioningApi {
         });
     }
 
-    private async logout(req: ProvisioningRequest, res: Response): Promise<void> {
+    private async logout(req: ProvisioningRequest, res: Response) {
         const userId = assertUserId(req);
 
         const body = req.body as unknown;
@@ -234,13 +222,13 @@ export class Provisioner extends ProvisioningApi {
         const slackId = body.slack_id;
 
         if (!this.main.oauth2) {
-            res.status(HTTP_CODES.NOT_FOUND).json({
-                error: "OAuth2 not configured on this bridge",
-            });
-            return;
+            throw new ApiError(
+                "OAuth2 is not configured on this bridge",
+                ErrCode.UnsupportedOperation,
+            );
         }
         const logoutResult = await this.main.logoutAccount(userId, slackId);
-        res.json({logoutResult});
+        return res.json({ logoutResult });
     }
 
     private async listChannels(req: ProvisioningRequest, res: Response) {
@@ -253,14 +241,19 @@ export class Provisioner extends ProvisioningApi {
 
         const teamId = body.team_id;
 
-        log.debug(`${userId} for ${teamId} requested their channels`);
         const slackUserId = await this.determineSlackIdForRequest(userId, teamId);
         if (!slackUserId) {
-            return res.status(HTTP_CODES.CLIENT_ERROR).json({error: "User is not part of this team!"});
+            throw new SlackProvisioningError(
+                "User is not in this team",
+                SlackErrCode.UnknownTeam,
+            );
         }
         const team = await this.main.datastore.getTeam(teamId);
         if (team === null) {
-            throw Error("No team token for this team_id");
+            throw new SlackProvisioningError(
+                "Team was not found",
+                SlackErrCode.UnknownTeam,
+            );
         }
         const cli = await this.main.clientFactory.getTeamClient(teamId);
         try {
@@ -288,19 +281,24 @@ export class Provisioner extends ProvisioningApi {
                     topic: chan.topic,
                 })),
             });
-        } catch (ex) {
-            log.error(`Failed trying to fetch channels for ${teamId} ${ex}.`);
-            return res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
+        } catch (e) {
+            req.log.error(`Failed to list channels for team ${teamId}:`,  e);
+            throw new ApiError(
+                "Failed to list channels",
+                ErrCode.Unknown,
+            );
         }
     }
 
     private async listTeams(req: ProvisioningRequest, res: Response) {
         const userId = assertUserId(req);
 
-        log.debug(`${userId} requested their teams`);
         const accounts = await this.main.datastore.getAccountsForMatrixUser(userId);
         if (accounts.length === 0) {
-            return res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
+            throw new SlackProvisioningError(
+                "No Slack accounts found",
+                SlackErrCode.UnknownAccount,
+            );
         }
         const results = await Promise.all(
             accounts.map(async (account) => {
@@ -319,7 +317,6 @@ export class Provisioner extends ProvisioningApi {
     private async listAccounts(req: ProvisioningRequest, res: Response) {
         const userId = assertUserId(req);
 
-        log.debug(`${userId} requested their puppeted accounts`);
         const allPuppets = await this.main.datastore.getPuppetedUsers();
         const accts = allPuppets.filter((p) => p.matrixId === userId);
         const accounts = await Promise.all(accts.map(async acct => {
@@ -364,13 +361,13 @@ export class Provisioner extends ProvisioningApi {
 
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
-            throw new ProvisioningError(
-                HTTP_CODES.FORBIDDEN,
-                `${userId} is not allowed to provision links in ${matrixRoomId}`
+            throw new SlackProvisioningError(
+                "Not allowed to provision links in this room",
+                SlackErrCode.NotEnoughPower,
             );
         }
 
-        // Convert the room 'status' into a integration manager 'status'
+        // Convert the room 'status' into an integration manager 'status'
         let status = room.getStatus();
         if (status.match(/^ready/)) {
             // OK
@@ -405,40 +402,40 @@ export class Provisioner extends ProvisioningApi {
         const channelId = body.channel_id;
         const teamId = body.team_id;
 
-        log.info(`${userId} requested the room info of ${channelId}`);
-
         // Check if the user is in the team.
         if (!(await this.main.matrixUserInSlackTeam(teamId, userId))) {
-            throw new ProvisioningError(
-                `${userId} is not in this team.`,
-                HTTP_CODES.FORBIDDEN,
+            throw new SlackProvisioningError(
+                "User is not in this team",
+                SlackErrCode.UnknownTeam,
             );
         }
 
+        let channelInfo: ConversationsInfoResponse|"channel_not_allowed"|"channel_not_found";
         try {
-            const channelInfo = await this.main.getChannelInfo(channelId, teamId);
+            channelInfo = await this.main.getChannelInfo(channelId, teamId);
+        } catch (error) {
+            req.log.error("Failed to get channel info:", error);
+            throw new ApiError(
+                "Failed to get channel info",
+                ErrCode.Unknown,
+            );
+        }
 
-            if (channelInfo === 'channel_not_found') {
-                return res.status(HTTP_CODES.NOT_FOUND).json({
-                    message: 'Slack channel not found',
-                });
-            } else if (channelInfo === 'channel_not_allowed') {
-                return res.status(HTTP_CODES.NOT_FOUND).json({
-                    message: 'Slack channel not not allowed to be bridged',
-                });
-            }
-
+        if (channelInfo === "channel_not_found") {
+            throw new SlackProvisioningError(
+                "Slack channel was not found",
+                SlackErrCode.UnknownChannel,
+            );
+        } else if (channelInfo === "channel_not_allowed") {
+            throw new SlackProvisioningError(
+                "Slack channel is not allowed to be bridged",
+                SlackErrCode.UnknownChannel,
+            );
+        } else {
             return res.json({
                 name: channelInfo.channel.name,
                 memberCount: channelInfo.channel.num_members,
             });
-        } catch (error) {
-            log.error('Failed to get channel info.');
-            log.error(error);
-            throw new ApiError(
-                'Failed to get channel info',
-                ErrCode.Unknown,
-            );
         }
     }
 
@@ -458,22 +455,22 @@ export class Provisioner extends ProvisioningApi {
 
         // Check if the user is in the team.
         if (teamId && !(await this.main.matrixUserInSlackTeam(teamId, userId))) {
-            throw new ProvisioningError(
-                HTTP_CODES.FORBIDDEN,
-                `${userId} is not in this team.`,
+            throw new SlackProvisioningError(
+                "User is not in this team",
+                SlackErrCode.UnknownTeam,
             );
         }
         if (!(await this.main.checkLinkPermission(matrixRoomId, userId))) {
-            return Promise.reject({
-                code: HTTP_CODES.FORBIDDEN,
-                text: `${userId} is not allowed to provision links in ${matrixRoomId}`,
-            });
+            throw new SlackProvisioningError(
+                "User is not allowed to provision links in this room",
+                SlackErrCode.NotEnoughPower,
+            );
         }
 
         if (await this.reachedRoomLimit()) {
-            throw new ProvisioningError(
-                HTTP_CODES.FORBIDDEN,
-                `You have reached the maximum number of bridged rooms.`,
+            throw new SlackProvisioningError(
+                "Maximum number of bridged rooms has been reached",
+                SlackErrCode.BridgeAtLimit,
             );
         }
 
@@ -494,7 +491,7 @@ export class Provisioner extends ProvisioningApi {
         } else {
             status = "unknown";
         }
-        log.info(`Result of link for ${matrixRoomId} -> ${status} ${body.channel_id}`);
+        req.log.info(`Result of link for ${matrixRoomId} -> ${status} ${body.channel_id}`);
         return res.json({
             inbound_uri: this.main.getInboundUrlForRoom(room),
             matrix_room_id: matrixRoomId,
@@ -516,9 +513,9 @@ export class Provisioner extends ProvisioningApi {
 
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
-            throw new ProvisioningError(
-                HTTP_CODES.FORBIDDEN,
-                `${userId} is not allowed to provision links in ${matrixRoomId}`,
+            throw new SlackProvisioningError(
+                "User is not allowed to provision links in this room",
+                SlackErrCode.NotEnoughPower,
             );
         }
         await this.main.actionUnlink({matrix_room_id: matrixRoomId});
