@@ -241,8 +241,15 @@ export class Provisioner extends ProvisioningApi {
 
         const teamId = body.team_id;
 
-        const slackUserId = await this.determineSlackIdForRequest(userId, teamId);
-        if (!slackUserId) {
+        const accounts = await this.main.datastore.getAccountsForMatrixUser(userId);
+        if (accounts.length === 0) {
+            throw new SlackProvisioningError(
+                "No Slack accounts found",
+                SlackErrCode.UnknownAccount,
+            );
+        }
+        const slackUser = accounts.find(a => a.teamId === teamId);
+        if (!slackUser) {
             throw new SlackProvisioningError(
                 "User is not in this team",
                 SlackErrCode.UnknownTeam,
@@ -265,7 +272,7 @@ export class Provisioner extends ProvisioningApi {
             const response = (await cli.users.conversations({
                 exclude_archived: true,
                 limit: 1000, // TODO: Pagination
-                user: slackUserId,  // In order to show private channels, we need the identity of the caller.
+                user: slackUser.slackId,  // In order to show private channels, we need the identity of the caller.
                 types,
             })) as ConversationsListResponse;
             if (!response.ok) {
