@@ -456,6 +456,8 @@ export class Provisioner extends ProvisioningApi {
 
         const matrixRoomId = body.matrix_room_id;
         const teamId = body.team_id;
+        const channelId = body.channel_id;
+        const slackWebhookUri = body.slack_webhook_uri;
 
         // Ensure we are in the room.
         await this.main.botIntent.join(matrixRoomId);
@@ -481,31 +483,40 @@ export class Provisioner extends ProvisioningApi {
             );
         }
 
-        const room = await this.main.actionLink({
-            matrix_room_id: matrixRoomId,
-            slack_webhook_uri: body.slack_webhook_uri,
-            slack_channel_id: body.channel_id,
-            team_id: teamId,
-        });
-        // Convert the room 'status' into an integration manager 'status'
-        let status = room.getStatus();
-        if (status === "ready") {
-            // OK
-        } else if (status === "pending-params") {
-            status = "partial";
-        } else if (status === "pending-name") {
-            status = "pending";
-        } else {
-            status = "unknown";
+        try {
+            const room = await this.main.actionLink({
+                matrix_room_id: matrixRoomId,
+                slack_webhook_uri: slackWebhookUri,
+                slack_channel_id: channelId,
+                team_id: teamId,
+            });
+            // Convert the room 'status' into an integration manager 'status'
+            let status = room.getStatus();
+            if (status === "ready") {
+                // OK
+            } else if (status === "pending-params") {
+                status = "partial";
+            } else if (status === "pending-name") {
+                status = "pending";
+            } else {
+                status = "unknown";
+            }
+            req.log.info(`Result of link for ${matrixRoomId} -> ${status} ${channelId}`);
+            return res.json({
+                inbound_uri: this.main.getInboundUrlForRoom(room),
+                matrix_room_id: matrixRoomId,
+                slack_channel_name: room.SlackChannelName,
+                slack_webhook_uri: room.SlackWebhookUri,
+                status,
+            });
+        } catch (e) {
+            req.log.error(`Failed to link room ${matrixRoomId} to channel ${channelId}:`, e);
+            // TODO We could be more specific if actionLink returned different errors
+            throw new ApiError(
+                "Failed to link channel",
+                ErrCode.Unknown,
+            );
         }
-        req.log.info(`Result of link for ${matrixRoomId} -> ${status} ${body.channel_id}`);
-        return res.json({
-            inbound_uri: this.main.getInboundUrlForRoom(room),
-            matrix_room_id: matrixRoomId,
-            slack_channel_name: room.SlackChannelName,
-            slack_webhook_uri: room.SlackWebhookUri,
-            status,
-        });
     }
 
     private async unlink(req: ProvisioningRequest, res: Response) {
