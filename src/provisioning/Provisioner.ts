@@ -14,12 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+import { NextFunction, Response } from "express";
 import { ApiError, AppService, ErrCode, Logger, ProvisioningApi, ProvisioningRequest } from "matrix-appservice-bridge";
-import { Request, Response } from "express";
+import { ValidateFunction } from "ajv";
+
 import { Main } from "../Main";
 import { HTTP_CODES } from "../BaseSlackHandler";
-import { ConversationsListResponse, AuthTestResponse } from "../SlackResponses";
+import { AuthTestResponse, ConversationsListResponse } from "../SlackResponses";
 import { NedbDatastore } from "../datastore/NedbDatastore";
+import {
+    ajv,
+    isValidGetAuthUrlBody,
+    isValidGetChannelInfoBody,
+    isValidGetLinkBody,
+    isValidLinkBody,
+    isValidListChannelsBody,
+    isValidLogoutBody,
+    isValidUnlinkBody,
+} from "./Schema";
 
 const log = new Logger("Provisioning");
 
@@ -49,29 +61,28 @@ interface StrictProvisionerConfig extends ProvisionerConfig {
     secret: string;
 }
 
-class ProvisioningError extends Error {
-    constructor(public readonly code: number, public readonly text: string) {
-        super();
-    }
-
-    get message() {
-        return `Provisioning error ${this.code}: ${this.text}`;
+class ValidationError extends ApiError {
+    constructor(validator: ValidateFunction) {
+        super(
+            "Malformed request",
+            ErrCode.BadValue,
+            undefined,
+            {
+                errors: ajv.errorsText(validator.errors),
+            },
+        );
     }
 }
 
-interface DecoratedCommandFunc {
-    (req: Request, res: Response, ...params: string[]): void|Promise<void>;
-    params: Param[];
-}
-
-type Param = string | { param: string, required: boolean};
-
-// Decorator
-const command = (...params: Param[]) => (
-    (target: any, propertyKey: string) => {
-        target[propertyKey].params = params;
+const assertUserId = (req: ProvisioningRequest): string => {
+    const userId = req.userId;
+    if (!userId) {
+        throw new ApiError("Missing user ID", ErrCode.BadValue);
     }
-);
+    return userId;
+};
+
+type RequestHandler = (req: ProvisioningRequest, res: Response, next?: NextFunction) => Promise<unknown>;
 
 export class Provisioner extends ProvisioningApi {
     constructor(
@@ -111,42 +122,38 @@ export class Provisioner extends ProvisioningApi {
             );
         }
 
-        const wrapHandler = (handler: DecoratedCommandFunc) => {
-            return async(req: ProvisioningRequest, res: Response) => {
-                const body = req.body;
-                const args: [Request, Response, ...string[]] = [req.expressReq, res];
-                for (const param of handler.params) {
-                    const paramName = typeof(param) === "string" ? param : param.param;
-                    const paramRequired = typeof(param) === "string" ? true : param.required;
-                    if (!(paramName in body) && paramRequired) {
-                        res.status(HTTP_CODES.CLIENT_ERROR).json({error: `Required parameter ${param} missing`});
-                    }
-                    args.push(body[paramName]);
-                }
-
+        const wrapHandler = (handler: RequestHandler) =>
+            async (req: ProvisioningRequest, res: Response) => {
+                // Wrap handlers so that they can follow the common style of `return res.json(...)`
+                // This is only necessary because ProvisioningApi requires return of Promise<void>
                 try {
-                    await handler.call(this, ...args);
-                } catch (err) {
-                    log.error("Provisioning command threw an error:", err);
-                    if (err instanceof ProvisioningError) {
-                        res.status(err.code).json({error: err.text});
+                    await handler.call(this, req, res);
+                } catch (e) {
+                    if (res.headersSent) {
+                        return;
+                    }
+                    if (e instanceof ValidationError || e instanceof ApiError) {
+                        // FIXME: Should do ApiError.apply but it breaks tests due to using .send instead of .json
+                        res.status(e.statusCode).json(e.jsonBody);
                     } else {
-                        res.status(HTTP_CODES.SERVER_ERROR).json({error: (err as Error).message});
+                        req.log.error('Unknown error', e);
+                        // Send a generic error
+                        const err = new ApiError("An internal error occurred");
+                        res.status(err.statusCode).json(err.jsonBody);
                     }
                 }
             };
-        };
 
-        this.addRoute("post", "/getbotid", wrapHandler(this.getbotid as DecoratedCommandFunc), "getbotid");
-        this.addRoute("post", "/authurl", wrapHandler(this.authurl as DecoratedCommandFunc), "authurl");
-        this.addRoute("post", "/channelinfo", wrapHandler(this.channelinfo as DecoratedCommandFunc), "channelinfo");
-        this.addRoute("post", "/channels", wrapHandler(this.channels as DecoratedCommandFunc), "channels");
-        this.addRoute("post", "/getlink", wrapHandler(this.getlink as DecoratedCommandFunc), "getlink");
-        this.addRoute("post", "/link", wrapHandler(this.link as DecoratedCommandFunc), "link");
-        this.addRoute("post", "/logout", wrapHandler(this.logout as DecoratedCommandFunc), "link");
-        this.addRoute("post", "/teams", wrapHandler(this.teams as DecoratedCommandFunc), "teams");
-        this.addRoute("post", "/accounts", wrapHandler(this.accounts as DecoratedCommandFunc), "accounts");
-        this.addRoute("post", "/unlink", wrapHandler(this.unlink as DecoratedCommandFunc), "unlink");
+        this.addRoute("post", "/getbotid", wrapHandler(this.getBotId), "getBotId");
+        this.addRoute("post", "/authurl", wrapHandler(this.getAuthUrl), "getAuthUrl");
+        this.addRoute("post", "/logout", wrapHandler(this.logout), "logout");
+        this.addRoute("post", "/channels", wrapHandler(this.listChannels), "listChannels");
+        this.addRoute("post", "/teams", wrapHandler(this.listTeams), "listTeams");
+        this.addRoute("post", "/accounts", wrapHandler(this.listAccounts), "listAccounts");
+        this.addRoute("post", "/getlink", wrapHandler(this.getLink), "getLink");
+        this.addRoute("post", "/channelinfo", wrapHandler(this.getChannelInfo), "getChannelinfo");
+        this.addRoute("post", "/link", wrapHandler(this.link), "link");
+        this.addRoute("post", "/unlink", wrapHandler(this.unlink), "unlink");
     }
 
     public async start(): Promise<void> {
@@ -165,20 +172,19 @@ export class Provisioner extends ProvisioningApi {
         return (currentCount >= this.main.config.provisioning?.limits?.room_count);
     }
 
-    private async determineSlackIdForRequest(matrixUserId, teamId) {
+    private async determineSlackIdForRequest(matrixUserId, teamId): Promise<string | undefined> {
         for (const account of await this.main.datastore.getAccountsForMatrixUser(matrixUserId)) {
             if (account.teamId === teamId) {
                 return account.slackId;
             }
         }
-        return null;
+        return undefined;
     }
 
-    @command()
-    private async getconfig(_, res) {
+    private async getBotId(req: ProvisioningRequest, res: Response) {
         const hasRoomLimit = this.main.config.provisioning?.limits?.room_count;
         const hasTeamLimit = this.main.config.provisioning?.limits?.team_count;
-        res.json({
+        return res.json({
             bot_user_id: this.main.botUserId,
             require_public_room: this.main.config.provisioning?.require_public_room || false,
             instance_name: this.main.config.homeserver.server_name,
@@ -193,32 +199,40 @@ export class Provisioner extends ProvisioningApi {
         });
     }
 
-    @command()
-    private async getbotid(_, res) {
-        return this.getconfig(_, res);
-    }
+    private async getAuthUrl(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
 
-    @command("user_id", { param: "puppeting", required: false})
-    private authurl(_, res, userId, puppeting) {
+        const body = req.body as unknown;
+        if (!isValidGetAuthUrlBody(body)) {
+            throw new ValidationError(isValidGetAuthUrlBody);
+        }
+
         if (!this.main.oauth2) {
-            res.status(HTTP_CODES.CLIENT_ERROR).json({
+            return res.status(HTTP_CODES.CLIENT_ERROR).json({
                 error: "OAuth2 not configured on this bridge",
             });
-            return;
         }
         const token = this.main.oauth2.getPreauthToken(userId);
         const authUri = this.main.oauth2.makeAuthorizeURL(
             token,
             token,
-            puppeting === "true",
+            body.puppeting,
         );
-        res.json({
+        return res.json({
             auth_uri: authUri,
         });
     }
 
-    @command("user_id", "slack_id")
-    private async logout(req: Request, res: Response, userId: string, slackId: string) {
+    private async logout(req: ProvisioningRequest, res: Response): Promise<void> {
+        const userId = assertUserId(req);
+
+        const body = req.body as unknown;
+        if (!isValidLogoutBody(body)) {
+            throw new ValidationError(isValidLogoutBody);
+        }
+
+        const slackId = body.slack_id;
+
         if (!this.main.oauth2) {
             res.status(HTTP_CODES.NOT_FOUND).json({
                 error: "OAuth2 not configured on this bridge",
@@ -229,8 +243,16 @@ export class Provisioner extends ProvisioningApi {
         res.json({logoutResult});
     }
 
-    @command("user_id", "team_id")
-    private async channels(req, res, userId, teamId) {
+    private async listChannels(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
+        const body = req.body as unknown;
+        if (!isValidListChannelsBody(body)) {
+            throw new ValidationError(isValidListChannelsBody);
+        }
+
+        const teamId = body.team_id;
+
         log.debug(`${userId} for ${teamId} requested their channels`);
         const slackUserId = await this.determineSlackIdForRequest(userId, teamId);
         if (!slackUserId) {
@@ -257,7 +279,7 @@ export class Provisioner extends ProvisioningApi {
                 throw Error(response.error);
             }
 
-            res.json({
+            return res.json({
                 channels: response.channels.map((chan) => ({
                     // We deliberately filter out extra information about a channel here
                     id: chan.id,
@@ -268,17 +290,17 @@ export class Provisioner extends ProvisioningApi {
             });
         } catch (ex) {
             log.error(`Failed trying to fetch channels for ${teamId} ${ex}.`);
-            res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
+            return res.status(HTTP_CODES.SERVER_ERROR).json({error: "Failed to fetch channels"});
         }
     }
 
-    @command("user_id")
-    private async teams(req, res, userId) {
+    private async listTeams(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
         log.debug(`${userId} requested their teams`);
         const accounts = await this.main.datastore.getAccountsForMatrixUser(userId);
         if (accounts.length === 0) {
-            res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
-            return;
+            return res.status(HTTP_CODES.NOT_FOUND).json({error: "User has no accounts setup"});
         }
         const results = await Promise.all(
             accounts.map(async (account) => {
@@ -291,11 +313,12 @@ export class Provisioner extends ProvisioningApi {
             name: account.team?.name,
             slack_id: account.slack_id,
         }));
-        res.json({ teams });
+        return res.json({ teams });
     }
 
-    @command("user_id")
-    private async accounts(_, res, userId) {
+    private async listAccounts(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
         log.debug(`${userId} requested their puppeted accounts`);
         const allPuppets = await this.main.datastore.getPuppetedUsers();
         const accts = allPuppets.filter((p) => p.matrixId === userId);
@@ -320,18 +343,25 @@ export class Provisioner extends ProvisioningApi {
             }
             return publicAccount;
         }));
-        res.json({ accounts });
+        return res.json({ accounts });
     }
 
-    @command("matrix_room_id", "user_id")
-    private async getlink(req, res, matrixRoomId, userId) {
+    private async getLink(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
+        const body = req.body as unknown;
+        if (!isValidGetLinkBody(body)) {
+            throw new ValidationError(isValidGetLinkBody);
+        }
+
+        const matrixRoomId = body.matrix_room_id;
+
         const room = this.main.rooms.getByMatrixRoomId(matrixRoomId);
         if (!room) {
             res.status(HTTP_CODES.NOT_FOUND).json({error: "Link not found"});
             return;
         }
 
-        log.info(`Need to enquire if ${userId} is allowed get links for ${matrixRoomId}`);
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
             throw new ProvisioningError(
@@ -352,7 +382,7 @@ export class Provisioner extends ProvisioningApi {
             status = "unknown";
         }
 
-        res.json({
+        return res.json({
             inbound_uri: this.main.getInboundUrlForRoom(room),
             isWebhook: room.SlackWebhookUri !== undefined,
             matrix_room_id: matrixRoomId,
@@ -364,23 +394,24 @@ export class Provisioner extends ProvisioningApi {
         });
     }
 
-    @command("user_id", "channel_id", "team_id")
-    private async channelinfo(_, res, userId, channelId, teamId) {
-        if (typeof userId !== 'string' || !userId ||
-            typeof channelId !== 'string' || !channelId ||
-            typeof teamId !== 'string' || !teamId) {
-            return res.status(HTTP_CODES.CLIENT_ERROR).json({
-                message: 'user_id, channel_id, team_id and bot_token must be strings',
-            });
+    private async getChannelInfo(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
+        const body = req.body as unknown;
+        if (!isValidGetChannelInfoBody(body)) {
+            throw new ValidationError(isValidGetChannelInfoBody);
         }
+
+        const channelId = body.channel_id;
+        const teamId = body.team_id;
 
         log.info(`${userId} requested the room info of ${channelId}`);
 
         // Check if the user is in the team.
         if (!(await this.main.matrixUserInSlackTeam(teamId, userId))) {
             throw new ProvisioningError(
-                HTTP_CODES.FORBIDDEN,
                 `${userId} is not in this team.`,
+                HTTP_CODES.FORBIDDEN,
             );
         }
 
@@ -404,31 +435,29 @@ export class Provisioner extends ProvisioningApi {
         } catch (error) {
             log.error('Failed to get channel info.');
             log.error(error);
-            throw new ProvisioningError(
-                HTTP_CODES.SERVER_ERROR,
+            throw new ApiError(
                 'Failed to get channel info',
+                ErrCode.Unknown,
             );
         }
     }
 
-    @command("matrix_room_id", "user_id")
-    private async link(req, res, matrixRoomId, userId) {
-        log.info(`Need to enquire if ${userId} is allowed to link ${matrixRoomId}`);
+    private async link(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
+        const body = req.body as unknown;
+        if (!isValidLinkBody(body)) {
+            throw new ValidationError(isValidLinkBody);
+        }
+
+        const matrixRoomId = body.matrix_room_id;
+        const teamId = body.team_id;
 
         // Ensure we are in the room.
         await this.main.botIntent.join(matrixRoomId);
 
-        const params = req.body;
-        const opts = {
-            matrix_room_id: matrixRoomId,
-            slack_channel_id: params.channel_id,
-            slack_webhook_uri: params.slack_webhook_uri,
-            team_id: params.team_id,
-            user_id: params.user_id,
-        };
-
         // Check if the user is in the team.
-        if (opts.team_id && !(await this.main.matrixUserInSlackTeam(opts.team_id, opts.user_id))) {
+        if (teamId && !(await this.main.matrixUserInSlackTeam(teamId, userId))) {
             throw new ProvisioningError(
                 HTTP_CODES.FORBIDDEN,
                 `${userId} is not in this team.`,
@@ -448,8 +477,13 @@ export class Provisioner extends ProvisioningApi {
             );
         }
 
-        const room = await this.main.actionLink(opts);
-        // Convert the room 'status' into a integration manager 'status'
+        const room = await this.main.actionLink({
+            matrix_room_id: matrixRoomId,
+            slack_webhook_uri: body.slack_webhook_uri,
+            slack_channel_id: body.channel_id,
+            team_id: teamId,
+        });
+        // Convert the room 'status' into an integration manager 'status'
         let status = room.getStatus();
         if (status === "ready") {
             // OK
@@ -460,8 +494,8 @@ export class Provisioner extends ProvisioningApi {
         } else {
             status = "unknown";
         }
-        log.info(`Result of link for ${matrixRoomId} -> ${status} ${opts.slack_channel_id}`);
-        res.json({
+        log.info(`Result of link for ${matrixRoomId} -> ${status} ${body.channel_id}`);
+        return res.json({
             inbound_uri: this.main.getInboundUrlForRoom(room),
             matrix_room_id: matrixRoomId,
             slack_channel_name: room.SlackChannelName,
@@ -470,9 +504,15 @@ export class Provisioner extends ProvisioningApi {
         });
     }
 
-    @command("matrix_room_id", "user_id")
-    private async unlink(_, res, matrixRoomId, userId) {
-        log.info(`Need to enquire if ${userId} is allowed to unlink ${matrixRoomId}`);
+    private async unlink(req: ProvisioningRequest, res: Response) {
+        const userId = assertUserId(req);
+
+        const body = req.body as unknown;
+        if (!isValidUnlinkBody(body)) {
+            throw new ValidationError(isValidUnlinkBody);
+        }
+
+        const matrixRoomId = body.matrix_room_id;
 
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
         if (!allowed) {
@@ -482,6 +522,6 @@ export class Provisioner extends ProvisioningApi {
             );
         }
         await this.main.actionUnlink({matrix_room_id: matrixRoomId});
-        res.json({});
+        return res.json({});
     }
 }

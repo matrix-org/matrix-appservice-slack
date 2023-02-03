@@ -36,6 +36,7 @@
     "@slack/rtm-api": "^6.0.0",
     "@slack/web-api": "^6.7.2",
     "Slackdown": "git+https://Half-Shot@github.com/half-shot/slackdown.git",
+    "ajv": "^8.12.0",
     "axios": "^0.27.2",
     "escape-string-regexp": "^4.0.0",
     "matrix-appservice-bridge": "^8.0.0",
