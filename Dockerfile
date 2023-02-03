@@ -9,6 +9,7 @@ COPY package.json yarn.lock tsconfig.json ./
 RUN yarn --ignore-scripts --pure-lockfile --network-timeout 600000
 
 COPY ./src /build/src/
+COPY ./widget /build/widget/
 
 RUN yarn build
 
@@ -23,6 +24,7 @@ RUN apt update && apt install git -y && yarn --network-timeout 600000 --producti
 COPY ./config /usr/src/app/config
 COPY ./templates /usr/src/app/templates
 COPY --from=BUILD /build/lib /usr/src/app/lib
+COPY --from=BUILD /build/public /usr/src/app/public
 
 EXPOSE 9898
 EXPOSE 5858
