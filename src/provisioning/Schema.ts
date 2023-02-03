@@ -116,6 +116,7 @@ export enum SlackErrCode {
     UnknownAccount = "SLACK_UNKNOWN_ACCOUNT",
     UnknownTeam = "SLACK_UNKNOWN_TEAM",
     UnknownChannel = "SLACK_UNKNOWN_CHANNEL",
+    UnknownLink = "SLACK_UNKNOWN_LINK",
     NotEnoughPower = "SLACK_NOT_ENOUGH_POWER",
     BridgeAtLimit = "SLACK_BRIDGE_AT_LIMIT",
 }
@@ -124,6 +125,7 @@ const ErrCodeToStatusCode: Record<SlackErrCode, number> = {
     [SlackErrCode.UnknownAccount]: 404,
     [SlackErrCode.UnknownTeam]: 404,
     [SlackErrCode.UnknownChannel]: 404,
+    [SlackErrCode.UnknownLink]: 404,
     [SlackErrCode.NotEnoughPower]: 403,
     [SlackErrCode.BridgeAtLimit]: 500
 };

@@ -362,8 +362,10 @@ export class Provisioner extends ProvisioningApi {
 
         const room = this.main.rooms.getByMatrixRoomId(matrixRoomId);
         if (!room) {
-            res.status(HTTP_CODES.NOT_FOUND).json({error: "Link not found"});
-            return;
+            throw new SlackProvisioningError(
+                "Link not found",
+                SlackErrCode.UnknownLink,
+            );
         }
 
         const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
