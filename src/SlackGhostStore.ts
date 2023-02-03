@@ -2,10 +2,10 @@ import { SlackRoomStore } from "./SlackRoomStore";
 import { Datastore } from "./datastore/Models";
 import { SlackGhost } from "./SlackGhost";
 import { IConfig } from "./IConfig";
-import QuickLRU from "quick-lru";
-import { Logging, Bridge } from "matrix-appservice-bridge";
+import QuickLRU from "@alloc/quick-lru";
+import { Logger, Bridge } from "matrix-appservice-bridge";
 
-const log = Logging.get("SlackGhostStore");
+const log = new Logger("SlackGhostStore");
 
 /**
  * Class that supports the creation of slack ghosts.
@@ -23,7 +23,7 @@ export class SlackGhostStore {
     }
 
     /**
-     * Get the domain of a message by getting it from it's keys, or by resolving the teamId.
+     * Get the domain of a message by getting it from its keys, or by resolving the teamId.
      * @param message The slack message, containing a team_domain.
      * @param teamId Optionally pass the teamId, if known.
      */
@@ -94,7 +94,7 @@ export class SlackGhostStore {
 
         let ghost: SlackGhost;
         if (entry) {
-            log.debug("Getting existing ghost for", userId);
+            log.debug("Got ghost entry from datastore", userId);
             ghost = SlackGhost.fromEntry(this.datastore, entry, intent);
         } else {
             log.debug("Creating new ghost for", userId);

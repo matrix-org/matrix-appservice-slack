@@ -17,6 +17,8 @@ properties:
         type: number
       appservice_port:
         type: number
+      appservice_host:
+        type: string
   tls:
     type: object
     required: ["key_file", "crt_file"]
@@ -25,6 +27,13 @@ properties:
         type: string
       crt_file:
         type: string
+  user_activity:
+    type: object
+    properties:
+      min_user_active_days:
+        type: number
+      inactive_after_days:
+        type: number
   rtm:
     type: object
     required: ["enable"]
@@ -33,7 +42,7 @@ properties:
         type: boolean
       log_level:
         type: "string"
-        enum: ["error", "warn", "info", "debug", "off"]
+        enum: ["error", "warn", "info", "debug", "silent"]
   db:
     type: object
     required: ["engine", "connectionString"]
@@ -90,6 +99,8 @@ properties:
             enabled:
               type: boolean
             allow_private:
+              type: boolean
+            allow_public:
               type: boolean
             whitelist:
               type: "array"

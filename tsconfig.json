@@ -1,18 +1,15 @@
 {
+  "extends": "@tsconfig/node16/tsconfig.json",
   "compilerOptions": {
-    "target": "ES2017",
-    "module": "commonjs",
     "allowJs": true,
     "outDir": "./lib",
     "rootDir": "./src",
-    "strict": true,
     "incremental": true,
-    "esModuleInterop": true,
     "noImplicitAny": false,
     "experimentalDecorators": true,
-    "sourceMap": true
+    "sourceMap": true,
   },
   "include": [
     "src/**/*"
-  ]
+  ],
 }

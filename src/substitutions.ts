@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
 import escapeStringRegexp from "escape-string-regexp";
 
-const log = Logging.get("substitutions");
+const log = new Logger("substitutions");
 
 const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file", "m.image"];
 const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\/a>/g;
@@ -66,12 +66,12 @@ class Substitutions {
         body = body.replace("<!everyone>", "@room");
 
         // if we have a file, attempt to get the direct link to the file
-        if (file && file.public_url_shared) {
+        if (file && file.permalink_public && file.url_private && file.permalink) {
             const url = this.getSlackFileUrl({
-                permalink_public: file.permalink_public!,
-                url_private: file.url_private!,
+                permalink_public: file.permalink_public,
+                url_private: file.url_private,
             });
-            body = url ? body.replace(file.permalink!, url) : body;
+            body = url ? body.replace(file.permalink, url) : body;
         }
 
         body = emoji.emojify(body, getFallbackForMissingEmoji);
@@ -125,15 +125,14 @@ class Substitutions {
         if (htmlString && format === "org.matrix.custom.html") {
             const mentions = this.pillsToItems(htmlString);
             messageHadPills = (mentions.aliases.concat(mentions.communities, mentions.users).length > 0);
-            const client = main.botIntent.getClient();
             for (const alias of mentions.aliases) {
                 if (!body.includes(alias.text)) {
                     // Do not process an item we have no way to replace.
                     continue;
                 }
                 try {
-                    const roomIdResponse = await client.getRoomIdForAlias(alias.id);
-                    const room = main.rooms.getByMatrixRoomId(roomIdResponse.room_id);
+                    const roomIdResponse = await main.botIntent.resolveRoom(alias.id);
+                    const room = main.rooms.getByMatrixRoomId(roomIdResponse);
                     if (room) {
                         // aliases are faily unique in form, so we can replace these easily enough
                         const aliasRegex = new RegExp(escapeStringRegexp(alias.text), "g");
@@ -333,8 +332,8 @@ export default substitutions;
  * @return The string with replacements performed.
  */
 const plainTextSlackMentions = async(main: Main, body: string, teamId: string) => {
-    let users = await main.datastore.getAllUsersForTeam(teamId);
-    users = users.filter((u) => u.display_name && u.display_name.length > 0);
+    const allUsers = await main.datastore.getAllUsersForTeam(teamId);
+    const users = allUsers.filter((u) => u.display_name && u.display_name.length > 0) as {display_name: string, slack_id: string}[];
     users.sort((u1, u2) => u2.display_name.length - u1.display_name.length);
     for (const user of users) {
         const displayName = `@${user.display_name}`;

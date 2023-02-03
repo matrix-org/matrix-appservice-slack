@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import axios from "axios";
-import { Logging, Intent } from "matrix-appservice-bridge";
+import { Logger, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
 import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
@@ -26,7 +26,7 @@ import { ChatUpdateResponse,
     ChatPostMessageResponse, ConversationsInfoResponse, FileInfoResponse, FilesSharedPublicURLResponse } from "./SlackResponses";
 import { RoomEntry, EventEntry, TeamEntry } from "./datastore/Models";
 
-const log = Logging.get("BridgedRoom");
+const log = new Logger("BridgedRoom");
 
 type SlackChannelTypes = "mpim"|"im"|"channel"|"group"|"unknown";
 
@@ -159,7 +159,7 @@ export class BridgedRoom {
     public MatrixRoomActive: boolean;
     private recentSlackMessages: string[] = [];
 
-    private slackSendLock: Promise<void> = Promise.resolve();
+    private slackSendLock: Promise<unknown> = Promise.resolve();
 
     private waitingForJoin?: Promise<void>;
     private waitingForJoinResolve?: () => void;
@@ -289,7 +289,7 @@ export class BridgedRoom {
             emojiKeyName = relatesTo.key;
             // Strip the colons
             if (emojiKeyName.startsWith(":") && emojiKeyName.endsWith(":")) {
-                emojiKeyName = emojiKeyName.substring(1, emojiKeyName.length - 1);
+                emojiKeyName = emojiKeyName.slice(1, emojiKeyName.length - 1);
             }
         }
         const clientForRequest = await this.getClientForRequest(message.sender);
@@ -486,7 +486,7 @@ export class BridgedRoom {
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
             as_user: false,
-            username: user.getDisplaynameForRoom(message.room_id) || matrixToSlackResult.username,
+            username: (await user.getDisplaynameForRoom(message.room_id)) || matrixToSlackResult.username,
         };
         const text = body.text;
         if (!body.attachments && !text) {
@@ -505,7 +505,7 @@ export class BridgedRoom {
             }
         }
 
-        const avatarUrl = user.getAvatarUrlForRoom(message.room_id);
+        const avatarUrl = await user.getAvatarUrlForRoom(message.room_id);
 
         if (avatarUrl && avatarUrl.indexOf("mxc://") === 0) {
             body.icon_url = this.main.getUrlForMxc(avatarUrl);
@@ -625,7 +625,7 @@ export class BridgedRoom {
         if (!recipientPuppet && !senderPuppet) {
             log.debug(`S->S ${slackId} was invited by ${wasInvitedBy}`);
             // 1
-            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.userId);
+            await senderGhost.intent.invite(this.matrixRoomId, recipientGhost.matrixUserId);
             await recipientGhost.intent.join(this.matrixRoomId);
         } else if (recipientPuppet && mxid) {
             // 2 & 4
@@ -641,12 +641,17 @@ export class BridgedRoom {
 
     public async onMatrixLeave(userId: string): Promise<void> {
         log.info(`Leaving ${userId} from ${this.SlackChannelId}`);
-        const puppetedClient = await this.main.clientFactory.getClientForUser(this.SlackTeamId!, userId);
+        const slackTeamId = this.SlackTeamId!;
+        const puppetedClient = await this.main.clientFactory.getClientForUser(slackTeamId, userId);
         if (!puppetedClient) {
             log.debug("No client");
             return;
         }
-        await puppetedClient.conversations.leave({ channel: this.SlackChannelId! });
+        if (this.SlackType === "im") {
+            await this.main.actionUnlink({ matrix_room_id: this.MatrixRoomId });
+        } else {
+            await puppetedClient.conversations.leave({ channel: slackTeamId });
+        }
     }
 
     public async onMatrixJoin(userId: string): Promise<void> {
@@ -700,14 +705,20 @@ export class BridgedRoom {
         }
         try {
             const ghost = await this.main.ghostStore.getForSlackMessage(message, this.slackTeamId);
-            await ghost.update(message, this.SlackClient);
+            const ghostChanged = await ghost.update(message, this.SlackClient);
             await ghost.cancelTyping(this.MatrixRoomId); // If they were typing, stop them from doing that.
-            this.slackSendLock = this.slackSendLock.finally(async () => {
+            if (ghostChanged) {
+                await this.main.fixDMMetadata(this, ghost);
+            }
+            this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
-                if (!this.recentSlackMessages.includes(message.ts)) {
-                    return this.handleSlackMessage(message, ghost);
+                if (this.recentSlackMessages.includes(message.ts)) {
+                    // We sent this, ignore
+                    return;
                 }
-                // We sent this, ignore
+                return this.handleSlackMessage(message, ghost).catch((ex) => {
+                    log.warn(`Failed to handle slack message ${message.ts} for ${this.MatrixRoomId} ${this.slackChannelId}`, ex);
+                });
             });
             await this.slackSendLock;
         } catch (err) {
@@ -743,7 +754,9 @@ export class BridgedRoom {
             return;
         }
         const ghost = await this.main.ghostStore.getForSlackMessage(message, teamId);
-        await ghost.update(message, this.SlackClient);
+        if (await ghost.update(message, this.SlackClient)) {
+            await this.main.fixDMMetadata(this, ghost);
+        }
 
         const event = await this.main.datastore.getEventBySlackId(message.item.channel, message.item.ts);
 
@@ -751,7 +764,7 @@ export class BridgedRoom {
             return;
         }
         let response: { event_id: string };
-        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.userId}. Matrix room/event: ${this.MatrixRoomId}, ${event.eventId}`;
+        const reactionDesc = `${reactionKey} for ${event.eventId} as ${ghost.matrixUserId}. Matrix room/event: ${this.MatrixRoomId}`;
         try {
             response = await ghost.sendReaction(
                 this.MatrixRoomId,
@@ -785,15 +798,15 @@ export class BridgedRoom {
             user_id: string,
         },
     ): Promise<void> {
-        if (msg.user_id === this.team!.user_id) {
+        if (!this.team || msg.user_id === this.team.user_id) {
             return;
         }
         const originalEvent = await this.main.datastore.getReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction );
         if (!originalEvent) {
             throw Error('unknown_reaction');
         }
-        const botClient = this.main.botIntent.getClient();
-        botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
+        const botClient = this.main.botIntent.matrixClient;
+        await botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
         await this.main.datastore.deleteReactionBySlackId(msg.item.channel, msg.item.ts, msg.user_id, msg.reaction);
     }
 
@@ -951,6 +964,17 @@ export class BridgedRoom {
         // Dedupe across RTM/Event streams
         this.addRecentSlackMessage(message.ts);
 
+        if (this.SlackType === "im") {
+            const intent = await this.getIntentForRoom();
+            if (intent.userId !== ghost.intent.userId &&
+                !(await intent.matrixClient.getRoomMembers(this.matrixRoomId, undefined, ["invite", "join"]))
+                    .map(m => m.membershipFor).includes(ghost.intent.userId))
+            {
+                await intent.invite(this.matrixRoomId, ghost.matrixUserId);
+                await ghost.intent.join(this.matrixRoomId);
+            }
+        }
+
         ghost.bumpATime();
         this.slackATime = Date.now() / 1000;
 
@@ -971,7 +995,7 @@ export class BridgedRoom {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
             if (replyMEvent) {
                 replyMEvent = await this.stripMatrixReplyFallback(replyMEvent);
-                return await ghost.sendWithReply(
+                return await ghost.sendInThread(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
             } else {
@@ -1024,7 +1048,7 @@ export class BridgedRoom {
                 let replyEvent = await this.getReplyEvent(
                     this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
                 );
-                replyEvent = this.stripMatrixReplyFallback(replyEvent);
+                replyEvent = await this.stripMatrixReplyFallback(replyEvent);
                 if (replyEvent) {
                     const bodyFallback = ghost.getFallbackText(replyEvent);
                     const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
@@ -1125,7 +1149,7 @@ export class BridgedRoom {
             return null;
         }
         const intent = await this.getIntentForRoom(roomID);
-        return await intent.getClient().fetchRoomEvent(roomID, replyToEvent.eventId);
+        return intent.getEvent(roomID, replyToEvent.eventId);
     }
 
     /*
@@ -1133,11 +1157,15 @@ export class BridgedRoom {
         https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
     */
     private async stripMatrixReplyFallback(event: any): Promise<any> {
-        let realHtml = event.content.formatted_body;
-        let realText = event.content.body;
+        if (!event.content?.body) {
+            return event;
+        }
 
-        if (event.content.format === "org.matrix.custom.html" && event.content.formatted_body) {
-            const formattedBody = event.content.formatted_body;
+        let realHtml = event.content.formatted_body;
+        let realText = event.content.body || "";
+
+        if (event.content.format === "org.matrix.custom.html" && realHtml) {
+            const formattedBody = realHtml;
             if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
                 const parts = formattedBody.split("</mx-reply>");
                 realHtml = parts[1];
@@ -1146,8 +1174,7 @@ export class BridgedRoom {
         }
 
         let processedFallback = false;
-        const body = event.content.body || "";
-        for (const line of body.split("\n")) {
+        for (const line of realText.split("\n")) {
             if (line.startsWith("> ") && !processedFallback) {
                 continue;
             } else if (!processedFallback) {
@@ -1171,20 +1198,27 @@ export class BridgedRoom {
         // Extract the referenced event
         if (!message.content) { return message.event_id; }
         if (!message.content["m.relates_to"]) { return message.event_id; }
-        if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
-        const parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
-        if (!parentEventId) { return message.event_id; }
+        let parentEventId;
+        if (["m.thread", "io.element.thread"].includes(message.content["m.relates_to"].rel_type)) {
+            // Parent of a thread
+            parentEventId = message.content["m.relates_to"].event_id;
+        } else {
+            // Next parent of a rely
+            if (!message.content["m.relates_to"]["m.in_reply_to"]) { return message.event_id; }
+            parentEventId = message.content["m.relates_to"]["m.in_reply_to"].event_id;
+        }
+        if (!parentEventId || typeof parentEventId !== "string") { return message.event_id; }
         if (depth > MAX_DEPTH) {
             return parentEventId; // We have hit our depth limit, use this one.
         }
 
         const intent = await this.getIntentForRoom(message.room_id);
-        const nextEvent = await intent.getClient().fetchRoomEvent(message.room_id, parentEventId);
+        const nextEvent = await intent.getEvent(message.room_id, parentEventId);
 
         return this.findParentReply(nextEvent, depth++);
     }
 
-    private async getIntentForRoom(roomID: string) {
+    public async getIntentForRoom(roomID?: string) {
         if (this.intent) {
             return this.intent;
         }
@@ -1192,7 +1226,7 @@ export class BridgedRoom {
         if (!this.IsPrivate) {
             this.intent = this.main.botIntent; // Non-private channels should have the bot inside.
         }
-        const firstGhost = (await this.main.listGhostUsers(roomID))[0];
+        const firstGhost = (await this.main.listGhostUsers(roomID ?? this.matrixRoomId))[0];
         this.intent =  this.main.getIntent(firstGhost);
         return this.intent;
     }

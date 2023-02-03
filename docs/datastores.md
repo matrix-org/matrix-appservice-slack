@@ -45,14 +45,14 @@ Migrating from an existing NeDB installation
 From a checkout of the code base you can run:
 
 ```sh
-npm run build
+yarn run build
 node lib/scripts/migrateToPostgres.js "connectionString" "dbDir" "slackPrefix"
 ```
 
 If you use docker you can run:
 
 ```sh
-docker run --entrypoint "node" -it -v /dbDir:/data  matrixdotorg/matrix-appservice-slack:latest "/usr/src/app/lib/scripts/migrateToPostgres.js" "connectionString" "/data" "slackPrefix"
+docker run --entrypoint "node" --interactive --tty --volume /dbDir:/data  matrixdotorg/matrix-appservice-slack:latest "/usr/src/app/lib/scripts/migrateToPostgres.js" "connectionString" "/data" "slackPrefix"
 ```
 
 (Note the docker container will need to be able to access the postgres port, so you might need `--network host` or to set the ip address to the host etc.)

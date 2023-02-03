@@ -15,7 +15,7 @@ limitations under the License.
 */
 import { BridgedRoom } from "../BridgedRoom";
 import { SlackGhost } from "../SlackGhost";
-import { MatrixUser } from "matrix-appservice-bridge";
+import { MatrixUser, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import { MatrixUser as BridgeMatrixUser } from "../MatrixUser";
 
 export interface RoomEntry {
@@ -35,8 +35,8 @@ export interface RoomEntry {
 
 export interface UserEntry {
     id: string;
-    display_name: string;
-    avatar_url: string;
+    display_name?: string;
+    avatar_url?: string;
     slack_id: string;
     team_id?: string;
 }
@@ -142,6 +142,10 @@ export interface Datastore {
     getUserAdminRoom(matrixId: string): Promise<string|null>;
     getUserForAdminRoom(roomId: string): Promise<string|null>;
     setUserAdminRoom(matrixuser: string, roomId: string): Promise<null>;
+
+    // User activity
+    storeUserActivity(matrixId: string, activity: UserActivity): Promise<void>;
+    getUserActivity(): Promise<UserActivitySet>;
 
     // Metrics
     /**

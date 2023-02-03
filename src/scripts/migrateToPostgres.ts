@@ -19,7 +19,7 @@ limitations under the License.
  * to a postgres one.
  */
 
-import { Logging, MatrixUser, UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
+import { Logger, MatrixUser, UserBridgeStore, RoomBridgeStore, EventBridgeStore } from "matrix-appservice-bridge";
 import NeDB from "nedb";
 import * as path from "path";
 import { promisify } from "util";
@@ -30,8 +30,8 @@ import { SlackGhost } from "../SlackGhost";
 import { Datastore } from "../datastore/Models";
 import { SlackClientFactory } from "../SlackClientFactory";
 
-Logging.configure({ console: "info" });
-const log = Logging.get("script");
+Logger.configure({ console: "info" });
+const log = new Logger("script");
 
 const POSTGRES_URL = process.argv[2];
 const NEDB_DIRECTORY = process.argv[3] || "";
@@ -155,7 +155,7 @@ export const migrateFromNedb = async(nedb: NedbDatastore, targetDs: Datastore): 
         if (!user.slack_id || !user.team_id) {
             const localpart = user.id.split(":")[0];
             // XXX: we are making an assumption here that the prefix ends with _
-            const parts = localpart.substr(USER_PREFIX.length + 1).split("_"); // Remove any prefix.
+            const parts = localpart.slice(USER_PREFIX.length + 1).split("_"); // Remove any prefix.
             // If we encounter more parts than expected, the domain may be underscored
             while (parts.length > 2) {
                 parts[0] = `${parts.shift()}_${parts[0]}`;

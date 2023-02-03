@@ -1,21 +1,24 @@
-FROM node:14-alpine AS BUILD
+FROM node:18-bullseye-slim AS BUILD
 
 # git is needed to install Half-Shot/slackdown
-RUN apk add git
+RUN apt update && apt install -y git
 WORKDIR /src
 
-COPY package.json package-lock.json /src/
-RUN npm install
-COPY . /src
-RUN npm run build
+COPY package.json yarn.lock /src/
 
-FROM node:14-alpine
+RUN yarn --ignore-scripts --pure-lockfile --network-timeout 600000
+
+COPY . /src
+
+RUN yarn build
+
+FROM node:18-bullseye-slim
 
 VOLUME /data/ /config/
 
 WORKDIR /usr/src/app
-COPY package.json package-lock.json /usr/src/app/
-RUN apk add git && npm install --only=production
+COPY package.json yarn.lock /usr/src/app/
+RUN apt update && apt install git -y && yarn --network-timeout 600000 --production --pure-lockfile && yarn cache clean
 
 COPY --from=BUILD /src/config /usr/src/app/config
 COPY --from=BUILD /src/templates /usr/src/app/templates
@@ -25,4 +28,4 @@ EXPOSE 9898
 EXPOSE 5858
 
 ENTRYPOINT [ "node", "lib/app.js", "-c", "/config/config.yaml" ]
-CMD [ "-p", "5858", "-f", "/config/slack-registration.yaml" ]
+CMD [ "-f", "/config/slack-registration.yaml" ]

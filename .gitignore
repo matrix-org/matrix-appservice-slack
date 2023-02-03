@@ -35,3 +35,9 @@ node_modules
 # typescript
 lib
 tsconfig.tsbuildinfo
+
+# project files
+.vscode/
+.project
+.settings/
+.externalToolBuilders/

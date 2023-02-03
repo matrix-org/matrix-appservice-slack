@@ -1,0 +1,56 @@
+name: Tests
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  unit:
+   runs-on: ubuntu-latest
+   strategy:
+      matrix:
+        node_version: [16, 18]
+   steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: "${{ matrix.node_version }}"
+    - run: yarn --pure-lockfile
+    - run: yarn test:unit
+
+  integration:
+   runs-on: ubuntu-latest
+   strategy:
+      matrix:
+        node_version: [16, 18]
+   steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: "${{ matrix.node_version }}"
+    - run: yarn --pure-lockfile
+    - run: yarn test:integration
+
+  integration-postgres:
+   runs-on: ubuntu-latest
+   strategy:
+      matrix:
+        node_version: [16, 18]
+   steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: "${{ matrix.node_version }}"
+    - run: yarn --pure-lockfile
+    - name: Set up PostgreSQL 11
+      run: |
+        docker run --detach --publish 5432:5432 \
+          --env POSTGRES_PASSWORD=pass \
+          --env POSTGRES_INITDB_ARGS="--lc-collate C --lc-ctype C --encoding UTF8" \
+          postgres:11
+    - run: yarn test:postgres

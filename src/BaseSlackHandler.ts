@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { FilesSharedPublicURLResponse, ConversationsInfoResponse } from "./SlackResponses";
 
-const log = Logging.get("BaseSlackHandler");
+const log = new Logger("BaseSlackHandler");
 
 const CHANNEL_ID_REGEX = /<#(\w+)\|?\w*?>/g;
 
@@ -35,11 +35,6 @@ export const HTTP_CODES = {
     SERVER_ERROR: 500,
 };
 
-export interface ISlackMessage {
-    channel: string;
-    text?: string;
-    ts: string;
-}
 
 export interface ISlackEvent {
     type: string;
@@ -56,6 +51,7 @@ export interface ISlackEventMessageAttachment {
 
 export interface ISlackMessageEvent extends ISlackEvent {
     team_domain?: string;
+    team_id?: string;
     user?: string;
     user_id: string;
     inviter?: string;
@@ -150,7 +146,7 @@ export abstract class BaseSlackHandler {
         return channel;
     }
 
-    public async doChannelUserReplacements(msg: ISlackMessage, text: string|undefined, slackClient: WebClient): Promise<string|undefined> {
+    public async doChannelUserReplacements(msg: ISlackMessageEvent, text: string|undefined, slackClient: WebClient): Promise<string|undefined> {
         if (text === undefined) {
             return;
         }
@@ -158,7 +154,7 @@ export abstract class BaseSlackHandler {
         return await this.replaceUserIdsWithNames(msg, text);
     }
 
-    public async replaceChannelIdsWithNames(message: ISlackMessage, text: string, slackClient: WebClient): Promise<string> {
+    public async replaceChannelIdsWithNames(message: ISlackMessageEvent, text: string, slackClient: WebClient): Promise<string> {
         let match: RegExpExecArray | null = null;
         while ((match = CHANNEL_ID_REGEX.exec(text)) !== null) {
             // foreach channelId, pull out the ID
@@ -170,17 +166,11 @@ export abstract class BaseSlackHandler {
 
             // If we bridge the room, attempt to look up its canonical alias.
             if (room !== undefined) {
-                const client = this.main.botIntent.getClient();
-                let canonicalAlias: string|undefined;
-                try {
-                    const canonical = await client.getStateEvent(room.MatrixRoomId, "m.room.canonical_alias");
-                    canonicalAlias = canonical?.alias;
-                } catch (ex) {
-                    // If we can't find a canonical alias fall back to just the Slack channel name.
-                    log.debug(`Room ${room.MatrixRoomId} does not have a canonical alias`, ex);
-                }
+                const canonicalEvent = await this.main.botIntent.getStateEvent(room.MatrixRoomId, "m.room.canonical_alias", "", true);
+                const canonicalAlias = canonicalEvent?.alias;
                 if (canonicalAlias) {
                     text = text.slice(0, match.index) + canonicalAlias + text.slice(match.index + match[0].length);
+                    log.debug(`Room ${room.MatrixRoomId} does not have a canonical alias`);
                 } else {
                     room = undefined;
                 }
@@ -195,8 +185,8 @@ export abstract class BaseSlackHandler {
         return text;
     }
 
-    public async replaceUserIdsWithNames(message: ISlackMessage, text: string): Promise<string> {
-        const teamDomain = await this.main.getTeamDomainForMessage(message as any);
+    public async replaceUserIdsWithNames(message: ISlackMessageEvent, text: string): Promise<string> {
+        const teamDomain = await this.main.getTeamDomainForMessage(message);
 
         if (!teamDomain) {
             log.warn(`Cannot replace user ids with names for ${message.ts}. Unable to determine the teamDomain.`);

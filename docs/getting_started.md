@@ -13,9 +13,8 @@ work for older releases and other homeservers, but configuration may vary.
 
 ```sh
 $ git clone https://github.com/matrix-org/matrix-appservice-slack.git
-$ cd Matrix-appservice-slack
-$ npm install
-$ npm run build
+$ cd matrix-appservice-slack
+$ yarn # Will automatically build the package
 ```
 
 ### With Docker
@@ -24,7 +23,7 @@ $ npm run build
 $ docker pull matrixdotorg/matrix-appservice-slack:latest
 ```
 
-## How it Works:
+## How it works
 
 The bridge listens to events using the Slack RTM API over websockets, and to
 Matrix events on a port that the homeserver sends events to. This tutorial will
@@ -54,7 +53,7 @@ ever stuck, you can post a question in the
 1. Decide on a spare local TCP port number to use. The default is 5858. It will listen for messages
    from Matrix and needs to be visible to the homeserver. Take care to configure
    firewalls appropriately. This port will be notated as `$MATRIX_PORT` in
-   the remaining instructions.
+   the remaining instructions. By default, this is 5858.
 
 1. Create a `config/config.yaml` file for global configuration. There is a sample
    one to begin with in `config/config.sample.yaml`. You should copy and
@@ -69,36 +68,43 @@ ever stuck, you can post a question in the
   
   1. For `homeserver.appservice_port`, specify the above $MATRIX_PORT if you overwrote the default.
 
+  1. When using bridge in Docker container: For `appservice_port`, enter the value of
+     `$MATRIX_PORT`, unless it is `5858`, which is the default.
+
 1. Generate the appservice registration file. This will be used by the
    Matrix homeserver. Here, you must specify the direct link (the url field) the
    **Matrix Homserver** can use to access the bridge, including the Matrix
    port it will send messages through (if this bridge runs on the same
    machine you can use `localhost` as the `$HOST` name):
    
-    `$ npm start -- -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
+    `$ yarn start -r -c config/config.yaml -u "http://$HOST:$MATRIX_PORT"`
    or with docker:
    
-```sh
-$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
-    -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
-```
+   ```sh
+   $ docker run --volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack \ 
+      -r -c /config/config.yaml -u "http://$HOST:$MATRIX_PORT" -f /config/slack-registration.yaml
+   ```
 
 1. Start the actual application service:
 
-    `$ npm start -- -c config/config.yaml -p $MATRIX_PORT`
+   ```sh
+   $ yarn start -c config/config.yaml -p $MATRIX_PORT
+   ```
    or with docker:
    
-    `$ docker run -v /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack`
+   ```ssh
+   $ docker run --detach --volume /path/to/config/:/config/ matrixdotorg/matrix-appservice-slack
+   ```
 
 1. Copy the newly-generated `slack-registration.yaml` file to your Matrix
    homeserver. Add the registration file to your homeserver config (default
    `homeserver.yaml`):
    
-```yaml
-app_service_config_files:
-    - ...
-    - "/path/to/slack-registration.yaml"
-```
+   ```yaml
+    app_service_config_files:
+      - ...
+      - "/path/to/slack-registration.yaml"
+   ```
 
    Don't forget - it has to be a YAML list of strings, not just a single string.
 
@@ -109,9 +115,9 @@ app_service_config_files:
    respond to commands. The bot's user ID is formed from the `sender_localpart`
    field of the registration file, and the homeserver's domain name. For example:
 
-    ```
-    /invite @slackbot:my.server.here
-    ```
+   ```
+   /invite @slackbot:my.server.here
+   ```
 
 NOTE: At the time of writing, Element does not recognize the Slack bot. This is
 okay. The bot *is there*. If Element asks if you're sure you want to invite

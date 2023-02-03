@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, Intent } from "matrix-appservice-bridge";
+import { Logger, Intent } from "matrix-appservice-bridge";
 import * as Slackdown from "Slackdown";
 import { ISlackUser } from "./BaseSlackHandler";
 import { WebClient } from "@slack/web-api";
@@ -22,7 +22,7 @@ import { BotsInfoResponse, UsersInfoResponse } from "./SlackResponses";
 import { UserEntry, Datastore } from "./datastore/Models";
 import axios from "axios";
 
-const log = Logging.get("SlackGhost");
+const log = new Logger("SlackGhost");
 
 // How long in milliseconds to cache user info lookups.
 const USER_CACHE_TIMEOUT = 10 * 60 * 1000;  // 10 minutes
@@ -33,6 +33,10 @@ interface IMatrixReplyEvent {
     content: {
         body: string;
         formatted_body?: string;
+        "m.relates_to"?: {
+            rel_type?: string,
+            event_id?: string,
+        }
     };
 }
 
@@ -62,7 +66,7 @@ export class SlackGhost {
         private datastore: Datastore,
         public readonly slackId: string,
         public readonly teamId: string|undefined,
-        public readonly userId: string,
+        public readonly matrixUserId: string,
         private _intent?: Intent,
         private displayname?: string,
         private avatarHash?: string) {
@@ -85,37 +89,39 @@ export class SlackGhost {
 
     public toEntry(): UserEntry {
         return {
-            avatar_url: this.avatarHash!,
-            display_name: this.displayName!,
-            id: this.userId,
+            avatar_url: this.avatarHash,
+            display_name: this.displayName,
+            id: this.matrixUserId,
             slack_id: this.slackId,
             team_id: this.teamId,
         };
     }
 
-    public async update(message: {user_id?: string, user?: string}, client?: WebClient): Promise<void> {
+    public async update(message: {user_id?: string, user?: string}, client?: WebClient): Promise<boolean> {
         const user = (message.user_id || message.user);
         if (this.updateInProgress) {
             log.debug(`Not updating ${user}: Update in progress.`);
-            return;
+            return false;
         }
         log.info(`Updating user information for ${user}`);
+        let changed = false;
         const updateStartTime = Date.now();
         this.updateInProgress = true;
         try {
-            await this.updateDisplayname(message, client);
+            changed = await this.updateDisplayname(message, client);
         } catch (ex) {
             log.error("Failed to update ghost displayname:", ex);
         }
         try {
             if (client) {
-                await this.updateAvatar(message, client);
+                changed = await this.updateAvatar(message, client) || changed;
             }
         } catch (ex) {
             log.error("Failed to update ghost avatar:", ex);
         }
         log.debug(`Completed update for ${user} in ${Date.now() - updateStartTime}ms`);
         this.updateInProgress = false;
+        return changed;
     }
 
     public async getDisplayname(client: WebClient): Promise<string|undefined> {
@@ -141,7 +147,7 @@ export class SlackGhost {
 
         const avatarRes = await this.lookupAvatarUrl(slackUser);
         if (avatarRes && avatarRes.hash && this.avatarHash !== avatarRes.hash) {
-            const response = await axios.get<ArrayBuffer>(avatarRes.url, {
+            const response = await axios.get<Buffer>(avatarRes.url, {
                 responseType: "arraybuffer",
             });
 
@@ -162,7 +168,7 @@ export class SlackGhost {
     }
 
     private async updateDisplayname(message: {username?: string, user_name?: string, bot_id?: string, user_id?: string},
-        client?: WebClient): Promise<void> {
+        client?: WebClient): Promise<boolean> {
         let displayName = message.username || message.user_name;
         if (!this._intent) {
             throw Error('No intent associated with ghost');
@@ -172,7 +178,7 @@ export class SlackGhost {
             if (message.bot_id && message.user_id) {
                 // In the case of operations on bots, we will have both a bot_id and a user_id.
                 // Ignore updating the displayname in this case.
-                return;
+                return false;
             } else if (message.bot_id) {
                 displayName = await this.getBotName(message.bot_id, client);
             } else if (message.user_id) {
@@ -180,15 +186,12 @@ export class SlackGhost {
             }
         }
 
-        if (!displayName || this.displayName === displayName) {
-            return; // Nothing to do.
-        }
-
-        log.debug(`Updating displayname ${this.displayName} > ${displayName}`);
-
-        await this._intent.setDisplayName(displayName);
+        const changed = this.displayname !== displayName;
+        log.debug(`Ensuring displayname ${displayName} for ${this.slackId}`);
+        await this._intent.ensureProfile(displayName);
         this.displayname = displayName;
         await this.datastore.upsertUser(this);
+        return changed;
     }
 
     public async lookupAvatarUrl(clientOrUser: WebClient|ISlackUser): Promise<{url: string, hash?: string}|undefined> {
@@ -257,44 +260,44 @@ export class SlackGhost {
         return response.user;
     }
 
-    private async updateAvatar(message: {bot_id?: string, user_id?: string}, client: WebClient): Promise<void> {
+    private async updateAvatar(message: {bot_id?: string, user_id?: string}, client: WebClient): Promise<boolean> {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
-        let avatarUrl;
+        let avatarUrl: string|undefined;
         let hash: string|undefined;
         if (message.bot_id && message.user_id) {
             // In the case of operations on bots, we will have both a bot_id and a user_id.
             // Ignore updating the displayname in this case.
-            return;
+            return false;
         } else if (message.bot_id) {
             avatarUrl = await this.getBotAvatarUrl(message.bot_id, client);
             hash = avatarUrl;
         } else if (message.user_id) {
             const res = await this.lookupAvatarUrl(client);
             if (!res) {
-                return;
+                return false;
             }
             hash = res.hash;
             avatarUrl = res.url;
         } else {
-            return;
+            return false;
         }
 
-        if (this.avatarHash === hash) {
-            return;
+        if (!avatarUrl || this.avatarHash === hash) {
+            return false;
         }
 
         const match = hash || avatarUrl.match(/\/([^/]+)$/);
         if (!match || !match[1]) {
-            return;
+            return false;
         }
 
         log.debug(`Updating avatar ${this.avatarHash} > ${hash}`);
 
         const title = hash || match[1];
 
-        const response = await axios.get<ArrayBuffer>(avatarUrl, {
+        const response = await axios.get<Buffer>(avatarUrl, {
             responseType: "arraybuffer",
         });
 
@@ -305,6 +308,7 @@ export class SlackGhost {
         await this._intent.setAvatarUrl(contentUri);
         this.avatarHash = hash;
         await this.datastore.upsertUser(this);
+        return true;
     }
 
     public prepareBody(body: string): string {
@@ -315,6 +319,28 @@ export class SlackGhost {
 
     public prepareFormattedBody(body: string): string {
         return Slackdown.parse(body);
+    }
+
+    public async sendInThread(roomId: string, text: string, slackRoomId: string,
+        slackEventTs: string, replyEvent: IMatrixReplyEvent): Promise<void> {
+        const content = {
+            "m.relates_to": {
+                "rel_type": "m.thread",
+                // If the reply event is part of a thread, continue the thread.
+                // Otherwise, attach a thread to the reply event.
+                "event_id": replyEvent.content["m.relates_to"]?.event_id ?? replyEvent.event_id,
+                // Say that our reply is a thread fallback so clients that support threads can ignore it
+                "is_falling_back": true,
+                "m.in_reply_to": {
+                    event_id: replyEvent.event_id,
+                },
+            },
+            "msgtype": "m.text", // for those who just want to send the reply as-is
+            "body": this.prepareBody(text),
+            "format": "org.matrix.custom.html",
+            "formatted_body": this.prepareFormattedBody(text),
+        };
+        await this.sendMessage(roomId, content, slackRoomId, slackEventTs);
     }
 
     public async sendText(
@@ -441,7 +467,7 @@ export class SlackGhost {
     public async uploadContentFromURI(file: {mimetype: string, title: string}, uri: string, slackAccessToken: string)
         : Promise<string> {
         try {
-            const response = await axios.get<ArrayBuffer>(uri, {
+            const response = await axios.get<Buffer>(uri, {
                 headers: {
                     Authorization: `Bearer ${slackAccessToken}`,
                 },
@@ -457,15 +483,13 @@ export class SlackGhost {
         }
     }
 
-    public async uploadContent(file: {mimetype: string, title: string}, buffer: ArrayBuffer): Promise<string> {
+    public async uploadContent(file: {mimetype: string, title: string}, buffer: Buffer): Promise<string> {
         if (!this._intent) {
             throw Error('No intent associated with ghost');
         }
-        const contentUri = await this._intent.getClient().uploadContent(buffer, {
+        const contentUri = await this._intent.uploadContent(buffer, {
             name: file.title,
             type: file.mimetype,
-            rawResponse: false,
-            onlyContentUri: true,
         });
         log.debug("Media uploaded to " + contentUri);
         return contentUri;

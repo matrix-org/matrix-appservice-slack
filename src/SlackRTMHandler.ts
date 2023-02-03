@@ -1,17 +1,17 @@
 import { RTMClient, LogLevel } from "@slack/rtm-api";
 import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { PuppetEntry } from "./datastore/Models";
 import { ConversationsInfoResponse, ConversationsMembersResponse, ConversationsInfo, UsersInfoResponse } from "./SlackResponses";
 import { ISlackMessageEvent } from "./BaseSlackHandler";
-import { WebClient, Logger } from "@slack/web-api";
+import { WebClient, Logger as SlackLogger } from "@slack/web-api";
 import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
 import { createDM } from "./RoomCreation";
 
-const log = Logging.get("SlackRTMHandler");
+const log = new Logger("SlackRTMHandler");
 
 const LOG_TEAM_LEN = 12;
 /**
@@ -47,15 +47,16 @@ export class SlackRTMHandler extends SlackEventHandler {
         if (!slackClient) {
             return; // We need to be able to determine what a channel looks like.
         }
-        rtm.on("message", async (e) => {
-            const messageQueueKey = `${puppetEntry.teamId}:${e.channel}`;
+        rtm.on("message", (messageEvent) => {
+            const messageQueueKey = `${puppetEntry.teamId}:${messageEvent.channel}`;
+            const  chainPromise: Promise<void> = this.messageQueueBySlackId.get(messageQueueKey) || Promise.resolve();
             // This is used to ensure that we do not race messages for a single channel.
-            if (this.messageQueueBySlackId.has(messageQueueKey)) {
-                await this.messageQueueBySlackId.get(messageQueueKey);
-            }
-            const messagePromise = this.handleRtmMessage(puppetEntry, slackClient, teamInfo, e);
+            const messagePromise = chainPromise.then(
+                async () => this.handleRtmMessage(puppetEntry, slackClient, teamInfo, messageEvent).catch((ex) => {
+                    log.error(`Error handling 'message' event for ${puppetEntry.matrixId} / ${puppetEntry.slackId}`, ex);
+                })
+            );
             this.messageQueueBySlackId.set(messageQueueKey, messagePromise);
-            await messagePromise;
         });
         this.rtmUserClients.set(key, rtm);
         const { team } = await rtm.start();
@@ -64,8 +65,8 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.debug(`Started RTM client for user ${key}`, team);
     }
 
-    private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, e: any) {
-        const chanInfo = (await slackClient.conversations.info({channel: e.channel})) as ConversationsInfoResponse;
+    private async handleRtmMessage(puppetEntry: PuppetEntry, slackClient: WebClient, teamInfo: ISlackTeam, messageEvent: ISlackMessageEvent) {
+        const chanInfo = (await slackClient.conversations.info({channel: messageEvent.channel})) as ConversationsInfoResponse;
         // is_private is unreliably set.
         chanInfo.channel.is_private = chanInfo.channel.is_private || chanInfo.channel.is_im || chanInfo.channel.is_group;
         if (!chanInfo.channel.is_private) {
@@ -73,11 +74,18 @@ export class SlackRTMHandler extends SlackEventHandler {
             return;
         }
         // Sneaky hack to set the domain on messages.
-        e.team_id = teamInfo.id;
-        e.team_domain = teamInfo.domain;
-        e.user_id = e.user;
+        messageEvent.team_id = teamInfo.id;
+        if (!messageEvent.team_id) {
+            messageEvent.team_id = teamInfo.id;
+        }
+        if (!messageEvent.team_domain) {
+            messageEvent.team_domain = teamInfo.domain;
+        }
+        if (messageEvent.user && !messageEvent.user_id) {
+            messageEvent.user_id = messageEvent.user;
+        }
 
-        return this.handleUserMessage(chanInfo, e, slackClient, puppetEntry);
+        return this.handleUserMessage(chanInfo, messageEvent, slackClient, puppetEntry);
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
@@ -166,16 +174,14 @@ export class SlackRTMHandler extends SlackEventHandler {
         // For each event that SlackEventHandler supports, register
         // a listener.
         SlackEventHandler.SUPPORTED_EVENTS.forEach((eventName) => {
-            rtm.on(eventName, async (event) => {
-                try {
-                    if (!rtm.activeTeamId) {
-                        log.error("Cannot handle event, no active teamId!");
-                        return;
-                    }
-                    await this.handle(event, rtm.activeTeamId , () => {}, false);
-                } catch (ex) {
-                    log.error(`Failed to handle '${eventName}' event`);
+            rtm.on(eventName, (event) => {
+                if (!rtm.activeTeamId) {
+                    log.error(`Cannot handle event, no active teamId! (for expected team ${expectedTeam})`);
+                    return;
                 }
+                this.handle(event, rtm.activeTeamId , () => {}, false).catch((ex) => {
+                    log.error(`Failed to handle '${eventName}' event for ${rtm.activeTeamId}`, ex);
+                });
             });
         });
 
@@ -192,7 +198,7 @@ export class SlackRTMHandler extends SlackEventHandler {
 
     private createRtmClient(token: string, logLabel: string): RTMClient {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
-        const connLog = Logging.get(`RTM-${logLabel.substr(0, LOG_TEAM_LEN)}`);
+        const connLog = new Logger(`RTM-${logLabel.slice(0, LOG_TEAM_LEN)}`);
         const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm?.log_level || "silent");
         const rtm = new RTMClient(token, {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
@@ -204,7 +210,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 warn: logLevel <= 1 ? connLog.warn.bind(connLog) : () => {},
                 info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
                 error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
-            } as Logger,
+            } as SlackLogger,
         });
 
         rtm.on("error", (error) => {
@@ -217,7 +223,22 @@ export class SlackRTMHandler extends SlackEventHandler {
     private async handleUserMessage(chanInfo: ConversationsInfoResponse, event: ISlackMessageEvent, slackClient: WebClient, puppet: PuppetEntry) {
         log.debug("Received Slack user event:", puppet.matrixId, event);
         let room = this.main.rooms.getBySlackChannelId(event.channel) as BridgedRoom;
+        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
         if (room) {
+            if (event.type === 'message' && room.IsPrivate) {
+                const intent = await room.getIntentForRoom();
+                // We only want to act on trivial messages
+                // This can be asyncronous to the handling of the message.
+                intent.getStateEvent(room.MatrixRoomId, 'm.room.member', puppet.matrixId, true).then((state) => {
+                    if (!['invite', 'join'].includes(state?.membership)) {
+                        // Automatically invite the user the room.
+                        log.info(`User ${puppet.matrixId} is not in ${room.MatrixRoomId}/${room.SlackChannelId}, inviting`);
+                        return intent.invite(room.MatrixRoomId, puppet.matrixId);
+                    }
+                }).catch((ex) => {
+                    log.error(`Failed to automatically invite ${puppet.matrixId} to ${room.MatrixRoomId}`, ex);
+                });
+            }
             return this.handleEvent(event, puppet.teamId);
         }
 
@@ -225,8 +246,6 @@ export class SlackRTMHandler extends SlackEventHandler {
             log.debug("No `user` field on event, not creating a new room");
             return;
         }
-
-        const isIm = chanInfo.channel.is_im || chanInfo.channel.is_mpim;
 
 
         if (chanInfo.channel.is_im && chanInfo.channel.user) {
@@ -256,17 +275,24 @@ export class SlackRTMHandler extends SlackEventHandler {
                     id ? this.main.ghostStore.get(id, event.team_domain, puppet.teamId) : null,
             ))).filter((g) => g !== null) as SlackGhost[];
 
-            const ghost = await this.main.ghostStore.getForSlackMessage(event, puppet.teamId);
+            const puppetedGhost = ghosts.find(g => g.slackId === puppet.slackId);
+            const otherGhosts = ghosts.filter(g => g !== puppetedGhost);
+            const ghost = !otherGhosts.length ? puppetedGhost : otherGhosts[0];
+            if (!ghost) {
+                log.warn(`Could not find Slack receipient of IM ${chanInfo.channel}`);
+                return;
+            }
+            if (otherGhosts.length > 1) {
+                log.warn(`Expected only 1 other ghost in a Slack IM, but found ${otherGhosts.length}`);
+            }
 
             log.info(`Creating new DM room for ${event.channel}`);
-            const otherGhosts = ghosts.filter((g) => g.slackId !== puppet.slackId);
-            const name = await this.determineRoomName(chanInfo.channel, otherGhosts, puppet, slackClient);
             // Create a new DM room.
             await ghost.update({ user: ghost.slackId });
             const roomId = await createDM(
                 ghost.intent,
-                [puppet.matrixId].concat(ghosts.map((g) => g.userId)),
-                name,
+                [puppet.matrixId].concat(ghosts.map((g) => g.matrixUserId)),
+                await this.determineRoomMetadata(chanInfo.channel, ghost),
                 this.main.encryptRoom,
             );
             room = new BridgedRoom(this.main, {
@@ -299,14 +325,10 @@ export class SlackRTMHandler extends SlackEventHandler {
         log.info("Failing channel info:", chanInfo.channel);
     }
 
-    private async determineRoomName(chan: ConversationsInfo, otherGhosts: SlackGhost[],
-        puppet: PuppetEntry, client: WebClient): Promise<string|undefined> {
+    private async determineRoomMetadata(chan: ConversationsInfo, ghost: SlackGhost) {
         if (chan.is_mpim) {
             return undefined; // allow the client to decide.
         }
-        if (otherGhosts.length) {
-            return await otherGhosts[0].getDisplayname(client);
-        }
-        // No other ghosts, leave it undefined.
+        return await ghost.intent.getProfileInfo(ghost.matrixUserId);
     }
 }

@@ -16,7 +16,7 @@
         {% else %}
             {% if reason === "token-not-known" %}
                 <p>The bridge cannot handle this request because the token provided is not known.</p>
-                <small>This can happen if the bridge was recently restarted. Try running the oauth process again.</small>
+                <small>This can happen if the token has expired due to a timeout. Try running the oauth process again.</small>
             {% elif reason === "limit-reached" %}
                 <p>You have reached the maximum number of connected teams on this bridge instance.</p>
                 <small>Please contact your bridge administrator</small>

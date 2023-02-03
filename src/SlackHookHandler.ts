@@ -19,15 +19,15 @@ import { createServer as httpCreate, RequestListener,
     Server, IncomingMessage, ServerResponse } from "http";
 import { createServer as httpsCreate } from "https";
 import * as qs from "querystring";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { SlackEventHandler } from "./SlackEventHandler";
-import { BaseSlackHandler, HTTP_CODES, ISlackMessageEvent } from "./BaseSlackHandler";
+import { BaseSlackHandler, HTTP_CODES, ISlackEvent, ISlackMessageEvent } from "./BaseSlackHandler";
 import { BridgedRoom } from "./BridgedRoom";
 import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { WebClient } from "@slack/web-api";
 import { ConversationsHistoryResponse } from "./SlackResponses";
 import { promisify } from "util";
-const log = Logging.get("SlackHookHandler");
+const log = new Logger("SlackHookHandler");
 
 const PRESERVE_KEYS = [
     "team_domain", "team_id",
@@ -40,7 +40,7 @@ export interface ISlackEventPayload {
     token: string;
     team_id: string;
     api_app_id: string;
-    event?: unknown;
+    event: ISlackEvent;
     type: "event_callback"|"url_verification";
     event_id: string;
     event_time: string;
@@ -87,6 +87,11 @@ export class SlackHookHandler extends BaseSlackHandler {
 
     private onRequest(req: IncomingMessage, res: ServerResponse) {
         const HTTP_SERVER_ERROR = 500;
+        const {method, url } = req;
+        if (!method || !url) {
+            res.end();
+            return;
+        }
         let body = "";
         req.on("data", (chunk) => body += chunk);
         req.on("error", (err) => log.error(`Error handling request: ${req.url}: ${err}`));
@@ -100,8 +105,8 @@ export class SlackHookHandler extends BaseSlackHandler {
                 if (isEvent) {
                     this.handleEvent(body, res);
                 } else {
-                    const params = qs.parse(body) as {[key: string]: string};
-                    this.handleWebhook(req.method!, req.url!, params, res).catch((ex) => {
+                    const params = qs.parse(body);
+                    this.handleWebhook(method, url, params, res).catch((ex) => {
                         log.error("Failed to handle webhook event", ex);
                     });
                 }
@@ -112,7 +117,7 @@ export class SlackHookHandler extends BaseSlackHandler {
                     return;
                 }
                 res.writeHead(HTTP_SERVER_ERROR, {"Content-Type": "text/plain"});
-                if (req.method !== "HEAD") {
+                if (method !== "HEAD") {
                     res.write("Internal Server Error");
                 }
                 res.end();
@@ -134,14 +139,17 @@ export class SlackHookHandler extends BaseSlackHandler {
         };
         const eventPayload = JSON.parse(jsonBodyStr) as ISlackEventPayload;
         if (eventPayload.type === "url_verification") {
-            this.eventHandler.onVerifyUrl(eventPayload.challenge!, eventsResponse);
+            if (!eventPayload.challenge) {
+                throw Error('No challenge on url_verification payload');
+            }
+            this.eventHandler.onVerifyUrl(eventPayload.challenge, eventsResponse);
         } else if (eventPayload.type !== "event_callback") {
             return; // We can't handle anything else.
         }
         const isUsingRtm = this.main.teamIsUsingRtm(eventPayload.team_id.toUpperCase());
         this.eventHandler.handle(
             // The event can take many forms.
-            eventPayload.event as any,
+            eventPayload.event,
             eventPayload.team_id,
             eventsResponse,
             isUsingRtm,
@@ -191,8 +199,14 @@ export class SlackHookHandler extends BaseSlackHandler {
         // GET requests (e.g. authorize) have params in query string
         if (method === "GET") {
             const result = path.match(/^([^?]+)(?:\?(.*))$/);
-            path = result![1];
-            params = qs.parse(result![2]) as {[key: string]: string};
+            if (!result) {
+                throw Error('Invalid GET request path');
+            }
+            path = result[1];
+            params = qs.parse(result[2]) as {[key: string]: string};
+            if (!path || !params) {
+                throw Error('Invalid GET request path/params');
+            }
         }
 
         if (method === "GET" && path === "authorize") {

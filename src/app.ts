@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
+import { Logger, Cli, AppServiceRegistration } from "matrix-appservice-bridge";
 import { Main } from "./Main";
 import { IConfig } from "./IConfig";
 import * as path from "path";
+
+const DEFAULT_PORT = 5858;
 
 // To avoid log spam - https://github.com/matrix-org/matrix-appservice-slack/issues/554
 process.setMaxListeners(0);
@@ -47,30 +49,33 @@ const cli = new Cli({
         }
         callback(reg);
     },
-    run: (cliPort: number, rawConfig: Record<string, undefined>|null, registration: any) => {
+    run: (cliPort: number|null, rawConfig: Record<string, undefined>|null, registration) => {
         const config = rawConfig as IConfig|null;
         if (!config) {
             throw Error('Config not ready');
         }
-        Logging.configure(config.logging || {});
-        const log = Logging.get("app");
+        Logger.configure(config.logging || {});
+        const log = new Logger("app");
         // Format config
+        if (!registration) {
+            throw Error('registration must be defined');
+        }
         const main = new Main(config, registration);
-        main.run(cliPort).then((port) => {
+        main.run(cliPort || config.homeserver.appservice_port || DEFAULT_PORT).then((port) => {
             log.info("Matrix-side listening on port", port);
         }).catch((ex) => {
             log.error("Failed to start:", ex);
             process.exit(1);
         });
 
-        process.on("SIGTERM", async () => {
+        process.on("SIGTERM", () => {
             log.info("Got SIGTERM");
-            try {
-                await main.killBridge();
-            } catch (ex) {
-                log.warn("Failed to kill bridge, exiting anyway");
-            }
-            process.exit(1);
+            main.killBridge().then(() => {
+                process.exit(0);
+            }).catch((ex) => {
+                log.warn("Failed to kill bridge, exiting anyway", ex);
+                process.exit(2);
+            });
         });
     },
 });

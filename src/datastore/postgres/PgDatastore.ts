@@ -18,7 +18,7 @@ import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
-import { Logging, MatrixUser, ClientEncryptionStore, ClientEncryptionSession } from "matrix-appservice-bridge";
+import { Logger, MatrixUser, ClientEncryptionStore, ClientEncryptionSession, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -39,7 +39,7 @@ const pgp: IMain = pgInit({
     // Initialization Options
 });
 
-const log = Logging.get("PgDatastore");
+const log = new Logger("PgDatastore");
 
 interface ClientSessionSchema {
     user_id: string;
@@ -48,8 +48,15 @@ interface ClientSessionSchema {
     sync_token?: string;
 }
 
+export interface SchemaRunUserMessage {
+    matrixId: string,
+    message: string
+}
+
+type SchemaRunFn = (db: IDatabase<unknown>) => Promise<void|{userMessages: SchemaRunUserMessage[]}>;
+
 export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 12;
+    public static readonly LATEST_SCHEMA = 15;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -246,14 +253,18 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         );
     }
 
-    public async ensureSchema(): Promise<void> {
+    public async ensureSchema(): Promise<SchemaRunUserMessage[]> {
+        const userMessages: SchemaRunUserMessage[] = [];
         let currentVersion = await this.getSchemaVersion();
         while (currentVersion < PgDatastore.LATEST_SCHEMA) {
             log.info(`Updating schema to v${currentVersion + 1}`);
             // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const runSchema = require(`./schema/v${currentVersion + 1}`).runSchema;
+            const runSchema: SchemaRunFn = require(`./schema/v${currentVersion + 1}`).runSchema;
             try {
-                await runSchema(this.postgresDb);
+                const result = await runSchema(this.postgresDb);
+                if (result?.userMessages) {
+                    userMessages.push(...result.userMessages);
+                }
                 currentVersion++;
                 await this.updateSchemaVersion(currentVersion);
             } catch (ex) {
@@ -262,6 +273,7 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             }
         }
         log.info(`Database schema is at version v${currentVersion}`);
+        return userMessages;
     }
 
     public async upsertRoom(room: BridgedRoom): Promise<null> {
@@ -516,6 +528,22 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
         return Number.parseInt((await this.postgresDb.one("SELECT COUNT(*) FROM rooms")).count, 10);
     }
 
+    public async getUserActivity(): Promise<UserActivitySet> {
+        const rows = await this.postgresDb.manyOrNone('SELECT * FROM user_activity');
+        const users: {[mxid: string]: any} = {};
+        for (const row of rows) {
+            users[row.user_id] = row.data;
+        }
+        return { users };
+    }
+
+    public async storeUserActivity(userId: string, activity: UserActivity): Promise<void> {
+        await this.postgresDb.none("INSERT INTO user_activity VALUES(${id}, ${activity}) ON CONFLICT (user_id) DO UPDATE SET data = ${activity}", {
+            id: userId,
+            activity: JSON.stringify(activity),
+        });
+    }
+
     private async updateSchemaVersion(version: number) {
         log.debug(`updateSchemaVersion: ${version}`);
         await this.postgresDb.none("UPDATE schema SET version = ${version}", {version});
@@ -526,7 +554,8 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             const { version } = await this.postgresDb.one("SELECT version FROM SCHEMA");
             return version;
         } catch (ex) {
-            if (ex.code === "42P01") { // undefined_table
+            const error = ex as {code?: string};
+            if (error.code === "42P01") { // undefined_table
                 log.warn("Schema table could not be found");
                 return 0;
             }

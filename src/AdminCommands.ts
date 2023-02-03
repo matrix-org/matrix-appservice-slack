@@ -14,13 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import * as yargs from "yargs";
-import { AdminCommand, ResponseCallback } from "./AdminCommand";
+import { AdminCommand, IHandlerArgs, ResponseCallback } from "./AdminCommand";
 import { Main } from "./Main";
 import { BridgedRoom } from "./BridgedRoom";
 
-const log = Logging.get("AdminCommands");
+const log = new Logger("AdminCommands");
 
 const RoomIdCommandOption = {
     alias: "R",
@@ -31,8 +31,10 @@ const RoomIdCommandOption = {
 export class AdminCommands {
     private yargs: yargs.Argv;
     private commands: AdminCommand[];
+    private latestCommandWaiterForSender: Map<string, Promise<void>> = new Map();
     constructor(private main: Main) {
         this.commands = [
+            this.onUnmatched,
             this.list,
             this.show,
             this.link,
@@ -46,15 +48,28 @@ export class AdminCommands {
 
         this.yargs = yargs.parserConfiguration({})
             .version(false)
+            .showHelpOnFail(false)
             .help(false); // We provide our own help, and version is not required.
+        // NOTE: setting exitProcess() is unnecessary when parse() is provided a callback.
 
         this.commands.forEach((cmd) => {
-            this.yargs = this.yargs.command(cmd.command, cmd.description, ((yg) => {
-                if (cmd.options) {
-                    return yg.options(cmd.options);
-                }
-            // TODO: Fix typing
-            }) as any, cmd.handler.bind(cmd));
+            this.yargs.command<IHandlerArgs>(
+                cmd.command,
+                cmd.description,
+                () => cmd.options ?? {},
+                // NOTE: yargs documentation advises against command() returning a Promise
+                // when parse() will be called multiple times, so instead resolve any
+                // asynchronous operations of the callbacks elsewhere.
+                (argv) => void cmd.handler(argv),
+            );
+        });
+    }
+
+    public get onUnmatched(): AdminCommand {
+        return new AdminCommand("*", "", (args) => {
+            const cmd = args._[0];
+            log.debug(`Unrecognised command "${cmd}"`);
+            args.respond(`Unrecognised command "${cmd}"`);
         });
     }
 
@@ -150,7 +165,7 @@ export class AdminCommands {
                 respond("  Inbound ID: " + bridgedRoom.InboundId);
                 respond("  Inbound URL: " + this.main.getInboundUrlForRoom(bridgedRoom));
                 respond("  Matrix room ID: " + bridgedRoom.MatrixRoomId);
-                respond("  Using RTM: " + this.main.teamIsUsingRtm(bridgedRoom.SlackTeamId!));
+                respond("  Using RTM: " + (bridgedRoom.SlackTeamId ? this.main.teamIsUsingRtm(bridgedRoom.SlackTeamId) : false).toString());
             },
             {
                 channel_id: {
@@ -175,8 +190,12 @@ export class AdminCommands {
                 team_id?: string,
             }) => {
                 try {
+                    if (!room) {
+                        respond("Room not provided");
+                        return;
+                    }
                     const r = await this.main.actionLink({
-                        matrix_room_id: room!,
+                        matrix_room_id: room,
                         slack_bot_token,
                         team_id,
                         slack_channel_id: channel_id,
@@ -227,11 +246,13 @@ export class AdminCommands {
                 respond: ResponseCallback,
                 room?: string,
             }) => {
+                if (!room) {
+                    respond("Room not provided");
+                    return;
+                }
                 try {
                     await this.main.actionUnlink({
-                        matrix_room_id: room!,
-                        // slack_channel_name: channel,
-                        // slack_channel_id: channel_id,
+                        matrix_room_id: room,
                     });
                     respond("Unlinked");
                 } catch (ex) {
@@ -273,11 +294,14 @@ export class AdminCommands {
                 respond: ResponseCallback,
                 room?: string,
             }) => {
-                const roomId: string = room!;
-                const userIds = await this.main.listGhostUsers(roomId);
-                respond(`Draining ${userIds.length} ghosts from ${roomId}`);
-                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(roomId)));
-                await this.main.botIntent.leave(roomId);
+                if (!room) {
+                    respond("Room not provided");
+                    return;
+                }
+                const userIds = await this.main.listGhostUsers(room);
+                respond(`Draining ${userIds.length} ghosts from ${room}`);
+                await Promise.all(userIds.map(async (userId) => this.main.getIntent(userId).leave(room)));
+                await this.main.botIntent.leave(room);
                 respond("Drained");
             },
             {
@@ -316,7 +340,11 @@ export class AdminCommands {
                     respond("Oauth is not configured on this bridge");
                     return;
                 }
-                const token = this.main.oauth2.getPreauthToken(userId!);
+                if (!userId) {
+                    respond("userId not provided");
+                    return;
+                }
+                const token = this.main.oauth2.getPreauthToken(userId);
                 const authUri = this.main.oauth2.makeAuthorizeURL(
                     token,
                     token,
@@ -347,15 +375,19 @@ export class AdminCommands {
             }) => {
                 if (command) {
                     const cmd = this.commands.find((adminCommand) => (adminCommand.command.split(' ')[0] === command));
-                    if (!cmd) {
+                    const help = cmd?.detailedHelp();
+                    if (!help) {
                         respond("Command not found. No help can be provided.");
-                        return;
+                    } else {
+                        help.forEach((s) => respond(s));
                     }
-                    cmd.detailedHelp().forEach((s) => respond(s));
                     return;
                 }
                 this.commands.forEach((cmd) => {
-                    respond(cmd.simpleHelp());
+                    const help = cmd.simpleHelp();
+                    if (help) {
+                        respond(help);
+                    }
                 });
             },
             {
@@ -366,25 +398,29 @@ export class AdminCommands {
         );
     }
 
-    public async parse(argv: string, respond: ResponseCallback): Promise<boolean> {
-        // yargs has no way to tell us if a command matched, so we have this
-        // slightly whacky function to manage it.
-        return new Promise((resolve, reject) => {
-            try {
-                let matched = false;
-                this.yargs.parse(argv, {
-                    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-                    completed: (err) => { err ? reject(err) : resolve(true); },
-                    matched: () => { matched = true; },
+    /**
+     * Queue a command to be parsed & executed.
+     * NOTE: Callers should await not on a call of this function, but on its return value.
+     * Doing so ensures that commands will be queued in the order in which they're issued.
+     */
+    public async parse(argv: string, respond: ResponseCallback, sender: string): Promise<void> {
+        const currCommandWaiter = new Promise<void>((resolve, reject) => {
+            const prevCommandWaiter = this.latestCommandWaiterForSender.get(sender) ?? Promise.resolve();
+            void prevCommandWaiter.finally(() => {
+                const context: IHandlerArgs = {
                     respond,
-                }, (err) => {  if (err !== null) { reject(err); } });
-                if (!matched) {
-                    log.debug("No match");
-                    resolve(false);
-                }
-            } catch (ex) {
-                reject(ex);
-            }
+                    resolve,
+                    reject,
+                };
+                this.yargs.parseSync(argv, context, (error) => {
+                    if (error) {
+                        // NOTE: Throwing here makes yargs.argv get stuck on an error object, so reject instead
+                        reject(error);
+                    }
+                });
+            }).catch(reject); // NOTE: This catch is here in case something unexpected throws
         });
+        this.latestCommandWaiterForSender.set(sender, currCommandWaiter);
+        return currCommandWaiter;
     }
 }

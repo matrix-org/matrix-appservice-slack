@@ -1,4 +1,278 @@
- 1.7.0 (2021-02-11)
+2.0.2 (2022-11-30)
+==================
+
+No significant changes.
+
+
+2.0.2-rc2 (2022-11-30)
+======================
+
+Bugfixes
+--------
+
+- Safely handle errors from admin commands. ([\#725](https://github.com/matrix-org/matrix-appservice-slack/issues/725))
+
+
+Internal Changes
+----------------
+
+- Docs: Docker container uses port 5858 unless explicitly modified in config.yaml ([\#718](https://github.com/matrix-org/matrix-appservice-slack/issues/718)). Contributed by @mkarg
+- Docs: Fixed numbering by fixing indentation ([\#719](https://github.com/matrix-org/matrix-appservice-slack/issues/719)). Contributed by @mkarg
+- Docs: Run bridge as daemon ([\#720](https://github.com/matrix-org/matrix-appservice-slack/issues/720)). Contributed by @mkarg
+- Docs: Merge #718, #719 and #720 and reduce abbreviations. ([\#727](https://github.com/matrix-org/matrix-appservice-slack/issues/727))
+
+
+2.0.2-rc1 (2022-11-28)
+======================
+
+Bugfixes
+--------
+
+- Correctly set "is_falling_back" flag in thread events so that events in threads are not also displayed as replies. ([\#709](https://github.com/matrix-org/matrix-appservice-slack/issues/709))
+- Fix crash in `whoami` command when the team name of a Slack account is unavailable. ([\#714](https://github.com/matrix-org/matrix-appservice-slack/issues/714))
+- Prevent admin commands from being unusable after an invalid command is issued. ([\#717](https://github.com/matrix-org/matrix-appservice-slack/issues/717))
+- Improve the calculation of DM names & avatars. ([\#721](https://github.com/matrix-org/matrix-appservice-slack/issues/721))
+- Ensure messages you send in a DM from Slack will appear in Matrix, even if the ghost of your Slack account was not initially present in the Matrix DM room. ([\#722](https://github.com/matrix-org/matrix-appservice-slack/issues/722))
+
+
+Internal Changes
+----------------
+
+- Update matrix-appservice-bridge to 6.0.0. ([\#710](https://github.com/matrix-org/matrix-appservice-slack/issues/710))
+- Remove annoying noisy `Didn't handle event` log line. ([\#712](https://github.com/matrix-org/matrix-appservice-slack/issues/712))
+- Remove IDE-related files from version control. ([\#715](https://github.com/matrix-org/matrix-appservice-slack/issues/715))
+
+
+2.0.1 (2022-10-06)
+==================
+
+This release fixes a bug in our build system that prevented Docker images from being built. Users not using Docker on `2.0.0`
+are not required to upgrade.
+
+2.0.0 (2022-10-05)
+==================
+
+Note, as with `2.0.0-rc1`, release requires **Node.16** or greater.
+
+Bugfixes
+--------
+
+- Add missing `reactions:write` scope to oauth scopes. ([\#696](https://github.com/matrix-org/matrix-appservice-slack/issues/696))
+- Fix PostgreSQL schema 14 not applying cleanly if `events` containing NULL columns. ([\#701](https://github.com/matrix-org/matrix-appservice-slack/issues/701))
+- Fix `/metrics` and `/ready` paths requiring authentication. ([\#704](https://github.com/matrix-org/matrix-appservice-slack/issues/704))
+- Disallowed the accidental behaviour of puppeting two or more Slack accounts from the same team to the same Matrix user. This would cause all puppeting for the
+  user to stop working. The bridge will now **automatically delete** any puppeted connections which violate this rule. You will be notified via the bridge when
+  this happens, so you can relink your accounts. ([\#705](https://github.com/matrix-org/matrix-appservice-slack/issues/705))
+
+
+2.0.0-rc1 (2022-07-29)
+======================
+
+This release requires **Node.16** or greater.
+
+Features
+--------
+
+- New releases will now include Docker images built on the `linux/amd64` platform in addition to x86_64. ([\#656](https://github.com/matrix-org/matrix-appservice-slack/issues/656))
+
+
+Bugfixes
+--------
+
+- Improve performance of removing deleted Slack users from rooms. ([\#649](https://github.com/matrix-org/matrix-appservice-slack/issues/649))
+
+
+Improved Documentation
+----------------------
+
+- Use the matrix-appservice-bridge contributing guide. ([\#686](https://github.com/matrix-org/matrix-appservice-slack/issues/686))
+
+
+Deprecations and Removals
+-------------------------
+
+- The bridge now requires Node.JS 16 or greater. ([\#690](https://github.com/matrix-org/matrix-appservice-slack/issues/690))
+
+
+Internal Changes
+----------------
+
+- Don't allow NULL in SQL columns of events, matching the expectation of the models. ([\#670](https://github.com/matrix-org/matrix-appservice-slack/issues/670))
+- Fix towncrier script for summarising the newsfiles ([\#677](https://github.com/matrix-org/matrix-appservice-slack/issues/677))
+- Switch from `npm` to `yarn` for dependency management. ([\#685](https://github.com/matrix-org/matrix-appservice-slack/issues/685))
+- Move CI to GitHub Actions. ([\#688](https://github.com/matrix-org/matrix-appservice-slack/issues/688))
+- Add new CI workflow to check for signoffs. ([\#693](https://github.com/matrix-org/matrix-appservice-slack/issues/693))
+
+
+1.11.0 (2022-04-05)
+=======================
+
+No significant changes.
+
+
+1.11.0-rc1 (2022-03-21)
+=======================
+
+Features
+--------
+
+- Support bridging Slack message threads with new m.thread relations (MSC3440) ([\#634](https://github.com/matrix-org/matrix-appservice-slack/issues/634), [\#673](https://github.com/matrix-org/matrix-appservice-slack/issues/673))
+- Add check to verify if the homeserver <-> bridge connection is working on startup. ([\#666](https://github.com/matrix-org/matrix-appservice-slack/issues/666))
+
+
+Bugfixes
+--------
+
+- Fix: Don't create an internal ping room on every restart ([\#669](https://github.com/matrix-org/matrix-appservice-slack/issues/669))
+
+
+Internal Changes
+----------------
+
+- Upgrade dependency axios to 0.26.0 to close a possible vulnerability ([\#664](https://github.com/matrix-org/matrix-appservice-slack/issues/664))
+- Remove uses of the deprecated JavaScript function substr() ([\#665](https://github.com/matrix-org/matrix-appservice-slack/issues/665))
+
+
+1.10.0 (2021-12-22)
+=======================
+
+No significant changes.
+
+
+1.10.0-rc3 (2021-12-13)
+========================
+
+Bugfixes
+--------
+
+- Fix inverted check causing Slack messages to not be relayed to Matrix. Thanks to @ewilderj ([\#648](https://github.com/matrix-org/matrix-appservice-slack/issues/648))
+
+
+Internal Changes
+----------------
+
+- Fix a regression in Node 16+ environments where the bridge may occasionally crash when a message wasn't handled successfully. ([\#646](https://github.com/matrix-org/matrix-appservice-slack/issues/646))
+
+
+1.10.0-rc2 (2021-12-06)
+========================
+
+Internal Changes
+----------------
+
+- Switch to using Debian as a base for Docker images. ([\#645](https://github.com/matrix-org/matrix-appservice-slack/issues/645))
+
+
+1.10.0-rc1 (2021-11-23)
+========================
+
+Bugfixes
+--------
+
+- Improve reliability of Matrix users being bridged with correct displayname and avatar ([\#628](https://github.com/matrix-org/matrix-appservice-slack/issues/628))
+- Fix an issue where Slack users sometimes have stale displaynames ([\#631](https://github.com/matrix-org/matrix-appservice-slack/issues/631))
+
+
+Internal Changes
+----------------
+
+- Use the MembershipQueue for handling joins and leaves in the TeamSyncer. ([\#633](https://github.com/matrix-org/matrix-appservice-slack/issues/633))
+- Docker images now use Node 16 ([\#639](https://github.com/matrix-org/matrix-appservice-slack/issues/639))
+- Update dependencies, remove unused winston dependencies. ([\#640](https://github.com/matrix-org/matrix-appservice-slack/issues/640))
+
+
+1.9.0 (2021-10-11)
+=======================
+
+No significant changes.
+
+
+1.9.0-rc3 (2021-10-08)
+=======================
+
+Bugfixes
+--------
+
+- Fix a bug where typing in an admin command in the bridge admin room would cause the bridge to immediately exit. ([\#624](https://github.com/matrix-org/matrix-appservice-slack/issues/624))
+
+
+1.9.0-rc2 (2021-10-08)
+=======================
+
+Features
+--------
+
+- Track the success/failure rate of oauth sessions with the `oauth_session_result` metric. ([\#621](https://github.com/matrix-org/matrix-appservice-slack/issues/621))
+- Make UserActivityTracker configurable ([\#623](https://github.com/matrix-org/matrix-appservice-slack/issues/623))
+
+
+1.9.0-rc1 (2021-09-30)
+=======================
+
+Features
+--------
+
+- Make the team sync hint to channel admins configurable ([\#601](https://github.com/matrix-org/matrix-appservice-slack/issues/601))
+- Add optional bridge blocking upon exceeding a monthly active user limit ([\#612](https://github.com/matrix-org/matrix-appservice-slack/issues/612))
+- The bridge now automatically invites users to private rooms if there is a message and they are not joined. ([\#613](https://github.com/matrix-org/matrix-appservice-slack/issues/613))
+
+
+Bugfixes
+--------
+
+- Sync channels and users of a Slack team independently, so that one failure does not cause the other to fail. ([\#599](https://github.com/matrix-org/matrix-appservice-slack/issues/599))
+- Fix a crash on startup caused by the homeserver rejecting a join/leave from a ghost when team sync is enabled. ([\#606](https://github.com/matrix-org/matrix-appservice-slack/issues/606))
+- Add missing help text for `whoami` command. ([\#620](https://github.com/matrix-org/matrix-appservice-slack/issues/620))
+
+
+Internal Changes
+----------------
+
+- Switched out or pinned several packages that require ESM modules, as we don't want to use ESM modules. ([\#605](https://github.com/matrix-org/matrix-appservice-slack/issues/605))
+- Docker images are now automatically build and published via GitHub Actions, replacing DockerHub Autobuilds. ([\#610](https://github.com/matrix-org/matrix-appservice-slack/issues/610))
+- Update bridge to matrix-appservice-bridge 3.1.0 ([\#614](https://github.com/matrix-org/matrix-appservice-slack/issues/614))
+
+
+1.8.0 (2021-04-22)
+===================
+
+No significant changes.
+
+
+1.8.0-rc1 (2021-04-19)
+=======================
+
+Features
+--------
+
+- Add provisioning endpoint to get Slack channel info ([\#571](https://github.com/matrix-org/matrix-appservice-slack/issues/571))
+- Add `teamSync.xyz.channels.allow_public` option to disable public channel syncing ([\#577](https://github.com/matrix-org/matrix-appservice-slack/issues/577))
+
+
+Bugfixes
+--------
+
+- Autocreated public rooms will no longer be encrypted by default ([\#576](https://github.com/matrix-org/matrix-appservice-slack/issues/576))
+
+
+Improved Documentation
+----------------------
+
+- Mention the need for a classic app in the documentation. ([\#427](https://github.com/matrix-org/matrix-appservice-slack/issues/427))
+
+
+Internal Changes
+----------------
+
+- Update to matrix-appservice-bridge 2.6.0-rc1 ([\#575](https://github.com/matrix-org/matrix-appservice-slack/issues/575))
+- The unit/integration tests have been moved to the root level, and are not built by default. ([\#582](https://github.com/matrix-org/matrix-appservice-slack/issues/582))
+- Regenerate package-lock.json to fix a build issue ([\#586](https://github.com/matrix-org/matrix-appservice-slack/issues/586))
+- Config samples: Corrected rtm.logging to rtm.log_level
+  rtm.log_level: "off" is not a valid value and should be "silent" ([\#587](https://github.com/matrix-org/matrix-appservice-slack/issues/587))
+- Update to matrix-appservice-bridge 2.6.0 ([\#589](https://github.com/matrix-org/matrix-appservice-slack/issues/589))
+
+
+1.7.0 (2021-02-11)
 ===================
 
 No significant changes.

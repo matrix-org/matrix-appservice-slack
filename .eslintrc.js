@@ -135,6 +135,11 @@ module.exports = {
                 "hoist": "all"
             }
         ],
+        "no-restricted-properties": [
+            "error",
+            { property: "substr", message: "Use .slice instead of .substr." },
+            { property: "substring", message: "Use .slice instead of .substring." }
+        ],
         "no-throw-literal": "warn",
         "no-trailing-spaces": "error",
         "no-undef-init": "error",
@@ -164,7 +169,8 @@ module.exports = {
         "use-isnan": "error",
         "valid-typeof": "off",
         "@typescript-eslint/explicit-module-boundary-types": "off",
-        "max-classes-per-file": "off"
+        "max-classes-per-file": "off",
+        "@typescript-eslint/no-misused-promises": "error"
     },
     "overrides": [
         {

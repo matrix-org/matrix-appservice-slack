@@ -1,16 +1,17 @@
 import { Main } from "../Main";
-import { Logging } from "matrix-appservice-bridge";
+import { Logger } from "matrix-appservice-bridge";
 import { UsersInfoResponse } from "../SlackResponses";
 import { createDM } from "../RoomCreation";
 import { promises as fs } from "fs";
 import * as path from "path";
 
-const log = Logging.get("UserAdminRoom");
+const log = new Logger("UserAdminRoom");
 
 const COMMAND_HELP = {
     help: { desc: "Shows you this help text" },
     login: { desc: "Log into a Slack account" },
-    logout: { desc: "Log out of your Slack account"}
+    logout: { desc: "Log out of your Slack account"},
+    whoami: { desc: "Lists Slack accounts you are be logged in as"},
 };
 
 const onboardingTemplatePath = path.resolve(path.join(__dirname, "../.." , "templates/onboarding"));
@@ -38,7 +39,7 @@ export class UserAdminRoom {
         return adminRoom;
     }
 
-    constructor(private roomId: string, private userId: string, private main: Main) {
+    constructor(public readonly roomId: string, private userId: string, private main: Main) {
 
     }
 
@@ -48,7 +49,7 @@ export class UserAdminRoom {
         }
         const args: string[] = ev.content.body.split(" ");
         const command = args[0].toLowerCase();
-        log.info(`${this.userId} sent admin message ${args[0].substr(32)}`);
+        log.info(`${this.userId} sent admin message ${args[0].slice(32)}`);
         if (command === "help") {
             return this.handleHelp();
         }
@@ -142,7 +143,7 @@ export class UserAdminRoom {
                 continue;
             }
             body += `You are logged in as ${user.name} (${team?.name || puppet.teamId})\n`;
-            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team!.name || puppet.teamId}) </li>`;
+            formattedBody += `<li>You are logged in as <strong>${user.name}</strong> (${team?.name || puppet.teamId}) </li>`;
         }
         formattedBody += "</ul>";
         return this.sendNotice(body, formattedBody);
