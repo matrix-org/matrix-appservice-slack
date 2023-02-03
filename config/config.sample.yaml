@@ -157,10 +157,10 @@ slack_hook_port: 9898
 # Optional.
 #
 # provisioning:
-  # Whether to enable the provisioning API.
+  # Whether to enable the provisioning API. Defaults to true.
 #  enabled: true
 
-  # Run a separate HTTP listener for provisioning requests.
+  # Run a separate HTTP listener for provisioning requests. Optional, defaults to the appservice listener.
 #  http:
 #    # The port to listen on.
 #    port: 5859
