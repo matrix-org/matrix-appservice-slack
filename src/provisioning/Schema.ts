@@ -5,6 +5,7 @@ import { ApiError, ErrCode, IApiError } from "matrix-appservice-bridge";
 const ajv = new Ajv({
     allErrors: true,
     coerceTypes: true,
+    useDefaults: true,
 });
 
 export interface GetAuthUrlBody {
