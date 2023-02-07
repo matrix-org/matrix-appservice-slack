@@ -156,27 +156,30 @@ slack_hook_port: 9898
 
 # Optional.
 #
-# provisioning:
-  # Whether to enable the provisioning API. Defaults to true.
+#provisioning:
+#  # Whether to enable the provisioning API. Defaults to true.
 #  enabled: true
-
-  # Run a separate HTTP listener for provisioning requests. Optional, defaults to the appservice listener.
+#
+#  # Whether to enable hosting the setup widget page. Defaults to false.
+#  widget: false
+#
+#  # Run a separate HTTP listener for provisioning requests. Optional.
 #  http:
 #    # The port to listen on.
 #    port: 5859
 #    # The host to listen on. Defaults to 0.0.0.0.
 #    host: 0.0.0.0
-
-  # A secure secret token used when making provisioning requests. Defaults to the appservice hs_token.
+#
+#  # A secure secret token used when making provisioning requests. Defaults to the appservice hs_token.
 #  secret: "<GENERATE ME>"
-
-  # Whether to apply rate limiting to provisioning requests. Defaults to true.
+#
+#  # Whether to apply rate limiting to provisioning requests. Defaults to true.
 #  ratelimit: true
-
-  # When users request a token from the bridge to make provisioning
-  # requests, disallow any requests that resolve a Matrix server_name included in these ranges.
-  # This list should include any internal IPs that the bridge should never lookup.
-  # By default, the below list is used.
+#
+#  # When users request a token from the bridge to make provisioning
+#  # requests, disallow any requests that resolve a Matrix server_name included in these ranges.
+#  # This list should include any internal IPs that the bridge should never lookup.
+#  # By default, the below list is used.
 #  open_id_disallowed_ip_ranges:
 #    - '127.0.0.0/8'
 #    - '10.0.0.0/8'

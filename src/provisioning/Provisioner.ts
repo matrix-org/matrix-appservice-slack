@@ -38,6 +38,7 @@ const log = new Logger("Provisioning");
 
 export interface ProvisionerConfig {
     enabled: boolean;
+    widget?: boolean;
     http?: {
         port: number;
         host?: string;
@@ -91,7 +92,7 @@ export class Provisioner extends ProvisioningApi {
                     )
                     : undefined,
                 widgetTokenPrefix: "slackbr-wdt-",
-                widgetFrontendLocation: "public",
+                widgetFrontendLocation: config.widget ? "public" : undefined,
                 // Use the bridge express application unless a config was specified for provisioning
                 expressApp: config.http ? undefined : appService.expressApp,
             },

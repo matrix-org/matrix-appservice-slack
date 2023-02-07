@@ -123,6 +123,8 @@ properties:
     properties:
       enabled:
         type: boolean
+      widget:
+        type: boolean
       secret:
         type: string
       ratelimit:
