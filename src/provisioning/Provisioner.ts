@@ -18,7 +18,6 @@ import { NextFunction, Response } from "express";
 import { ApiError, AppService, ErrCode, Logger, ProvisioningApi, ProvisioningRequest } from "matrix-appservice-bridge";
 
 import { Main } from "../Main";
-import { HTTP_CODES } from "../BaseSlackHandler";
 import { AuthTestResponse, ConversationsInfoResponse, ConversationsListResponse } from "../SlackResponses";
 import { NedbDatastore } from "../datastore/NedbDatastore";
 import {
@@ -158,15 +157,6 @@ export class Provisioner extends ProvisioningApi {
         }
         const currentCount = await this.main.datastore.getRoomCount();
         return (currentCount >= this.main.config.provisioning?.limits?.room_count);
-    }
-
-    private async determineSlackIdForRequest(matrixUserId: string, teamId: string): Promise<string | undefined> {
-        for (const account of await this.main.datastore.getAccountsForMatrixUser(matrixUserId)) {
-            if (account.teamId === teamId) {
-                return account.slackId;
-            }
-        }
-        return undefined;
     }
 
     private async getBotId(req: ProvisioningRequest, res: Response) {
