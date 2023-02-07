@@ -1239,10 +1239,10 @@ eventemitter3@^4.0.4:
   resolved "https://registry.yarnpkg.com/eventemitter3/-/eventemitter3-4.0.7.tgz#2de9b68f6528d5644ef5c59526a1b4a07306169f"
   integrity sha512-8guHBZCwKnFhYdHr2ysuRWErTwhoN2X8XELRlrRwpmfeY2jjuUN4taQMsULKUVo1K4DvZl+0pgfyoysHxvmvEw==
 
-express-rate-limit@^6.2.0:
-  version "6.5.1"
-  resolved "https://registry.yarnpkg.com/express-rate-limit/-/express-rate-limit-6.5.1.tgz#2b4c329f03265f94f19613519b169afbd018e783"
-  integrity sha512-pxO6ioBLd3i8IHL+RmJtL4noYzte5fugoMdaDabtU4hcg53+x0QkTwfPtM7vWD0YUaXQgNj9NRdzmps+CHEHlA==
+express-rate-limit@^6.7.0:
+  version "6.7.0"
+  resolved "https://registry.yarnpkg.com/express-rate-limit/-/express-rate-limit-6.7.0.tgz#6aa8a1bd63dfe79702267b3af1161a93afc1d3c2"
+  integrity sha512-vhwIdRoqcYB/72TK3tRZI+0ttS8Ytrk24GfmsxDXK9o9IhHNO5bXRiXQSExPQ4GbaE5tvIS7j1SGrxsuWs+sGA==
 
 express@^4.17.1, express@^4.18.1:
   version "4.18.1"
@@ -1997,17 +1997,17 @@ make-error@^1.1.1:
   resolved "https://registry.yarnpkg.com/make-error/-/make-error-1.3.6.tgz#2eb2e37ea9b67c4891f684a1394799af484cf7a2"
   integrity sha512-s8UhlNe7vPKomQhC1qFelMokr/Sc3AgNbso3n74mVPA5LTZwkB9NlXf4XPamLxJE8h0gh73rM94xvwRT2CVInw==
 
-matrix-appservice-bridge@^8.0.0:
-  version "8.0.0"
-  resolved "https://registry.yarnpkg.com/matrix-appservice-bridge/-/matrix-appservice-bridge-8.0.0.tgz#6849ac05c281399b2c2b35daba784f8291d3b35d"
-  integrity sha512-XFo3avVfKb34d7kalXcsi0vThlnqmrwvewcfhjintmpbFlwu54/lvdbykFSyu2kT8BY1zUtDz7iQ3Q3RAyaN1g==
+matrix-appservice-bridge@^8.1.0:
+  version "8.1.0"
+  resolved "https://registry.yarnpkg.com/matrix-appservice-bridge/-/matrix-appservice-bridge-8.1.0.tgz#9f12ae6de3de290c129339f308fea9dae28cc8eb"
+  integrity sha512-yeBXFOo9Iz0lw5kTAMpZPWvKRe+O7g0VN+CI7YB7/jPFINIQ5IA71OIxnrNoBMX7GO5+Ku+n7HX0XA+25uJ7FQ==
   dependencies:
     "@alloc/quick-lru" "^5.2.0"
     "@types/pkginfo" "^0.4.0"
     axios "^0.27.2"
     chalk "^4.1.0"
     express "^4.18.1"
-    express-rate-limit "^6.2.0"
+    express-rate-limit "^6.7.0"
     extend "^3.0.2"
     ip-cidr "^3.0.4"
     is-my-json-valid "^2.20.5"

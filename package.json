@@ -39,7 +39,7 @@
     "ajv": "^8.12.0",
     "axios": "^0.27.2",
     "escape-string-regexp": "^4.0.0",
-    "matrix-appservice-bridge": "^8.0.0",
+    "matrix-appservice-bridge": "^8.1.0",
     "minimist": "^1.2.6",
     "nedb": "^1.8.0",
     "node-emoji": "^1.10.0",

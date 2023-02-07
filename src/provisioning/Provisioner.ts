@@ -83,7 +83,7 @@ export class Provisioner extends ProvisioningApi {
             {
                 provisioningToken: config.secret,
                 apiPrefix: "/_matrix/provision",
-                ratelimit: config.ratelimit,
+                ratelimit: (config.ratelimit ?? true),
                 disallowedIpRanges: config.open_id_disallowed_ip_ranges,
                 openIdOverride: config.open_id_overrides
                     ? Object.fromEntries(Object.entries(config.open_id_overrides)
