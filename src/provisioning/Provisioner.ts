@@ -453,7 +453,14 @@ export class Provisioner extends ProvisioningApi {
         const slackWebhookUri = body.slack_webhook_uri;
 
         // Ensure we are in the room.
-        await this.main.botIntent.join(matrixRoomId);
+        try {
+            await this.main.botIntent.join(matrixRoomId);
+        } catch (e) {
+            throw new ApiError(
+                "Bot could not join the room",
+                ErrCode.Unknown,
+            );
+        }
 
         // Check if the user is in the team.
         if (teamId && !(await this.main.matrixUserInSlackTeam(teamId, userId))) {
