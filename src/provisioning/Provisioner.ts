@@ -150,6 +150,10 @@ export class Provisioner extends ProvisioningApi {
         log.info("Provisioning API ready");
     }
 
+    public fakeRequest(method: string, req: ProvisioningRequest, res: Response) {
+        return this[method](req, res);
+    }
+
     private async reachedRoomLimit(): Promise<boolean> {
         if (!this.main.config.provisioning?.limits?.room_count) {
             // No limit applied
