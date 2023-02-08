@@ -119,6 +119,7 @@ export enum SlackErrCode {
     UnknownChannel = "SLACK_UNKNOWN_CHANNEL",
     UnknownLink = "SLACK_UNKNOWN_LINK",
     NotEnoughPower = "SLACK_NOT_ENOUGH_POWER",
+    NotPublic = "SLACK_ROOM_NOT_PUBLIC",
     BridgeAtLimit = "SLACK_BRIDGE_AT_LIMIT",
 }
 
@@ -128,7 +129,8 @@ const ErrCodeToStatusCode: Record<SlackErrCode, number> = {
     [SlackErrCode.UnknownChannel]: 404,
     [SlackErrCode.UnknownLink]: 404,
     [SlackErrCode.NotEnoughPower]: 403,
-    [SlackErrCode.BridgeAtLimit]: 500
+    [SlackErrCode.NotPublic]: 400,
+    [SlackErrCode.BridgeAtLimit]: 500,
 };
 
 export class SlackProvisioningError extends Error implements IApiError {

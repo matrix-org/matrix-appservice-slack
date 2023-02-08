@@ -456,10 +456,32 @@ export class Provisioner extends ProvisioningApi {
         try {
             await this.main.botIntent.join(matrixRoomId);
         } catch (e) {
+            req.log.error(e);
             throw new ApiError(
                 "Bot could not join the room",
                 ErrCode.Unknown,
             );
+        }
+
+        if (this.config.require_public_room) {
+            // Check if the room is public
+            let joinRulesEvent;
+            try {
+                joinRulesEvent = await this.main.botIntent.getStateEvent(matrixRoomId, 'm.room.join_rules', '');
+            } catch (e) {
+                req.log.error(e);
+                throw new ApiError(
+                    "Could not check if room is public",
+                    ErrCode.Unknown,
+                );
+            }
+
+            if (joinRulesEvent.join_rule !== 'public') {
+                throw new SlackProvisioningError(
+                    "Only allowed to link public rooms",
+                    SlackErrCode.NotPublic,
+                );
+            }
         }
 
         // Check if the user is in the team.
