@@ -1,5 +1,5 @@
 /*
-Copyright 2019 The Matrix.org Foundation C.I.C.
+Copyright 2023 The Matrix.org Foundation C.I.C.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -150,6 +150,13 @@ export class Provisioner extends ProvisioningApi {
         log.info("Provisioning API ready");
     }
 
+    /**
+     * Used for making API requests during unit testing.
+     *
+     * @param method Class method name to call.
+     * @param req
+     * @param res
+     */
     public fakeRequest(method: string, req: ProvisioningRequest, res: Response) {
         return this[method](req, res);
     }

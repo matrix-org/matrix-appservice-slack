@@ -23,7 +23,8 @@ import {
     StoredEvent,
     StoredEventDoc,
     UserActivity,
-    UserActivitySet, ProvisionSession
+    UserActivitySet,
+    ProvisionSession,
 } from "matrix-appservice-bridge";
 
 import {
