@@ -65,13 +65,14 @@ team_sync:
 
 provisioning:
   enabled: true
+  widgets: true
   require_public_room: true
   allow_private_channels: true
   limits:
     room_count: 20
     team_count: 1
   channel_adl:
-    allow: 
+    allow:
       - "CCZ41UJV7"
       - "#open.*"
     deny:
@@ -83,15 +84,15 @@ puppeting:
   onboard_users: false
   direct_messages:
     allow:
-      slack: 
+      slack:
         - "U0156TG3W48"
-      matrix: 
+      matrix:
         - "@badactor:badhost"
         - "@.*:badhost"
     deny:
-      slack: 
+      slack:
         - "U0156TG3W48"
-      matrix: 
+      matrix:
         - "@badactor:badhost"
         - "@.*:badhost"
 

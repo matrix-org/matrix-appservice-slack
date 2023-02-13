@@ -30,7 +30,7 @@ import { SlackGhost } from "./SlackGhost";
 import { MatrixUser } from "./MatrixUser";
 import { SlackHookHandler } from "./SlackHookHandler";
 import { AdminCommands } from "./AdminCommands";
-import { Provisioner } from "./Provisioning";
+import { Provisioner } from "./provisioning/Provisioner";
 import { INTERNAL_ID_LEN } from "./BaseSlackHandler";
 import { SlackRTMHandler } from "./SlackRTMHandler";
 import { ConversationsInfoResponse, ConversationsOpenResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
@@ -287,8 +287,6 @@ export class Main {
         });
         this.membershipQueue = new MembershipQueue(this.bridge, { });
 
-        this.provisioner = new Provisioner(this, this.bridge);
-
         if (config.rtm?.enable) {
             this.enableRtm();
         }
@@ -323,6 +321,16 @@ export class Main {
             homeserverToken,
             httpMaxSizeBytes: 0,
         });
+
+        this.provisioner = new Provisioner(
+            this,
+            this.appservice,
+            {
+                // Default to HS token if no secret is configured
+                secret: homeserverToken,
+                ...(config.provisioning ?? { enabled: true }),
+            },
+        );
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
@@ -1040,7 +1048,7 @@ export class Main {
      * @returns The port the appservice listens to.
      */
     public async run(port: number): Promise<number> {
-        await this.bridge.initalise();
+        await this.bridge.initialise();
 
         log.info("Loading databases");
         if (this.oauth2) {
@@ -1171,13 +1179,6 @@ export class Main {
             log.warn("The bot is not in the admin room. You should invite the bot in order to control the bridge.");
         }
 
-        const provisioningEnabled = this.config.provisioning?.enabled;
-
-        // Previously, this was always true.
-        if (provisioningEnabled === undefined ? true : provisioningEnabled) {
-            this.provisioner.addAppServicePath();
-        }
-
         log.info("Fetching teams");
         const teams = await this.datastore.getAllTeams();
         log.info(`Loaded ${teams.length} teams`);
@@ -1303,6 +1304,8 @@ export class Main {
                 room.MatrixRoomActive = false;
             }
         }
+
+        await this.provisioner.start();
     }
 
     public async getChannelInfo(
@@ -1694,7 +1697,10 @@ export class Main {
 
     private async onUserActivityChanged(state: UserActivityState) {
         for (const userId of state.changed) {
-            await this.datastore.storeUserActivity(userId, state.dataSet.users[userId]);
+            const activity = state.dataSet.get(userId);
+            if (activity) {
+                await this.datastore.storeUserActivity(userId, activity);
+            }
         }
         await this.bridgeBlocker?.checkLimits(state.activeUsers);
     }

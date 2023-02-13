@@ -16,6 +16,8 @@ limitations under the License.
 
 // This should follow the format in slack-config-schema.yaml
 
+import { ProvisionerConfig } from "./provisioning/Provisioner";
+
 type LogEnum = "error"|"warn"| "info"|"debug"|"off";
 import { WebClientOptions } from "@slack/web-api";
 import { ITeamSyncConfig } from "./TeamSyncer";
@@ -99,19 +101,7 @@ export interface IConfig {
 
     dbdir: string;
 
-    provisioning?: {
-        enabled: boolean;
-        require_public_room?: boolean;
-        allow_private_channels?: boolean;
-        limits?: {
-            team_count?: number;
-            room_count?: number;
-        };
-        channel_adl?: {
-            allow: string[];
-            deny: string[];
-        }
-    };
+    provisioning?: ProvisionerConfig;
 
     puppeting?: {
         enabled: boolean;

@@ -2,21 +2,21 @@ homeserver:
   # The domain name of your homeserver
   #
   server_name: my.server.here
-  
+
   # The URL for connecting to your homeserver
   #
   url: http://localhost:8008
-  
+
   # The public facing url for media on your homeserver.
   # This is usually the public url of your homeserver.
   # Optional. Defaults to the value of `url`.
   #
   #media_url: "http://my.server.here"
-  
+
   # Optional. The maximum size of a uploaded file to Matrix in bytes. No limit by default
   #
   #max_upload_size: 104857600
-  
+
   # Optional. Used to specify the port of the appservice in the config, rather than the command line.
   # This will be overriden by any ports given in the process arguments.
   #
@@ -41,7 +41,7 @@ db:
   # Deprecated: "nedb"
   #
   engine: "postgres"
-  
+
   # A postgres connection string (unused if using nedb)
   #
   connectionString: "postgresql://slackbridge_user:somethingverysecret@localhost/slack_bridge"
@@ -87,7 +87,7 @@ slack_hook_port: 9898
 #oauth2:
   #client_id: ""
   #client_secret: ""
-  
+
   # A prefix similar to inbound_uri_prefix for oauth2 requests. inbound_uri_prefix will be used if this is not set
   # Optional
   #
@@ -96,7 +96,7 @@ slack_hook_port: 9898
 # Optional
 # logging:
 #   console: "info" # One of "debug", "info", "warning", "error", "silent"
-  
+
 #   # Files that the bridge may log into. The key is the minimum level to report.
 #   #
 #   files:
@@ -117,12 +117,12 @@ slack_hook_port: 9898
   #     # Allow or deny private channels from being synced. Defaults to true.
   #     #
   #     allow_private: true
-  #    
-  #    # Optional. 
+  #
+  #    # Optional.
   #    # Allow or deny public channels from being synced. Defaults to true.
   #    #
   #    allow_public: true
-  #  
+  #
   #
   #     # Optional. blacklist for channel ids. Trumps the whitelist.
   #     #
@@ -156,13 +156,55 @@ slack_hook_port: 9898
 
 # Optional.
 #
-# provisioning:
-#   enabled: true
+#provisioning:
+#  # Whether to enable the provisioning API. Defaults to true.
+#  enabled: true
+#
+#  # Whether to enable hosting the setup widget page. Defaults to false.
+#  widget: false
+#
+#  # Run a separate HTTP listener for provisioning requests. Optional.
+#  http:
+#    # The port to listen on.
+#    port: 5859
+#    # The host to listen on. Defaults to 0.0.0.0.
+#    host: 0.0.0.0
+#
+#  # A secure secret token used when making provisioning requests. Defaults to the appservice hs_token.
+#  secret: "<GENERATE ME>"
+#
+#  # Whether to apply rate limiting to provisioning requests. Defaults to true.
+#  ratelimit: true
+#
+#  # When users request a token from the bridge to make provisioning
+#  # requests, disallow any requests that resolve a Matrix server_name included in these ranges.
+#  # This list should include any internal IPs that the bridge should never lookup.
+#  # By default, the below list is used.
+#  open_id_disallowed_ip_ranges:
+#    - '127.0.0.0/8'
+#    - '10.0.0.0/8'
+#    - '172.16.0.0/12'
+#    - '192.168.0.0/16'
+#    - '100.64.0.0/10'
+#    - '192.0.0.0/24'
+#    - '169.254.0.0/16'
+#    - '192.88.99.0/24'
+#    - '198.18.0.0/15'
+#    - '192.0.2.0/24'
+#    - '198.51.100.0/24'
+#    - '203.0.113.0/24'
+#    - '224.0.0.0/4'
+#    - '::1/128'
+#    - 'fe80::/10'
+#    - 'fc00::/7'
+#    - '2001:db8::/32'
+#    - 'ff00::/8'
+#    - 'fec0::/10'
 
   # Should the bridge deny users bridging channels to private rooms.
   # Optional.
   # require_public_room: false
-  
+
   # Should the bridge allow users to bridge private channels.
   # Optional. Defaults to true.
   # allow_private_channels: true
@@ -171,14 +213,14 @@ slack_hook_port: 9898
   # limits:
   #  room_count: 20
   #  team_count: 1
-  
+
   # Allow deny list for which Slack channels may be bridged.
   # If allow is defined, all other channels are blocked by default
   # If deny is defined, all other channels are allowed by default
   # If both are defined, allow takes precedence.
-  # Optional. 
+  # Optional.
   # channel_adl:
-  #   allow: 
+  #   allow:
   #     #- "CCZ41UJV7"
   #     #- "#open.*"
   #   deny:
@@ -192,12 +234,12 @@ slack_hook_port: 9898
 #   # Should the bridge allow users to puppet their accounts
 #   #
 #   enabled: false
-  
+
   # Should the bridge send users a onboarding message when
   # they join a Slack channel for the first time.
   # Optional.
   # onboard_users: false
-  
+
   # Settings regarding who can send direct messages.
   # If allow is defined, all other users are blocked by default
   # If deny is defined, all other users are allowed by default
@@ -207,24 +249,24 @@ slack_hook_port: 9898
   #   allow:
   #     # Which Slack users may DM Matrix users.
   #     #
-  #     slack: 
+  #     slack:
   #       #- "U0156TG3W48"
-      
+
   #     # Which Matrix users may DM Slack users.
   #     #
-  #     matrix: 
+  #     matrix:
   #       #- "@badactor:badhost"
   #       #- "@.*:badhost"
 
   #   deny:
   #     # Which Slack users may NOT DM Matrix users.
   #     #
-  #     slack: 
+  #     slack:
   #       #- "U0156TG3W48"
-      
+
   #     # Which Matrix users may NOT DM Slack users.
   #     #
-  #     matrix: 
+  #     matrix:
   #       #- "@badactor:badhost"
   #       #- "@.*:badhost"
 
@@ -233,7 +275,7 @@ slack_hook_port: 9898
 #   # Optional. Set the displayname.
 #   #
 #   displayname: "Slack Bridge"
-  
+
 #   # Optional. Set the avatar.
 #   #
 #   avatar_url: "mxc://half-shot.uk/ea64c71ee946ca2f61379abefe2c7d977d276fbb"

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Provisioner } from "../../src/Provisioning";
+import { Provisioner } from "../../src/provisioning/Provisioner";
 import { FakeMain } from "../utils/fakeMain";
 import { expect } from "chai";
 import { FakeExpressResponse } from "../utils/fakeExpress";
@@ -24,47 +24,35 @@ const OAuthUrlRegex = /^https:\/\/slack\.com\/oauth\/authorize\?client_id=fakeid
 
 const createProvisioner = (mainCfg?: any) => {
     const fakeMain = new FakeMain(mainCfg);
-    const prov = new Provisioner(fakeMain as any, {} as any);
+    const prov = new Provisioner(fakeMain as any, {} as any, {} as any);
     return {prov, fakeMain};
 };
 
 describe("Provisioning", () => {
     describe("commands.authurl", () => {
-        it ("should not handle command with missing body parameters", async () => {
-            const { prov } = createProvisioner();
-            const req = {
-                body: { },
-            };
-            const res = new FakeExpressResponse();
-            await prov.handleProvisioningRequest("authurl", req as any, res as any);
-            expect(res.Status).to.equal(400);
-            expect(res.Json).to.deep.equal({
-                error: "Required parameter user_id missing",
-            });
-        });
         it ("should not handle command with disabled oauth2", async () => {
             const { prov } = createProvisioner();
             const req = {
-                body: {
-                    user_id: "foobar",
-                },
+                userId: "@example:synapse.test",
+                body: {},
             };
             const res = new FakeExpressResponse();
-            await prov.handleProvisioningRequest("authurl", req as any, res as any);
-            expect(res.Status).to.equal(400);
-            expect(res.Json).to.deep.equal({
-                error: "OAuth2 not configured on this bridge",
-            });
+            let err;
+            try {
+                await prov.fakeRequest("getAuthUrl", req as any, res as any);
+            } catch (e) {
+                err = e;
+            }
+            expect(err.message).to.equal('API error M_AS_UNSUPPORTED_OPERATION: OAuth2 is not configured on this bridge');
         });
         it ("should handle command with missing puppeting parameter", async () => {
             const { prov } = createProvisioner({ oauth2: true });
             const req = {
-                body: {
-                    user_id: "foobar",
-                },
+                userId: "@example:synapse.test",
+                body: {},
             };
             const res = new FakeExpressResponse();
-            await prov.handleProvisioningRequest("authurl", req as any, res as any);
+            await prov.fakeRequest("getAuthUrl", req as any, res as any);
             expect(res.Status).to.equal(200);
             expect(res.Json).to.exist;
             const match = OAuthUrlRegex.exec(res.Json.auth_uri as string);
@@ -77,13 +65,13 @@ describe("Provisioning", () => {
         it ("should handle command with puppeting parameter set to false", async () => {
             const { prov } = createProvisioner({ oauth2: true });
             const req = {
+                userId: "@example:synapse.test",
                 body: {
-                    user_id: "foobar",
                     puppeting: "false",
                 },
             };
             const res = new FakeExpressResponse();
-            await prov.handleProvisioningRequest("authurl", req as any, res as any);
+            await prov.fakeRequest("getAuthUrl", req as any, res as any);
             expect(res.Status).to.equal(200);
             expect(res.Json).to.exist;
             const match = OAuthUrlRegex.exec(res.Json.auth_uri as string);
@@ -96,13 +84,13 @@ describe("Provisioning", () => {
         it ("should handle command with puppeting parameter set to true", async () => {
             const { prov } = createProvisioner({ oauth2: true });
             const req = {
+                userId: "@example:synapse.test",
                 body: {
-                    user_id: "foobar",
                     puppeting: "true",
                 },
             };
             const res = new FakeExpressResponse();
-            await prov.handleProvisioningRequest("authurl", req as any, res as any);
+            await prov.fakeRequest("getAuthUrl", req as any, res as any);
             expect(res.Status).to.equal(200);
             expect(res.Json).to.exist;
             const match = OAuthUrlRegex.exec(res.Json.auth_uri as string);

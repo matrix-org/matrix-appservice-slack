@@ -1,4 +1,4 @@
-import { UserActivity, UserActivitySet } from "matrix-appservice-bridge";
+import { ProvisionSession, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -188,7 +188,22 @@ export class FakeDatastore implements Datastore {
     }
 
     public async getUserActivity(): Promise<UserActivitySet> {
-        return { users: {} };
+        return new Map();
     }
 
+    public async getSessionForToken(): Promise<ProvisionSession|null> {
+        throw Error('Not implemented.');
+    }
+
+    public async createSession() {
+        throw Error('Not implemented.');
+    }
+
+    public async deleteSession() {
+        throw Error('Not implemented.');
+    }
+
+    public async deleteAllSessions() {
+        throw Error('Not implemented.');
+    }
 }

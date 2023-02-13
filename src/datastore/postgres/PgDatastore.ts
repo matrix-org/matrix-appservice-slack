@@ -18,7 +18,15 @@ import pgInit from "pg-promise";
 // eslint-disable-next-line no-duplicate-imports
 import { IDatabase, IMain } from "pg-promise";
 
-import { Logger, MatrixUser, ClientEncryptionStore, ClientEncryptionSession, UserActivity, UserActivitySet } from "matrix-appservice-bridge";
+import {
+    Logger,
+    MatrixUser,
+    ClientEncryptionStore,
+    ClientEncryptionSession,
+    UserActivity,
+    UserActivitySet,
+    ProvisioningStore, ProvisionSession
+} from "matrix-appservice-bridge";
 import {
     Datastore,
     EventEntry,
@@ -55,8 +63,8 @@ export interface SchemaRunUserMessage {
 
 type SchemaRunFn = (db: IDatabase<unknown>) => Promise<void|{userMessages: SchemaRunUserMessage[]}>;
 
-export class PgDatastore implements Datastore, ClientEncryptionStore {
-    public static readonly LATEST_SCHEMA = 15;
+export class PgDatastore implements Datastore, ClientEncryptionStore, ProvisioningStore {
+    public static readonly LATEST_SCHEMA = 16;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -530,11 +538,11 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
 
     public async getUserActivity(): Promise<UserActivitySet> {
         const rows = await this.postgresDb.manyOrNone('SELECT * FROM user_activity');
-        const users: {[mxid: string]: any} = {};
+        const activity = new Map<string, UserActivity>();
         for (const row of rows) {
-            users[row.user_id] = row.data;
+            activity.set(row.user_id, row.data);
         }
-        return { users };
+        return activity;
     }
 
     public async storeUserActivity(userId: string, activity: UserActivity): Promise<void> {
@@ -542,6 +550,35 @@ export class PgDatastore implements Datastore, ClientEncryptionStore {
             id: userId,
             activity: JSON.stringify(activity),
         });
+    }
+
+    public async getSessionForToken(token: string): Promise<ProvisionSession|null> {
+        const result = await this.postgresDb.oneOrNone<{user_id: string, expires_ts: number}>(
+            "SELECT user_id, expires_ts FROM provisioner_sessions WHERE token = $1", [token]
+        );
+        return result ? {
+            userId: result.user_id,
+            token,
+            expiresTs: result.expires_ts,
+        } : null;
+    }
+
+    public async createSession(session: ProvisionSession) {
+        await this.postgresDb.none(
+            "INSERT INTO provisioner_sessions VALUES ($1, $2, $3)", [session.userId, session.token, session.expiresTs]
+        );
+    }
+
+    public async deleteSession(token: string) {
+        await this.postgresDb.none(
+            "DELETE FROM provisioner_sessions WHERE token = $1", [token]
+        );
+    }
+
+    public async deleteAllSessions(userId: string) {
+        await this.postgresDb.none(
+            "DELETE FROM provisioner_sessions WHERE user_id = $1", [userId]
+        );
     }
 
     private async updateSchemaVersion(version: number) {

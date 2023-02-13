@@ -23,7 +23,8 @@ import {
     StoredEvent,
     StoredEventDoc,
     UserActivity,
-    UserActivitySet
+    UserActivitySet,
+    ProvisionSession,
 } from "matrix-appservice-bridge";
 
 import {
@@ -382,5 +383,21 @@ export class NedbDatastore implements Datastore {
 
     public async getRoomCount(): Promise<number> {
         return (await this.getAllRooms()).length;
+    }
+
+    public async getSessionForToken(): Promise<ProvisionSession|null> {
+        throw Error('Not implemented for NeDB store');
+    }
+
+    public async createSession() {
+        throw Error('Not implemented for NeDB store');
+    }
+
+    public async deleteSession() {
+        throw Error('Not implemented for NeDB store');
+    }
+
+    public async deleteAllSessions() {
+        throw Error('Not implemented for NeDB store');
     }
 }
