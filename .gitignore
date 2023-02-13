@@ -38,6 +38,9 @@ tsconfig.tsbuildinfo
 
 # project files
 .vscode/
+.idea/
 .project
 .settings/
 .externalToolBuilders/
+
+/public

@@ -2,13 +2,14 @@ FROM node:18-bullseye-slim AS BUILD
 
 # git is needed to install Half-Shot/slackdown
 RUN apt update && apt install -y git
-WORKDIR /src
+WORKDIR /build
 
-COPY package.json yarn.lock /src/
+COPY package.json yarn.lock tsconfig.json ./
 
 RUN yarn --ignore-scripts --pure-lockfile --network-timeout 600000
 
-COPY . /src
+COPY ./src /build/src/
+COPY ./widget /build/widget/
 
 RUN yarn build
 
@@ -20,9 +21,10 @@ WORKDIR /usr/src/app
 COPY package.json yarn.lock /usr/src/app/
 RUN apt update && apt install git -y && yarn --network-timeout 600000 --production --pure-lockfile && yarn cache clean
 
-COPY --from=BUILD /src/config /usr/src/app/config
-COPY --from=BUILD /src/templates /usr/src/app/templates
-COPY --from=BUILD /src/lib /usr/src/app/lib
+COPY ./config /usr/src/app/config
+COPY ./templates /usr/src/app/templates
+COPY --from=BUILD /build/lib /usr/src/app/lib
+COPY --from=BUILD /build/public /usr/src/app/public
 
 EXPOSE 9898
 EXPOSE 5858

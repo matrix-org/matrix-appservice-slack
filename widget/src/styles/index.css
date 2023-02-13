@@ -1,0 +1,31 @@
+@import './fonts.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    @apply bg-grey-25;
+}
+
+.slack-button {
+    align-items: center;
+    color: #fff;
+    background-color: #4A154B;
+    border: 0;
+    border-radius: 0.5rem;
+    display: inline-flex;
+    font-family: Lato, Inter, sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    height: 48px;
+    justify-content: center;
+    text-decoration: none;
+    width: 236px;
+}
+
+.slack-button svg {
+    height: 20px;
+    width: 20px;
+    margin-right: 12px;
+}
