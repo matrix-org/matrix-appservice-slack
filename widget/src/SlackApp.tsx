@@ -305,7 +305,7 @@ const Unlinked = ({
             />
         </>;
     } else if (error) {
-        content = <Alerts.Warning><Text.Caption>{ error }</Text.Caption></Alerts.Warning>
+        content = <Alerts.Warning><Text.Caption>{ error }</Text.Caption></Alerts.Warning>;
     } else {
         content = <Text.Caption className="text-grey-200">Loading...</Text.Caption>;
     }
