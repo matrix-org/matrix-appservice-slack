@@ -1,3 +1,20 @@
+2.1.0 (2023-03-03)
+==================
+
+Features
+--------
+
+- Add a new UI widget for linking and unlinking channels from within a Matrix room. ([\#734](https://github.com/matrix-org/matrix-appservice-slack/issues/734), [\#735](https://github.com/matrix-org/matrix-appservice-slack/issues/735))
+
+
+Internal Changes
+----------------
+
+- Correctly attribute mkarg for documentation contributions. We also reverted commits and recommited them with the correct Author value set. ([\#729](https://github.com/matrix-org/matrix-appservice-slack/issues/729))
+- Optimize the Dockerfile to speed up image rebuilds following a code change. ([\#732](https://github.com/matrix-org/matrix-appservice-slack/issues/732))
+- Update the provisioning API to use `matrix-appservice-bridge`. ([\#733](https://github.com/matrix-org/matrix-appservice-slack/issues/733))
+
+
 2.0.2 (2022-11-30)
 ==================
 
