@@ -1,5 +1,5 @@
-import * as React from 'react'
-import { SVGProps } from 'react'
+import * as React from 'react';
+import { SVGProps } from 'react';
 
 export const Alert = (props: SVGProps<SVGSVGElement>) => (
     <svg
