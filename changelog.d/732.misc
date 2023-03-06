@@ -1,1 +1,0 @@
-Optimize the Dockerfile to speed up image rebuilds following a code change.
