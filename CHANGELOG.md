@@ -1,3 +1,13 @@
+2.1.1 (2023-03-07)
+==================
+
+Internal Changes
+----------------
+
+- Fix provisioning API base URL in setup widget. ([\#739](https://github.com/matrix-org/matrix-appservice-slack/issues/739))
+- Update matrix-appservice-bridge to `8.1.1`. ([\#740](https://github.com/matrix-org/matrix-appservice-slack/issues/740))
+
+
 2.1.0 (2023-03-03)
 ==================
 
