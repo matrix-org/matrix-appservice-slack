@@ -170,6 +170,24 @@ export class Provisioner extends ProvisioningApi {
         return (currentCount >= this.main.config.provisioning?.limits?.room_count);
     }
 
+    /**
+     * Checks if a Matrix room is public.
+     * @param roomId Matrix room ID to check.
+     * @returns Promise resolving to true if the room is public, otherwise false.
+     * @private
+     */
+    private async getIsRoomPublic(roomId: string): Promise<boolean> {
+        try {
+            const joinRulesEvent = await this.main.botIntent.getStateEvent(roomId, 'm.room.join_rules', '');
+            return joinRulesEvent.join_rule === 'public';
+        } catch (e) {
+            throw new ApiError(
+                "Could not check if Matrix room is public",
+                ErrCode.Unknown,
+            );
+        }
+    }
+
     private async getBotId(req: ProvisioningRequest, res: Response) {
         const hasRoomLimit = this.main.config.provisioning?.limits?.room_count;
         const hasTeamLimit = this.main.config.provisioning?.limits?.team_count;
@@ -363,43 +381,54 @@ export class Provisioner extends ProvisioningApi {
         const matrixRoomId = body.matrix_room_id;
 
         const room = this.main.rooms.getByMatrixRoomId(matrixRoomId);
-        if (!room) {
-            throw new SlackProvisioningError(
-                "Link not found",
-                SlackErrCode.UnknownLink,
-            );
+        if (room) {
+            // Convert the room 'status' into an integration manager 'status'
+            let status = room.getStatus();
+            if (status.match(/^ready/)) {
+                // OK
+            } else if (status === "pending-params") {
+                status = "partial";
+            } else if (status === "pending-name") {
+                status = "pending";
+            } else {
+                status = "unknown";
+            }
+
+            return res.json({
+                inbound_uri: this.main.getInboundUrlForRoom(room),
+                isWebhook: room.SlackWebhookUri !== undefined,
+                matrix_room_id: matrixRoomId,
+                slack_channel_id: room.SlackChannelId,
+                slack_channel_name: room.SlackChannelName,
+                slack_webhook_uri: room.SlackWebhookUri,
+                status,
+                team_id: room.SlackTeamId,
+            });
         }
 
-        const allowed = await this.main.checkLinkPermission(matrixRoomId, userId);
-        if (!allowed) {
+        if (this.config.require_public_room) {
+            // Check if the room is public
+            const isRoomPublic = await this.getIsRoomPublic(matrixRoomId);
+            if (!isRoomPublic) {
+                throw new SlackProvisioningError(
+                    "Only allowed to link public rooms",
+                    SlackErrCode.NotPublic,
+                );
+            }
+        }
+
+        const hasPermissions = await this.main.checkLinkPermission(matrixRoomId, userId);
+        if (!hasPermissions) {
             throw new SlackProvisioningError(
                 "Not allowed to provision links in this room",
                 SlackErrCode.NotEnoughPower,
             );
         }
 
-        // Convert the room 'status' into an integration manager 'status'
-        let status = room.getStatus();
-        if (status.match(/^ready/)) {
-            // OK
-        } else if (status === "pending-params") {
-            status = "partial";
-        } else if (status === "pending-name") {
-            status = "pending";
-        } else {
-            status = "unknown";
-        }
-
-        return res.json({
-            inbound_uri: this.main.getInboundUrlForRoom(room),
-            isWebhook: room.SlackWebhookUri !== undefined,
-            matrix_room_id: matrixRoomId,
-            slack_channel_id: room.SlackChannelId,
-            slack_channel_name: room.SlackChannelName,
-            slack_webhook_uri: room.SlackWebhookUri,
-            status,
-            team_id: room.SlackTeamId,
-        });
+        throw new SlackProvisioningError(
+            "Link not found",
+            SlackErrCode.UnknownLink,
+        );
     }
 
     private async getChannelInfo(req: ProvisioningRequest, res: Response) {
@@ -475,19 +504,8 @@ export class Provisioner extends ProvisioningApi {
         }
 
         if (this.config.require_public_room) {
-            // Check if the room is public
-            let joinRulesEvent;
-            try {
-                joinRulesEvent = await this.main.botIntent.getStateEvent(matrixRoomId, 'm.room.join_rules', '');
-            } catch (e) {
-                req.log.error(e);
-                throw new ApiError(
-                    "Could not check if room is public",
-                    ErrCode.Unknown,
-                );
-            }
-
-            if (joinRulesEvent.join_rule !== 'public') {
+            const isRoomPublic = await this.getIsRoomPublic(matrixRoomId);
+            if (!isRoomPublic) {
                 throw new SlackProvisioningError(
                     "Only allowed to link public rooms",
                     SlackErrCode.NotPublic,
