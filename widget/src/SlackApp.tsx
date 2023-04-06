@@ -372,13 +372,23 @@ export const SlackApp = () => {
     const getLink = useCallback(async() => {
         try {
             const link = await client.getLink(provisioningContext.roomId);
-            setLink(link ?? null);
+            setLink(link);
         } catch (e) {
-            console.error('Failed to get link:', e);
-            setError(
-                'Could not get link status.'
-                + ` ${e instanceof ProvisioningError ? e.message : ''}`
-            );
+            if (e instanceof ProvisioningError) {
+                if (e.errcode === 'SLACK_UNKNOWN_LINK') {
+                    setLink(null);
+                } else if (e.errcode === 'SLACK_ROOM_NOT_PUBLIC') {
+                    setError('This bridge only allows public Matrix rooms to be linked.');
+                } else if (e.errcode === 'SLACK_NOT_ENOUGH_POWER') {
+                    setError("You don't have permissions to link this room.");
+                } else {
+                    console.error('Failed to get link:', e);
+                    setError(`Could not get link status. ${e.message}`);
+                }
+            } else {
+                console.error('Failed to get link:', e);
+                setError('Could not get link status.');
+            }
         }
     }, [client, provisioningContext]);
 

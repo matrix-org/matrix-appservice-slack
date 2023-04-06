@@ -182,7 +182,7 @@ export class Provisioner extends ProvisioningApi {
             return joinRulesEvent.join_rule === 'public';
         } catch (e) {
             throw new ApiError(
-                "Could not check if Matrix room is public",
+                "Could not check if room is public",
                 ErrCode.Unknown,
             );
         }
