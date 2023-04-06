@@ -289,3 +289,6 @@ slack_hook_port: 9898
 #   # The URL where the bridge can access pantalaimon
 #   #
 #   pantalaimon_url: "http://localhost:8004"
+
+# # Optional. Whether the bot user should leave a room after it has been unlinked. Defaults to true.
+# leave_after_unlink: true

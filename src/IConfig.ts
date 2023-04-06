@@ -107,5 +107,7 @@ export interface IConfig {
         enabled: boolean;
         onboard_users?: boolean;
         direct_messages?: AllowDenyConfig;
-    }
+    };
+
+    leave_after_unlink: boolean;
 }

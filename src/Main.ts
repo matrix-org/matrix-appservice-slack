@@ -217,6 +217,8 @@ export class Main {
             throw Error('Encrypted bridge support only works with PostgreSQL.');
         }
 
+        config.leave_after_unlink = config.leave_after_unlink ?? true;
+
         this.bridge = new Bridge({
             controller: {
                 onEvent: (request) => {
@@ -637,7 +639,9 @@ export class Main {
         const userIds = await this.listGhostUsers(roomId);
         log.info(`Draining ${userIds.length} ghosts from ${roomId}`);
         const intents = userIds.map(userId => this.getIntent(userId));
-        intents.push(this.botIntent);
+        if (this.config.leave_after_unlink) {
+            intents.push(this.botIntent);
+        }
         await Promise.allSettled(intents.map(async (intent) => intent.leave(roomId)));
     }
 
