@@ -41,22 +41,15 @@ export class SlackProvisioningClient {
         readonly client: ProvisioningClient,
     ) {}
 
-    getLink = async(roomId: string): Promise<GetLinkResponse | undefined> => {
-        try {
-            const res = await this.client.request(
-                'POST',
-                '/getlink',
-                {
-                    matrix_room_id: roomId,
-                },
-            );
-            return res as GetLinkResponse;
-        } catch (e) {
-            if (e instanceof ProvisioningError && e.errcode === 'SLACK_UNKNOWN_LINK') {
-                return undefined;
-            }
-            throw e;
-        }
+    getLink = async(roomId: string): Promise<GetLinkResponse> => {
+        const res = await this.client.request(
+            'POST',
+            '/getlink',
+            {
+                matrix_room_id: roomId,
+            },
+        );
+        return res as GetLinkResponse;
     };
 
     listWorkspaces = async(): Promise<SlackWorkspace[]> => {
