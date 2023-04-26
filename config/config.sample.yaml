@@ -75,6 +75,10 @@ rtm:
 #
 slack_hook_port: 9898
 
+# Optional. Proxy to connect to the Slack API.
+#
+#slack_proxy: "https://proxy.server.here:3128"
+
 # Prefix of incoming requests to strip. This is NOT the bind host.
 # Unlike most of the other urls, this one cannot use localhost,
 # as this one must be publicly visible to the Slack API.

@@ -54,6 +54,8 @@ properties:
         type: string
   slack_hook_port:
     type: integer
+  slack_proxy:
+    type: string
   inbound_uri_prefix:
     type: string
   oauth2:

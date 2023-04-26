@@ -27,6 +27,8 @@ rtm:
 
 slack_hook_port: 9898
 
+slack_proxy: "https://proxy.server.here:3128"
+
 inbound_uri_prefix: "https://my.server.here:9898/"
 
 oauth2:

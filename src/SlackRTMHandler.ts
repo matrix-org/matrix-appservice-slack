@@ -1,4 +1,4 @@
-import { RTMClient, LogLevel } from "@slack/rtm-api";
+import { RTMClient, LogLevel, RTMClientOptions } from "@slack/rtm-api";
 import { Main, ISlackTeam } from "./Main";
 import { SlackEventHandler } from "./SlackEventHandler";
 import { Logger } from "matrix-appservice-bridge";
@@ -10,6 +10,7 @@ import { BridgedRoom } from "./BridgedRoom";
 import { SlackGhost } from "./SlackGhost";
 import { DenyReason } from "./AllowDenyList";
 import { createDM } from "./RoomCreation";
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const log = new Logger("SlackRTMHandler");
 
@@ -200,7 +201,7 @@ export class SlackRTMHandler extends SlackEventHandler {
         const LOG_LEVELS = ["debug", "info", "warn", "error", "silent"];
         const connLog = new Logger(`RTM-${logLabel.slice(0, LOG_TEAM_LEN)}`);
         const logLevel = LOG_LEVELS.indexOf(this.main.config.rtm?.log_level || "silent");
-        const rtm = new RTMClient(token, {
+        const rtmOpts = {
             logLevel: LogLevel.DEBUG, // We will filter this ourselves.
             logger: {
                 getLevel: () => LogLevel.DEBUG,
@@ -211,7 +212,13 @@ export class SlackRTMHandler extends SlackEventHandler {
                 info: logLevel <= 2 ? connLog.info.bind(connLog) : () => {},
                 error: logLevel <= 3 ? connLog.error.bind(connLog) : () => {},
             } as SlackLogger,
-        });
+        } as RTMClientOptions;
+
+        if (this.main.config.slack_proxy) {
+            rtmOpts.agent = new HttpsProxyAgent(this.main.config.slack_proxy);
+        }
+
+        const rtm = new RTMClient(token, rtmOpts);
 
         rtm.on("error", (error) => {
             // We must handle this lest the process be killed.

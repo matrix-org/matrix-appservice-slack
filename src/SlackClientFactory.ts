@@ -2,6 +2,7 @@ import { Datastore, TeamEntry } from "./datastore/Models";
 import { WebClient, WebClientOptions, LogLevel, Logger as SlackLogger, WebAPIPlatformError } from "@slack/web-api";
 import { Logger } from "matrix-appservice-bridge";
 import { TeamInfoResponse, AuthTestResponse, UsersInfoResponse } from "./SlackResponses";
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const webLog = new Logger("slack-api");
 const log = new Logger("SlackClientFactory");
@@ -18,6 +19,7 @@ const AUTH_INTERVAL_MS = 5 * 60000;
 
 interface RequiredConfigOptions {
     slack_client_opts?: WebClientOptions;
+    slack_proxy?: string;
     auth_interval_ms?: number;
 }
 
@@ -39,7 +41,12 @@ export class SlackClientFactory {
     }
 
     public async createClient(token: string): Promise<WebClient> {
-        const opts = this.config.slack_client_opts ? this.config.slack_client_opts : undefined;
+        const opts = this.config.slack_client_opts ? this.config.slack_client_opts : {};
+
+        if (this.config.slack_proxy) {
+            opts.agent = new HttpsProxyAgent(this.config.slack_proxy);
+        }
+
         return new WebClient(token, {
             logger: {
                 getLevel: () => LogLevel.DEBUG,
