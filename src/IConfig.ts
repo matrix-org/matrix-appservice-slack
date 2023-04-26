@@ -90,6 +90,7 @@ export interface IConfig {
 
     slack_hook_port?: number;
     slack_client_opts?: WebClientOptions;
+    slack_proxy?: string;
     enable_metrics: boolean;
 
     db?: {
