@@ -1707,12 +1707,23 @@ export class Main {
 
     private async pingBridge() {
         let internalRoom: string|null;
+        const intent = this.bridge.getIntent();
         try {
             internalRoom = await this.datastore.getUserAdminRoom("-internal-");
+            if (internalRoom) {
+                try {
+                    await intent.join(internalRoom);
+                } catch (ex) {
+                    // Unable to join the room, probably broken. Create another.
+                    internalRoom = null;
+                }
+            }
+
             if (!internalRoom) {
-                internalRoom = (await this.bridge.getIntent().createRoom({ options: {}})).room_id;
+                internalRoom = (await intent.createRoom({ options: {}})).room_id;
                 await this.datastore.setUserAdminRoom("-internal-", internalRoom);
             }
+
             const time = await this.bridge.pingAppserviceRoute(internalRoom);
             log.info(`Successfully pinged the bridge. Round trip took ${time}ms`);
         }
