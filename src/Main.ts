@@ -1236,6 +1236,9 @@ export class Main {
             }, ONE_HOUR);
             await this.updateActivityMetrics();
         }
+
+        // Start the provisioner API
+        await this.provisioner.start();
         await puppetsWaiting;
         await teamSyncPromise;
 
@@ -1304,8 +1307,6 @@ export class Main {
                 room.MatrixRoomActive = false;
             }
         }
-
-        await this.provisioner.start();
     }
 
     public async getChannelInfo(
