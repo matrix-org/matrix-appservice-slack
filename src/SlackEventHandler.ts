@@ -357,7 +357,7 @@ export class SlackEventHandler extends BaseSlackHandler {
         const room = this.main.rooms.getBySlackChannelId(event.channel.id);
         if (!room) { throw new Error("unknown_channel"); }
 
-        room.SlackChannelName = `#${event.channel.name}`;
+        room.SlackChannelName = event.channel.name;
         if (room.isDirty) {
             await this.main.datastore.upsertRoom(room);
         }
