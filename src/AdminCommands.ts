@@ -102,7 +102,7 @@ export class AdminCommands {
                     }
 
                     const slack = r.SlackChannelId ?
-                        `${channelName} (${r.SlackChannelId})` :
+                        `#${channelName} (${r.SlackChannelId})` :
                         channelName;
 
                     let status = r.getStatus();
