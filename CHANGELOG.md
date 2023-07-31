@@ -1,3 +1,32 @@
+2.1.2 (2023-07-31)
+==================
+
+It is **strongly** reccomended you upgrade your bridge, as this release contains security fixes.
+
+🔒 Security
+-----------
+
+- Fixes for GHSA-vc7j-h8xg-fv5x.
+
+Features
+--------
+
+- Add improved error messages in setup widget. ([\#744](https://github.com/matrix-org/matrix-appservice-slack/issues/744))
+- Add support for specifying a HTTP proxy to connect to the Slack API. ([\#750](https://github.com/matrix-org/matrix-appservice-slack/issues/750))
+
+
+Bugfixes
+--------
+
+- Fix the provisioner staring once per bridged room. ([\#751](https://github.com/matrix-org/matrix-appservice-slack/issues/751))
+
+
+Internal Changes
+----------------
+
+- Update matrix-appservice-bridge to 8.1.2. ([\#765](https://github.com/matrix-org/matrix-appservice-slack/issues/765))
+
+
 2.1.1 (2023-03-07)
 ==================
 
