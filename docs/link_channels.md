@@ -59,6 +59,33 @@ The Real Time Messaging (RTM) API is the newer and recommended way to use the br
       link --channel_id CHANNELID --room !the-matrix:room.id --slack_bot_token xoxb-xxxxxxxxxx-xxxxxxxxxxxxxxxxxxxx
       ```
 
+## Setup Widget
+
+A user interface is provided in the form of a Matrix widget which can be used within a room to link and unlink channels.
+
+
+![Screenshot of setup widget interface](setup-widget.png)
+
+### Configuration
+
+In order to use the setup widget, it must be enabled along with the provisioning API:
+
+```yaml
+provisioning:
+   enabled: true
+   widget: true
+```
+
+The widget will be hosted on the same port as the appservice by default, at the path `/_matrix/provision/v1/static`.
+
+### Usage
+
+Invite the bridge user to the Matrix room, then add the widget like this (where `example.com` is a public route to your bridge's provisioning API):
+
+```
+/addwidget https://example.com/_matrix/provision/v1/static/?roomId=$matrix_room_id&widgetId=$matrix_widget_id
+```
+
 ## Webhooks
 
 Linking rooms with webhooks is not the recommended way for most situations,
