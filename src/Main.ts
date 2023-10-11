@@ -1405,7 +1405,7 @@ export class Main {
         }
 
         let channelInfo: ConversationsInfoResponse|undefined;
-        if (slackClient && opts.slack_channel_id && opts.team_id) {
+        if (slackClient && opts.slack_channel_id) {
             // PSA: Bots cannot join channels, they have a limited set of APIs https://api.slack.com/methods/bots.info
 
             channelInfo = (await slackClient.conversations.info({ channel: opts.slack_channel_id})) as ConversationsInfoResponse;

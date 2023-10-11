@@ -23,10 +23,12 @@ const log = new Logger("SlackEventHandler");
 /**
  * https://api.slack.com/events/channel_rename
  */
-interface ISlackEventChannelRename extends ISlackEvent {
-    id: string;
-    name: string;
-    created: number;
+interface ISlackEventChannelRename extends Omit<ISlackEvent, "channel"> {
+    channel: {
+        id: string;
+        name: string;
+        created: number;
+    }
 }
 
 /**
@@ -190,7 +192,10 @@ export class SlackEventHandler extends BaseSlackHandler {
                 await this.handleReaction(event as ISlackEventReaction, teamId);
                 break;
             case "channel_rename":
-                await this.handleChannelRenameEvent(event as ISlackEventChannelRename);
+                // The rename event is not compatible with ISlackEvent because the channel property is an object,
+                // not a string. So we resort to casting to unknown first.
+                // TODO: Move channel property out of ISlackEvent, into each event type, where relevant.
+                await this.handleChannelRenameEvent((event as unknown) as ISlackEventChannelRename);
                 break;
             case "team_domain_change":
                 await this.handleDomainChangeEvent(event as ISlackEventTeamDomainChange, teamId);
@@ -349,12 +354,10 @@ export class SlackEventHandler extends BaseSlackHandler {
     }
 
     private async handleChannelRenameEvent(event: ISlackEventChannelRename) {
-        // TODO test me. and do we even need this? doesn't appear to be used anymore
-        const room = this.main.rooms.getBySlackChannelId(event.id);
+        const room = this.main.rooms.getBySlackChannelId(event.channel.id);
         if (!room) { throw new Error("unknown_channel"); }
 
-        const channelName = `#${event.name}`;
-        room.SlackChannelName = channelName;
+        room.SlackChannelName = event.channel.name;
         if (room.isDirty) {
             await this.main.datastore.upsertRoom(room);
         }
