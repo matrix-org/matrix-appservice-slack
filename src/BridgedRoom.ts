@@ -699,7 +699,8 @@ export class BridgedRoom {
                 await new Promise((r) => setTimeout(r, PUPPET_INCOMING_DELAY_MS));
             }
         }
-        if (this.recentSlackMessages.includes(message.ts)) {
+        const isMessageChangedEvent = message.subtype && message.subtype === 'message_changed';
+        if (!isMessageChangedEvent && this.recentSlackMessages.includes(message.ts)) {
             // We sent this, ignore.
             return;
         }
@@ -712,7 +713,7 @@ export class BridgedRoom {
             }
             this.slackSendLock = this.slackSendLock.then(() => {
                 // Check again
-                if (this.recentSlackMessages.includes(message.ts)) {
+                if (!isMessageChangedEvent && this.recentSlackMessages.includes(message.ts)) {
                     // We sent this, ignore
                     return;
                 }
