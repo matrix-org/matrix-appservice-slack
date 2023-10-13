@@ -1,0 +1,1 @@
+Fix a case where the bridge will fail to start if it cannot access it's internal ping room.
