@@ -314,7 +314,7 @@ export class SlackGhost {
     public prepareBody(body: string): string {
         // TODO: This is fixing plaintext mentions, but should be refactored.
         // See https://github.com/matrix-org/matrix-appservice-slack/issues/110
-        return body.replace(/<https:\/\/matrix\.to\/#\/@.+:.+\|(.+)>/g, "$1");
+        return body.replace(/<https:\/\/matrix\.to\/#\/@[^:]+:[^|]+\|([^>]+)>/g, "$1");
     }
 
     public prepareFormattedBody(body: string): string {
