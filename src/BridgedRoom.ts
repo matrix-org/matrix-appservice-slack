@@ -18,7 +18,7 @@ import axios from "axios";
 import { Logger, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
-import { default as substitutions, getFallbackForMissingEmoji, IMatrixToSlackResult } from "./substitutions";
+import { default as substitutions, IMatrixToSlackResult } from "./substitutions";
 import * as emoji from "node-emoji";
 import { ISlackMessageEvent, ISlackEvent, ISlackFile } from "./BaseSlackHandler";
 import { WebAPIPlatformError, WebClient } from "@slack/web-api";
@@ -306,7 +306,7 @@ export class BridgedRoom {
         // bot user. Search for #fix_reactions_as_bot.
         const res = await client.reactions.add({
             as_user: false,
-            channel: this.slackChannelId,
+            channel: this.slackChannelId!,
             name: emojiKeyName,
             timestamp: event.slackTs,
         });
@@ -710,7 +710,7 @@ export class BridgedRoom {
             if (ghostChanged) {
                 await this.main.fixDMMetadata(this, ghost);
             }
-            this.slackSendLock = this.slackSendLock.then(() => {
+            this.slackSendLock = this.slackSendLock.then(async () => {
                 // Check again
                 if (this.recentSlackMessages.includes(message.ts)) {
                     // We sent this, ignore
@@ -743,7 +743,7 @@ export class BridgedRoom {
             return;
         }
 
-        let reactionKey = emoji.emojify(`:${message.reaction}:`, getFallbackForMissingEmoji);
+        let reactionKey = emoji.emojify(`:${message.reaction}:`);
         // Element uses the default thumbsup and thumbsdown reactions with an appended variant character.
         if (reactionKey === '👍' || reactionKey === '👎') {
             reactionKey += '\ufe0f'.normalize(); // VARIATION SELECTOR-16

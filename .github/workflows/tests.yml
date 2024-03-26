@@ -10,7 +10,7 @@ jobs:
    runs-on: ubuntu-latest
    strategy:
       matrix:
-        node_version: [16, 18]
+        node_version: [20]
    steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -24,7 +24,7 @@ jobs:
    runs-on: ubuntu-latest
    strategy:
       matrix:
-        node_version: [16, 18]
+        node_version: [20]
    steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -38,7 +38,7 @@ jobs:
    runs-on: ubuntu-latest
    strategy:
       matrix:
-        node_version: [16, 18]
+        node_version: [20]
    steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
