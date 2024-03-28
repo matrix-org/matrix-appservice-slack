@@ -1351,6 +1351,7 @@ export class Main {
     public async actionLink(opts: {
         matrix_room_id: string,
         slack_webhook_uri?: string,
+        slack_webhook_token?: string,
         slack_channel_id?: string,
         slack_bot_token?: string,
         team_id?: string,
@@ -1450,6 +1451,11 @@ export class Main {
 
         if (opts.slack_webhook_uri) {
             room.SlackWebhookUri = opts.slack_webhook_uri;
+            if (opts.slack_webhook_token) {
+                room.SlackWebhookToken = opts.slack_webhook_token;
+            } else {
+                throw new Error("Cannot link via a webhook without a webhook token");
+            }
         }
 
         if (opts.slack_channel_id) {

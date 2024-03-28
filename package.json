@@ -85,6 +85,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "js-yaml": "^4.1.0",
     "mocha": "^10.0.0",
+    "node-mocks-http": "^1.14.1",
     "postcss": "^8.4.21",
     "prom-client": "^14.0.1",
     "source-map-support": "^0.5.19",

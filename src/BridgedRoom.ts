@@ -36,6 +36,7 @@ interface IBridgedRoomOpts {
     slack_channel_name?: string;
     slack_channel_id?: string;
     slack_webhook_uri?: string;
+    slack_webhook_token?: string;
     slack_team_id?: string;
     slack_type: SlackChannelTypes;
     is_private?: boolean;
@@ -95,6 +96,14 @@ export class BridgedRoom {
         this.setValue("slackWebhookUri", value);
     }
 
+    public get SlackWebhookToken(): string|undefined {
+        return this.slackWebhookToken;
+    }
+
+    public set SlackWebhookToken(value: string|undefined) {
+        this.setValue("slackWebhookToken", value);
+    }
+
     public get MatrixRoomId(): string {
         return this.matrixRoomId;
     }
@@ -135,6 +144,7 @@ export class BridgedRoom {
             slack_channel_name: entry.remote.name,
             slack_team_id: entry.remote.slack_team_id,
             slack_webhook_uri: entry.remote.webhook_uri,
+            slack_webhook_token: entry.remote.webhook_token,
             puppet_owner: entry.remote.puppet_owner,
             is_private: entry.remote.slack_private,
             slack_type: entry.remote.slack_type as SlackChannelTypes,
@@ -146,6 +156,7 @@ export class BridgedRoom {
     private slackChannelName?: string;
     private slackChannelId?: string;
     private slackWebhookUri?: string;
+    private slackWebhookToken?: string;
     private slackTeamId?: string;
     private slackType: SlackChannelTypes;
     private isPrivate?: boolean;
@@ -184,6 +195,7 @@ export class BridgedRoom {
         this.slackChannelName = opts.slack_channel_name;
         this.slackChannelId = opts.slack_channel_id;
         this.slackWebhookUri = opts.slack_webhook_uri;
+        this.slackWebhookToken = opts.slack_webhook_token;
         this.slackTeamId = opts.slack_team_id;
         this.slackType = opts.slack_type || "channel";
         if (opts.is_private === undefined) {
@@ -247,6 +259,7 @@ export class BridgedRoom {
                 slack_type: this.slackType!,
                 slack_private: this.isPrivate!,
                 webhook_uri: this.slackWebhookUri!,
+                webhook_token: this.slackWebhookToken!,
                 puppet_owner: this.puppetOwner!,
             },
             remote_id: this.inboundId,
