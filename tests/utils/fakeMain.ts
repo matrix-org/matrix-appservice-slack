@@ -50,6 +50,15 @@ export class FakeMain {
         };
     }
 
+    public getOrCreateMatrixUser(mxid: string) {
+        const localpart = mxid.split(':')[0].substring(1);
+        return {
+            bumpATime: () => {},
+            getAvatarUrlForRoom: () => Promise.resolve(),
+            getDisplaynameForRoom: () => Promise.resolve(localpart),
+        };
+    }
+
     public getUrlForMxc(mxcUrl: string): string {
         return "fake-" + mxcUrl;
     }
