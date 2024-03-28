@@ -67,7 +67,7 @@ export class SlackHookHandler extends BaseSlackHandler {
             createServer = (cb) => httpsCreate(tlsOptions, cb);
         }
         return new Promise<void>((resolve, reject) => {
-            const srv = createServer(this.onRequest.bind(this));
+            const srv = createServer(this._onRequest.bind(this));
             srv.once("error", reject);
             srv.listen(port, () => {
                 const protocol = tlsConfig ? "https" : "http";
@@ -85,7 +85,7 @@ export class SlackHookHandler extends BaseSlackHandler {
         }
     }
 
-    private onRequest(req: IncomingMessage, res: ServerResponse) {
+    public _onRequest(req: IncomingMessage, res: ServerResponse) {
         const HTTP_SERVER_ERROR = 500;
         const {method, url } = req;
         if (!method || !url) {
@@ -228,6 +228,16 @@ export class SlackHookHandler extends BaseSlackHandler {
             this.main.incCounter(METRIC_RECEIVED_MESSAGE, {side: "remote"});
 
             response.writeHead(HTTP_CODES.OK, {"Content-Type": "text/plain"});
+            response.end();
+
+            endTimer({outcome: "dropped"});
+            return;
+        }
+
+        if (params.token !== room.SlackWebhookToken) {
+            log.warn(`Ignoring message for ${room.MatrixRoomId} due to webhook token mismatch`);
+
+            response.writeHead(HTTP_CODES.FORBIDDEN);
             response.end();
 
             endTimer({outcome: "dropped"});
