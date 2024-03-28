@@ -20,25 +20,28 @@ import { expect } from "chai";
 import * as httpMocks from "node-mocks-http";
 import * as randomstring from "randomstring";
 import { BridgedRoom } from "../../src/BridgedRoom";
+import { FakeClientFactory } from "../utils/fakeClientFactory";
+import { AxiosInstance } from "axios";
 
 const constructHarness = () => {
-    const main = new FakeMain({
-        oauth2: false,
-        teams: [
-            {
-                bot_token: "foo",
-                id: "12345",
-                name: "FakeTeam",
-                domain: "fake-domain",
-                user_id: "foo",
-                bot_id: "bar",
-                status: "ok",
-                scopes: "",
-            },
-        ],
-    });
+    const main = new FakeMain();
+    main.clientFactory = {
+        getClientForUser: () => Promise.resolve(),
+    } as unknown as FakeClientFactory;
     const hooks = new SlackHookHandler(main as unknown as Main);
-    return { hooks, main };
+
+    const http = new MockAxios();
+
+    const room = new BridgedRoom(main as unknown as Main, {
+        matrix_room_id: '!foo:bar.baz',
+        inbound_id: randomstring.generate(32),
+        slack_webhook_token: randomstring.generate(24),
+        slack_webhook_uri: 'http://test.url',
+        slack_type: "channel",
+    }, undefined, undefined, http as unknown as AxiosInstance);
+    main.rooms.upsertRoom(room);
+
+    return { hooks, http, main, room };
 };
 
 const DEFAULT_PAYLOAD = {
@@ -53,8 +56,17 @@ const DEFAULT_PAYLOAD = {
     text: 'incoming!'
 };
 
+class MockAxios {
+    calls: { url: string, payload: any }[] = [];
+
+    async post(url: string, payload: any) {
+        this.calls.push({ url, payload });
+        return { status: 200 };
+    }
+}
+
 describe("WebhookTest", () => {
-    let harness: { hooks: SlackHookHandler, main: FakeMain };
+    let harness: { hooks: SlackHookHandler, http: MockAxios, main: FakeMain, room: BridgedRoom };
 
     beforeEach(() => {
         harness = constructHarness();
@@ -80,7 +92,7 @@ describe("WebhookTest", () => {
         return promise;
     }
 
-    it("will ignore webhooks sent to unknown room", () => {
+    it("will ignore webhooks sent to unknown room", async () => {
         const req = httpMocks.createRequest({
             method: 'POST',
             url: 'http://foo.bar/webhooks/' + randomstring.generate(32),
@@ -92,18 +104,10 @@ describe("WebhookTest", () => {
         });
     });
 
-    it("will reject webhooks not containing a valid token", () => {
-        let room = new BridgedRoom(harness.main as unknown as Main, {
-            matrix_room_id: '!foo:bar.baz',
-            inbound_id: randomstring.generate(32),
-            slack_webhook_token: randomstring.generate(24),
-            slack_type: "channel",
-        });
-        harness.main.rooms.upsertRoom(room);
-
+    it("will reject webhooks not containing a valid token", async () => {
         const req = httpMocks.createRequest({
             method: 'POST',
-            url: 'http://foo.bar/webhooks/' + room.InboundId,
+            url: 'http://foo.bar/webhooks/' + harness.room.InboundId,
             params: {
                 token: 'invalid',
                 ...DEFAULT_PAYLOAD,
@@ -113,5 +117,29 @@ describe("WebhookTest", () => {
         return checkResult(req, res => {
             expect(res.statusCode).to.equal(403);
         });
+    });
+
+    it('can send message via a webhook', async () => {
+        const res = await harness.room.onMatrixMessage({
+            sender: '@testuser:mxserver.url',
+            content: { body: 'hi' },
+        });
+
+        expect(res).to.equal(true);
+        expect(harness.http.calls[0].url).to.equal(harness.room.SlackWebhookUri);
+        expect(harness.http.calls[0].payload.text).to.contain('testuser');
+        expect(harness.http.calls[0].payload.text).to.contain('hi');
+    });
+
+    it('can send message via a webhook', async () => {
+        const res = await harness.room.onMatrixMessage({
+            sender: '@testuser:mxserver.url',
+            content: { body: 'hi' },
+        });
+
+        expect(res).to.equal(true);
+        expect(harness.http.calls[0].url).to.equal(harness.room.SlackWebhookUri);
+        expect(harness.http.calls[0].payload.text).to.contain('testuser');
+        expect(harness.http.calls[0].payload.text).to.contain('hi');
     });
 });
