@@ -46,10 +46,10 @@ jobs:
       with:
         node-version: "${{ matrix.node_version }}"
     - run: yarn --pure-lockfile
-    - name: Set up PostgreSQL 11
+    - name: Set up PostgreSQL 13
       run: |
         docker run --detach --publish 5432:5432 \
           --env POSTGRES_PASSWORD=pass \
           --env POSTGRES_INITDB_ARGS="--lc-collate C --lc-ctype C --encoding UTF8" \
-          postgres:11
+          postgres:13
     - run: yarn test:postgres
