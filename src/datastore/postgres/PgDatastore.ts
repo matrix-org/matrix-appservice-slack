@@ -64,7 +64,7 @@ export interface SchemaRunUserMessage {
 type SchemaRunFn = (db: IDatabase<unknown>) => Promise<void|{userMessages: SchemaRunUserMessage[]}>;
 
 export class PgDatastore implements Datastore, ClientEncryptionStore, ProvisioningStore {
-    public static readonly LATEST_SCHEMA = 16;
+    public static readonly LATEST_SCHEMA = 17;
     public readonly postgresDb: IDatabase<any>;
 
     constructor(connectionString: string) {
@@ -178,17 +178,25 @@ export class PgDatastore implements Datastore, ClientEncryptionStore, Provisioni
             });
     }
 
+    public async getEventsBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry[]> {
+        return this.postgresDb.manyOrNone(
+            "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs}",
+            { slackChannel, slackTs }
+        ).then(entries => entries.map(e => ({
+            roomId: e.roomid,
+            eventId: e.eventid,
+            slackChannelId: slackChannel,
+            slackTs,
+            _extras: JSON.parse(e.extras) as EventEntryExtra,
+        })));
+    }
+
+    /**
+     * @deprecated One Slack event may map to many Matrix events -- use getEventsBySlackId()
+     */
     public async getEventBySlackId(slackChannel: string, slackTs: string): Promise<EventEntry|null> {
-        log.debug(`getEventBySlackId: ${slackChannel} ${slackTs}`);
-        return this.postgresDb.oneOrNone(
-            "SELECT * FROM events WHERE slackChannel = ${slackChannel} AND slackTs = ${slackTs} LIMIT 1",
-            { slackChannel, slackTs }, e => e && {
-                roomId: e.roomid,
-                eventId: e.eventid,
-                slackChannelId: slackChannel,
-                slackTs,
-                _extras: JSON.parse(e.extras),
-            });
+        const events = await this.getEventsBySlackId(slackChannel, slackTs);
+        return events.find(e => !e._extras.attachment_id) ?? null;
     }
 
     public async deleteEventByMatrixId(roomId: string, eventId: string): Promise<null> {

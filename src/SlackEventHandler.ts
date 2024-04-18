@@ -18,6 +18,7 @@ import { BaseSlackHandler, ISlackEvent, ISlackMessageEvent, ISlackUser } from ".
 import { BridgedRoom } from "./BridgedRoom";
 import { Main, METRIC_RECEIVED_MESSAGE } from "./Main";
 import { Logger } from "matrix-appservice-bridge";
+import { EventEntry, TeamEntry } from "./datastore/Models";
 const log = new Logger("SlackEventHandler");
 
 /**
@@ -283,17 +284,18 @@ export class SlackEventHandler extends BaseSlackHandler {
             if (msg.message.bot_id !== undefined) {
                 // Check the edit wasn't sent by us
                 if (msg.message.bot_id === team.bot_id) {
+                    log.debug('Ignoring a message_changed since it was sent by us');
                     return;
                 } else {
                     msg.user_id = msg.message.bot_id;
                 }
             }
         } else if (msg.subtype === "message_deleted" && msg.deleted_ts) {
-            const originalEvent = await this.main.datastore.getEventBySlackId(msg.channel, msg.deleted_ts);
-            if (originalEvent) {
-                const botClient = this.main.botIntent.matrixClient;
-                await botClient.redactEvent(originalEvent.roomId, originalEvent.eventId);
-                return;
+            try {
+                const events = await this.main.datastore.getEventsBySlackId(msg.channel, msg.deleted_ts!);
+                await Promise.all(events.map(event => room.deleteMessage(msg, event, team)));
+            } catch (err) {
+                log.error(err);
             }
             // If we don't have the event
             throw Error("unknown_message");

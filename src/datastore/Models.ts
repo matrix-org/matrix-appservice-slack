@@ -50,6 +50,7 @@ export interface EventEntry {
 }
 
 export interface EventEntryExtra {
+    attachment_id?: string;
     slackThreadMessages?: string[];
 }
 
@@ -113,6 +114,7 @@ export interface Datastore extends ProvisioningStore {
     upsertEvent(roomId: string, eventId: string, channelId: string, ts: string, extras?: EventEntryExtra): Promise<null>;
     upsertEvent(roomIdOrEntry: EventEntry): Promise<null>;
     getEventByMatrixId(roomId: string, eventId: string): Promise<EventEntry|null>;
+    getEventsBySlackId(channelId: string, ts: string): Promise<EventEntry[]>;
     getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null>;
     deleteEventByMatrixId(roomId: string, eventId: string): Promise<null>;
 

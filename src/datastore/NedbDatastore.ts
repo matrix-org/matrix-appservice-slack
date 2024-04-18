@@ -241,6 +241,10 @@ export class NedbDatastore implements Datastore {
         return this.storedEventToEventEntry(storedEvent);
     }
 
+    public async getEventsBySlackId(channelId: string, ts: string): Promise<EventEntry[]> {
+        return this.getEventBySlackId(channelId, ts).then(e => e ? [e] : []);
+    }
+
     public async getEventBySlackId(channelId: string, ts: string): Promise<EventEntry|null> {
         const storedEvent = await this.eventStore.getEntryByRemoteId(channelId, ts);
         if (!storedEvent) {
