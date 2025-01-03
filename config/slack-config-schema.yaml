@@ -45,7 +45,7 @@ properties:
         type: "integer"
       publicUrl:
         type: "string"
-    required: ["signingKeyPath", "ttlSeconds", "bindPort", "publicUrl"]
+    required: ["signingKeyPath", "bindPort", "publicUrl"]
   rtm:
     type: object
     required: ["enable"]
