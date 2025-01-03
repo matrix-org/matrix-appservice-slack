@@ -175,7 +175,7 @@ class Substitutions {
         }
         let url: string;
         if (main.mediaProxy) {
-            url = await main.mediaProxy.generateMediaUrl(event.content.url).then(url => url.toString());
+            url = await main.mediaProxy.generateMediaUrl(event.content.url).then(u => u.toString());
         } else {
             url = main.getUrlForMxc(event.content.url, main.encryptRoom);
         }

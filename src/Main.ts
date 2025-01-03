@@ -1168,7 +1168,10 @@ export class Main {
                 throw Error(`Failed to start Media Proxy: ${err}`);
             });
         } else {
-            log.warn("Media Proxy not configured: media bridging to Slack won't work on servers requiring authenticated media (default since Synapse v1.120.0)");
+            log.warn(
+                "Media Proxy not configured: media bridging to Slack won't work on servers requiring authenticated media " +
+                "(default since Synapse v1.120.0)"
+            );
         }
 
 
