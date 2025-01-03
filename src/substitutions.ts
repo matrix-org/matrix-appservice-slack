@@ -173,7 +173,12 @@ class Substitutions {
             // in this case.
             return null;
         }
-        const url = main.getUrlForMxc(event.content.url, main.encryptRoom);
+        let url: string;
+        if (main.mediaProxy) {
+            url = await main.mediaProxy.generateMediaUrl(event.content.url).then(url => url.toString());
+        } else {
+            url = main.getUrlForMxc(event.content.url, main.encryptRoom);
+        }
         if (main.encryptRoom) {
             return {
                 encrypted_file: url,

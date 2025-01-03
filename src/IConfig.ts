@@ -109,4 +109,11 @@ export interface IConfig {
         onboard_users?: boolean;
         direct_messages?: AllowDenyConfig;
     }
+
+    mediaProxy: {
+        signingKeyPath: string;
+        ttlSeconds: number;
+        bindPort: number;
+        publicUrl: string;
+    }
 }
