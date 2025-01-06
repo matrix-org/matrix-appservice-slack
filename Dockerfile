@@ -13,7 +13,7 @@ COPY ./widget /build/widget/
 
 RUN yarn build
 
-FROM node:18-bullseye-slim
+FROM node:20-bullseye-slim
 
 VOLUME /data/ /config/
 
