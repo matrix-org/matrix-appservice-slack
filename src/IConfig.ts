@@ -112,7 +112,7 @@ export interface IConfig {
 
     mediaProxy: {
         signingKeyPath: string;
-        ttlSeconds: number;
+        ttlSeconds?: number;
         bindPort: number;
         publicUrl: string;
     }

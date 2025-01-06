@@ -349,7 +349,7 @@ export class Main {
         this.mediaProxy = new MediaProxy({
             publicUrl,
             signingKey,
-            ttl: config.ttlSeconds * 1000
+            ttl: config.ttlSeconds ? (config.ttlSeconds * 1000) : undefined,
         }, this.bridge.getIntent().matrixClient);
         await this.mediaProxy.start(config.bindPort);
     }
