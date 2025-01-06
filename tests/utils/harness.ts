@@ -23,6 +23,11 @@ export const constructHarness = (): { main: Main } => {
         rtm: {
             enable: true,
         },
+        mediaProxy: {
+            signingKeyPath: "tests/utils/signingkey.jwk",
+            bindPort: 0,
+            publicUrl: "http://media.proxy"
+        },
     }, reg);
     const anyMain = main as any;
     anyMain.bridge.getBot = () => ({
