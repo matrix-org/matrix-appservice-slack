@@ -346,7 +346,7 @@ const Linked = ({
                 This room is linked to <span className="font-semibold">{channelName}</span>.
             </Text.Body>
             <Text.Caption className="text-grey-200">
-                Make sure you invite the bot to this Slack channel: <span className="font-semibold">/invite @element_bridge</span>
+                Make sure you invite the bot to this Slack channel: <span className="font-semibold">/invite @riot_bridge</span>
             </Text.Caption>
             <div className="flex justify-end">
                 <Buttons.Outline color="danger" onClick={unlinkChannel}>
