@@ -31,7 +31,7 @@ These types are supported in both directions.
 - Redactions
 - Edits [3]
 - Threading / Replies [2]
-- [Encrypted Messages](./bridge-encryption) 🧪
+- [Encrypted Messages](/bridge-encryption) 🧪
 
 ## Membership
 
