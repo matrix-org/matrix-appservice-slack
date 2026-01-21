@@ -1,8 +1,13 @@
 # matrix-appservice-slack
 
-[![Docker Automated build](https://img.shields.io/docker/cloud/build/matrixdotorg/matrix-appservice-slack.svg)](https://hub.docker.com/r/matrixdotorg/matrix-appservice-slack)
-[![#slack:half-shot.uk](https://img.shields.io/matrix/slack:half-shot.uk.svg?server_fqdn=chaotic.half-shot.uk&label=%23slack:half-shot.uk&logo=matrix)](https://matrix.to/#/#slack:half-shot.uk)
-[![Documentation Status](https://readthedocs.org/projects/matrix-appservice-slack/badge/?version=latest)](https://matrix-appservice-slack.readthedocs.io/en/latest/?badge=latest)
+## This repository is archived
+
+The public Matrix.org Slack bridge has been decommissioned on January 14th, 2026. Please see the following
+[blog post](https://matrix.org/blog/2025/11/removing-slack-bridge/) for details.
+
+Due to this, there will be no more development effort going into maintaining this bridge.
+
+## Description
 
 A bridge that connects [Matrix](https://matrix.org) and [Slack](https://slack.com). 
 The bridge is considered **stable** and mature for use in production
