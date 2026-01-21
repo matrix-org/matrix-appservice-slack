@@ -10,7 +10,7 @@ Due to this, there will be no more development effort going into maintaining thi
 ## Description
 
 A bridge that connects [Matrix](https://matrix.org) and [Slack](https://slack.com). 
-The bridge is considered **stable** and mature for use in production
+The bridge was considered **stable** and mature for use in production, but has been discontinued.
 environments.
 
 ![Screenshot](screenshot.png)
