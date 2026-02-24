@@ -70,6 +70,13 @@ rtm:
   #
   log_level: "silent"
 
+# Use a Slack App for bridging. This is the recommended method.
+#
+# slack_app:
+#   appToken: 'xapp-foo-bar-baz'
+#   botToken: 'xoxb-baz-bar-foo'
+#   signingSecret: 'feed1337beefcafe'
+
 # Port for incoming Slack requests from webhooks and event API messages
 # Optional if using RTM API, required otherwise.
 #

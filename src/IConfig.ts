@@ -88,6 +88,12 @@ export interface IConfig {
         log_level?: string;
     };
 
+    slack_app?: {
+        appToken: string,
+        botToken: string,
+        signingSecret: string,
+    };
+
     slack_hook_port?: number;
     slack_client_opts?: WebClientOptions;
     slack_proxy?: string;

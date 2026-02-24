@@ -485,7 +485,6 @@ export class BridgedRoom {
         }
         const body: ISlackChatMessagePayload = {
             ...matrixToSlackResult,
-            as_user: false,
             username: (await user.getDisplaynameForRoom(message.room_id)) || matrixToSlackResult.username,
         };
         const text = body.text;
@@ -524,7 +523,7 @@ export class BridgedRoom {
             // Webhooks don't give us any ID, so we can't store this.
             return true;
         }
-        if (puppetedClient) {
+        if (puppetedClient && this.main.teamIsUsingRtm(this.SlackTeamId!)) {
             body.as_user = true;
             delete body.username;
         }

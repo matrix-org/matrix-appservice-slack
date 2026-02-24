@@ -46,6 +46,7 @@ import { UserAdminRoom } from "./rooms/UserAdminRoom";
 import { TeamSyncer } from "./TeamSyncer";
 import { SlackGhostStore } from "./SlackGhostStore";
 import { AllowDenyList, DenyReason } from "./AllowDenyList";
+import { SlackAppHandler } from "./SlackAppHandler";
 
 const log = new Logger("Main");
 
@@ -146,6 +147,7 @@ export class Main {
     public readonly allowDenyList: AllowDenyList;
 
     public slackRtm?: SlackRTMHandler;
+    public slackAppHandler?: SlackAppHandler;
     private slackHookHandler?: SlackHookHandler;
 
     private provisioner: Provisioner;
@@ -175,9 +177,12 @@ export class Main {
 
         this.matrixUsersById = new QuickLRU({ maxSize: config.caching.matrixUserCache });
 
-        if ((!config.rtm || !config.rtm.enable) && (!config.slack_hook_port || !config.inbound_uri_prefix)) {
-            throw Error("Neither rtm.enable nor slack_hook_port|inbound_uri_prefix is defined in the config." +
-            "The bridge must define a listener in order to run");
+        if (
+            (!config.rtm || !config.rtm.enable)
+            && (!config.slack_hook_port || !config.inbound_uri_prefix)
+            && !config.slack_app
+        ) {
+            throw Error("No RTM, no webhooks and no Slack App configured. The bridge must define a listener in order to run");
         }
 
         if ((!config.rtm?.enable || !config.oauth2) && config.puppeting?.enabled) {
@@ -1262,6 +1267,10 @@ export class Main {
                 },
             );
             await this.bridgeBlocker?.checkLimits(this.bridge.opts.controller.userActivityTracker.countActiveUsers().allUsers);
+        }
+
+        if (this.config.slack_app) {
+            this.slackAppHandler = await SlackAppHandler.create(this, this.config.slack_app);
         }
 
         log.info("Bridge initialised");

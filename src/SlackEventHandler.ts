@@ -295,8 +295,6 @@ export class SlackEventHandler extends BaseSlackHandler {
             } catch (err) {
                 log.error(err);
             }
-            // If we don't have the event
-            throw Error("unknown_message");
         } else if (msg.subtype === "message_replied") {
             // Slack sends us one of these as well as a normal message event
             // when using RTM, so we ignore it.
