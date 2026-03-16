@@ -181,11 +181,12 @@ export class AdminCommands {
         return new AdminCommand(
             "link",
             "connect a Matrix and a Slack room together",
-            async ({respond, room, channel_id, webhook_url, slack_bot_token, team_id}: {
+            async ({respond, room, channel_id, webhook_url, webhook_token, slack_bot_token, team_id}: {
                 respond: ResponseCallback,
                 room?: string,
                 channel_id?: string,
                 webhook_url?: string,
+                webhook_token?: string,
                 slack_bot_token?: string,
                 team_id?: string,
             }) => {
@@ -200,6 +201,7 @@ export class AdminCommands {
                         team_id,
                         slack_channel_id: channel_id,
                         slack_webhook_uri: webhook_url,
+                        slack_webhook_token: webhook_token,
                     });
                     respond("Room is now " + r.getStatus());
                     if (r.SlackWebhookUri) {
@@ -233,6 +235,10 @@ export class AdminCommands {
                 webhook_url: {
                     alias: "u",
                     description: "Slack webhook URL. Used with Slack outgoing hooks integration",
+                },
+                webhook_token: {
+                    alias: "k",
+                    description: "Slack webhook token. Used with Slack outgoing hooks integration",
                 },
             },
         );

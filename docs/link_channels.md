@@ -6,6 +6,13 @@ first the individual Matrix room and Slack channel need to be created, and then
 a command needs to be issued in the administration console room to add the link
 to the bridge's database.
 
+## Determining your channel ID
+
+You'll need a "channel ID" to link rooms.
+To obtain it, right-click your channel name in Slack and select "Copy Link".
+The channel id is the last argument in the url
+(`https://XXX.Slack.com/messages/<channel id>/`)
+
 ## RTM API
 
 The Real Time Messaging (RTM) API is the newer and recommended way to use the bridge.
@@ -47,12 +54,9 @@ The Real Time Messaging (RTM) API is the newer and recommended way to use the br
        /invite @bot-user-name
        ```
 
-       You will also need to determine the "channel ID" that Slack uses to identify
-       the channel. Right-click your channel name in Slack and select "Copy Link".
-       The channel id is the last argument in the url
-       (`https://XXX.Slack.com/messages/<channel id>/`)
+   4. Obtain the channel ID (see "Determining your channel ID")
 
-   4. Issue a ``link`` command in the administration control room with these
+   5. Issue a ``link`` command in the administration control room with these
       collected values as arguments:
 
       ```
@@ -104,17 +108,13 @@ although it can be useful for single channels or if you are using Mattermost.
    of its `token` field. Add a URL to this web hook pointing back at the
    application service port you configured during setup.
 
-   You will also need to determine the "channel ID" that Slack uses to identify
-   the channel. Unfortunately, it is not easily obtained from the Slack UI. The
-   easiest way to do this is to send a message from Slack to the bridge; the
-   bridge will log the channel ID as part of the unrecognised message output.
-   You can then take note of the `channel_id` field.
+1. Obtain the channel ID (see "Determining your channel ID")
 
 1. Issue a ``link`` command in the administration control room with these
    collected values as arguments:
 
     ```
-    link --channel_id CHANNELID --room !the-matrix:room.id --webhook_url https://hooks.Slack.com/services/ABC/DEF/123
+    link --channel_id CHANNELID --room !the-matrix:room.id --webhook_url https://hooks.Slack.com/services/ABC/DEF/123 --webhook_token TOKEN
     ```
 
 ## Unlink Channels

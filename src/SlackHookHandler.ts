@@ -234,6 +234,16 @@ export class SlackHookHandler extends BaseSlackHandler {
             return;
         }
 
+        if (params.token !== room.SlackWebhookToken) {
+            log.warn(`Ignoring message for ${room.MatrixRoomId} due to webhook token mismatch`);
+
+            response.writeHead(HTTP_CODES.FORBIDDEN);
+            response.end();
+
+            endTimer({outcome: "dropped"});
+            return;
+        }
+
         if (method === "POST" && path === "post") {
             try {
                 if (!room) {
