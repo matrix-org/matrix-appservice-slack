@@ -10,7 +10,7 @@ jobs:
    runs-on: ubuntu-latest
    strategy:
       matrix:
-        node_version: [16, 18]
+        node_version: [20]
    steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -24,7 +24,7 @@ jobs:
    runs-on: ubuntu-latest
    strategy:
       matrix:
-        node_version: [16, 18]
+        node_version: [20]
    steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -38,7 +38,7 @@ jobs:
    runs-on: ubuntu-latest
    strategy:
       matrix:
-        node_version: [16, 18]
+        node_version: [20]
    steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -51,5 +51,5 @@ jobs:
         docker run --detach --publish 5432:5432 \
           --env POSTGRES_PASSWORD=pass \
           --env POSTGRES_INITDB_ARGS="--lc-collate C --lc-ctype C --encoding UTF8" \
-          postgres:13
+          postgres:16
     - run: yarn test:postgres

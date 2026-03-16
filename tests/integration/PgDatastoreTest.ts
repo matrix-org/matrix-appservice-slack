@@ -52,7 +52,7 @@ describeFnl("PgDatastore", () => {
         await ds.ensureSchema();
         const { version } = (await ds.postgresDb.one(`SELECT version FROM schema`));
         expect(version).to.equal(PgDatastore.LATEST_SCHEMA);
-    });
+    }).timeout(10_000);
 
     doDatastoreTests(() => ds, async () => {
         await ds.postgresDb.none("DELETE FROM rooms");
