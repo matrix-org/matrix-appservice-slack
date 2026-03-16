@@ -841,7 +841,7 @@ export class Main {
 
         // Handle a m.room.message event
         if (ev.type !== "m.room.message" || !ev.content) {
-            log.debug(`${ev.event_id} ${ev.room_id} cannot be handled`);
+            log.debug(`${ev.event_id} ${ev.room_id} cannot be handled because it is ${ev.type}`);
             return;
         }
 
