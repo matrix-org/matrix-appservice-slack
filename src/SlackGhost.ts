@@ -318,7 +318,7 @@ export class SlackGhost {
     }
 
     public prepareFormattedBody(body: string): string {
-        return Slackdown.parse(body);
+        return Slackdown.parse(body).replace("\n", "<br>");
     }
 
     public async redactEvent(roomId: string, eventId: string) {
@@ -368,7 +368,7 @@ export class SlackGhost {
         const content = {
             body,
             format: "org.matrix.custom.html",
-            formatted_body: Slackdown.parse(text),
+            formatted_body: this.prepareFormattedBody(text),
             msgtype: "m.text",
             ...extra,
         };

@@ -14,13 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { Logger } from "matrix-appservice-bridge";
 import * as emoji from "node-emoji";
 import { Main } from "./Main";
 import { ISlackFile } from "./BaseSlackHandler";
 import escapeStringRegexp from "escape-string-regexp";
-
-const log = new Logger("substitutions");
 
 const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file", "m.image"];
 const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\/a>/g;
@@ -59,8 +56,6 @@ class Substitutions {
      * @param file options slack file object
      */
     public slackToMatrix(body: string, file?: ISlackFile): string {
-        log.debug("running substitutions on ", body);
-        body = this.htmlUnescape(body);
         body = body.replace("<!channel>", "@room");
         body = body.replace("<!here>", "@room");
         body = body.replace("<!everyone>", "@room");
@@ -316,6 +311,43 @@ class Substitutions {
         if (pubSecret && pubSecret.length > 0) {
             return `${file.url_private}?pub_secret=${pubSecret[1]}`;
         }
+    }
+
+    /*
+        Strip out reply fallbacks. Borrowed from
+        https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
+    */
+    public stripMatrixReplyFallback<T>(event: T & any): T {
+        if (!event.content?.body) {
+            return event;
+        }
+
+        let realHtml = event.content.formatted_body;
+        let realText = event.content.body || "";
+
+        if (event.content.format === "org.matrix.custom.html" && realHtml) {
+            const formattedBody = realHtml;
+            if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
+                const parts = formattedBody.split("</mx-reply>");
+                realHtml = parts[1];
+                event.content.formatted_body = realHtml.trim();
+            }
+        }
+
+        let processedFallback = false;
+        for (const line of realText.split("\n")) {
+            if (line.startsWith("> ") && !processedFallback) {
+                continue;
+            } else if (!processedFallback) {
+                realText = line + "\n";
+                processedFallback = true;
+            } else {
+                realText += line + "\n";
+            }
+        }
+
+        event.content.body = realText.trim();
+        return event;
     }
 }
 

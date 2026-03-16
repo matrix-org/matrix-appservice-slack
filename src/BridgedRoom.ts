@@ -403,7 +403,7 @@ export class BridgedRoom {
         // re-write the message so the matrixToSlack converter works as expected.
         let newMessage = JSON.parse(JSON.stringify(message));
         newMessage.content = message.content["m.new_content"];
-        newMessage = await this.stripMatrixReplyFallback(newMessage);
+        newMessage = substitutions.stripMatrixReplyFallback(newMessage);
 
         const body = await substitutions.matrixToSlack(newMessage, this.main, this.SlackTeamId!);
 
@@ -443,8 +443,11 @@ export class BridgedRoom {
         if (!this.slackWebhookUri && !this.botClient && !puppetedClient) { return false; }
         const slackClient = puppetedClient || this.botClient;
         const user = this.main.getOrCreateMatrixUser(message.sender);
-        message = await this.stripMatrixReplyFallback(message);
+
+        message = substitutions.stripMatrixReplyFallback(message);
+
         const matrixToSlackResult = await substitutions.matrixToSlack(message, this.main, this.SlackTeamId!);
+
         if (!matrixToSlackResult) {
             // Could not handle content, dropped.
             log.warn(`Dropped ${message.event_id}, message content could not be identified`);
@@ -994,7 +997,7 @@ export class BridgedRoom {
         if (message.thread_ts !== undefined && message.text) {
             let replyMEvent = await this.getReplyEvent(this.MatrixRoomId, message, this.SlackChannelId!);
             if (replyMEvent) {
-                replyMEvent = await this.stripMatrixReplyFallback(replyMEvent);
+                replyMEvent = substitutions.stripMatrixReplyFallback(replyMEvent);
                 return await ghost.sendInThread(
                     this.MatrixRoomId, message.text, this.SlackChannelId!, eventTS, replyMEvent,
                 );
@@ -1048,7 +1051,7 @@ export class BridgedRoom {
                 let replyEvent = await this.getReplyEvent(
                     this.MatrixRoomId, message.message as unknown as ISlackMessageEvent, this.slackChannelId!,
                 );
-                replyEvent = await this.stripMatrixReplyFallback(replyEvent);
+                replyEvent = substitutions.stripMatrixReplyFallback(replyEvent);
                 if (replyEvent) {
                     const bodyFallback = ghost.getFallbackText(replyEvent);
                     const formattedFallback = ghost.getFallbackHtml(this.MatrixRoomId, replyEvent);
@@ -1150,43 +1153,6 @@ export class BridgedRoom {
         }
         const intent = await this.getIntentForRoom(roomID);
         return intent.getEvent(roomID, replyToEvent.eventId);
-    }
-
-    /*
-        Strip out reply fallbacks. Borrowed from
-        https://github.com/turt2live/matrix-js-bot-sdk/blob/master/src/preprocessors/RichRepliesPreprocessor.ts
-    */
-    private async stripMatrixReplyFallback(event: any): Promise<any> {
-        if (!event.content?.body) {
-            return event;
-        }
-
-        let realHtml = event.content.formatted_body;
-        let realText = event.content.body || "";
-
-        if (event.content.format === "org.matrix.custom.html" && realHtml) {
-            const formattedBody = realHtml;
-            if (formattedBody.startsWith("<mx-reply>") && formattedBody.indexOf("</mx-reply>") !== -1) {
-                const parts = formattedBody.split("</mx-reply>");
-                realHtml = parts[1];
-                event.content.formatted_body = realHtml.trim();
-            }
-        }
-
-        let processedFallback = false;
-        for (const line of realText.split("\n")) {
-            if (line.startsWith("> ") && !processedFallback) {
-                continue;
-            } else if (!processedFallback) {
-                realText = line;
-                processedFallback = true;
-            } else {
-                realText += line + "\n";
-            }
-        }
-
-        event.content.body = realText.trim();
-        return event;
     }
 
     /*
