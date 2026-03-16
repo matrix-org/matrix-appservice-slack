@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import { Logger, Intent } from "matrix-appservice-bridge";
 import { SlackGhost } from "./SlackGhost";
 import { Main, METRIC_SENT_MESSAGES } from "./Main";
@@ -36,6 +36,7 @@ interface IBridgedRoomOpts {
     slack_channel_name?: string;
     slack_channel_id?: string;
     slack_webhook_uri?: string;
+    slack_webhook_token?: string;
     slack_team_id?: string;
     slack_type: SlackChannelTypes;
     is_private?: boolean;
@@ -95,6 +96,14 @@ export class BridgedRoom {
         this.setValue("slackWebhookUri", value);
     }
 
+    public get SlackWebhookToken(): string|undefined {
+        return this.slackWebhookToken;
+    }
+
+    public set SlackWebhookToken(value: string|undefined) {
+        this.setValue("slackWebhookToken", value);
+    }
+
     public get MatrixRoomId(): string {
         return this.matrixRoomId;
     }
@@ -135,6 +144,7 @@ export class BridgedRoom {
             slack_channel_name: entry.remote.name,
             slack_team_id: entry.remote.slack_team_id,
             slack_webhook_uri: entry.remote.webhook_uri,
+            slack_webhook_token: entry.remote.webhook_token,
             puppet_owner: entry.remote.puppet_owner,
             is_private: entry.remote.slack_private,
             slack_type: entry.remote.slack_type as SlackChannelTypes,
@@ -146,6 +156,7 @@ export class BridgedRoom {
     private slackChannelName?: string;
     private slackChannelId?: string;
     private slackWebhookUri?: string;
+    private slackWebhookToken?: string;
     private slackTeamId?: string;
     private slackType: SlackChannelTypes;
     private isPrivate?: boolean;
@@ -169,7 +180,13 @@ export class BridgedRoom {
      */
     private dirty: boolean;
 
-    constructor(private main: Main, opts: IBridgedRoomOpts, private team?: TeamEntry, private botClient?: WebClient) {
+    constructor(
+        private main: Main,
+        opts: IBridgedRoomOpts,
+        private team?: TeamEntry,
+        private botClient?: WebClient,
+        private httpClient: AxiosInstance = axios
+    ) {
 
         this.MatrixRoomActive = true;
         if (!opts.inbound_id) {
@@ -184,6 +201,7 @@ export class BridgedRoom {
         this.slackChannelName = opts.slack_channel_name;
         this.slackChannelId = opts.slack_channel_id;
         this.slackWebhookUri = opts.slack_webhook_uri;
+        this.slackWebhookToken = opts.slack_webhook_token;
         this.slackTeamId = opts.slack_team_id;
         this.slackType = opts.slack_type || "channel";
         if (opts.is_private === undefined) {
@@ -247,6 +265,7 @@ export class BridgedRoom {
                 slack_type: this.slackType!,
                 slack_private: this.isPrivate!,
                 webhook_uri: this.slackWebhookUri!,
+                webhook_token: this.slackWebhookToken!,
                 puppet_owner: this.puppetOwner!,
             },
             remote_id: this.inboundId,
@@ -457,7 +476,7 @@ export class BridgedRoom {
             }
             log.debug("Room might be encrypted, uploading file to Slack");
             // Media might be encrypted, upload it to Slack to be safe.
-            const response = await axios.get<ArrayBuffer>(matrixToSlackResult.encrypted_file, {
+            const response = await this.httpClient.get<ArrayBuffer>(matrixToSlackResult.encrypted_file, {
                 headers: {
                     Authorization: `Bearer ${slackClient.token}`,
                 },
@@ -513,13 +532,27 @@ export class BridgedRoom {
 
         user.bumpATime();
         this.matrixATime = Date.now() / 1000;
+
         if (!slackClient) {
             if (!this.slackWebhookUri) {
                 throw Error('No slackClient and slackWebhookUri');
             }
-            const webhookRes = await axios.post(this.slackWebhookUri, body);
+            let plainText = body.text;
+            if (!plainText && body.attachments) {
+                const parts: string[] = [];
+                for (const attachment of body.attachments) {
+                    parts.push(`Uploaded "${attachment.fallback}": ${attachment.image_url}`);
+                }
+                plainText = parts.join("\n");
+            }
+            if (!plainText) {
+                log.warn("Nothing to send via webhook from message", body);
+                return false;
+            }
+            const webhookRes = await this.httpClient.post(this.slackWebhookUri, { text: `<${body.username}> ${plainText}` });
             if (webhookRes.status !== 200) {
                 log.error("Failed to send webhook message");
+                return false;
             }
             // Webhooks don't give us any ID, so we can't store this.
             return true;
@@ -885,7 +918,7 @@ export class BridgedRoom {
         if (file.mode === "snippet") {
             let htmlString: string;
             try {
-                const fileReq = await axios.get<string>(filePrivateUrl, {
+                const fileReq = await this.httpClient.get<string>(filePrivateUrl, {
                     headers: {
                         // Token is checked above.
                         Authorization: `Bearer ${authToken}`,
