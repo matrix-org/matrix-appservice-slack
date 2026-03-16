@@ -1,4 +1,4 @@
-FROM node:18-bullseye-slim AS BUILD
+FROM node:20-bullseye-slim AS BUILD
 
 # git is needed to install Half-Shot/slackdown
 RUN apt update && apt install -y git
@@ -13,7 +13,7 @@ COPY ./widget /build/widget/
 
 RUN yarn build
 
-FROM node:18-bullseye-slim
+FROM node:20-bullseye-slim
 
 VOLUME /data/ /config/
 

@@ -184,5 +184,5 @@ module.exports = {
             }
         }
     ],
-    "ignorePatterns": [".eslintrc.js", "widget/**/*"],
+    "ignorePatterns": [".eslintrc.js", "widget/**/*", "src/generate-signing-key.js"],
 };

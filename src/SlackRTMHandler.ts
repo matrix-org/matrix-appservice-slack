@@ -236,7 +236,7 @@ export class SlackRTMHandler extends SlackEventHandler {
                 const intent = await room.getIntentForRoom();
                 // We only want to act on trivial messages
                 // This can be asyncronous to the handling of the message.
-                intent.getStateEvent(room.MatrixRoomId, 'm.room.member', puppet.matrixId, true).then((state) => {
+                intent.getStateEvent(room.MatrixRoomId, 'm.room.member', puppet.matrixId, true).then(async (state) => {
                     if (!['invite', 'join'].includes(state?.membership)) {
                         // Automatically invite the user the room.
                         log.info(`User ${puppet.matrixId} is not in ${room.MatrixRoomId}/${room.SlackChannelId}, inviting`);

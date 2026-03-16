@@ -25,14 +25,6 @@ const log = new Logger("substitutions");
 const ATTACHMENT_TYPES = ["m.audio", "m.video", "m.file", "m.image"];
 const PILL_REGEX = /<a href="https:\/\/matrix\.to\/#\/(#|@|\+)([^"]+)">([^<]+)<\/a>/g;
 
-/**
- * Will return the emoji's name within ':'.
- * @param name The emoji's name.
- */
-export const getFallbackForMissingEmoji = (name: string): string => (
-    `:${name}:`
-);
-
 interface PillItem {
     id: string;
     text: string;
@@ -74,7 +66,7 @@ class Substitutions {
             body = url ? body.replace(file.permalink, url) : body;
         }
 
-        body = emoji.emojify(body, getFallbackForMissingEmoji);
+        body = emoji.emojify(body);
 
         return body;
     }
@@ -181,7 +173,12 @@ class Substitutions {
             // in this case.
             return null;
         }
-        const url = main.getUrlForMxc(event.content.url, main.encryptRoom);
+        let url: string;
+        if (main.mediaProxy) {
+            url = await main.mediaProxy.generateMediaUrl(event.content.url).then(u => u.toString());
+        } else {
+            url = main.getUrlForMxc(event.content.url, main.encryptRoom);
+        }
         if (main.encryptRoom) {
             return {
                 encrypted_file: url,

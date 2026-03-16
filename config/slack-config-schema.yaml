@@ -34,6 +34,18 @@ properties:
         type: number
       inactive_after_days:
         type: number
+  mediaProxy:
+    type: "object"
+    properties:
+      signingKeyPath:
+        type: "string"
+      ttlSeconds:
+        type: "integer"
+      bindPort:
+        type: "integer"
+      publicUrl:
+        type: "string"
+    required: ["signingKeyPath", "bindPort", "publicUrl"]
   rtm:
     type: object
     required: ["enable"]

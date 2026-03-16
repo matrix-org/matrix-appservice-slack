@@ -297,34 +297,38 @@ describe("Substitutions", () => {
         });
     });
 
-    // describe("slackTextToMatrixHTML", () => {
-    //     it("should repeat a plain string", async () => {
-    //         const res = await substitutions.slackTextToMatrixHTML("Hello World!");
-    //         expect(res).to.equal("Hello World!");
-    //     });
-    //     it("should convert < and >", async () => {
-    //         const res = await substitutions.slackTextToMatrixHTML("<html>Hello</html>");
-    //         expect(res).to.equal("&lt;html&gt;Hello&lt;/html&gt;");
-    //     });
-    //     it("should convert a single new line to a <br />", async () => {
-    //         const res = substitutions.slackTextToMatrixHTML("line 1\nline 2");
-    //         expect(res).to.equal("line 1<br />line 2");
-    //     });
-    //     it("should convert two new lines to paragraphs", async () => {
-    //         const res = substitutions.slackTextToMatrixHTML("line 1\n\nline 3");
-    //         expect(res).to.equal("<p>line 1</p><p>line 3</p>");
-    //     });
-    //     it("should convert bold formatting", async () => {
-    //         const res = substitutions.slackTextToMatrixHTML("This is *bold*!");
-    //         expect(res).to.equal("This is <strong>bold</strong>!");
-    //     });
-    //     it("should convert italic formatting", async () => {
-    //         const res = substitutions.slackTextToMatrixHTML("This is /italics/!");
-    //         expect(res).to.equal("This is <em>italics</em>!");
-    //     });
-    //     it("should convert strikethrough formatting", async () => {
-    //         const res = substitutions.slackTextToMatrixHTML("This is ~strikethrough~!");
-    //         expect(res).to.equal("This is <del>strikethrough</del>");
-    //     });
-    // });
+    describe("slackToMatrix", () => {
+        it("should repeat a plain string", async () => {
+            const res = await substitutions.slackToMatrix("Hello World!");
+            expect(res).to.equal("Hello World!");
+        });
+        // it("should convert < and >", async () => {
+        //     const res = await substitutions.slackToMatrix("<html>Hello</html>");
+        //     expect(res).to.equal("&lt;html&gt;Hello&lt;/html&gt;");
+        // });
+        // it("should convert a single new line to a <br />", async () => {
+        //     const res = substitutions.slackToMatrix("line 1\nline 2");
+        //     expect(res).to.equal("line 1<br />line 2");
+        // });
+        // it("should convert two new lines to paragraphs", async () => {
+        //     const res = substitutions.slackToMatrix("line 1\n\nline 3");
+        //     expect(res).to.equal("<p>line 1</p><p>line 3</p>");
+        // });
+        // it("should convert bold formatting", async () => {
+        //     const res = substitutions.slackToMatrix("This is *bold*!");
+        //     expect(res).to.equal("This is <strong>bold</strong>!");
+        // });
+        // it("should convert italic formatting", async () => {
+        //     const res = substitutions.slackToMatrix("This is /italics/!");
+        //     expect(res).to.equal("This is <em>italics</em>!");
+        // });
+        // it("should convert strikethrough formatting", async () => {
+        //     const res = substitutions.slackToMatrix("This is ~strikethrough~!");
+        //     expect(res).to.equal("This is <del>strikethrough</del>");
+        // });
+        it("should fallback to colon-codes for unknown emojis", async () => {
+            const res = substitutions.slackToMatrix(":+1: :drizzt:");
+            expect(res).to.equal("👍 :drizzt:");
+        });
+    });
 });

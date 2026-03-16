@@ -15,13 +15,16 @@ limitations under the License.
 */
 
 import {
-    Bridge, BridgeBlocker, PrometheusMetrics, StateLookup,
+    Bridge, BridgeBlocker, PrometheusMetrics, StateLookup, MediaProxy,
     Logger, Intent, UserMembership, WeakEvent, PresenceEvent,
     AppService, AppServiceRegistration, UserActivityState, UserActivityTracker,
-    UserActivityTrackerConfig, MembershipQueue, PowerLevelContent, StateLookupEvent } from "matrix-appservice-bridge";
+    UserActivityTrackerConfig, MembershipQueue, PowerLevelContent, StateLookupEvent,
+} from "matrix-appservice-bridge";
 import { Gauge, Counter } from "prom-client";
 import * as path from "path";
+import * as fs from "fs";
 import * as randomstring from "randomstring";
+import { webcrypto } from "node:crypto";
 import { WebClient } from "@slack/web-api";
 import { IConfig, CACHING_DEFAULTS } from "./IConfig";
 import { OAuth2 } from "./OAuth2";
@@ -147,6 +150,8 @@ export class Main {
 
     public slackRtm?: SlackRTMHandler;
     private slackHookHandler?: SlackHookHandler;
+
+    public mediaProxy?: MediaProxy;
 
     private provisioner: Provisioner;
 
@@ -331,6 +336,22 @@ export class Main {
                 ...(config.provisioning ?? { enabled: true }),
             },
         );
+    }
+
+    private async initialiseMediaProxy(config: IConfig['mediaProxy']): Promise<void> {
+        const jwk = JSON.parse(fs.readFileSync(config.signingKeyPath, "utf8").toString());
+        const signingKey = await webcrypto.subtle.importKey('jwk', jwk, {
+            name: 'HMAC',
+            hash: 'SHA-512',
+        }, true, ['sign', 'verify']);
+        const publicUrl = new URL(config.publicUrl);
+
+        this.mediaProxy = new MediaProxy({
+            publicUrl,
+            signingKey,
+            ttl: config.ttlSeconds ? (config.ttlSeconds * 1000) : undefined,
+        }, this.bridge.getIntent().matrixClient);
+        await this.mediaProxy.start(config.bindPort);
     }
 
     public teamIsUsingRtm(teamId: string): boolean {
@@ -1141,6 +1162,17 @@ export class Main {
             authenticate: false,
             path: "/ready",
         });
+
+        if (this.config.mediaProxy) {
+            await this.initialiseMediaProxy(this.config.mediaProxy).catch(err => {
+                throw Error(`Failed to start Media Proxy: ${err}`);
+            });
+        } else {
+            log.warn(
+                "Media Proxy not configured: media bridging to Slack won't work on servers requiring authenticated media " +
+                "(default since Synapse v1.120.0)"
+            );
+        }
 
 
         await this.pingBridge();
